@@ -4377,8 +4377,9 @@ core の燃焼（[ADR-0190](../../docs/adr/0190-advance-node-burnups-by-midpoint
 `branches/core-2A-steps.toml` は履歴の 40 点をそのままステップの終わりにし（EFPD は履歴の各点の時間 / 86400 s）、
 `branches/core-2A-coarse.toml` は 5、15、30、52 MWd/kg の 4 ステップ（どれもテーブルの点の間）にした。反応度は ρ = 1 − 1/k。
 燃焼度の内挿は [ADR-0192](../../docs/adr/0192-interpolate-burnup-by-cubic-hermite.md) の 3 次 Hermite（0 から次の点までは線形）。今の main の `p2/lattice-2A.msgpack` は
-`ufg-tolerance = 1e-4` で作り直したもの（md5 c2591c9f）なので、テーブルを作った履歴（md5 6272e937。764268e1 の
-`dvc checkout` で戻る）のコピーを `branches/lattice-2A-6272e937.msgpack` に置いて比べる。
+`ufg-tolerance = 1e-4` で作り直したもの（md5 c2591c9f）なので、テーブルを作った履歴（md5 6272e937。764268e1 を checkout した worktree で
+`nix develop -c python3 <今の main の worktree>/scripts/dvc-checkout.py examples/depletion/p2/dvc.yaml` で戻る。その版に scripts/dvc-checkout.py は無いので、今の版をパスで呼ぶ。worktree には、キャッシュを共有する `references` の symlink を
+スキル topic-start の「始める」のとおり張る）のコピーを `branches/lattice-2A-6272e937.msgpack` に置いて比べる。
 
 ```sh
 cargo build --release -p xlc-lattice -p xlc-core
@@ -4479,8 +4480,8 @@ core が燃焼度の軸を引くときの内挿の方式（[ADR-0192](../../docs
 選び方は曲がりの強い燃料（Gd の 2O）で決め、Pyrex の 2F で確かめて足りない点を足し、同じ指針をほかの集合体に当てる。2A は確認。
 
 - 2O: Gd 燃料 12 本の 71 点。テーブルを作った履歴（md5 3d006d36、`ufg-tolerance = 1e-4`。今の main の `p2/lattice-2O.msgpack` は
-  作り直したもの）のコピーを `branches/lattice-2O-3d006d36.msgpack` に置く（main の 50f94ebfa で `dvc checkout examples/depletion/p2/dvc.yaml`
-  すると `p2/lattice-2O.msgpack` に戻る）。ホウ素 1300 ppm、燃料と減速材 600 K、0.743 g/cc
+  作り直したもの）のコピーを `branches/lattice-2O-3d006d36.msgpack` に置く（main の 50f94ebfa を checkout した worktree で、上の 2A と同じく
+  `nix develop -c python3 <今の main の worktree>/scripts/dvc-checkout.py examples/depletion/p2/dvc.yaml` を実行すると `p2/lattice-2O.msgpack` に戻る）。ホウ素 1300 ppm、燃料と減速材 600 K、0.743 g/cc
 - 2A: 毒物のない燃料（テーブルを作った履歴 `branches/lattice-2A-6272e937.msgpack`、md5 6272e937。「core の燃焼（2A の集合体 1 体）」と
   同じ）の 41 点。ホウ素 1300 ppm、燃料と減速材 565 K、0.743 g/cc
 - 2F: Pyrex 24 本（`p2/lattice-2F.msgpack`、md5 c8f6c71f。main の af044d5aa の出力）の 41 点。ホウ素 1300 ppm、燃料と減速材 600 K、0.743 g/cc
@@ -4508,7 +4509,7 @@ python3 examples/depletion/compare_core_depletion.py --json examples/depletion/b
 ```
 
 全点のテーブルの入力（`branch-<集合体>-all.toml`）は `../p2/lattice-<集合体>.msgpack` を読むので、作り直すときは、その履歴を作った main
-のコミット（2A は 764268e1、2O は 50f94ebfa、2F は af044d5aa）で `dvc checkout examples/depletion/p2/dvc.yaml` して戻す。今の main の
+のコミット（2A は 764268e1、2O は 50f94ebfa、2F は af044d5aa）を checkout した worktree で、上の 2A と同じく今の scripts/dvc-checkout.py をパスで呼んで戻す。今の main の
 2A と 2O の履歴は作り直したもので、同じ入力からは別のテーブルになる。
 「燃焼度の軸を持つテーブル（2A）」と同じ理由でステージにしていない。比較の JSON（`branches/compare-burnup-interpolation.json`、
 `branches/compare-core-2O-guide.json`）は git で追跡する。

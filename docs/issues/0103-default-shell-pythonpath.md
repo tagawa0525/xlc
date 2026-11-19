@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [verification]
 opened: 2026-10-13
-closed:
+closed: 2026-11-19
 milestone:
 blocked-by: []
-resolution:
+resolution: コミット 05e9a2460
 ---
 
 # default の devShell が外の shell の PYTHONPATH を外さない
@@ -30,3 +30,6 @@ default の devShell で外の `PYTHONPATH` を外すか、外さない理由を
 ## 経緯
 
 - 2026-10-13: #0101 のレビューで、閉じる issue の中にだけ書いていたので分けた（fix/0101-dvc-stage-python）
+- 2026-11-19: 閉じた。default の devShell の shellHook で `PYTHONPATH` を外した（`PYTHONPATH=/nonexistent` で入ると、前は残り、今は外れる。
+  検証用の Python は msgpack と yaml を読める）。flake の check `dvc-stage-python` には足さない: check は nix のサンドボックスで外の環境を
+  持たず、外の `PYTHONPATH` は shell に入るときの問題で、shellHook が扱う

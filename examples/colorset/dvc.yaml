@@ -1,7 +1,7 @@
 # 濃縮度の違う集合体の 2×2 のカラーセットのステージ: 単一集合体の格子計算（lattice-31、lattice-21）とカラーセット全体の MOC
 # （colorset。約 16 分）→ core（単一集合体の定数、カラーセットのノードの定数、不連続因子の無い定数）と細かいメッシュの
 # 拡散 → ピン出力の比較（compare）。ライブラリは examples/vera/dvc.yaml の xs の出力で、先に
-# `dvc checkout examples/vera/dvc.yaml` で戻す（ADR-0130）。実行するのは `dvc repro`（ADR-0123）。
+# `scripts/dvc-checkout.py examples/vera/dvc.yaml` で戻す（ADR-0130）。実行するのは `dvc repro`（ADR-0123）。
 stages:
   lattice-31:
     # 結果の k∞ は標準出力に出るので、ファイルに受ける

@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [verification, xs, lattice]
 opened: 2026-10-12
-closed:
+closed: 2026-11-19
 milestone: M3
 blocked-by: []
-resolution:
+resolution: "wontfix: ADR-0133 の後もライブラリと自己遮蔽の既定が変わり（ADR-0177、ADR-0186、ADR-0209 など）、ADR-0133 のライブラリで再測定する目的が無くなった。残る記録は数値を出したコミットを書いてあり、読む作業が来たときに今のライブラリで再測定する。Pyrex の環のリングは #0059 に寄せた"
 ---
 
 # ADR-0133 のライブラリで、ピンセルの 1C・1D、集合体と他の例を再測定する
@@ -52,3 +52,7 @@ resolution:
   手順と見積もり: `branches-xs-table`（xs 13 分と assembly-2B.toml の 27 状態。1 状態は 1B〜2K の今の値から 20〜50 秒の見込みで、
   ADR-0156 の前の 256 秒より短い。見積もりは測ってから決める）のあとに、direct 6 本と core 7 本を、verification.md の手順で流す。
   xs の排他で 1〜2 時間。dvc.yaml はなく、`bin/xs`、`bin/lattice`、`bin/core` を `examples/branches` で実行する
+- 2026-11-19: 閉じた。ADR-0133 の後に、ライブラリ（ADR-0177、ADR-0186 など）と自己遮蔽の既定（ADR-0209）が変わり、残りの記録を
+  ADR-0133 のライブラリで再測定しても今の値にならない。残りの記録（examples/vera の各節の xlc の値、examples/branches、examples/reflector）は
+  数値を出したコミットを書いてあり（examples/branches は冒頭に ADR-0209 の前と書く）、CLAUDE.md の「計算」のとおり、読む作業が来たときに
+  今のライブラリで再測定する。Pyrex の環のリングの数による k の動きは、燃料の外のリングの数を決める #0059 に寄せた

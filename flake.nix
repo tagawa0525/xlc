@@ -288,6 +288,11 @@
           # stdenv が RUNPATH に足す、devShell に入ったディレクトリの outputs/out/lib を止める。足すと同じソースでも
           # worktree ごとに実行ファイルのバイトが変わり、DVC のステージが再実行する（ADR-0159）。そこに置くライブラリはない
           NIX_NO_SELF_RPATH = "1";
+          # 外の shell の PYTHONPATH を引き継ぐと、検証用の Python と DVC のステージの python3 が、そのパッケージを site-packages
+          # より先に読み、検証用でない版で黙って走る（#0103）。この devShell の Python は withPackages で、PYTHONPATH を要らない
+          shellHook = ''
+            unset PYTHONPATH
+          '';
         };
         # 参照の計算: NJOY、OpenMC と、OpenMC の Python API の入った Python（docs/environment.md）
         references = pkgs.mkShell {

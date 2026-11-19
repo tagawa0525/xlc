@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [tooling, examples]
 opened: 2026-11-06
-closed:
+closed: 2026-11-19
 milestone:
 blocked-by: []
-resolution:
+resolution: "wontfix: 3 つのスクリプトのうち 2 つは閉じた issue と試行の比較で再実行しないので、共通の部分にまとめない（重複は 3 回まで許す）。p9_timing.py の docstring の 2 点は直し、ほかの点は再現の無いレビューの指摘"
 ---
 
 # tracing のログを読む例のスクリプトの共通化
@@ -48,3 +48,8 @@ examples/depletion/issue-0045/compare.py（ms と s だけ）。ログの書き�
 ## 経緯
 
 - 2026-11-06: #0156 の全炉心の燃焼の時間の内訳のブランチ（chore/0156-p9-timing）の 2 周目と 3 周目のレビューで挙がった
+- 2026-11-19: 閉じた。共通化は行わない: examples/depletion/issue-0045/compare.py と trials-lattice-scaling/summarize.py は閉じた issue と
+  試行の比較で、ログの書き方が変わっても再実行しないので、直す先は p9_timing.py の 1 か所（重複は 3 回繰り返すまで許す）。燃焼点の値は
+  ログから読むまま: 中点と平衡 Xe の解き直しの回数はログにしか無く、解の順に EFPD とホウ素を並べるのも同じログから読む。3 周目の点のうち
+  p9_timing.py の docstring の 2 つ（主語の抜け、`other` の中身）は直した（7da87a538）。ほかの点は、手順のとおりに実行して失敗する再現の
+  無いレビューの指摘で、そうした指摘を集める issue はやめると決めた（親の案をユーザーが採った。2026-11-07）ので、直さない

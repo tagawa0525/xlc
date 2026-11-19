@@ -10,6 +10,7 @@ allowed-tools:
   - Bash(nix develop -c scripts/check-dvc-lock.sh*)
   - Bash(nix develop -c scripts/compare-dvc-lock.py*)
   - Bash(nix develop -c scripts/count-changed-stages.py*)
+  - Bash(nix develop -c scripts/check-skip-upstream.py*)
   - Bash(scripts/check-dvc-lock.sh*)
   - Bash(scripts/check-references-shell.sh*)
   - Bash(head -1 examples/*/dvc.lock)
@@ -121,7 +122,8 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。マー�
    ```
 
    スキル compute は `-s` を、/dvc-relock と、上流の changed が deps だけで outs が `dvc.lock` のとおりのときに数秒の下流を
-   `dvc.lock` の上流の出力で再実行する例外だけに限る（確かめ方は ADR-0184 の決定）。rebase のあとの relock は ADR-0130 の「数秒で終わるステージだけ再実行してよい」の手段として、重いステージを
+   `dvc.lock` の上流の出力で再実行する例外だけに限る（確かめ方は ADR-0184 の決定。そのうち `dvc status` で分かる部分は
+   `nix develop -c scripts/check-skip-upstream.py <yaml>:<ステージ>` が判定する）。rebase のあとの relock は ADR-0130 の「数秒で終わるステージだけ再実行してよい」の手段として、重いステージを
    巻き込まないために `-s` を使う。`-s` は上流を実行しない。上流が `dvc status` で changed のステージには、その例外のほかは使わない
    （古い出力から作ることになる）。lattice-1B の上流の xs が changed のときは、xs は実行しない（約 9 分は数秒のステージにならない）。
    lattice-1B を目標にした ADR-0184 の確かめ方（`dvc status --with-deps --json`。xs だけでなく目標の上流のすべてを見る）で例外に

@@ -18,7 +18,7 @@ OECD/NEA の C5G7 MOX ベンチマーク（NEA/NSC/DOC(2003)16）の2次元の�
 ステージは DVC で実行する（ADR-0123）。OpenMC のツールは examples/vera/dvc.yaml の `references-shell` の出力なので、先に戻す（ADR-0130）:
 
 ```sh
-dvc checkout examples/vera/dvc.yaml
+nix develop -c scripts/dvc-checkout.py examples/vera/dvc.yaml
 ~/.claude/scripts/slurm-run.sh -t 50 dvc-c5g7 'nix develop -c dvc repro examples/c5g7/dvc.yaml'
 ```
 

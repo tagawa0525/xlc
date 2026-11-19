@@ -1,0 +1,120 @@
+"""check-skip-upstream.py の検査（判定は dvc status --with-deps --json の dict を受け、dvc に依らない）。
+
+実行: python3 -m unittest discover -s scripts -p 'test_check_skip_upstream.py'
+"""
+
+import importlib.util
+import unittest
+from pathlib import Path
+
+SPEC = importlib.util.spec_from_file_location(
+    "check_skip_upstream", Path(__file__).resolve().parent / "check-skip-upstream.py"
+)
+skip = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(skip)
+
+TARGET = "examples/vera/dvc.yaml:openmc-1B-model"
+
+
+class Blockers(unittest.TestCase):
+    def test_upstream_with_only_changed_deps_does_not_block(self):
+        status = {
+            "build": [{"changed deps": {"crates": "modified"}}],
+            "examples/vera/dvc.yaml:xs": [{"changed deps": {"bin/xs": "modified"}}],
+        }
+        self.assertEqual(skip.blockers(status, TARGET), [])
+
+    def test_the_target_itself_is_not_counted(self):
+        status = {
+            TARGET: [
+                {"changed deps": {"x": "modified"}},
+                {"changed outs": {"o": "deleted"}},
+                "changed command",
+            ]
+        }
+        self.assertEqual(skip.blockers(status, TARGET), [])
+
+    def test_always_changed_item_does_not_block_but_its_changed_outs_does(self):
+        status = {
+            "examples/vera/dvc.yaml:references-shell": ["always changed"],
+        }
+        self.assertEqual(skip.blockers(status, TARGET), [])
+        status["examples/vera/dvc.yaml:references-shell"].append(
+            {"changed outs": {"references-shell.txt": "modified"}}
+        )
+        self.assertEqual(
+            skip.blockers(status, TARGET),
+            [("examples/vera/dvc.yaml:references-shell", ["changed outs"])],
+        )
+
+    def test_upstream_with_other_kinds_blocks(self):
+        status = {
+            "examples/vera/dvc.yaml:xs": [
+                {"changed deps": {"bin/xs": "modified"}},
+                {"changed outs": {"vera.msgpack": "modified"}},
+            ],
+            "examples/vera/dvc.yaml:xs-range": ["changed command", "changed checksum"],
+        }
+        self.assertEqual(
+            skip.blockers(status, TARGET),
+            [
+                ("examples/vera/dvc.yaml:xs", ["changed outs"]),
+                (
+                    "examples/vera/dvc.yaml:xs-range",
+                    ["changed checksum", "changed command"],
+                ),
+            ],
+        )
+
+    def test_changed_python_ast_or_toml_values_upstream_blocks(self):
+        # 下流の cmd は元の .py と TOML を読むので、正規形のステージは先に実行して changed でなくする（ADR-0184、ADR-0254）
+        status = {
+            "python-ast@examples/vera/openmc_model.py": [
+                {"changed deps": {"examples/vera/openmc_model.py": "modified"}}
+            ],
+            "toml-values@examples/vera/p1/openmc-1B.toml": [
+                {"changed deps": {"examples/vera/p1/openmc-1B.toml": "modified"}}
+            ],
+        }
+        self.assertEqual(
+            skip.blockers(status, TARGET),
+            [
+                ("python-ast@examples/vera/openmc_model.py", ["changed deps"]),
+                ("toml-values@examples/vera/p1/openmc-1B.toml", ["changed deps"]),
+            ],
+        )
+
+    def test_changed_binary_forms_upstream_blocks(self):
+        # 下流の cmd は bin/ を呼び、deps は binary-forms の正規形（ADR-0255）
+        # build は実行して lock を付け直したが、binary-forms はまだ
+        status = {"binary-forms@xs": [{"changed deps": {"bin/xs": "modified"}}]}
+        self.assertEqual(
+            skip.blockers(status, TARGET), [("binary-forms@xs", ["changed deps"])]
+        )
+
+    def test_members_of_a_foreach_target_are_the_target(self):
+        status = {
+            "toml-values@examples/vera/xs.toml": [
+                {"changed deps": {"examples/vera/xs.toml": "modified"}}
+            ],
+        }
+        self.assertEqual(skip.blockers(status, "dvc.yaml:toml-values"), [])
+        status = {
+            "examples/vera/dvc.yaml:xs-nuclide@U235": [
+                {"changed outs": {"U235.msgpack": "modified"}}
+            ],
+        }
+        self.assertEqual(skip.blockers(status, "examples/vera/dvc.yaml:xs-nuclide"), [])
+
+    def test_root_stage_target_matches_the_key_without_the_yaml(self):
+        status = {"build": [{"changed outs": {"bin/xs": "modified"}}]}
+        self.assertEqual(skip.blockers(status, "dvc.yaml:build"), [])
+
+    def test_unknown_kind_is_an_error(self):
+        status = {"examples/vera/dvc.yaml:xs": [{"not in cache": {}}]}
+        with self.assertRaises(ValueError):
+            skip.blockers(status, TARGET)
+
+
+if __name__ == "__main__":
+    unittest.main()

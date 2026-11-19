@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [build, dvc]
 opened: 2026-10-14
-closed:
+closed: 2026-11-19
 milestone:
 blocked-by: []
-resolution:
+resolution: コミット 3a458ad6c
 ---
 
 # build-binaries.sh の環境変数の確認が、pipefail の下の grep -q で素通りしうる
@@ -32,3 +32,5 @@ scripts/build-binaries.sh の確認を、`-q` を使わない形（`grep -E … 
 ## 経緯
 
 - 2026-10-14: perf/0105-code-alignment のレビューで見つけた
+- 2026-11-19: 閉じた。`env | grep -E … >/dev/null` にした。RUSTFLAGS の後に 1 kB の変数が 1,500 ある環境で、前の形は 5 回とも
+  終了コード 141 で素通りし、今の形は止める（手元の再現）。build のステージを付け直し、実行ファイルの md5 は同じ

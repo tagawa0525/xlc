@@ -1,7 +1,7 @@
 # LWR MOX ピンセル（NEA）のステージ: ENDF → 多群ライブラリ（xs）→ 格子計算（lattice-mox<N>）と燃料の実効断面積（fuel-xs-mox<N>）、
 # OpenMC の参照解（openmc-mox<N>、openmc-mox<N>-extract）→ k の比較（compare-k-mox<N>）と捕獲・核分裂断面積の比較
 # （compare-capture-mox<N>）。OpenMC のライブラリとツールは examples/vera/dvc.yaml のステージの出力なので、先に
-# `dvc checkout examples/vera/dvc.yaml` で戻す（ADR-0130）。実行するのは default の devShell の `dvc repro`（ADR-0123）。
+# `scripts/dvc-checkout.py examples/vera/dvc.yaml` で戻す（ADR-0130）。実行するのは default の devShell の `dvc repro`（ADR-0123）。
 stages:
   xs:
     cmd: ../../bin/xs xs.toml

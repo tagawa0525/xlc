@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [dvc, tooling]
 opened: 2026-10-31
-closed:
+closed: 2026-11-19
 milestone:
 blocked-by: []
-resolution:
+resolution: コミット bb6da57f5
 ---
 
 # examples の手順と文言に生の dvc checkout が残る
@@ -34,3 +34,6 @@ hook に止められれば拒否の文言がスクリプトを示すので作業
 ## 経緯
 
 - 2026-10-31: ADR-0223 のブランチ（feat/dvc-checkout-hook）で、examples/ を変える範囲の外としたので書いた
+- 2026-11-19: 閉じた。上の手順と文言を scripts/dvc-checkout.py の形に直した。examples/depletion/verification.md の 3 か所（764268e1、50f94ebfa、
+  af044d5aa の版で戻す手順）は、その版に scripts/dvc-checkout.py が無い（2026-10-28 に足した）ので、その版の worktree で今のスクリプトを
+  パスで呼ぶ形にした（スクリプトは cwd の `git rev-parse --show-toplevel` で実行する）。`grep -rn "dvc checkout" examples` に生の形は残らない

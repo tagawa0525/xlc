@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [verification, lattice]
 opened: 2026-10-09
-closed:
+closed: 2026-11-19
 milestone: M3
 blocked-by: []
-resolution:
+resolution: "wontfix: examples/vera の同じライブラリと入力の形の 2A（565 K）と 2B（600 K）が KENO-VI より反応度で +26、+19 pcm（2A は OpenMC より +12.5 pcm）。170 pcm は ADR-0209 の前の古い設定の examples/branches の状態 13 だけに残り、作り直すまで原因を分ける対象が無い"
 ---
 
 # 565 K の集合体の k∞ が KENO の Problem 2A より約 170 pcm 大きい
@@ -41,3 +41,9 @@ k∞ は 1.184552 で、KENO-VI の 1.182175 ± 0.000017 より反応度で +170
 ## 経緯
 
 - 2026-10-09: ブランチのテーブルの確認のレビューで、仕様書の参照値と比べていないことが指摘され、比べて分かった
+- 2026-11-19: 閉じた。examples/vera/verification.md の「OpenMC との比較」（xlc 05714cea、2026-10-23）で、同じライブラリと入力の形の 2A は
+  1.182543、2B は 1.183627 で、KENO-VI（1.182175、1.183360）より反応度で +26.3、+19.1 pcm。565 K の OpenMC の 2A（1.182368）は KENO-VI より
+  +13.8 pcm、xlc − OpenMC は +12.5 pcm で、和が +26.3 pcm に閉じる（記録の表の +19、+18 pcm は k の差 × 1e5）。600 K から 565 K への変化の差は
+  −4 pcm（同じ記録の「温度と支持格子による差の変化」）。完了の条件の 2 つは
+  そこで満たした。170 pcm は examples/branches の状態 13（c6ffe4f、2026-10-09。方位角 32・間隔 0.05 cm、ADR-0133 と ADR-0209 の前の
+  ライブラリと自己遮蔽）だけで、その記録は作り直していない（記録の冒頭）。作り直す作業が来たときに、2A と比べ直す
