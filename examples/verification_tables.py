@@ -4745,23 +4745,28 @@ def chain_versions(sources: list[dict]) -> str:
         if unknown:
             raise TableError(f"a chain of no known version: {unknown}")
         a, b = (CHAIN_VERSIONS[p] for p in paths)
-        for q, c in s["quantities"].items():
-            if thresholds is None:
-                thresholds = list(c["above"])
-            elif list(c["above"]) != thresholds:
-                raise TableError(
-                    f"{a} → {b} {q}: thresholds {list(c['above'])}, not {thresholds}"
+        try:
+            for q, c in s["quantities"].items():
+                if thresholds is None:
+                    thresholds = list(c["above"])
+                elif list(c["above"]) != thresholds:
+                    raise TableError(
+                        f"{a} → {b} {q}: thresholds {list(c['above'])}, not {thresholds}"
+                    )
+                rows.append(
+                    [
+                        f"{a} → {b}",
+                        q,
+                        str(c["compared"]),
+                        str(c["differ"]),
+                        str(c["one_sided"]),
+                        *(str(c["above"][t]) for t in thresholds),
+                    ]
                 )
-            rows.append(
-                [
-                    f"{a} → {b}",
-                    q,
-                    str(c["compared"]),
-                    str(c["differ"]),
-                    str(c["one_sided"]),
-                    *(str(c["above"][t]) for t in thresholds),
-                ]
-            )
+        except KeyError as e:
+            raise TableError(
+                f"{a} → {b}: the summary has no {e}; rerun the stage"
+            ) from None
     header = ["版", "量", "比べた", "違う", "片方だけ"]
     header += [f"相対差 > {t}" for t in thresholds or []]
     return markdown_table(header, rows)
