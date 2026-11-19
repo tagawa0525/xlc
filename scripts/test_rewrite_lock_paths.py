@@ -866,7 +866,7 @@ class TomlPaths(Base):
             "UNVERIFIED: a/dvc.yaml:run: a/case.toml の中のパスが", result.stdout
         )
 
-    def test_toml_naming_a_tracked_file_moved_outside_the_stages_is_not_rewritten(self):
+    def test_toml_edited_with_a_stale_name_left_stays_changed(self):
         r = self.r
         r.write("a/table.txt", "t\n")
         r.write("a/case.toml", r.read("a/case.toml") + 'table = "table.txt"\n')
@@ -943,6 +943,53 @@ class TomlPaths(Base):
         )
         self.assertEqual(lines(result, "REWRITTEN:"), [])
         self.assertEqual(r.lock("a/dvc.lock")["stages"]["z-read"], before)
+
+    def test_toml_moved_without_regenerating_its_normal_form_is_not_rewritten(self):
+        r = self.r
+        r.mv("a/case.toml", "a/deep/case.toml")
+        r.write(
+            "a/deep/case.toml",
+            'library = "../../lib/lib.txt"\noutput = "../o.txt"\nthreads = 1\n',
+        )
+        # 正規形は動かしただけで、今の TOML から書き直さない
+        r.mv("toml-values/a/case.toml.json", "toml-values/a/deep/case.toml.json")
+        r.write(
+            "dvc.yaml", r.read("dvc.yaml").replace("a/case.toml", "a/deep/case.toml")
+        )
+        r.write(
+            "a/dvc.yaml",
+            r.read("a/dvc.yaml")
+            .replace(
+                "../toml-values/a/case.toml.json",
+                "../toml-values/a/deep/case.toml.json",
+            )
+            .replace("cat case.toml", "cat deep/case.toml")
+            .replace("- case.toml:", "- deep/case.toml:"),
+        )
+
+        result = r.tool()
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn(
+            "UNVERIFIED: dvc.yaml:toml-values@a/deep/case.toml", result.stdout
+        )
+        self.assertNotEqual(r.status("dvc.yaml", "a/dvc.yaml"), {})
+
+    def test_toml_edited_in_place_without_a_move_is_not_listed(self):
+        r = self.r
+        r.write("a/case.toml", r.read("a/case.toml") + "extra = 2\n")
+        r.run(
+            "python3",
+            "scripts/normalize_toml.py",
+            "a/case.toml",
+            "toml-values/a/case.toml.json",
+        )
+
+        result = r.tool()
+
+        self.assert_ok(result)
+        self.assertEqual(lines(result, "UNVERIFIED:"), [])
+        self.assertIn("a/dvc.yaml:run", r.status("dvc.yaml", "a/dvc.yaml"))
 
     def test_toml_with_another_value_changed_is_not_rewritten(self):
         r = self.r
