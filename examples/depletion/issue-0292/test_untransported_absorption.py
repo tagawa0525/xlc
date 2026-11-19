@@ -189,6 +189,24 @@ class Ranking(unittest.TestCase):
         self.assertEqual([r["xs_excluded"] for r in rows], [True, False])
 
 
+class Prune(unittest.TestCase):
+    def test_nuclides_below_the_floor_leave_the_json_with_their_count_and_sum(self):
+        points = [
+            {"untransported_all": {"A": {"fraction": 1.0}, "B": {"fraction": 2.0}}}
+        ]
+        ranked = {
+            "ranking": [
+                {"nuclide": "A", "max_pcm": 3.0, "rest_pcm": 0.004},
+                {"nuclide": "B", "max_pcm": 0.004, "rest_pcm": 0.0},
+            ],
+            "counts": {},
+        }
+        pruned = ua.prune(points, ranked, 0.01)
+        self.assertEqual(list(pruned["points"][0]["untransported_all"]), ["A"])
+        self.assertEqual([r["nuclide"] for r in pruned["ranking"]], ["A"])
+        self.assertEqual(pruned["pruned"], {"count": 1, "sum_pcm": 0.004})
+
+
 class Category(unittest.TestCase):
     def test_tracked_nuclides_come_first_then_the_transported_ones(self):
         transportable = {"U-235", "Rh-103"}
