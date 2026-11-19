@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [core, depletion]
 opened: 2026-10-29
-closed:
+closed: 2026-11-19
 milestone: M4
 blocked-by: []
-resolution:
+resolution: コミット 8b4346cd5
 ---
 
 # core のミクロ燃焼のレビューで残した指摘
@@ -47,3 +47,4 @@ core のミクロ燃焼（ADR-0216、ブランチ feat/0153-core-micro-depletion
   - `deplete_nodes` がノードごとに `solve_with` と同じ σᵢ の内挿を繰り返す（予測子と修正子で 2 回。上の重複の項と同じ）
   - `MicroNodes::new` が核分裂のあるテーブルのファイルごとに `MicroChain` 全体（3,820 核種の親のクロージャ）を作り、最初のものだけ使う
 - 2026-11-19: issue の棚卸しで、済んだ指摘を消した（コミットの本文の誤りの記録。訂正は済んでいる）
+- 2026-11-19: 点ごとに、済んだか、直したか、捨てたか、ほかの文書に寄せたかを決めて閉じた（扱いは閉じたコミットの本文）
