@@ -14,14 +14,14 @@ switch、密度だけの経路の w = 0.5 と 1）。組成の指標は 2 つ:
 - 主な核種の相対差 ΔN̄ᵢ^X / N̄ᵢ⁰（N̄ᵢ⁰ が 0 の核種は出さない）
 
 燃焼度の点ごとに、L/E（1 次の比）、L/E²（2 次の比）、U/E、U/w と、それぞれの R(1) の同じ燃焼度の値との比を出す（L がその次数で指標に
-比例するなら、比は履歴によらず 1）。E が 0 の点（公称の組成）は比を出さない。
+比例するなら、比は履歴によらず 1）。E が 0 の点（ベース計算の組成）は比を出さない。
 
 switch の参照の点ごとに、R(1) の成分を何倍して足すかで外れ δ = X_switch − a X(1) を作り、その分を ρ(参照の定数 − δ) − ρ(参照の定数) と
 する（compare_split.py の外れの分と同じ式。a = w で compare_split.py の値と一致することを確かめる）。a は次の 4 つ:
 
 - w（core の今の置き方。`switch.json` の `weight`）
 - 指標の比 E_switch / E(1)（1 次）と、その 2 乗（2 次）
-- 条件 j での指標の比: ρ(f(公称, j) + Σᵢ cᵢ(j) ΔN̄ᵢ) − ρ(f(公称, j)) の switch と R(1) の比（L のほうだけ。指標を測る定数の選び方の確認）
+- 条件 j での指標の比: ρ(f(ベース計算, j) + Σᵢ cᵢ(j) ΔN̄ᵢ) − ρ(f(ベース計算, j)) の switch と R(1) の比（L のほうだけ。指標を測る定数の選び方の確認）
 
 ほかに、U を w、L を指標の比で足したときの両方の外れの分（compare_split.py の両方の外れと同じ式）と、主な核種の ΔN̄ᵢ の比
 ΔN̄ᵢ^switch / ΔN̄ᵢ^(1) を出す。
@@ -174,7 +174,7 @@ def switch_rows(nominal, condition, switch, one, summary, split_summary, at):
         w = s["weight"]
         own_index = index_effect(nominal, u, x["densities"])
         one_index = index_effect(nominal, u, o["densities"])
-        # R(1) が公称の組成の点（燃焼度 0）では比を出さない
+        # R(1) がベース計算の組成の点（燃焼度 0）では比を出さない
         index = ratio(own_index, one_index)
         own_groups = group_indices(nominal, u, x["densities"])
         one_groups = group_indices(nominal, u, o["densities"])
@@ -244,7 +244,7 @@ def mixed(reference, own, one, w, factor):
 
 
 def density_pairs(half, full):
-    """密度だけの経路の燃焼度の点ごとの、E、P、A、L の比（0.702 / 0.661）。公称の組成の点は比を出さない"""
+    """密度だけの経路の燃焼度の点ごとの、E、P、A、L の比（0.702 / 0.661）。ベース計算の組成の点は比を出さない"""
     out = []
     for h, f in zip(half, full, strict=True):
         if not same_burnup(h["burnup"], f["burnup"]):

@@ -41,7 +41,7 @@ def index_of(t, table, burnup):
     return rho(s.base(nominal, u, densities)) - rho(nominal["states"][p])
 
 
-# switch の 20 MWd/kg の数密度（公称と R(1) の間。指標の比が 1 でない）
+# switch の 20 MWd/kg の数密度（ベース計算と R(1) の間。指標の比が 1 でない）
 SWITCH20 = [6.0e-4, 1.5e-5]
 
 
@@ -126,7 +126,7 @@ class Index(unittest.TestCase):
             self.assertAlmostEqual(last[f"{key}_to_one"], 1.0, delta=1e-12)
 
     def test_points_at_the_nominal_composition_have_no_ratios(self):
-        # R(1) の燃焼度 0 は公称の組成: 指標は 0 で、比を出さない
+        # R(1) の燃焼度 0 はベース計算の組成: 指標は 0 で、比を出さない
         first = compared()["histories"]["one"][0]
         self.assertEqual(first["index_pcm"], 0.0)
         self.assertIsNone(first["linearization_first"])
@@ -144,7 +144,7 @@ class Index(unittest.TestCase):
     def test_relative_densities_are_against_the_nominal_composition(self):
         t = tables()
         last = compared(t)["histories"]["one"][-1]
-        # 燃焼度 20 の公称の組成は燃焼度の点 2
+        # 燃焼度 20 のベース計算の組成は燃焼度の点 2
         n0 = t["nominal"]["micro"]["densities"][2]
         nx = t["one"]["micro"]["densities"][1]
         for i, name in enumerate(NUCLIDES):
@@ -156,7 +156,7 @@ class Index(unittest.TestCase):
         self,
     ):
         t = tables()
-        # 燃焼度 0 の公称の組成に Pu-240 は無い
+        # 燃焼度 0 のベース計算の組成に Pu-240 は無い
         self.assertEqual(t["nominal"]["micro"]["densities"][0][1], 0.0)
         first = compared(t)["histories"]["one"][0]
         self.assertIsNone(first["densities"][NUCLIDES[1]])
@@ -302,7 +302,7 @@ class GroupIndices(unittest.TestCase):
                 group_index(t, name, 1, "absorption"),
                 delta=1e-15,
             )
-        # 公称の組成の点は 0
+        # ベース計算の組成の点は 0
         self.assertEqual(result["histories"]["one"][0]["production"], 0.0)
 
     def test_a_part_proportional_to_the_production_index_leaves_no_gap(self):
@@ -344,7 +344,7 @@ class GroupIndices(unittest.TestCase):
             ("linearization_pcm", "linearization_ratio"),
         ):
             self.assertAlmostEqual(last[name], h[key] / f[key], delta=1e-15)
-        # 公称の組成の点は比を出さない
+        # ベース計算の組成の点は比を出さない
         self.assertIsNone(pairs[0]["production_ratio"])
 
 

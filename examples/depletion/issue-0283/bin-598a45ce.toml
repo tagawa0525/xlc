@@ -1,6 +1,6 @@
-# #0283: 2A の格子計算の燃焼の履歴（../p2/lattice-2A.msgpack、md5 c028d773）と、同じ組成を分岐で解いたテーブルの k∞ の差の切り分け。
+# #0283: 2A の格子計算の燃焼の履歴（../p2/lattice-2A.msgpack、md5 c028d773）と、同じ組成をブランチ計算で解いたテーブルの k∞ の差の切り分け。
 # 履歴を作った bin/lattice（md5 598a45ce。p2/dvc.lock の lattice@2A の deps）と、そのライブラリ（md5 a96f4f23）で、今の入力の形のまま解いたもの（上限は書かず、その bin の既定）。
-# 格子、離散化、組成と公称の 1 状態は issue-0279/core-micro/table-d0.toml と同じで、燃焼度の点を 0、20、60 MWd/kg に、追う核種をなしにした。
+# 格子、離散化、組成と基準条件の 1 状態は issue-0279/core-micro/table-d0.toml と同じで、燃焼度の点を 0、20、60 MWd/kg に、追う核種をなしにした。
 # ライブラリは同じ置き場の depletion-a96f4f23.msgpack（`dvc add`。scripts/worktree-restore-outputs.sh で戻る）。実行ファイルは同じ置き場の lattice-598a45ce（`dvc add`）で、`./lattice-598a45ce bin-598a45ce.toml` で解く。
 library = "depletion-a96f4f23.msgpack"
 few-group = { output = "bin-598a45ce.msgpack", bounds = [1e7, 0.625, 1e-5] }
@@ -63,7 +63,7 @@ Sn-124 = 2.79392e-05
 
 [material.water]
 temperature = 565
-# 公称の 1300 ppm。B-10 の割合は履歴の入力の数密度の B-10 / (B-10 + B-11)
+# 基準の 1300 ppm。B-10 の割合は履歴の入力の数密度の B-10 / (B-10 + B-11)
 water = { density = 0.743, boron = 1300, b10 = 0.199 }
 
 # 燃料のピン（3.1%）

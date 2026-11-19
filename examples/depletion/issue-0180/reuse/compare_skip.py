@@ -1,6 +1,6 @@
 """自己遮蔽を省いた 2A のブランチのテーブルを、すべての点で解いたテーブルと比べ、差を暗黙の効きの 1 次の見込みと並べる（#0180）。
 
-- 燃焼の軸（`skip`）: 2A-every.toml と 2A-skip-sparse.toml のテーブル（公称の 1 状態、27 燃焼点）。燃焼点ごとに、反応度の差
+- 燃焼の軸（`skip`）: 2A-every.toml と 2A-skip-sparse.toml のテーブル（基準条件の 1 状態、27 燃焼点）。燃焼点ごとに、反応度の差
   Δρ = 1/k_every − 1/k_skip（pcm）、少数群定数の項目（`ITEMS`）とピン出力の形状関数（`pins.form`）の相対差の最大
   （compare_branch_shielding.py の `relative`）。見込みは Σᵢ Sᵢ δᵢ、打ち消しを数えない大きさは Σᵢ |Sᵢ δᵢ|。Sᵢ は核種 i の暗黙の効き（自己遮蔽を解き直した k の直接の摂動と
   固定した摂動の差を、数密度の相対の変化あたりの反応度にしたもの。compare_few_group.py の `k_pcm` / 0.1）で、燃焼度の近い
@@ -43,7 +43,7 @@ def load(name: str, path: Path):
 
 
 def homogenized(history: dict, burnup: float) -> dict[str, float]:
-    """燃焼点 `burnup` の、すべての燃焼の領域を体積で均質化した数密度（負の値は 0。分岐が解く物質と同じ）"""
+    """燃焼点 `burnup` の、すべての燃焼の領域を体積で均質化した数密度（負の値は 0。ブランチ計算が解く物質と同じ）"""
     point = next((p for p in history["points"] if p["burnup"] == burnup), None)
     if point is None:
         sys.exit(f"the history has no point at {burnup} MWd/kg")

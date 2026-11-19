@@ -1,4 +1,4 @@
-# このファイルは coverage.py が書く（手で直さない）。#0286 の自由ガスの核種の絞り込みの差（ADR-0251）: ケース assembly-2O、変種 full。p2/lattice-2O.toml の [10, 40] MWd/kg からの2 状態の分岐
+# このファイルは coverage.py が書く（手で直さない）。#0286 の自由ガスの核種の絞り込みの差（ADR-0251）: ケース assembly-2O、変種 full。p2/lattice-2O.toml の [10, 40] MWd/kg からの2 状態のブランチ計算
 library = "../../p2/depletion.msgpack"
 ufg-free-gas = { share = false }
 ufg-cp-points = 16

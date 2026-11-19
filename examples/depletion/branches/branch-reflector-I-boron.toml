@@ -1,6 +1,6 @@
 # 小さな炉心の core の燃焼（branches/core-small-*.toml）の径方向の反射体の定数: VERA Problem 5-2D の I 型の格子
 # （../../vera/p5/reflector-I.toml と同じ形、離散化、組成。燃料の右に反射体、右は真空、ほかは鏡面反射）を、2A のミクロ燃焼の
-# テーブル（branch-2A-micro-boron.toml）と同じライブラリ（../p2/depletion.msgpack）と状態で解く。分岐はホウ素 0、300、600、1000、
+# テーブル（branch-2A-micro-boron.toml）と同じライブラリ（../p2/depletion.msgpack）と状態で解く。ブランチ計算の状態はホウ素 0、300、600、1000、
 # 1300 ppm × 燃料 565 K（減速材は 565 K、0.743 g/cc）の 5 状態で、燃料は新しい燃料のまま（反射体は燃焼しない。ADR-0190）。
 # 炉心は反射体のノードの定数だけを使う（燃料のノードは、ノードが格子のすべてのマスを覆うために書く）。
 library = "../p2/depletion.msgpack"
@@ -82,7 +82,7 @@ Sn-124 = 2.79392e-05
 
 [material.water]
 temperature = 565
-# 公称の 1300 ppm（branch-2A-micro-boron.toml と同じ書き方）
+# 基準の 1300 ppm（branch-2A-micro-boron.toml と同じ書き方）
 water = { density = 0.743, boron = 1300, b10 = 0.199 }
 
 [material.ss304]

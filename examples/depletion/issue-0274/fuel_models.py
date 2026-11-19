@@ -13,7 +13,7 @@
   変わらない状態も含む）。p = 1/2 は共鳴積分の √T の相関、p = 1 は温度の線形
 - `fits`: 基底（`BASES`。定数の項はどれにもある）ごとに、軸のすべての点に当てはめた残差。項目の残差は点の値の平均で割った値
   （1e-5）の、状態の中の最小と最大。k∞ は当てはめた少数群定数から解いた k∞ の Δρ。係数の滑らかさ（`roughness`）は、項目ごとに、
-  基底の関数を公称の温度からの差にした係数を公称の温度の当てはめの値で割り、ホウ素と減速材の軸の線ごとにその軸の値の 2 次式に
+  基底の関数を基準の温度からの差にした係数を基準の温度の当てはめの値で割り、ホウ素と減速材の軸の線ごとにその軸の値の 2 次式に
   当てはめた残差の最大を、燃焼度の点の中の係数の幅で割った値（滑らかに動けば 0 に近く、状態ごとに跳べば 1 の桁。幅が係数の 1e-12 倍以下なら 0）
 - `designs`: 格子点の選び方（`DESIGNS`）ごとに、選んだ点から方式（`SCHEMES`）で内挿か当てはめをし、選ばなかった点（選んだ点の
   範囲の中）の状態と比べた Δρ。`loo` は内側の点を 1 つずつ除く（../compare_grid_interpolation.py の `schemes` と同じ測り方）。
@@ -186,7 +186,7 @@ def summarize(table: dict) -> dict:
     points, vectors, like = load(table)
     burnups, borons, moderators, fuels = points
     t = np.array(fuels)
-    # load が状態の軸のすべてに公称の値があることを確かめる
+    # load が状態の軸のすべてに基準値があることを確かめる
     nominal = table["axes"][3]["nominal"]
     rest = list(itertools.product(range(len(borons)), range(len(moderators))))
 

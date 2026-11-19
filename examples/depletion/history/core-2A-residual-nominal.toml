@@ -1,5 +1,5 @@
-# 履歴の補正の core（ADR-0215）の確認 1: R を持つ公称のテーブル（table-residual-nominal-histories.msgpack）の集合体 1 体
-# （反射境界）を、公称の状態（1300 ppm、減速材 565 K、燃料 565 K）でミクロ燃焼させる。ノードの減速材の密度の履歴は公称の 0.743 g/cc の
+# 履歴の補正の core（ADR-0215）の確認 1: R を持つベース計算のテーブル（table-residual-nominal-histories.msgpack）の集合体 1 体
+# （反射境界）を、基準条件（1300 ppm、減速材 565 K、燃料 565 K）でミクロ燃焼させる。ノードの減速材の密度の履歴は基準の 0.743 g/cc の
 # まま（w = 0）なので、R を持たないテーブルの core-2A-plain-nominal.toml と同じ出力になる。
 # ステップは ../branches/core-2A-micro.toml と同じ 40（0.1〜60 MWd/kg）、出力密度は 2A の燃焼の履歴と同じ 38.41 W/g。
 cycle = "core-2A-residual-cycle.toml"

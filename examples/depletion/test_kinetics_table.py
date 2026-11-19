@@ -33,7 +33,7 @@ def kinetics(scale: float) -> dict:
 
 
 def table() -> dict:
-    """燃焼度 2 点 × ホウ素 2 点（公称 1300）。ブランチ条件は燃焼度 0 だけ"""
+    """燃焼度 2 点 × ホウ素 2 点（基準値 1300）。ブランチ条件は燃焼度 0 だけ"""
     points = [[0, 0], [0, 1], [1, 1]]
     scales = [1.0, 1.1, 0.9]
     cooling = lambda s: [

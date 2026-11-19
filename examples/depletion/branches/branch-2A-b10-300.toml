@@ -61,7 +61,7 @@ Sn-124 = 2.79392e-05
 
 [material.water]
 temperature = 565
-# 公称の 1300 ppm
+# 基準の 1300 ppm
 water = { density = 0.743, boron = 1300, b10 = 0.30 }
 
 # 燃料のピン（3.1%）

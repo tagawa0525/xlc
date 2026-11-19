@@ -1,5 +1,5 @@
-# 途中で条件を変えた燃焼（ADR-0215 の確認、#0190）: VERA Problem 2 の 2A の公称の燃焼の履歴（../p2/lattice-2A.msgpack。今の既定）の
-# 20 MWd/kg の点の組成と時間から、減速材の密度の履歴の分岐の条件 j（residual-density-history.toml と同じ 600 K、0.661 g/cc の減速材と
+# 途中で条件を変えた燃焼（ADR-0215 の確認、#0190）: VERA Problem 2 の 2A のベース計算の履歴（../p2/lattice-2A.msgpack。今の既定）の
+# 20 MWd/kg の点の組成と時間から、減速材の密度の履歴ブランチの条件 j（residual-density-history.toml と同じ 600 K、0.661 g/cc の減速材と
 # 600 K の被覆管、1300 ppm。燃料は 565 K のまま）で、2A と同じ点（22〜60 MWd/kg の 15 点）を燃焼させる。出力の履歴は 0〜18 MWd/kg の
 # 点を 2A の履歴から引き継ぎ、20 MWd/kg の点（2A の組成）から後を条件 j で解く。形状、燃料と被覆管の組成、燃焼の条件は
 # residual-density-history.toml と同じ。

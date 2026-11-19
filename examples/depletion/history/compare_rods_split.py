@@ -8,12 +8,12 @@ U の外れと L の外れに分ける（compare_split_core.py の分け方を�
 
 読むのは、core が使った 2 つの変数の残りを持つベース計算のテーブル（`table-residual-rods-histories.msgpack`。制御棒の変数の値 out の U(1)、L(1)、
 N̄ᵢ^j と、制御棒の値 out の基準条件の定数と係数）、格子計算の参照の燃焼の履歴（`lattice-switch-rods.msgpack`。参照の k∞）と、その R の点の
-組成を制御棒を抜いた基準条件で解いた分岐（`table-switch-rods-branch.msgpack`）と、その追う核種だけを公称の履歴に入れたハイブリッド
+組成を制御棒を抜いた基準条件で解いたブランチ計算（`table-switch-rods-branch.msgpack`）と、その追う核種だけをベース計算の履歴に入れたハイブリッド
 （`table-hybrid-switch-rods-branch.msgpack`）、履歴の補正の core の燃焼の履歴（`core-2A-rods-switch.msgpack`）と、その比較の要約
 （`rods-switch.json`。md5 と core − 参照を照らす）。
 
 参照の R の点 u のうち切り替えの点より後ごとに、参照の組成の U_switch = f(switch) − f(H_switch) と
-L_switch = f(H_switch) − f(公称、out) − Σᵢ cᵢ ΔN̄ᵢ^switch を作り（cᵢ はベース計算のテーブルの制御棒の値 out の基準条件の係数。数密度の微分を
+L_switch = f(H_switch) − f(ベース計算、out) − Σᵢ cᵢ ΔN̄ᵢ^switch を作り（cᵢ はベース計算のテーブルの制御棒の値 out の基準条件の係数。数密度の微分を
 持つ核種は微分）、core が足す量からの外れを
 
 - U の外れ δ_U = w U(1) − U_switch（w = H_r。core の点の履歴の変数）
@@ -31,8 +31,8 @@ L_switch = f(H_switch) − f(公称、out) − Σᵢ cᵢ ΔN̄ᵢ^switch を作
 U の重みを指数で忘れる重みにした外れ: 制御棒の履歴を H_τ（compare_forgetting.py）にした重み w_τ = 1 − compare_forgetting.weight(u, B₀, τ) で
 δ_U(τ) = w_τ U(1) − U_switch、τ ごとに U の外れの分と両方の外れの分（L は今のまま）と、その絶対値の最大。
 
-切り替えの点（20 MWd/kg）の分岐は 2A-rods の組成を制御棒を抜いて解いたもので、テーブルの値 out の U(1)、L(1)、N̄ᵢ^j と同じ組成と状態なので、
-その差を `switch_point` に出し、上限（`SWITCH_POINT_TOLERANCE`、`SWITCH_DENSITY_TOLERANCE`）を超えれば止める（分岐かハイブリッドが制御棒を
+切り替えの点（20 MWd/kg）のブランチ計算は 2A-rods の組成を制御棒を抜いて解いたもので、テーブルの値 out の U(1)、L(1)、N̄ᵢ^j と同じ組成と状態なので、
+その差を `switch_point` に出し、上限（`SWITCH_POINT_TOLERANCE`、`SWITCH_DENSITY_TOLERANCE`）を超えれば止める（ブランチ計算かハイブリッドが制御棒を
 抜いた参照の組成を解いていない）。
 """
 
@@ -78,12 +78,12 @@ SUMMARY = "rods-switch.json"
 SUMMARY_TOLERANCE = 1e-9
 # ブランチのテーブルの N̄ᵢ と、参照の燃焼の履歴を均質化した数密度の相対差の上限（同じ組成を lattice と Python で体積の平均にした丸めの程度）
 DENSITY_TOLERANCE = 1e-9
-# 切り替えの点の分岐の U、L とテーブルの値 out の U(1)、L(1) の差の、項目ごとの相対の上限（項目の差の絶対値の最大 / その項目の U(1) か L(1) の
-# 絶対値の最大。項目は単位も大きさも違うので項目ごとに測る）。同じ組成と状態を別の 2 本の格子計算（分岐とハイブリッド、残りのテーブルの分岐と
-# ハイブリッド）で解いた中性子束の収束の程度（2A で U 1.8e−06、L 1.4e−06）。分岐かハイブリッドが別の履歴か制御棒を入れた状態を解けば、
+# 切り替えの点のブランチ計算の U、L とテーブルの値 out の U(1)、L(1) の差の、項目ごとの相対の上限（項目の差の絶対値の最大 / その項目の U(1) か L(1) の
+# 絶対値の最大。項目は単位も大きさも違うので項目ごとに測る）。同じ組成と状態を別の 2 本の格子計算（ブランチ計算とハイブリッド、残りのテーブルのブランチ計算と
+# ハイブリッド）で解いた中性子束の収束の程度（2A で U 1.8e−06、L 1.4e−06）。ブランチ計算かハイブリッドが別の履歴か制御棒を入れた状態を解けば、
 # 残りそのものの大きさ（相対で 1 の程度）で外れる
 SWITCH_POINT_TOLERANCE = 1e-4
-# 切り替えの点の分岐の N̄ᵢ とテーブルの値 out の N̄ᵢ^j の相対差の上限（同じ履歴の同じ点を lattice が同じく均質化したもの）
+# 切り替えの点のブランチ計算の N̄ᵢ とテーブルの値 out の N̄ᵢ^j の相対差の上限（同じ履歴の同じ点を lattice が同じく均質化したもの）
 SWITCH_DENSITY_TOLERANCE = 1e-12
 # L(1) の重みを (P / P_j)^p にした外れを比べる p（1 が今の core。#0190 の候補 (j)）
 POWERS = (1.0, 1.5, 2.0)
@@ -104,7 +104,7 @@ def nominal_condition(table):
 
 
 def switch_rows(table, branch, hybrid):
-    """分岐とハイブリッドの R の点ごとの（燃焼度、f(switch)、U_switch、L_switch、N̄ᵢ^switch、線形の補正の後の公称の定数、係数、燃焼度の点の番号）"""
+    """ブランチ計算とハイブリッドの R の点ごとの（燃焼度、f(switch)、U_switch、L_switch、N̄ᵢ^switch、線形の補正の後のベース計算の定数、係数、燃焼度の点の番号）"""
     condition, burnups, states = condition_table(branch, "switch branch")
     h_condition, h_burnups, h_states = condition_table(hybrid, "switch hybrid")
     if h_condition != condition or h_burnups != burnups:
@@ -174,7 +174,7 @@ def relative_difference(a, b):
 
 def check_switch_point(table, row):
     """切り替えの点の U_switch、L_switch、N̄ᵢ^switch と、テーブルの値 out の U(1)、L(1)、N̄ᵢ^j の差の絶対値の最大。上限
-    （`SWITCH_POINT_TOLERANCE`、`SWITCH_DENSITY_TOLERANCE`）を超えれば、分岐かハイブリッドが制御棒を抜いた参照の組成を解いていないので止める"""
+    （`SWITCH_POINT_TOLERANCE`、`SWITCH_DENSITY_TOLERANCE`）を超えれば、ブランチ計算かハイブリッドが制御棒を抜いた参照の組成を解いていないので止める"""
     rod = entry(table, VARIABLES[1], ROD)
     found = [i for i, v in enumerate(rod["burnup"]) if same_burnup(v, row["burnup"])]
     if len(found) != 1:
@@ -192,7 +192,7 @@ def check_switch_point(table, row):
         "linearization_relative": relative_difference(
             row["linearization"], rod["linearization"][k]
         ),
-        # 表の N̄ᵢ^j が 0 の核種は、分岐も 0 でなければ外れ（∞）
+        # 表の N̄ᵢ^j が 0 の核種は、ブランチ計算も 0 でなければ外れ（∞）
         "densities": max(
             (
                 abs(x - y) / abs(y) if y != 0.0 else (math.inf if x != 0.0 else 0.0)
@@ -495,7 +495,7 @@ def report(summary):
     infinite = next(x for x in scan if x["tau"] is None)
     lines = [
         (
-            f"切り替えの点 {s['burnup']:g} MWd/kg の分岐とテーブルの値 out の差の絶対値の最大（項目の単位のまま）: U {s['untracked']:.2e}、L "
+            f"切り替えの点 {s['burnup']:g} MWd/kg のブランチ計算とテーブルの値 out の差の絶対値の最大（項目の単位のまま）: U {s['untracked']:.2e}、L "
             f"{s['linearization']:.2e}（項目ごとの相対で U {s['untracked_relative']:.2e}、L {s['linearization_relative']:.2e}）、"
             f"N̄ᵢ の相対 {s['densities']:.2e}"
         ),

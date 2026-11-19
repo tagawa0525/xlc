@@ -9,7 +9,7 @@
 
     H_τ(B) = ∫₀ᴮ x(B') e^{−(B − B')/τ} dB' / ∫₀ᴮ e^{−(B − B')/τ} dB'
 
-にすると、途中で条件を変えた燃焼（燃焼度 B₀ まで公称、その後を条件 j）の重みは
+にすると、途中で条件を変えた燃焼（燃焼度 B₀ まで基準条件、その後を条件 j）の重みは
 w_τ(B) = (1 − e^{−(B − B₀)/τ}) / (1 − e^{−B/τ})。τ → ∞ は燃焼度で重みを付けた平均（ADR-0215 の案 V1。w = (B − B₀)/B）、正の τ は最近の
 燃焼に、負の τ は古い燃焼に大きな重みを付ける。一生を条件 j の R(1) は τ によらず w = 1。
 
@@ -45,7 +45,7 @@ TAUS = [
 
 
 def weight(burnup, start, tau):
-    """燃焼度 `start` まで公称、その後を条件 j にした履歴の、燃焼度 `burnup` の w_τ（モジュールの説明）。`tau` が None なら ∞"""
+    """燃焼度 `start` まで基準条件、その後を条件 j にした履歴の、燃焼度 `burnup` の w_τ（モジュールの説明）。`tau` が None なら ∞"""
     if tau is None:
         return (burnup - start) / burnup
     return -math.expm1(-(burnup - start) / tau) / -math.expm1(-burnup / tau)

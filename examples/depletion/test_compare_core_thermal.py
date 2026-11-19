@@ -39,7 +39,7 @@ def table():
         for ib, b in enumerate(boron):
             for im, m in enumerate(moderator):
                 for jf, f in enumerate(fuel):
-                    # 3 軸の同時の分岐は持たない
+                    # 3 軸の同時のブランチは持たない
                     if ib == 0 and im == 1 and jf == 1:
                         continue
                     for rod in (0, 1):

@@ -1,4 +1,4 @@
-"""compare_branch_shielding.py の要約（ブランチ計算の自己遮蔽を公称の減速材で解いたテーブルの、状態ごとに解き直したテーブルとの差。
+"""compare_branch_shielding.py の要約（ブランチ計算の自己遮蔽を基準の減速材で解いたテーブルの、状態ごとに解き直したテーブルとの差。
 ADR-0201）。
 
 実行: python3 -m unittest discover -s examples/depletion -p 'test_compare_branch_shielding.py'

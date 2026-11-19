@@ -1,6 +1,6 @@
 # core の燃焼（ADR-0190）の確認: 燃焼度の軸を持つテーブル（table-2A-fine.msgpack。branch-2A-fine.toml）の集合体 1 体（反射境界）を、
 # 2A の燃焼の履歴（../p2/lattice-2A.msgpack）と同じ出力密度 38.41 W/g で、履歴の 0 より後の 40 の燃焼点をステップの終わりにして燃焼させる。
-# EFPD は履歴の各点の時間 (s) / 86400 で、燃焼度 = 38.41 W/g × EFPD / 1000 が履歴の燃焼度になる。状態は公称（1300 ppm、565 K）。
+# EFPD は履歴の各点の時間 (s) / 86400 で、燃焼度 = 38.41 W/g × EFPD / 1000 が履歴の燃焼度になる。状態は基準条件（1300 ppm、565 K）。
 cycle = "core-2A-fine-cycle.toml"
 axial-mesh = [0.0, 21.5]
 radial-nodes = 1

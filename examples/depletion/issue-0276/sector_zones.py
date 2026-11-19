@@ -36,7 +36,7 @@ compare の量:
   だけで、最大（`max`）はすべての燃焼点から
 
 形状、組成、温度、減速材、燃焼度の点、出力密度、UFG の許容差、トラックは ../p9-product/lattice-2A.toml の燃料のピンと案内管と
-公称の状態（ホウ素 650 ppm、減速材 580 K、燃料 900 K）に合わせる。
+基準条件（ホウ素 650 ppm、減速材 580 K、燃料 900 K）に合わせる。
 - short-<名前>.toml: 上の入力の燃焼度を最初の 2 点（輸送 5 回）にしたもの。全部を流す前の時間の見積もり
 """
 
@@ -141,7 +141,7 @@ def input_text(
     )
     return f"""\
 # #0276 の試行（sector_zones.py が書く。手で直さない）: 格子 {lattice} の 2A の燃料のピンを、{radial}で、{azimuthal}。
-# p9-product/lattice-2A.toml の公称の状態のまま燃焼させる。
+# p9-product/lattice-2A.toml の基準条件のまま燃焼させる。
 library = "../p2/depletion.msgpack"
 ufg-tolerance = 1e-4
 pitch = 1.26

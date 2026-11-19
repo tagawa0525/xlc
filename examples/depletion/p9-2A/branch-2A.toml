@@ -1,10 +1,10 @@
-# Problem 9 の本番の形の 2A の分岐のテーブル（#0278）。ADR-0239 の格子点（ホウ素 6 点、減速材 7 点、燃料 4 点）を、ADR-0200 の既定の
-# 2 軸の組すべての部分格子（78 状態）で解く。公称の状態は ADR-0199 の 27 燃焼点のすべてで、公称でない状態は `off-nominal-burnup` の
-# 15 燃焼点で解く（ADR-0200 の「分岐を解く燃焼点」。点は thinning-2A.toml の「15 点」で、間引きの誤差は #0176）。燃焼の履歴は
+# Problem 9 の本番の形の 2A のブランチのテーブル（#0278）。ADR-0239 の格子点（ホウ素 6 点、減速材 7 点、燃料 4 点）を、ADR-0200 の既定の
+# 2 軸の組すべての部分格子（78 状態）で解く。基準条件は ADR-0199 の 27 燃焼点のすべてで、ブランチ条件は `off-nominal-burnup` の
+# 15 燃焼点で解く（ADR-0200 の「ブランチ計算を行う燃焼点」。点は thinning-2A.toml の「15 点」で、間引きの誤差は #0176）。燃焼の履歴は
 # ../p9-product/lattice-2A.msgpack
-# （ADR-0239 の公称の状態 650 ppm、580 K、900 K で、燃料を 5 つの燃焼の領域にした 40 点の燃焼。ADR-0245）を読む。格子、離散化、組成、
+# （ADR-0239 の基準条件 650 ppm、580 K、900 K で、燃料を 5 つの燃焼の領域にした 40 点の燃焼。ADR-0245）を読む。格子、離散化、組成、
 # 物質の状態は ../p9-product/branch-2A.toml と同じ（手でコピーした）。core のミクロ燃焼の微視的断面積と数密度の微分は
-# ../branches/branch-2A-micro.toml と同じ核種（ADR-0216、ADR-0221）。制御棒の軸と履歴の分岐は持たない（#0278）。
+# ../branches/branch-2A-micro.toml と同じ核種（ADR-0216、ADR-0221）。制御棒の軸と履歴ブランチは持たない（#0278）。
 library = "../p2/depletion.msgpack"
 ufg-tolerance = 1e-4
 few-group = { output = "table-2A.msgpack", bounds = [1e7, 0.625, 1e-5] }
@@ -82,7 +82,7 @@ Sn-124 = 2.79392e-05
 
 [material.water]
 temperature = 580
-# 減速材の格子点 580 K の密度（IF97 の 15.5132 MPa を小数 6 桁に丸めた値。ADR-0239、ADR-0230）、公称のホウ素 650 ppm。B-10 の割合は
+# 減速材の格子点 580 K の密度（IF97 の 15.5132 MPa を小数 6 桁に丸めた値。ADR-0239、ADR-0230）、基準ホウ素濃度 650 ppm。B-10 の割合は
 # p2 の 2A の入力の数密度の B-10 / (B-10 + B-11)
 water = { density = 0.711901, boron = 650, b10 = 0.199 }
 
@@ -127,7 +127,7 @@ boron = { ppm = [0, 325, 650, 975, 1300, 1625], materials = ["water"] }
 # 密度は IF97 の 15.5132 MPa の値を小数 6 桁に丸めたもの（ADR-0239）。560 K と 615 K は ADR-0239 の「減速材の軸」の値、ほかは
 # ../../vera/p6/lattice-6-fuel.toml と同じ値
 moderator = { temperature = [560, 570, 580, 590, 600, 610, 615], density = [0.752074, 0.732936, 0.711901, 0.688335, 0.661165, 0.628290, 0.608215], materials = ["water", "zircaloy"] }
-# 燃料の温度は 5 つの物質のすべてに当てる（ADR-0245）。点は ADR-0239 の「燃料の温度の格子点を 4 点にする」で、公称の 900 K を含む
+# 燃料の温度は 5 つの物質のすべてに当てる（ADR-0245）。点は ADR-0239 の「燃料の温度の格子点を 4 点にする」で、基準の 900 K を含む
 fuel = { temperature = [560, 900, 1050, 1350], materials = ["fuel-0", "fuel-1", "fuel-2", "fuel-3", "fuel-4"] }
 # subgrids を書かず、既定の 2 軸の組すべての部分格子にする（ADR-0200。3 つ同時の項を落とす誤差は p9-product の直積で 2.31〜4.17 pcm、
 # examples/depletion/verification.md の「Problem 9 の格子点の直積（2A）」）
@@ -135,13 +135,13 @@ fuel = { temperature = [560, 900, 1050, 1350], materials = ["fuel-0", "fuel-1", 
 [history]
 file = "../p9-product/lattice-2A.msgpack"
 chain = "../chain.msgpack"
-# ADR-0199 の 27 点（../branches/burnup-interpolation.toml の「指針」）。公称の状態はこのすべての点で解く
+# ADR-0199 の 27 点（../branches/burnup-interpolation.toml の「指針」）。基準条件はこのすべての点で解く
 burnup = [
   0, 0.1, 0.25, 0.5, 0.75, 1, 2, 4, 5, 6,
   7, 8, 9, 10, 11, 12, 14, 16, 20, 24,
   28, 32, 36, 40, 48, 56, 60,
 ]
-# 公称でない状態を解く燃焼点（ADR-0200）。thinning-2A.toml の「15 点」で、Hermite の誤差は 3.25 pcm（目安 5 pcm）。0.25 MWd/kg は、
+# ブランチ条件を解く燃焼点（ADR-0200）。thinning-2A.toml の「15 点」で、Hermite の誤差は 3.25 pcm（目安 5 pcm）。0.25 MWd/kg は、
 # 除くと Pu-240 の数密度の微分の差が約 18% になるので含める（examples/depletion/verification.md の「Problem 9 の本番の形の 2A の
 # テーブルの燃焼点の間引き」、#0176）。ホウ素を変えた状態が自己遮蔽を借りる状態（ADR-0201）も同じ点で解くので、借りる元はどの点にもある
 off-nominal-burnup = [0, 0.1, 0.25, 0.5, 1, 2, 4, 6, 10, 16, 24, 32, 40, 48, 60]

@@ -63,7 +63,7 @@ Sn-124 = 2.79392e-05
 
 [material.water]
 temperature = 565
-# 公称の 1300 ppm。B-10 の割合は履歴の入力の数密度の B-10 / (B-10 + B-11)
+# 基準の 1300 ppm。B-10 の割合は履歴の入力の数密度の B-10 / (B-10 + B-11)
 water = { density = 0.743, boron = 1300, b10 = 0.199 }
 
 [material.ss304]

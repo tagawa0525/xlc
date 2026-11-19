@@ -21,7 +21,7 @@ from test_compare_weight import R_ONE, condition_tables
 
 def hybrid(nominal, branch, linearizations):
     """`branch` と同じ条件、燃焼度、追う核種の数密度で、線形化の誤差が `linearizations`（燃焼度の点ごと）になる定数の 1 状態の
-    テーブル。`nominal` は同じ条件の状態を持つ公称の組成のテーブル"""
+    テーブル。`nominal` は同じ条件の状態を持つベース計算の組成のテーブル"""
     out = copy.deepcopy(branch)
     condition, burnups, states = w.condition_table(branch, "branch")
     at = c.solved(nominal, condition)
@@ -74,7 +74,7 @@ def summary(weights):
 
 
 def density_tables(half_scale, half_linearization):
-    """密度だけの経路の（公称の組成、分岐、ハイブリッド）を w = 0.5 と 1 で。R(0.5) = `half_scale` R(1)、L(1) = part(1)、
+    """密度だけの経路の（ベース計算の組成、履歴ブランチ、ハイブリッド）を w = 0.5 と 1 で。R(0.5) = `half_scale` R(1)、L(1) = part(1)、
     L(0.5) = `half_linearization` L(1)"""
     half = condition_tables(
         0.702,
@@ -94,7 +94,7 @@ def tables(half_scale=0.5, half_linearization=0.5, switch_linearization=None):
     one = branch_table()
     ref = switch_reference()
     half, full = density_tables(half_scale, half_linearization)
-    # R(1) の線形化の誤差は燃焼度 0 で 0（ハイブリッドが分岐と同じ定数）、20 MWd/kg で part(1)
+    # R(1) の線形化の誤差は燃焼度 0 で 0（ハイブリッドが履歴ブランチと同じ定数）、20 MWd/kg で part(1)
     one_linearization = [part(0.0), part(1.0)]
     if switch_linearization is None:
         switch_linearization = [part(0.2), part(0.4)]

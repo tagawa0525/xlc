@@ -610,17 +610,17 @@ def report(summary: dict) -> list[str]:
     lines = ['inputs: ' + ', '.join((f"{i['path']} {i['md5'][:8]}" for i in summary['inputs']))]
     for t in summary['tables']:
         axes = ' × '.join((f'{a} {v}' for a, v in t['axes'].items()))
-        lines.append(f"{t['name']}: {axes}（直積 {t['grid_states']} 状態）、公称 {t['nominal']}、k∞ の解き直しとテーブルの k_inf の差の最大 {t['table_k_max_abs_pcm']:.4f} pcm")
+        lines.append(f"{t['name']}: {axes}（直積 {t['grid_states']} 状態）、基準条件 {t['nominal']}、k∞ の解き直しとテーブルの k_inf の差の最大 {t['table_k_max_abs_pcm']:.4f} pcm")
         for p in t['points']:
             where = '' if p['burnup'] is None else f"{p['burnup']:g} MWd/kg: "
-            lines.append(f"  {where}公称の k∞ {p['nominal_k']:.6f}、M² {p['migration_area_cm2']:.2f} cm²")
+            lines.append(f"  {where}基準条件の k∞ {p['nominal_k']:.6f}、M² {p['migration_area_cm2']:.2f} cm²")
             for model, r in p['models'].items():
                 rel = '、'.join((f'{k} {v * 100:.3f}%' for k, v in r['max_relative'].items()))
                 lines.append(f"    {model}（{r['states']} 状態）: |Δρ| の最大 {r['max_abs_pcm']:.2f} pcm（{r['worst_pcm']:+.2f}、{r['worst']}）、rms {r['rms_pcm']:.2f} pcm、相対の差の最大 {rel}")
     for t in summary.get('thinning', []):
         if any(('kinds' not in r for s in t['selections'] for r in s['results'].values())):
             raise SystemExit(f"{t['name']}: the thinning has no errors per kind of state; rerun the comparison")
-        hours = f"、公称の状態の {len(t['nominal_burnup'])} 点のすべてで {t['hours']:.2f} 時間の見込み" if 'hours' in t else ''
+        hours = f"、基準条件の {len(t['nominal_burnup'])} 点のすべてで {t['hours']:.2f} 時間の見込み" if 'hours' in t else ''
         lines.append(f"{t['name']}: 燃焼度の点 {len(t['burnup'])}{hours}")
         for sel in t['selections']:
             hours = f"、{sel['hours']:.2f} 時間の見込み" if 'hours' in sel else ''
@@ -635,21 +635,21 @@ def report(summary: dict) -> list[str]:
             for method, r in plan['results'].items():
                 lines.append(f"    {method}: |Δρ| の最大 {r['max_abs_pcm']:.2f} pcm（{r['worst_kind']}）")
     for t in summary.get('nominal', []):
-        lines.append(f"{t['name']}: 公称の状態の燃焼度の点 {len(t['burnup'])}")
+        lines.append(f"{t['name']}: 基準条件の燃焼度の点 {len(t['burnup'])}")
         for sel in t['selections']:
-            lines.append(f"  公称の状態を {sel['name']}（{len(sel['burnup'])} 点）から: {sel['burnup']}")
+            lines.append(f"  基準条件を {sel['name']}（{len(sel['burnup'])} 点）から: {sel['burnup']}")
             for method, r in sel['results'].items():
                 rel = '、'.join((f'{k} {v * 100:.3f}%' for k, v in r['max_relative'].items()))
                 lines.append(f"    {method}: |Δρ| の最大 {r['max_abs_pcm']:.2f} pcm（{r['worst_pcm']:+.2f}、{r['worst_burnup']:g} MWd/kg）、rms {r['rms_pcm']:.2f} pcm、相対の差の最大 {rel}")
                 lines += micro_lines('      ', r)
     for t in summary.get('combined', []):
-        lines.append(f"{t['name']}: 公称の状態と公称でない状態の燃焼点を合わせた組")
+        lines.append(f"{t['name']}: 基準条件とブランチ条件の燃焼点を合わせた組")
         for pair in t['pairs']:
             hours = f"、{pair['hours']:.2f} 時間の見込み" if 'hours' in pair else ''
-            lines.append(f"  {pair['name']}（公称 {len(pair['nominal_burnup'])} 点、公称でない {len(pair['off_nominal_burnup'])} 点）{hours}")
+            lines.append(f"  {pair['name']}（基準条件 {len(pair['nominal_burnup'])} 点、ブランチ条件 {len(pair['off_nominal_burnup'])} 点）{hours}")
             for method, r in pair['results'].items():
                 n = r['nominal']
-                lines.append(f"    {method}: |Δρ| の最大 {r['max_abs_pcm']:.2f} pcm（{r['worst_pcm']:+.2f}、{r['worst']}）、公称の状態 {n['max_abs_pcm']:.2f} pcm（{n['worst_pcm']:+.2f}、{n['worst_burnup']:g} MWd/kg）")
+                lines.append(f"    {method}: |Δρ| の最大 {r['max_abs_pcm']:.2f} pcm（{r['worst_pcm']:+.2f}、{r['worst']}）、基準条件 {n['max_abs_pcm']:.2f} pcm（{n['worst_pcm']:+.2f}、{n['worst_burnup']:g} MWd/kg）")
                 lines += micro_lines('      ', r)
                 for kind, k in r['kinds'].items():
                     lines.append(f"      {kind}: |Δρ| の最大 {k['max_abs_pcm']:.2f} pcm（{k['worst_pcm']:+.2f}、{k['worst']}）")

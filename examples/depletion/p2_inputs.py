@@ -174,7 +174,7 @@ def lattice_input(job: str) -> str:
     ]
     cells = "\n".join(cell_block(k, gd_rings) for k in used)
     return (
-        f"# 格子計算の燃焼の検証（ADR-0178）: VERA Problem 2 の {description}を、分岐なしの 1 つの状態で、\n"
+        f"# 格子計算の燃焼の検証（ADR-0178）: VERA Problem 2 の {description}を、ブランチなしの 1 つの状態で、\n"
         f"# {len(burnup)} 点（最後は {burnup[-1]:g} MWd/kg）まで燃焼させる。OpenMC の参照解は openmc-{job}.toml。\n"
         "# 出力密度 38.41 W/g は VERA Problem 9 のサイクル 1 の平均（16.939 GWd/MT / 441 EFPD）。形状、組成と燃焼度の点は\n"
         "# OpenMC の入力と同じ表（openmc_depletion_assembly.py）から p2_inputs.py が書く。手で直さない。集合体の周りに水のギャップ 0.04 cm。\n"

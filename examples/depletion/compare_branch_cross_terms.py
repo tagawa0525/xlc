@@ -1,11 +1,11 @@
-"""分岐のテーブルの交差の項を落とす誤差を測る（ADR-0200）。軸の直積で解いたテーブルから、公称の状態と、公称の状態から 1 軸ずつ
-変えた分岐と、選んだ軸の組（交差の項）の部分格子だけを取り出して直積のすべての状態を組み立て（cut-HDMR）、直積の状態と比べる。
+"""ブランチのテーブルの交差の項を落とす誤差を測る（ADR-0200）。軸の直積で解いたテーブルから、基準条件と、基準条件から 1 軸ずつ
+変えたブランチと、選んだ軸の組（交差の項）の部分格子だけを取り出して直積のすべての状態を組み立て（cut-HDMR）、直積の状態と比べる。
 
 使い方: python3 compare_branch_cross_terms.py --json <要約の出力先> <入力（TOML）>
         python3 compare_branch_cross_terms.py --report <要約の JSON>
         python3 compare_branch_cross_terms.py --subgrids <直積のテーブル> <出力> <軸の組>...
 
-`--subgrids` は、lattice が書いた直積のテーブル（軸の公称の値を持つ）から、公称の状態と、1 軸ずつの分岐と、軸の組（`boron,moderator`
+`--subgrids` は、lattice が書いた直積のテーブル（軸の基準値を持つ）から、基準条件と、1 軸ずつのブランチと、軸の組（`boron,moderator`
 のようにカンマで区切る）の部分格子の点だけを残したテーブル（ADR-0200 の形）を書く。燃焼度と制御棒の軸はすべての値を残す。core が
 これから組み立てた状態を、ここでの組み立て（直積のテーブルから同じ点を取り出す）と比べる。
 
@@ -19,10 +19,10 @@
 
     [[model]]
     name = "ホウ素 × 減速材"
-    keep = [["boron", "moderator"]]        # 部分格子を解く軸の組。1 軸ずつの分岐はどのモデルも持つ
+    keep = [["boron", "moderator"]]        # 部分格子を解く軸の組。1 軸ずつのブランチはどのモデルも持つ
 
     [[thinning]]                           # 省略できる。燃焼度の軸を持ち、すべての状態をすべての燃焼点で解いたテーブル（直積か
-    name = "2A"                            # ADR-0200 の部分格子）で、分岐を解く燃焼点を間引く
+    name = "2A"                            # ADR-0200 の部分格子）で、ブランチ計算を行う燃焼点を間引く
     file = "table-2A.msgpack"
     nominal = { boron = 650, moderator = 580, fuel = 900 }
     selections = [{ name = "3 点", burnup = [0, 0.5, 60] }]   # 最初と最後の点を含み、どれかの点を除く
@@ -34,52 +34,52 @@
     reuse-axis = "boron"
     # other = 14.6                         # `total` の代わりに、燃焼点 1 つの状態によらない秒
     # states = { boron = 5, ... }          # 省略できる。見込むテーブルの種類ごとの状態の数（どの種類も書く。`other` と使う）。省略するとこのテーブルの数
-    # nominal-burnup = [0, 0.1, ...]       # 省略できる。見込むテーブルの公称の状態の燃焼点（このテーブルの点から。選び方の点を含む。
+    # nominal-burnup = [0, 0.1, ...]       # 省略できる。見込むテーブルの基準条件の燃焼点（このテーブルの点から。選び方の点を含む。
     #                                      # 省略するとこのテーブルの点）
 
     [[thinning.plans]]                     # 省略できる（timing が要る）。状態の種類ごとに選び方を決めた組
     name = "混ぜる"
     kinds = { boron = "3 点", ... }        # すべての種類に、selections の名前を書く
 
-    [[nominal]]                            # 省略できる。`[[thinning]]` と同じ形のテーブルで、公称の状態を解く燃焼点を間引く
+    [[nominal]]                            # 省略できる。`[[thinning]]` と同じ形のテーブルで、基準条件を解く燃焼点を間引く
     name = "2O"
     file = "table-2O-all.msgpack"
     nominal = { boron = 650, moderator = 580, fuel = 900 }
     selections = [{ name = "27 点", burnup = [0, 0.1, ...] }]
 
-    [[combined]]                           # 省略できる。`[[thinning]]` と同じ形のテーブルで、公称の状態と公称でない状態の燃焼点を
+    [[combined]]                           # 省略できる。`[[thinning]]` と同じ形のテーブルで、基準条件とブランチ条件の燃焼点を
     name = "2O"                            # 組にして間引く
     file = "table-2O-all.msgpack"
     nominal = { boron = 650, moderator = 580, fuel = 900 }
     selections = [{ name = "33 点", burnup = [...] }, { name = "19 点", burnup = [...] }]
-    pairs = [{ nominal = "33 点", off-nominal = "19 点" }]   # 公称でない点は公称の点の中から
+    pairs = [{ nominal = "33 点", off-nominal = "19 点" }]   # ブランチ条件の点は基準条件の点の中から
 
     [combined.timing]                      # 省略できる。`[thinning.timing]` と同じ（`nominal-burnup` は書かない）
 
 `[[table]]` と `[[model]]` も省略できる（間引きだけを比べる入力）。
 
-- 間引き: 選んだ燃焼点の、公称でない各状態の公称の状態との差を燃焼度について内挿し（`THINNING_METHODS`）、除いた点で全点の
-  テーブルの状態と比べる。最大は、すべての状態と、状態の種類（公称と違う軸の組。`boron`、`boron+moderator` など）ごとに書く。
+- 間引き: 選んだ燃焼点の、ブランチ条件の各状態の基準条件との差を燃焼度について内挿し（`THINNING_METHODS`）、除いた点で全点の
+  テーブルの状態と比べる。最大は、すべての状態と、状態の種類（基準条件と違う軸の組。`boron`、`boron+moderator` など）ごとに書く。
   テーブルが微視的断面積を持てば、微視的断面積と数密度の微分も同じ内挿で比べる（core の `interpolate_micro` は少数群定数と
   同じ重みで足す。差の測り方は `micro_errors`）
 
-- 公称の状態の燃焼点: 選んだ燃焼点の公称の状態を燃焼度について内挿し（`THINNING_METHODS`）、除いた点で全点のテーブルの公称の
-  状態と比べる（`nominal_points`）。間引きは公称の状態をテーブルのすべての点の値で持つので、この誤差を含まない（時間の見込みの
-  `nominal-burnup` の外の点でも、公称の状態は内挿でなくテーブルの値）
+- 基準条件の燃焼点: 選んだ燃焼点の基準条件を燃焼度について内挿し（`THINNING_METHODS`）、除いた点で全点のテーブルの基準条件の
+  状態と比べる（`nominal_points`）。間引きは基準条件をテーブルのすべての点の値で持つので、この誤差を含まない（時間の見込みの
+  `nominal-burnup` の外の点でも、基準条件は内挿でなくテーブルの値）
 
-- 公称の状態と公称でない状態の燃焼点の組: 公称の状態を組の公称の点から、公称でない状態の公称の状態との差を組の公称でない点から
-  内挿して足し（core の組み立て。`combine`）、公称でない点から除いた点で、全点のテーブルのすべての状態と比べる
+- 基準条件とブランチ条件の燃焼点の組: 基準条件を組の基準条件の点から、ブランチ条件の基準条件との差を組のブランチ条件の点から
+  内挿して足し（core の組み立て。`combine`）、ブランチ条件の点から除いた点で、全点のテーブルのすべての状態と比べる
 
-- 組み立て: 公称の状態を x0 とし、モデルの軸の組とその部分集合の全体を U（空集合と 1 軸ずつを含む）として、状態 x の値を
-  Σ_{u∈U} Σ_{v⊆u} (−1)^{|u|−|v|} f(x_v, x0) とする（f(x_v, x0) は v の軸だけ x の値にし、ほかを公称にした状態。cut-HDMR。
+- 組み立て: 基準条件を x0 とし、モデルの軸の組とその部分集合の全体を U（空集合と 1 軸ずつを含む）として、状態 x の値を
+  Σ_{u∈U} Σ_{v⊆u} (−1)^{|u|−|v|} f(x_v, x0) とする（f(x_v, x0) は v の軸だけ x の値にし、ほかを基準値にした状態。cut-HDMR。
   H. Rabitz, Ö. F. Aliş, J. Math. Chem. 25 (1999) 197）。U に入る軸の組の部分格子の点では、テーブルの値をそのまま返す
-- 制御棒は、`rods` のテーブルを離散の軸 `rods`（公称は "out"、もう 1 点が "in"）として足す。モデルの組に `rods` があり
+- 制御棒は、`rods` のテーブルを離散の軸 `rods`（基準値は "out"、もう 1 点が "in"）として足す。モデルの組に `rods` があり
   テーブルに `rods` がなければ、そのモデルを飛ばす
-- 燃焼度の軸があれば、燃焼度の点ごとにその点の公称の状態から組み立てる（燃焼度は組み立てる軸にしない）
+- 燃焼度の軸があれば、燃焼度の点ごとにその点の基準条件から組み立てる（燃焼度は組み立てる軸にしない）
 - 状態の数: モデルが解く状態の数 Σ_{u∈U} Π_{a∈u} (n_a − 1)（n_a は軸 a の点の数）と、直積の状態の数 Π n_a
 - 誤差: k∞ は少数群定数の無限媒質の固有値（compare_burnup_interpolation.py の `k_inf`）で、Δρ = (1/k_直積 − 1/k_組み立て) × 1e5 pcm。
   項目ごとの相対の差 |組み立て − 直積| / |直積| の、群（ADF は面と群）と状態についての最大も書く
-- M² = D1 / (Σt1 − Σs1→1) + D2 / (Σt2 − Σs2→2)（公称の状態の 2 群の移動面積。出力の分布の誤差の見積もりに使う。ADR-0200）
+- M² = D1 / (Σt1 − Σs1→1) + D2 / (Σt2 − Σs2→2)（基準条件の 2 群の移動面積。出力の分布の誤差の見積もりに使う。ADR-0200）
 - `inputs` は読んだファイルのパス（実行した cwd から）と md5
 """
 
@@ -100,7 +100,7 @@ from compare_burnup_interpolation import interpolate, k_inf, unvector, vector
 # 相対の差を書く項目
 RELATIVE = ["fission", "nu_fission", "absorption", "diffusion", "adf"]
 RODS = ["out", "in"]
-# 分岐と公称の差を燃焼度について内挿する方式（compare_burnup_interpolation.py の名前。hermite は core の内挿。ADR-0192）
+# ブランチ条件と基準条件の差を燃焼度について内挿する方式（compare_burnup_interpolation.py の名前。hermite は core の内挿。ADR-0192）
 THINNING_METHODS = ["linear", "hermite"]
 
 
@@ -156,7 +156,7 @@ def relative_errors(rebuilt: dict, truth: dict) -> dict:
 
 
 def table_grid(name: str, table: dict, nominal: dict) -> dict:
-    """テーブルの燃焼度の点（なければ None）、連続の軸の名前と点、公称の状態の点の番号、燃焼度の点ごとの状態の数を確かめて返す"""
+    """テーブルの燃焼度の点（なければ None）、連続の軸の名前と点、基準条件の点の番号、燃焼度の点ごとの状態の数を確かめて返す"""
     if table.get("format") != "xlc-table" or table.get("split") != 1:
         raise SystemExit(
             f"{name}: the table must be an xlc-table that does not split the assembly"
@@ -292,7 +292,7 @@ def summarize_table(
 
 
 def state_kind(names: list[str], index: tuple, nominal: tuple) -> str:
-    """公称と違う軸の名前を軸の順に `+` でつないだもの（状態の種類。`boron+moderator` など）"""
+    """基準条件と違う軸の名前を軸の順に `+` でつないだもの（状態の種類。`boron+moderator` など）"""
     return "+".join(n for k, n in enumerate(names) if index[k] != nominal[k])
 
 
@@ -303,7 +303,7 @@ def kind_order(kind: str, names: list[str]) -> tuple:
 
 
 def burnup_states(name: str, table: dict, nominal: dict) -> dict:
-    """燃焼度を最初の軸に持つテーブル（直積か、ADR-0200 の部分格子）の、燃焼度の点、状態の軸の名前と点、公称の状態の点の番号と、
+    """燃焼度を最初の軸に持つテーブル（直積か、ADR-0200 の部分格子）の、燃焼度の点、状態の軸の名前と点、基準条件の点の番号と、
     状態の点の番号（燃焼度を除く。テーブルの順）ごとの、燃焼度の点ごとの `states` の位置。間引きの真値にするので、どの状態も
     すべての燃焼度の点で解いてあること"""
     if table.get("format") != "xlc-table" or table.get("split") != 1:
@@ -510,8 +510,8 @@ def thin(
     timing: dict | None = None,
     plans: list[dict] = (),
 ) -> dict:
-    """分岐を燃焼度の点 `burnup` だけで解いたとして、公称でない各状態の、公称の状態との差（少数群定数の項目と、テーブルが持てば
-    微視的断面積と数密度の微分）を燃焼度について内挿し、選ばなかった点の公称の状態に足して、全点のテーブルの状態と比べる（Δρ は
+    """ブランチ計算を燃焼度の点 `burnup` だけで解いたとして、ブランチ条件の各状態の、基準条件との差（少数群定数の項目と、テーブルが持てば
+    微視的断面積と数密度の微分）を燃焼度について内挿し、選ばなかった点の基準条件に足して、全点のテーブルの状態と比べる（Δρ は
     `summarize_table` と同じ向き。微視的断面積の差は `micro_errors`）。最大は、すべての状態についてのものと、状態の種類
     （`state_kind`）ごとのもの（`kinds`）を書く。テーブルは直積でも ADR-0200 の部分格子でもよい（`burnup_states`）。
 
@@ -684,9 +684,9 @@ def chosen_points(name: str, sel: dict, burnup: list[float]) -> tuple:
 def nominal_burnup(
     name: str, timing: dict | None, burnup: list[float], selections: list[dict]
 ) -> list[float]:
-    """時間の見込みで、公称の状態と状態によらない秒を数える燃焼点。`timing` の `nominal-burnup`（見込むテーブルの公称の状態の
-    燃焼点。間引きの真値のテーブルより少ない点で公称の状態を解くテーブルの見込み）か、このテーブルの点。公称でない状態は公称の
-    状態を解く燃焼点でしか解けない（公称の状態との差を持つ）ので、どの選び方の点もその中にあること"""
+    """時間の見込みで、基準条件と状態によらない秒を数える燃焼点。`timing` の `nominal-burnup`（見込むテーブルの基準条件の
+    燃焼点。間引きの真値のテーブルより少ない点で基準条件を解くテーブルの見込み）か、このテーブルの点。ブランチ条件は基準条件を
+    解く燃焼点でしか解けない（基準条件との差を持つ）ので、どの選び方の点もその中にあること"""
     if timing is None or "nominal-burnup" not in timing:
         return burnup
     given = timing["nominal-burnup"]
@@ -719,9 +719,9 @@ def nominal_burnup(
 def nominal_points(
     name: str, table: dict, nominal: dict, selections: list[dict]
 ) -> dict:
-    """公称の状態を燃焼度の点 `burnup` だけで解いたとして、その点の公称の状態（少数群定数の項目と、テーブルが持てば微視的断面積と
-    数密度の微分）を燃焼度について内挿し（`THINNING_METHODS`）、選ばなかった点で全点のテーブルの公称の状態と比べる（Δρ は
-    `summarize_table` と同じ向き、項目の相対の差は `relative_errors`、微視的断面積の差は `micro_errors`）。公称でない状態は使わない。
+    """基準条件を燃焼度の点 `burnup` だけで解いたとして、その点の基準条件（少数群定数の項目と、テーブルが持てば微視的断面積と
+    数密度の微分）を燃焼度について内挿し（`THINNING_METHODS`）、選ばなかった点で全点のテーブルの基準条件と比べる（Δρ は
+    `summarize_table` と同じ向き、項目の相対の差は `relative_errors`、微視的断面積の差は `micro_errors`）。ブランチ条件は使わない。
     テーブルは `thin` と同じ（`burnup_states`）"""
     grid_of = burnup_states(name, table, nominal)
     burnup = grid_of["burnup"]
@@ -795,7 +795,7 @@ def nominal_at(
     at_index: list[int],
     removed: list[int],
 ) -> np.ndarray:
-    """公称の状態の値 `values`（[燃焼度の点][値]）の、除いた点 `removed` の値: 公称の点 `at_index` ではテーブルの値、ほかは公称の
+    """基準条件の値 `values`（[燃焼度の点][値]）の、除いた点 `removed` の値: 基準条件の点 `at_index` ではテーブルの値、ほかは基準条件の
     点から内挿した値"""
     held = values[removed].copy()
     between = [n for n, i in enumerate(removed) if i not in at_index]
@@ -817,16 +817,16 @@ def combine(
     pairs: list[dict],
     timing: dict | None = None,
 ) -> dict:
-    """公称の状態を組の `nominal` の選び方の燃焼点だけで、公称でない状態を `off-nominal` の選び方の燃焼点だけで解いたとして、
-    core の組み立て（state.rs の `Assembly::corner`。公称の状態を公称の点から内挿し、公称でない状態の公称の状態との差を、その状態を
-    解いた点の公称の状態との差から内挿して足す。ADR-0200 の「core の内挿」）の値を、公称でない点から除いた点で、全点のテーブルの
-    すべての状態（公称の状態を含む）と比べる。公称の点では公称の状態はテーブルの値（core は格子点で重みが厳密に 1）。内挿は
-    `THINNING_METHODS` で、公称の状態と差に同じ方式を当てる。出す量は `thin` と同じ（全体と状態の種類ごとの最大、微視的断面積の
-    差）に、公称の状態の最大（`nominal`）と、少数群定数の項目の相対の差の最大（`relative_errors`）を足したもの。
+    """基準条件を組の `nominal` の選び方の燃焼点だけで、ブランチ条件を `off-nominal` の選び方の燃焼点だけで解いたとして、
+    core の組み立て（state.rs の `Assembly::corner`。基準条件を基準条件の点から内挿し、ブランチ条件の基準条件との差を、その状態を
+    解いた点の基準条件との差から内挿して足す。ADR-0200 の「core の内挿」）の値を、ブランチ条件の点から除いた点で、全点のテーブルの
+    すべての状態（基準条件を含む）と比べる。基準条件の点では基準条件はテーブルの値（core は格子点で重みが厳密に 1）。内挿は
+    `THINNING_METHODS` で、基準条件と差に同じ方式を当てる。出す量は `thin` と同じ（全体と状態の種類ごとの最大、微視的断面積の
+    差）に、基準条件の最大（`nominal`）と、少数群定数の項目の相対の差の最大（`relative_errors`）を足したもの。
 
-    core の燃焼度の軸の点は公称の状態を解いた点で、公称でない状態はその軸の点の番号で解いた点を持つので、公称でない点は公称の点の
-    中にあること。`timing`（`thinning_time`）があれば、組ごとに、公称の状態と状態によらない秒を公称の点の数で、公称でない状態の秒を
-    公称でない点の数で数えた時間を書く（`table_hours`。`nominal-burnup` は組が持つので書かない）"""
+    core の燃焼度の軸の点は基準条件を解いた点で、ブランチ条件はその軸の点の番号で解いた点を持つので、ブランチ条件の点は基準条件の点の
+    中にあること。`timing`（`thinning_time`）があれば、組ごとに、基準条件と状態によらない秒を基準条件の点の数で、ブランチ条件の秒を
+    ブランチ条件の点の数で数えた時間を書く（`table_hours`。`nominal-burnup` は組が持つので書かない）"""
     grid_of = burnup_states(name, table, nominal)
     burnup, names, points = grid_of["burnup"], grid_of["names"], grid_of["points"]
     rows = grid_of["rows"]
@@ -1002,7 +1002,7 @@ def combine(
 def thinning_time(timing: dict, counts: dict) -> dict:
     """テーブルを作る時間の見込みの、燃焼点ごとの秒。`timing` は、すべての状態を解いた燃焼点 1 つの全体の秒 `total`、自己遮蔽を
     解く状態の 1 状態の秒 `solve`、自己遮蔽を再利用する状態の秒 `reuse`、再利用する状態の変えた軸 `reuse-axis`（ADR-0201 の
-    ホウ素。その軸を公称から変えた状態は、ほかの軸の同じ状態の自己遮蔽を再利用する）。公称の状態は `solve`。状態によらない秒
+    ホウ素。その軸を基準値から変えた状態は、ほかの軸の同じ状態の自己遮蔽を再利用する）。基準条件は `solve`。状態によらない秒
     （`other`）は、`total` から状態の秒を引いた残りか、`total` の代わりに `timing` の `other`。状態の種類ごと（`counts` は種類 →
     状態の数）の秒は、状態の数 × 1 状態の秒。`timing` の `states`（種類 → 状態の数。テーブルのどの種類も書く）があれば、`counts` の
     代わりにその数で数え、状態によらない秒は `other` で与える（間引きの誤差を測ったテーブルと別の、本番の形のテーブルの見込み）。数えた状態の数 `counts` と全体の秒 `total` も返す"""
@@ -1070,7 +1070,7 @@ def thinning_time(timing: dict, counts: dict) -> dict:
 
 
 def table_hours(seconds: dict, burnups: int, points: dict) -> float:
-    """公称の状態と状態によらない秒を見込むテーブルの公称の状態の燃焼点の数（`burnups`。`nominal_burnup`）で、状態の種類ごとの秒を
+    """基準条件と状態によらない秒を見込むテーブルの基準条件の燃焼点の数（`burnups`。`nominal_burnup`）で、状態の種類ごとの秒を
     その種類を解く燃焼点の数（`points`）で数えた時間"""
     total = burnups * (seconds["other"] + seconds["nominal"])
     total += sum(seconds["kinds"][k] * n for k, n in points.items())
@@ -1100,7 +1100,7 @@ def thinning_plan(
         axes = kind.split("+")
         if reuse_axis not in axes or len(axes) == 1:
             continue
-        # 再利用する状態は、再利用する先の状態を解いた燃焼点でしか解けない（ADR-0201）。公称の状態は、どの選び方の点でも解く（`nominal_burnup`）
+        # 再利用する状態は、再利用する先の状態を解いた燃焼点でしか解けない（ADR-0201）。基準条件は、どの選び方の点でも解く（`nominal_burnup`）
         base = "+".join(a for a in axes if a != reuse_axis)
         if not set(by_name[chosen[kind]]["burnup"]) <= set(
             by_name[chosen[base]]["burnup"]
@@ -1130,7 +1130,7 @@ STATE_AXES = ["boron", "moderator", "fuel"]
 
 
 def subgrid_table(table: dict, keep: list[list[str]]) -> dict:
-    """直積のテーブル `table` から、公称の状態と 1 軸ずつの分岐と、`keep` の軸の組の部分格子の点だけを残したテーブル（モジュールの
+    """直積のテーブル `table` から、基準条件と 1 軸ずつのブランチと、`keep` の軸の組の部分格子の点だけを残したテーブル（モジュールの
     説明の `--subgrids`）"""
     axes = table["axes"]
     positions = [i for i, a in enumerate(axes) if a["name"] in STATE_AXES]
@@ -1150,7 +1150,7 @@ def subgrid_table(table: dict, keep: list[list[str]]) -> dict:
 
     def solved(point: list[int]) -> bool:
         off = {axes[i]["name"] for i in positions if point[i] != nominal[i]}
-        # 1 軸ずつの分岐はどのモデルも持つ（`closure`）
+        # 1 軸ずつのブランチはどのモデルも持つ（`closure`）
         return len(off) <= 1 or any(off <= k for k in kept)
 
     sub = table["split"] ** 2
@@ -1163,7 +1163,7 @@ def subgrid_table(table: dict, keep: list[list[str]]) -> dict:
 
 
 def summarize(tables: list[tuple], models: list[dict]) -> dict:
-    """`tables` は (名前, テーブル, 制御棒を入れたテーブルか None, 公称の状態) の列"""
+    """`tables` は (名前, テーブル, 制御棒を入れたテーブルか None, 基準条件) の列"""
     return {
         "tables": [
             summarize_table(n, t, r, nominal, models) for n, t, r, nominal in tables
@@ -1180,13 +1180,13 @@ def report(summary: dict) -> list[str]:
     for t in summary["tables"]:
         axes = " × ".join(f"{a} {v}" for a, v in t["axes"].items())
         lines.append(
-            f"{t['name']}: {axes}（直積 {t['grid_states']} 状態）、公称 {t['nominal']}、"
+            f"{t['name']}: {axes}（直積 {t['grid_states']} 状態）、基準条件 {t['nominal']}、"
             f"k∞ の解き直しとテーブルの k_inf の差の最大 {t['table_k_max_abs_pcm']:.4f} pcm"
         )
         for p in t["points"]:
             where = "" if p["burnup"] is None else f"{p['burnup']:g} MWd/kg: "
             lines.append(
-                f"  {where}公称の k∞ {p['nominal_k']:.6f}、M² {p['migration_area_cm2']:.2f} cm²"
+                f"  {where}基準条件の k∞ {p['nominal_k']:.6f}、M² {p['migration_area_cm2']:.2f} cm²"
             )
             for model, r in p["models"].items():
                 rel = "、".join(
@@ -1204,7 +1204,7 @@ def report(summary: dict) -> list[str]:
                 f"{t['name']}: the thinning has no errors per kind of state; rerun the comparison"
             )
         hours = (
-            f"、公称の状態の {len(t['nominal_burnup'])} 点のすべてで {t['hours']:.2f} 時間の見込み"
+            f"、基準条件の {len(t['nominal_burnup'])} 点のすべてで {t['hours']:.2f} 時間の見込み"
             if "hours" in t
             else ""
         )
@@ -1230,10 +1230,10 @@ def report(summary: dict) -> list[str]:
                     f"    {method}: |Δρ| の最大 {r['max_abs_pcm']:.2f} pcm（{r['worst_kind']}）"
                 )
     for t in summary.get("nominal", []):
-        lines.append(f"{t['name']}: 公称の状態の燃焼度の点 {len(t['burnup'])}")
+        lines.append(f"{t['name']}: 基準条件の燃焼度の点 {len(t['burnup'])}")
         for sel in t["selections"]:
             lines.append(
-                f"  公称の状態を {sel['name']}（{len(sel['burnup'])} 点）から: {sel['burnup']}"
+                f"  基準条件を {sel['name']}（{len(sel['burnup'])} 点）から: {sel['burnup']}"
             )
             for method, r in sel["results"].items():
                 rel = "、".join(
@@ -1245,18 +1245,18 @@ def report(summary: dict) -> list[str]:
                 )
                 lines += micro_lines("      ", r)
     for t in summary.get("combined", []):
-        lines.append(f"{t['name']}: 公称の状態と公称でない状態の燃焼点を合わせた組")
+        lines.append(f"{t['name']}: 基準条件とブランチ条件の燃焼点を合わせた組")
         for pair in t["pairs"]:
             hours = f"、{pair['hours']:.2f} 時間の見込み" if "hours" in pair else ""
             lines.append(
-                f"  {pair['name']}（公称 {len(pair['nominal_burnup'])} 点、公称でない "
+                f"  {pair['name']}（基準条件 {len(pair['nominal_burnup'])} 点、ブランチ条件 "
                 f"{len(pair['off_nominal_burnup'])} 点）{hours}"
             )
             for method, r in pair["results"].items():
                 n = r["nominal"]
                 lines.append(
                     f"    {method}: |Δρ| の最大 {r['max_abs_pcm']:.2f} pcm（{r['worst_pcm']:+.2f}、{r['worst']}）、"
-                    f"公称の状態 {n['max_abs_pcm']:.2f} pcm（{n['worst_pcm']:+.2f}、{n['worst_burnup']:g} MWd/kg）"
+                    f"基準条件 {n['max_abs_pcm']:.2f} pcm（{n['worst_pcm']:+.2f}、{n['worst_burnup']:g} MWd/kg）"
                 )
                 lines += micro_lines("      ", r)
                 for kind, k in r["kinds"].items():

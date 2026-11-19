@@ -1,7 +1,7 @@
-# 履歴の残り R の分け方（ADR-0215、#0190）: 減速材の密度の履歴の分岐（residual-density-history.toml。一生を条件 j）の追う 31 核種だけを
-# 公称の履歴（../p2/lattice-2A.msgpack）に入れた組成（make_hybrid.py の --micro。hybrid-residual-density.msgpack）の、
+# 履歴の残り R の分け方（ADR-0215、#0190）: 減速材の密度の履歴ブランチ（residual-density-history.toml。一生を条件 j）の追う 31 核種だけを
+# ベース計算の履歴（../p2/lattice-2A.msgpack）に入れた組成（make_hybrid.py の --micro。hybrid-residual-density.msgpack）の、
 # residual-density-branch.toml と同じ 17 点を、同じ条件 j の 1 状態（ホウ素 1300 ppm、減速材 600 K と 0.661 g/cc、燃料 565 K）で解く。
-# residual-density-branch.toml との差が追わない核種の分、公称のテーブルの条件 j の状態との差から線形の補正を引いたものが線形化の誤差。
+# residual-density-branch.toml との差が追わない核種の分、ベース計算のテーブルの条件 j の状態との差から線形の補正を引いたものが線形化の誤差。
 library = "../p2/depletion.msgpack"
 few-group = { output = "table-hybrid-residual-density-branch.msgpack", bounds = [1e7, 0.625, 1e-5] }
 ufg-tolerance = 1e-4

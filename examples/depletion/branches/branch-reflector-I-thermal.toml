@@ -1,5 +1,5 @@
 # 熱水力のある core の燃焼（#0228）の小さな炉心の径方向の反射体の定数: branch-reflector-I-boron.toml と同じ格子と離散化、組成を、
-# 2A のテーブル（branch-2A-micro-thermal-rod-axis.toml）と同じ公称の状態とホウ素の点で解く。分岐はホウ素 0、600、1300 ppm × 燃料 565 K
+# 2A のテーブル（branch-2A-micro-thermal-rod-axis.toml）と同じ基準条件とホウ素の点で解く。ブランチ計算の状態はホウ素 0、600、1300 ppm × 燃料 565 K
 # （減速材は 565 K、熱水力の圧力の IF97 の密度 0.742713 g/cc）の 3 状態。径方向の反射体の位置は流路を持たず入口の温度なので
 # （ADR-0229）、減速材と燃料の格子点は入口の温度 565 K の 1 点。燃料は新しい燃料のまま（反射体は燃焼しない。ADR-0190）。炉心は
 # 反射体のノードの定数だけを使う（燃料のノードは、ノードが格子のすべてのマスを覆うために書く）。
@@ -82,7 +82,7 @@ Sn-124 = 2.79392e-05
 
 [material.water]
 temperature = 565
-# 公称の 1300 ppm（branch-2A-micro-thermal-rod-axis.toml と同じ書き方）
+# 基準の 1300 ppm（branch-2A-micro-thermal-rod-axis.toml と同じ書き方）
 water = { density = 0.742713, boron = 1300, b10 = 0.199 }
 
 [material.ss304]

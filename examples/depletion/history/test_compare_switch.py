@@ -15,7 +15,7 @@ from test_compare_core_history import core, sigma
 from test_compare_core_history import table as residual_table
 from test_compare_residual import NUCLIDES, axes, few
 
-# 10 MWd/kg まで公称、その後を条件 j。参照は 10 と 20 MWd/kg
+# 10 MWd/kg まで基準条件、その後を条件 j。参照は 10 と 20 MWd/kg
 N10 = [6.0e-4, 1.0e-5]
 N20 = [5.25e-4, 2.5e-5]
 PLAIN20 = [5.3e-4, 2.4e-5]
@@ -45,8 +45,8 @@ def rate(a, b):
     }
 
 
-# 履歴ブランチ（一生を条件 j）の R の点 0、20 の、追う核種ごとの反応率の微視的断面積の差 Δσ_U（分岐 − ハイブリッド）と Δσ_L（ハイブリッド −
-# 公称の条件 j）
+# 履歴ブランチ（一生を条件 j）の R の点 0、20 の、追う核種ごとの反応率の微視的断面積の差 Δσ_U（ブランチ計算 − ハイブリッド）と Δσ_L（ハイブリッド −
+# ベース計算のテーブルの条件 j）
 RATE_UNTRACKED = [
     [
         rate(sigma(1.5, False), sigma(1.0, False)),
@@ -83,7 +83,7 @@ def table():
 
 
 def reference():
-    """参照（途中で条件を変えた燃焼の履歴の 10、20 MWd/kg を条件 j で解いた分岐。600 K、0.661 g/cc）"""
+    """参照（途中で条件を変えた燃焼の履歴の 10、20 MWd/kg を条件 j で解いたブランチ計算。600 K、0.661 g/cc）"""
     return {
         "format": "xlc-table",
         "axes": axes([10.0, 20.0], [600.0], [0.661], 600.0),
@@ -101,7 +101,7 @@ def reference():
 
 
 def hybrid():
-    """参照の追う核種だけを公称の履歴に入れた組成（ハイブリッド）を、参照と同じ点と条件 j で解いた分岐"""
+    """参照の追う核種だけをベース計算の履歴に入れた組成（ハイブリッド）を、参照と同じ点と条件 j で解いたブランチ計算"""
     out = reference()
     out["states"] = [few(2.45), few(4.3)]
     out["micro"]["states"] = [
@@ -200,18 +200,18 @@ class Compare(unittest.TestCase):
         # w = (H − H⁰) / (Hᵇ − H⁰) は 20 MWd/kg で 1/2、続ける点で 0
         self.assertAlmostEqual(last["weight"], 0.5, places=12)
         self.assertEqual(rows[0]["weight"], 0.0)
-        # 参照の分岐は格子計算の履歴の点を再現する
+        # 参照のブランチ計算は格子計算の履歴の点を再現する
         self.assertAlmostEqual(
             last["reference_history_pcm"],
             r.rho(k_reference) - r.rho(history()["points"][2]["k_inf"]),
             places=9,
         )
-        # 一生を条件 j で燃焼させた core と公称の燃焼の core の差を同じ点に並べる
+        # 一生を条件 j で燃焼させた core と基準条件で燃焼させた core の差を同じ点に並べる
         self.assertEqual(last["branch_difference_pcm"], -2.0)
         self.assertEqual(last["nominal_difference_pcm"], -1.5)
 
     def test_the_continued_point_matches_the_nominal_table_at_condition_j(self):
-        # 続ける点の参照は、公称の組成を条件 j で解いたもので、ベース計算のテーブルの条件 j の状態と同じ
+        # 続ける点の参照は、ベース計算の組成を条件 j で解いたもので、ベース計算のテーブルの条件 j の状態と同じ
         s = compared()
         t = table()
         k_table = t["states"][t["points"].index([1, 0, 1, 0])]["k_inf"]
@@ -289,7 +289,7 @@ class Compare(unittest.TestCase):
         # core の H（ω = 1）から各ステップの x を戻し、H(B₀ + ΔB) = (H(B₀) B₀ + ω x ΔB) / (B₀ + ωΔB) で進め直した w と、補正の量が w に
         # 比例すると置いた差の見込み: 補正を切った差 − w(ω) / w(1) × (補正を切った差 − 補正した差)
         s = compared()
-        # 0〜10 MWd/kg は公称（x = 0.743、w の x は 0）、10〜20 は条件 j（w の x は 1）
+        # 0〜10 MWd/kg は基準条件（x = 0.743、w の x は 0）、10〜20 は条件 j（w の x は 1）
         omega = next(x for x in s["omegas"] if x["omega"] == 2.0)
         w2 = (0.0 * 10.0 + 2.0 * 1.0 * 10.0) / (10.0 + 2.0 * 10.0)
         self.assertEqual(omega["weights"][0], 0.0)
@@ -403,9 +403,9 @@ class Compare(unittest.TestCase):
     def test_the_rate_residual_outliers_are_split_into_the_untracked_part_and_the_linearization(
         self,
     ):
-        # core の反応率は σ(公称、条件 j) + w Δσ_U + (P / P_j) Δσ_L（反応率の微分を持つ核種は、さらに
+        # core の反応率は σ(ベース計算、条件 j) + w Δσ_U + (P / P_j) Δσ_L（反応率の微分を持つ核種は、さらに
         # (Nᵢ − N̄ᵢ⁰ − (P / P_j) ΔN̄ᵢ^j) ∂σᵢ/∂N̄ᵢ）、参照は σ(参照)。外れを、ハイブリッドで分けた参照の
-        # Δσ_U,switch = σ(参照) − σ(ハイブリッド) と Δσ_L,switch = σ(ハイブリッド) − σ(公称、条件 j) からの差に分ける（核分裂と
+        # Δσ_U,switch = σ(参照) − σ(ハイブリッド) と Δσ_L,switch = σ(ハイブリッド) − σ(ベース計算、条件 j) からの差に分ける（核分裂と
         # 捕獲の和、群ごと、参照の σ に対する %）。自分の数密度の項は Δσ_L の側に入れ、その分も並べる
         with mock.patch.object(c, "GROUPS", ["U-235", "Pu-240"]):
             s = compared()

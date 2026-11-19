@@ -22,7 +22,7 @@ def history():
 
 
 def table(burnups, ks, boron=(1300.0,)):
-    """燃焼度の点 `burnups` × ホウ素の点 `boron` のテーブル（公称は 1300 ppm、565 K）。状態の並びは燃焼度が外"""
+    """燃焼度の点 `burnups` × ホウ素の点 `boron` のテーブル（基準条件は 1300 ppm、565 K）。状態の並びは燃焼度が外"""
     points = [[i, j, 0, 0] for i in range(len(burnups)) for j in range(len(boron))]
     return {
         "format": "xlc-table",
@@ -54,7 +54,7 @@ class Rows(unittest.TestCase):
             table_history_k.rows(history(), table([0.0, 0.5], [1.1, 1.0]))
 
     def test_tables_with_several_states_per_burnup_are_errors(self):
-        # 燃焼度ごとにホウ素 2 状態あると、ブランチ条件も公称の履歴と比べてしまう
+        # 燃焼度ごとにホウ素 2 状態あると、ブランチ条件もベース計算の履歴と比べてしまう
         with self.assertRaises(SystemExit):
             table_history_k.rows(
                 history(), table([0.0], [1.1, 1.0], boron=(600.0, 1300.0))

@@ -1,13 +1,13 @@
-"""制御棒の分岐を解いた格子（`[branches.rod]`。ADR-0224、ADR-0227）の値 out の状態を、同じ層の棒のない格子の状態と比べる（#0225）。
+"""制御棒のブランチ計算を行った格子（`[branches.rod]`。ADR-0224、ADR-0227）の値 out の状態を、同じ層の棒のない格子の状態と比べる（#0225）。
 
 使い方（examples/vera/p5 で）:
-    python3 compare_rodless.py --json <JSON> [rod:]<制御棒の分岐の出力>=<棒のない出力> ...
+    python3 compare_rodless.py --json <JSON> [rod:]<制御棒のブランチの出力>=<棒のない出力> ...
     python3 compare_rodless.py --report <JSON>
 
-出力の組ごとに、`format` で種類を決める。`rod:` を付けた組の制御棒の分岐の出力は制御棒の軸を持ち（燃料のノードのテーブル）、付けない
+出力の組ごとに、`format` で種類を決める。`rod:` を付けた組の制御棒のブランチの出力は制御棒の軸を持ち（燃料のノードのテーブル）、付けない
 組は持たない（反射体のノードのテーブルと媒質。ADR-0227）。食い違えばエラー。
 
-- 分岐のテーブル（`xlc-table`）: 制御棒の軸を最後に持つなら、その最初の値が `out` で、ほかの軸が棒のないテーブルの軸と同じことを
+- ブランチのテーブル（`xlc-table`）: 制御棒の軸を最後に持つなら、その最初の値が `out` で、ほかの軸が棒のないテーブルの軸と同じことを
   確かめ、棒のないテーブルの点ごとに、点に値 `out` の番号 0 を足した点の状態（split² の部分ノード）と比べる
   （crates/lattice/tests/history_rod_branch.rs と同じ照らし方）。軸を持たなければ（反射体のノード）、軸と点が同じことを確かめ、
   点ごとに比べる。値 out の点の集合と棒のない点の集合、点と状態の数（split²）が合わなければエラー。`bounds` と `split` は同じでなければならず、`heavy_metal`、`micro`、`histories` は持たない（燃焼のない格子）
@@ -17,7 +17,7 @@
 エラーにする。0.0 と −0.0 は違う状態に数え、相対差は 0 とする。数でない項目の違い（nil と数、空の列と空の map など）はエラー。違う状態があれば、項目（状態の
 最上位のキー）ごとの最大の相対差 |a − b| / max(|a|, |b|) のうち最大のものと、テーブルでは k∞ の差の最大 |Δk∞| / k∞ × 1e5（pcm）を出す。
 
-JSON は `{"format": "xlc-compare-rodless", "inputs": [読んだファイルのパスと md5], "outputs": [組ごとの name（制御棒の分岐の出力の
+JSON は `{"format": "xlc-compare-rodless", "inputs": [読んだファイルのパスと md5], "outputs": [組ごとの name（制御棒のブランチの出力の
 パス）、reference（棒のない出力のパス）、kind（table か medium）、rod_axis、states（比べた状態の数）、bit_equal（ビットまで同じ状態の数）、
 max_relative_difference、field（その項目。すべて同じなら null）、max_k_inf_pcm（媒質は null）], "all_bit_equal"}`。
 `--json` は標準出力に何も出さず、`--report` が JSON から文章を描く。標準ライブラリと msgpack だけ。
@@ -94,7 +94,7 @@ def differences(a: dict, b: dict) -> tuple[bool, float, str | None]:
 
 
 def pairs_of_table(rod: dict, rodless: dict, expected: bool) -> list[tuple[dict, dict]]:
-    """比べる (制御棒の分岐の状態, 棒のない状態) の組。`expected` は制御棒の軸を持つべきか"""
+    """比べる (制御棒のブランチの状態, 棒のない状態) の組。`expected` は制御棒の軸を持つべきか"""
     for key in ("bounds", "split"):
         if rod[key] != rodless[key]:
             raise SystemExit(f"{key} differs: {rod[key]} and {rodless[key]}")
@@ -143,7 +143,7 @@ def pairs_of_table(rod: dict, rodless: dict, expected: bool) -> list[tuple[dict,
 
 
 def compare(rod_path: str, rodless_path: str, rod_axis: bool) -> dict:
-    """1 つの組の比較。`rod_axis` は、制御棒の分岐の出力が制御棒の軸を持つべきか（燃料のノードのテーブル。反射体のノードの
+    """1 つの組の比較。`rod_axis` は、制御棒のブランチの出力が制御棒の軸を持つべきか（燃料のノードのテーブル。反射体のノードの
     テーブルと媒質は持たない。ADR-0227）"""
     rod, rodless = read(rod_path), read(rodless_path)
     if rod.get("format") != rodless.get("format"):

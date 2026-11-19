@@ -10,20 +10,20 @@ inputs.py の 9 ケースで測っていない条件で比べる入力を書く�
 
 - ピンセルの燃焼（`burn-uo2`、`burn-mox`）: 0 から 60 MWd/kg まで燃焼させ、燃焼点ごとの k∞ と数密度を比べる（変種ごとに別の履歴。
   閾値をまたぐ核種の段をここで見る）。形状は ../lattice-1C-rings4.toml（燃料 4 リングの燃焼の領域）、組成はウラン燃料が同じ入力、
-  MOX が ../lattice-mox1-rings1.toml の MOX-1。ライブラリは ../p2/depletion.msgpack（分岐の燃料の温度 1200 K と減速材の 580、600 K を
-  持つ）、燃料 900 K、被覆管と減速材 580 K、ホウ酸水 0.711901 g/cc、650 ppm（../issue-0180/branch/2A-60.toml の公称の状態）
-- ピンセルの分岐（`branch-uo2`、`branch-mox`）: 燃焼の `full` の履歴の 0、20、40、60 MWd/kg から、公称、燃料の温度 1200 K、減速材の
+  MOX が ../lattice-mox1-rings1.toml の MOX-1。ライブラリは ../p2/depletion.msgpack（ブランチ計算の燃料の温度 1200 K と減速材の 580、600 K を
+  持つ）、燃料 900 K、被覆管と減速材 580 K、ホウ酸水 0.711901 g/cc、650 ppm（../issue-0180/branch/2A-60.toml の基準条件）
+- ピンセルのブランチ計算（`branch-uo2`、`branch-mox`）: 燃焼の `full` の履歴の 0、20、40、60 MWd/kg から、基準条件、燃料の温度 1200 K、減速材の
   600 K（0.661165 g/cc）、その両方の 4 状態。ミクロ燃焼の 31 核種の微視的断面積も書く。どちらの変種も同じ組成（`full` の履歴）
-- ピンセルの微分（`derivative-uo2`、`derivative-mox`）: 同じ履歴の 60 MWd/kg の公称の 1 状態で、Pu-240 と U-238 の数密度の微分を
+- ピンセルの微分（`derivative-uo2`、`derivative-mox`）: 同じ履歴の 60 MWd/kg の基準条件の 1 状態で、Pu-240 と U-238 の数密度の微分を
   摂動の組成で自己遮蔽を解き直して求める（`derivative-shielding = "solved"`。一般化摂動の `shielded` と同じく、摂動の組成で外す
   核種を選び直す経路）
-- 集合体の分岐（../issue-0180/fuels/inputs.py と同じ作り。燃焼の履歴の燃焼点から、履歴と同じ条件の分岐）: Gd の 2O の 10、40 MWd/kg
-  （公称と減速材の 615 K（0.690 g/cc）の 2 状態。燃料の温度の分岐は、p2 の履歴が 600 K の燃料で H-1 を輸送し、ライブラリの H-1 に
+- 集合体のブランチ計算（../issue-0180/fuels/inputs.py と同じ作り。燃焼の履歴の燃焼点から、履歴と同じ条件のブランチ計算）: Gd の 2O の 10、40 MWd/kg
+  （基準条件と減速材の 615 K（0.690 g/cc）の 2 状態。燃料の温度のブランチは、p2 の履歴が 600 K の燃料で H-1 を輸送し、ライブラリの H-1 に
   燃料の温度の格子点（900 K など）が無いので解けない）、Gd 24 本の 2P の 10、40 MWd/kg、Pyrex の 2F の
-  40 MWd/kg、IFBA の 2M の 40 MWd/kg（公称の 1 状態）、本番の組成の 2A の 60 MWd/kg（../p9-product の履歴。../issue-0180/branch/2A-60.toml
-  の公称と、燃料の温度 1200 K、減速材の 600 K（0.661165 g/cc）、その両方の 4 状態）。どれもミクロ燃焼の 31 核種を書く
-- 燃焼した MOX の集合体の分岐（`assembly-mox`）: ../mox-assembly の履歴（どの核種も自由ガス、求積 16 点）の 0、20、40、60 MWd/kg から、
-  公称（燃料 900 K、減速材 580 K、650 ppm）、燃料 1200 K、減速材 600 K、その両方の 4 状態。ミクロ燃焼の 31 核種と、ピン出力の
+  40 MWd/kg、IFBA の 2M の 40 MWd/kg（基準条件の 1 状態）、本番の組成の 2A の 60 MWd/kg（../p9-product の履歴。../issue-0180/branch/2A-60.toml
+  の基準条件と、燃料の温度 1200 K、減速材の 600 K（0.661165 g/cc）、その両方の 4 状態）。どれもミクロ燃焼の 31 核種を書く
+- 燃焼した MOX の集合体のブランチ計算（`assembly-mox`）: ../mox-assembly の履歴（どの核種も自由ガス、求積 16 点）の 0、20、40、60 MWd/kg から、
+  基準条件（燃料 900 K、減速材 580 K、650 ppm）、燃料 1200 K、減速材 600 K、その両方の 4 状態。ミクロ燃焼の 31 核種と、ピン出力の
   形状関数をテーブルに書く。変種は `full`、`share-point`、`share-1e-4` と、衝突確率の求積 6 点（`points-6`。ADR-0252）、
   その両方（`share-point-points-6`）
 
@@ -67,7 +67,7 @@ VARIANTS = {
     "share-point-points-6": 'ufg-free-gas = { share = { threshold = 1e-4, measure = "point" } }\nufg-cp-points = 6\n',
 }
 # `full` と `share-1e-4` のほかの変種と、それを書くケース。選び方の変種（ADR-0251 の検討した案）は、`share-1e-4` で核種自身の捕獲が
-# 相対 1e-5 を超えたピンセルの分岐と、集合体の代表。燃焼した MOX の集合体（`assembly-mox`）は、既定の候補の選び方と求積の点を測る
+# 相対 1e-5 を超えたピンセルのブランチ計算と、集合体の代表。燃焼した MOX の集合体（`assembly-mox`）は、既定の候補の選び方と求積の点を測る
 SELECTION_CASES = ("branch-uo2", "branch-mox", "assembly-2A", "assembly-2O")
 VARIANT_CASES = {
     "share-point": (*SELECTION_CASES, "assembly-mox"),
@@ -88,7 +88,7 @@ MICRO = (
 
 # ピンセルの燃焼の点 (MWd/kg)。2 つの変種で同じ点なので、ステップの幅の誤差は差に入らない
 BURNUP = [0.5, 2, 5, 10, 15, 20, 25, 30, 40, 50, 60]
-# ピンセルの分岐を解く燃焼点
+# ピンセルのブランチ計算を行う燃焼点
 PIN_BRANCH_BURNUP = [0, 20, 40, 60]
 
 # ピンセルの燃料の組成（燃料の 4 つの物質に同じものを置く）
@@ -99,9 +99,9 @@ PIN_FUELS = {
         "Pu-241 = 2.7130e-04, Pu-242 = 1.4130e-04, Am-241 = 3.0280e-05, O-16 = 4.5880e-02 }"
     ),
 }
-# 燃焼した MOX の集合体の分岐を解く燃焼点
+# 燃焼した MOX の集合体のブランチ計算を行う燃焼点
 MOX_BRANCH_BURNUP = [0, 20, 40, 60]
-# 集合体: （履歴の入力（examples/depletion から）、分岐を解く燃焼点、減速材の軸を 2 点にするか）
+# 集合体: （履歴の入力（examples/depletion から）、ブランチ計算を行う燃焼点、減速材の軸を 2 点にするか）
 ASSEMBLIES = {
     "2O": ("p2/lattice-2O.toml", [10, 40], True),
     "2P": ("p2/lattice-2P.toml", [10, 40], False),
@@ -216,9 +216,9 @@ def pin_branch(fuel: str, variant: str, derivative: bool) -> str:
     if derivative:
         history += 'derivative = ["Pu-240", "U-238"]\nderivative-shielding = "solved"\n'
     what = (
-        "60 MWd/kg の公称の 1 状態で、Pu-240 と U-238 の微分の摂動の組成で自己遮蔽を解き直す"
+        "60 MWd/kg の基準条件の 1 状態で、Pu-240 と U-238 の微分の摂動の組成で自己遮蔽を解き直す"
         if derivative
-        else "燃焼（full）の履歴からの 4 状態の分岐"
+        else "燃焼（full）の履歴からの 4 状態のブランチ計算"
     )
     return (
         header(case, variant, what)
@@ -253,7 +253,7 @@ def assembly(name: str, variant: str) -> str:
         )
     # FUELS.branch はパスを ../issue-0180/fuels から書き、coverage/ も examples/depletion から同じ深さなのでそのまま使う
     text = with_variant(text, variant, case)
-    what = f"{source} の {listed(burnup)} MWd/kg からの{'2 状態' if axes else '公称の 1 状態'}の分岐"
+    what = f"{source} の {listed(burnup)} MWd/kg からの{'2 状態' if axes else '基準条件の 1 状態'}のブランチ計算"
     return header(case, variant, what) + text
 
 
@@ -279,9 +279,9 @@ def assembly_2a(variant: str) -> str:
     )
     body = replace_once(
         body,
-        "# 軸は公称の 1 点ずつ（1 状態）。密度は IF97 の 15.5132 MPa の値を小数 6 桁に丸めたもの（ADR-0239）\n"
+        "# 軸は基準点の 1 点ずつ（1 状態）。密度は IF97 の 15.5132 MPa の値を小数 6 桁に丸めたもの（ADR-0239）\n"
         'moderator = { temperature = [580], density = [0.711901], materials = ["water", "zircaloy"] }\n',
-        "# 公称と 1 点ずつ。密度は IF97 の 15.5132 MPa の値を小数 6 桁に丸めたもの（ADR-0239）\n"
+        "# 基準点と 1 点ずつ。密度は IF97 の 15.5132 MPa の値を小数 6 桁に丸めたもの（ADR-0239）\n"
         'moderator = { temperature = [580, 600], density = [0.711901, 0.661165], materials = ["water", "zircaloy"] }\n',
         source,
     )
@@ -296,8 +296,8 @@ def assembly_2a(variant: str) -> str:
 
 
 def assembly_mox(variant: str) -> str:
-    """../mox-assembly/lattice-mox-assembly.toml の `[depletion]` より前に、変種の行、テーブルの出力、公称と燃料 1200 K、減速材 600 K の
-    分岐、`[history]` を足したもの"""
+    """../mox-assembly/lattice-mox-assembly.toml の `[depletion]` より前に、変種の行、テーブルの出力、基準条件と燃料 1200 K、減速材 600 K の
+    ブランチ計算、`[history]` を足したもの"""
     source = "mox-assembly/lattice-mox-assembly.toml"
     case = "assembly-mox"
     text = (DEPLETION / source).read_text()
@@ -328,7 +328,7 @@ def assembly_mox(variant: str) -> str:
         header(
             case,
             variant,
-            f"{source} の {listed(MOX_BRANCH_BURNUP)} MWd/kg からの 4 状態の分岐",
+            f"{source} の {listed(MOX_BRANCH_BURNUP)} MWd/kg からの 4 状態のブランチ計算",
         )
         + body.rstrip()
         + "\n\n[branches]\n"

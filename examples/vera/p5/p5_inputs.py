@@ -24,15 +24,15 @@
   - `small-step-Lx`、`small-step-Ly`: 階段の外形（L 型、角型、`-`）を持つ小さな炉心（集合体 21 体）。L 型の位置の
     f* の辺の向きを変えた 2 つ
 - `hzp/`: Problem 5（3D の全炉心の零出力試験。表 P5-1、P5-2）の入力。軸方向の層は Problem 3 と同じ形（ADR-0128、
-  ADR-0140）で、どの格子と平板も分岐のテーブル（ADR-0097。ホウ素、減速材と燃料の温度）
+  ADR-0140）で、どの格子と平板もブランチのテーブル（ADR-0097。ホウ素、減速材と燃料の温度）
   - `<種類>-<層>.toml`: 集合体の種類と層の種類（支持格子、Pyrex の棒の挿入物の高さ）ごとの単一集合体の格子。
-    支持格子のない層は平板の燃料の媒質（`media/`）も書く。制御棒の入る位置の層は、制御棒の分岐（ADR-0224。値 aic と b4c）を
+    支持格子のない層は平板の燃料の媒質（`media/`）も書く。制御棒の入る位置の層は、制御棒のブランチ（ADR-0224。値 aic と b4c）を
     同じ入力で解き、テーブルに制御棒の軸を持つ
   - `reflector-<形>-<種類>-<層>.toml`: 外周の燃料の層ごとの反射体の格子（ADR-0153）。代表の燃料の支持格子の
-    ない層の反射体のノードの定数を、径方向の反射体の列のバッフルのある高さに置く。制御棒の入る位置の層は制御棒の分岐を
+    ない層の反射体のノードの定数を、径方向の反射体の列のバッフルのある高さに置く。制御棒の入る位置の層は制御棒のブランチを
     同じ入力で解き、燃料のノードのテーブルだけが制御棒の軸を持つ（ADR-0227）
-  - `rodless-<名前>.toml`: 制御棒の分岐を解く格子と同じ層の、棒のない格子（出力は `rodless/` の下）。炉心は読まず、ステージ
-    `hzp-compare-rodless` が制御棒の分岐を解く格子の値 out の状態と比べるだけに使う（#0225）
+  - `rodless-<名前>.toml`: 制御棒のブランチ計算を行う格子と同じ層の、棒のない格子（出力は `rodless/` の下）。炉心は読まず、ステージ
+    `hzp-compare-rodless` が制御棒のブランチ計算を行う格子の値 out の状態と比べるだけに使う（#0225）
   - `axial-<種類>[-rcca].toml`: 集合体の種類（と制御棒の入る位置）ごとの軸方向の反射体の平板（ADR-0128）
   - `core-hzp*.toml`: 全炉心のケース（表 P5-2 の 32 の場合と、場合 1、2 の臨界ホウ素濃度の探索。ADR-0145、ADR-0146）
   - `small*.toml`: 最小の入力（3.10% の 3 × 3 と反射体の輪、中央に D バンク）の 3D と、同じ定数の 2D
@@ -1395,7 +1395,7 @@ ROD_STEP = Fraction("1.5875")
 ROD_STEPS = 230
 ROD_SEGMENTS = [("aic", Fraction("101.6")), ("b4c", Fraction("259.08"))]
 
-# 分岐の格子点（ADR-0097）: ホウ素は表 P5-2 の場合（1170〜1291 ppm）と探索の範囲（ADR-0145）を囲う 2 点。温度は
+# ブランチの格子点（ADR-0097）: ホウ素は表 P5-2 の場合（1170〜1291 ppm）と探索の範囲（ADR-0145）を囲う 2 点。温度は
 # 等温の状態の両端（表 P5-2 の 560、570 K）を燃料と減速材の別々の軸で持ち、565 K は内挿する。減速材の密度は付録 G の
 # 表 G-2。内挿した 565 K の定数の密度は約 0.7425 g/cc で、表 P5-1 の 0.743 g/cc との差の効きは interp-31 で測る
 HZP_BORON = [1100, 1400]
@@ -1596,7 +1596,7 @@ def mesh_3d() -> list[Fraction]:
 
 
 def hzp_materials(names: list[str]) -> str:
-    """物質の TOML。温度と冷却材の密度とホウ素は分岐の軸が置き換える（どの物質もどれかの軸にある）。書く値は、燃料と構造材が
+    """物質の TOML。温度と冷却材の密度とホウ素はブランチの軸が置き換える（どの物質もどれかの軸にある）。書く値は、燃料と構造材が
     565 K、冷却材がテーブルの最初の点（560 K、1100 ppm）。冷却材はホウ酸水（ADR-0106）"""
     t = TEMPERATURE
     blocks = []
@@ -1630,7 +1630,7 @@ def hzp_materials(names: list[str]) -> str:
 
 
 def hzp_branches(moderated: list[str], fuels: list[str]) -> str:
-    """分岐（ADR-0097）。減速材の温度の軸は、燃料と真空のほかのすべての物質を動かす（等温の状態。表 P5-2）"""
+    """ブランチ計算（ADR-0097）。減速材の温度の軸は、燃料と真空のほかのすべての物質を動かす（等温の状態。表 P5-2）"""
     temps = ", ".join(str(t) for t, _ in HZP_TEMPERATURES)
     dens = ", ".join(d for _, d in HZP_TEMPERATURES)
     water = [m for m in moderated if m == "water" or m.startswith("mix-")]
@@ -1685,7 +1685,7 @@ def rod_cell_name(rod: str) -> str:
 
 
 def hzp_rod_branches() -> str:
-    """制御棒の分岐（ADR-0224）: 値ごとに、24 本の案内管 gt を棒を入れた案内管に置き換える（D バンク。計装管には入らない）"""
+    """制御棒のブランチ（ADR-0224）: 値ごとに、24 本の案内管 gt を棒を入れた案内管に置き換える（D バンク。計装管には入らない）"""
     return "\n\n[branches.rod]\n" + "".join(
         f'{rod} = {{ gt = "{rod_cell_name(rod)}" }}\n' for rod in RODS
     ).rstrip("\n")
@@ -1712,7 +1712,9 @@ def hzp_parts(
     }[kind]
     if rodded:
         values = "と ".join(f"{RODS[rod][0]}（値 {rod}）" for rod in RODS)
-        what += f"。制御棒の分岐は、24 本の案内管に入れる {values}の制御棒（D バンク）"
+        what += (
+            f"。制御棒のブランチは、24 本の案内管に入れる {values}の制御棒（D バンク）"
+        )
     used = {c for row in rows for c in row}
     names = [f"fuel{fuel}", "zircaloy", "water"]
     if rodded or used & {"py", "pl", "pp"}:
@@ -1758,7 +1760,7 @@ def rodless_note(prefix: str) -> str:
     """棒のない比べる先の格子（`prefix` が空でない）の入力の注記"""
     if not prefix:
         return ""
-    return "\n# 炉心は読まない。同じ層の制御棒の分岐を解く格子の値 out の状態と比べる先（ステージ hzp-compare-rodless。#0225）"
+    return "\n# 炉心は読まない。同じ層の制御棒のブランチ計算を行う格子の値 out の状態と比べる先（ステージ hzp-compare-rodless。#0225）"
 
 
 def hzp_single(design: str, kind: str, rodded: bool, prefix: str = "") -> str:
@@ -1773,7 +1775,7 @@ def hzp_single(design: str, kind: str, rodded: bool, prefix: str = "") -> str:
         f'medium = "{prefix}media/{design}-{kind}.msgpack"\n' if grid is None else ""
     )
     return f"""# このファイルは p5_inputs.py が書く。手で直さない。{rodless_note(prefix)}
-# VERA Problem 5 の集合体（{what}）の単一集合体の格子（外周は鏡面反射）の分岐のテーブル（ADR-0097）。少数群定数は形状関数と
+# VERA Problem 5 の集合体（{what}）の単一集合体の格子（外周は鏡面反射）のブランチのテーブル（ADR-0097）。少数群定数は形状関数と
 # 角の不連続因子つき（ADR-0096）。組成は 5-2D と同じ（表 M3-4、Problem 3 の表 P3-3）で、冷却材はホウ酸水（ADR-0106）。
 library = "../../vera.msgpack"
 few-group = {{ output = "{prefix}lattice/{stem}.msgpack", bounds = {BOUNDS}, pins = true }}
@@ -1838,7 +1840,7 @@ def hzp_reflector(
     return f"""# このファイルは p5_inputs.py が書く。手で直さない。{rodless_note(prefix)}
 # VERA Problem 5 の{title}。燃料は{what}。
 # 反射体は燃料側から、隙間の水 0.19 cm、SS304 のバッフル 2.85 cm、水 18.46 cm（1.13 節の表 16。5-2D と同じ形）。
-# 分岐のテーブル（ADR-0097）で、ノードごとの形状関数と角の不連続因子を付ける（ADR-0131）。{rod_note}
+# ブランチのテーブル（ADR-0097）で、ノードごとの形状関数と角の不連続因子を付ける（ADR-0131）。{rod_note}
 library = "../../vera.msgpack"
 pitch = 1.26
 azimuthal = {AZIMUTHAL}
@@ -2018,7 +2020,7 @@ def hzp_slab(design: str, rodded: bool) -> str:
 # VERA Problem 5 の集合体（{what}）の軸方向の反射体の平板（ADR-0128）: 集合体の高さ全体（下の水の外端から上の水の
 # 外端まで）を格子の x（左が炉心の −z）に並べた1行の平板。左右は真空、上下は鏡面反射。燃料は支持格子のない単一集合体の
 # 格子の媒質。層の物質は層の断面の中で体積で混ぜる（Problem 3 の平板と同じ成分。`mix-s<下端の高さ>` は燃料の外の構造の
-# 層）。自己遮蔽はしない（#0008）。分岐のテーブル（ADR-0097）。物理的な層（仕様書の高さ、cm。下部炉心板の上面から）:
+# 層）。自己遮蔽はしない（#0008）。ブランチのテーブル（ADR-0097）。物理的な層（仕様書の高さ、cm。下部炉心板の上面から）:
 {layer_lines}
 library = "../../vera.msgpack"
 self-shielding = false
@@ -2075,7 +2077,7 @@ P5_CASES = [
     *((22 + k, 1230, 565, {"D": 23 * k}) for k in range(10)),
     (32, 1230, 565, {}),
 ]
-# 臨界ホウ素濃度を探す場合（表 P5-2 の 1 と 2。ADR-0145）と、探す範囲（分岐のホウ素の格子点の中）
+# 臨界ホウ素濃度を探す場合（表 P5-2 の 1 と 2。ADR-0145）と、探す範囲（ブランチのホウ素の格子点の中）
 P5_SEARCHES = [1, 2]
 SEARCH_RANGE = (1100.0, 1400.0)
 
@@ -2086,7 +2088,7 @@ def hzp_design_name(design: str, rodded: bool, shape: str | None) -> str:
 
 def fuel_file(design: str, rodded: bool, shape: str | None, kind: str) -> str:
     """燃料の層の少数群定数: 単一集合体の格子か、外周は反射体の格子の燃料のノード（ADR-0153）。制御棒の入る位置の層
-    （`rodded` で `RODDED_KINDS` の層）も同じファイルで、その格子は制御棒の分岐を解き、テーブルに制御棒の軸を持つ（`hzp_lattices`）"""
+    （`rodded` で `RODDED_KINDS` の層）も同じファイルで、その格子は制御棒のブランチ計算を行い、テーブルに制御棒の軸を持つ（`hzp_lattices`）"""
     stem = lattice_stem(shape, design, kind) + ("-fuel" if shape else "")
     return f"lattice/{stem}.msgpack"
 
@@ -2317,7 +2319,7 @@ def hzp_core_files() -> dict[str, str]:
                 temperature,
                 steps,
                 None,
-                f"# 場合 {n} の臨界ホウ素濃度（実測 {boron} ppm）。範囲は分岐のホウ素の格子点の中（ADR-0145）\n",
+                f"# 場合 {n} の臨界ホウ素濃度（実測 {boron} ppm）。範囲はブランチのホウ素の格子点の中（ADR-0145）\n",
             )
         states += state_text(f"case-{n}", temperature, steps, boron)
     files["core-hzp.toml"] = hzp_case(
@@ -2373,7 +2375,7 @@ def hzp_small_files() -> dict[str, str]:
         pins="small-half-pins.msgpack",
         outline=False,
     )
-    # 分岐のテーブルの内挿: 3.10% の支持格子のない層のテーブルを 565 K、1300 ppm で内挿した k∞ を、同じ状態を直接解いた
+    # ブランチのテーブルの内挿: 3.10% の支持格子のない層のテーブルを 565 K、1300 ppm で内挿した k∞ を、同じ状態を直接解いた
     # 5-2D の単一集合体の格子（../assembly-31.toml。冷却材は表 M3-4 の個数密度、0.743 g/cc）の k と比べる
     files["interp-31-plant.toml"] = (
         "# このファイルは p5_inputs.py が書く。手で直さない。\n# 集合体 1 体（外周は鏡面反射）\n"
@@ -2388,7 +2390,7 @@ def hzp_small_files() -> dict[str, str]:
     )
     files["interp-31.toml"] = (
         "# このファイルは p5_inputs.py が書く。手で直さない。\n"
-        "# 分岐のテーブルを 565 K、1300 ppm で内挿した単一集合体の k∞（5-2D の assembly-31 と比べる）\n"
+        "# ブランチのテーブルを 565 K、1300 ppm で内挿した単一集合体の k∞（5-2D の assembly-31 と比べる）\n"
         'cycle = "interp-31-cycle.toml"\naxial-mesh = [0.0, 21.5]\nradial-nodes = 1\n'
         'boundary = { x = ["reflective", "reflective"], y = ["reflective", "reflective"], z = ["reflective", "reflective"] }\n'
         + state_text("hzp", TEMPERATURE, {}, 1300)
@@ -2471,8 +2473,8 @@ def hzp_rodded_files(files: dict[str, str]) -> set[str]:
 
 
 def hzp_lattices(used: set[str], rodded: set[str]) -> tuple[list[tuple], list[tuple]]:
-    """読む定数から、作る 2D の格子 (形, 種類, 層, 制御棒の分岐を解くか) と平板 (種類, 制御棒)。制御棒の入る位置の設計の
-    `RODDED_KINDS` の層（`fuel_file`）が読む格子は、制御棒の分岐を解く（ADR-0224、ADR-0227）"""
+    """読む定数から、作る 2D の格子 (形, 種類, 層, 制御棒のブランチ計算を行うか) と平板 (種類, 制御棒)。制御棒の入る位置の設計の
+    `RODDED_KINDS` の層（`fuel_file`）が読む格子は、制御棒のブランチ計算を行う（ADR-0224、ADR-0227）"""
     lattices: dict[tuple, bool] = {}
     slabs = set()
     for f in used:
@@ -2523,7 +2525,7 @@ def hzp_lattices(used: set[str], rodded: set[str]) -> tuple[list[tuple], list[tu
 
 
 def rodless_path(output: str) -> str:
-    """制御棒の分岐を解く格子の出力（hzp/ の下）に対する、棒のない格子の出力"""
+    """制御棒のブランチ計算を行う格子の出力（hzp/ の下）に対する、棒のない格子の出力"""
     return output.replace("hzp/", "hzp/rodless/", 1)
 
 
@@ -2532,8 +2534,8 @@ def hzp_pipeline(
     lattices: list[tuple],
     slabs: list[tuple],
 ) -> str:
-    """Problem 5 の 3D のステージ: 2D の格子（層の種類ごと、分岐のテーブル）→ 平板 → 炉心 → 比較。入力と出力は hzp/ の中で、
-    ステージは hzp/ に移って実行する。制御棒の分岐を解く格子は、同じ層の棒のない格子（`rodless-<名前>.toml`。出力は
+    """Problem 5 の 3D のステージ: 2D の格子（層の種類ごと、ブランチのテーブル）→ 平板 → 炉心 → 比較。入力と出力は hzp/ の中で、
+    ステージは hzp/ に移って実行する。制御棒のブランチ計算を行う格子は、同じ層の棒のない格子（`rodless-<名前>.toml`。出力は
     hzp/rodless/ の同じパス）も同じ bin とライブラリで解き、値 out の状態を比べる（#0225）"""
     stages = []
     media = {}

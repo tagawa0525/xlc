@@ -1,5 +1,5 @@
 # #0276 の試行（sector_zones.py が書く。手で直さない）: 格子 guide の 2A の燃料のピンを、等体積の 5 つの単位で、方位に分けない。
-# p9-product/lattice-2A.toml の公称の状態のまま燃焼させる。
+# p9-product/lattice-2A.toml の基準条件のまま燃焼させる。
 library = "../p2/depletion.msgpack"
 ufg-tolerance = 1e-4
 pitch = 1.26

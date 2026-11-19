@@ -6,7 +6,7 @@
 
 記録の表は、この JSON から examples/verification_tables.py が描く。
 
-読むのは 2 つのブランチのテーブル（`xlc-table`。燃焼度の軸と 1 点の分岐の軸を持ち、燃焼度の点ごとに状態 1 つ）: 2A の履歴の点を解いた `table-nominal.msgpack`
+読むのは 2 つのブランチのテーブル（`xlc-table`。燃焼度の軸と 1 点のブランチの軸を持ち、燃焼度の点ごとに状態 1 つ）: 2A の履歴の点を解いた `table-nominal.msgpack`
 （`micro` を持つ）と、点 k の組成を点 k - 1 の組成のうち追う核種だけを点 k の値にしたもので解いた `table-shifted.msgpack`
 （make_shifted.py）。点の組 (k - 1, k) ごとに:
 
@@ -96,7 +96,7 @@ def coefficients(nuclides):
 
 
 def burnups(table):
-    """燃焼度の点。燃焼度の軸を最初に持ち、ほかの軸（分岐の軸）は 1 点で、点ごとに状態 1 つのテーブルだけ"""
+    """燃焼度の点。燃焼度の軸を最初に持ち、ほかの軸（ブランチの軸）は 1 点で、点ごとに状態 1 つのテーブルだけ"""
     axes = table["axes"]
     single = all(len(a.get("points", a.get("values", []))) == 1 for a in axes[1:])
     if (

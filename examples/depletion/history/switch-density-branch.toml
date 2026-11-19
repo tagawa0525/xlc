@@ -1,7 +1,7 @@
-# 途中で条件を変えた燃焼（ADR-0215 の確認、#0190）の参照: switch-density-history.toml の燃焼の履歴（20 MWd/kg まで 2A の公称、その後を
-# 条件 j）の、20 MWd/kg と、その後の R の燃焼点（公称のテーブル residual-nominal.toml の点）を、条件 j の 1 状態（ホウ素 1300 ppm、
-# 減速材 600 K と 0.661 g/cc、燃料 565 K）で解く。20 MWd/kg の点は 2A の組成で、公称のテーブルの条件 j の状態と同じ組成と状態。
-# 追う 31 核種は公称のテーブルと同じ（core の数密度と比べる N̄ᵢ）。
+# 途中で条件を変えた燃焼（ADR-0215 の確認、#0190）の参照: switch-density-history.toml の燃焼の履歴（20 MWd/kg まで 2A の基準条件、その後を
+# 条件 j）の、20 MWd/kg と、その後の R の燃焼点（ベース計算のテーブル residual-nominal.toml の点）を、条件 j の 1 状態（ホウ素 1300 ppm、
+# 減速材 600 K と 0.661 g/cc、燃料 565 K）で解く。20 MWd/kg の点は 2A の組成で、ベース計算のテーブルの条件 j の状態と同じ組成と状態。
+# 追う 31 核種はベース計算のテーブルと同じ（core の数密度と比べる N̄ᵢ）。
 library = "../p2/depletion.msgpack"
 few-group = { output = "table-switch-density-branch.msgpack", bounds = [1e7, 0.625, 1e-5] }
 ufg-tolerance = 1e-4

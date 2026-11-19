@@ -97,7 +97,7 @@ def history_rod(burnup, rs, densities):
 
 class Compare(unittest.TestCase):
     def tables(self):
-        """公称（燃焼度 0、10、20。減速材の公称 565 K と条件 600 K。条件は 0 と 20 で解く）、条件の分岐、逆向き、履歴"""
+        """ベース計算のテーブル（燃焼度 0、10、20。減速材の基準の 565 K と条件 600 K。条件は 0 と 20 で解く）、条件のブランチ計算、逆向き、履歴"""
         points = [[0, 0, 0, 0], [0, 0, 1, 0], [1, 0, 0, 0], [2, 0, 0, 0], [2, 0, 1, 0]]
         states = [few(p) for p in range(5)]
         micro = {
@@ -108,7 +108,7 @@ class Compare(unittest.TestCase):
         branch_states = [few(1.5), few(4.5)]
         branch_densities = [[7.0e-4, 0.0], [5.2e-4, 2.6e-5]]
         reverse_states = [few(0.2), few(3.3)]
-        # R は分岐の定数 − 公称の条件の状態の線形の補正の後（lattice histories と同じ式）
+        # R はブランチ計算の定数 − 基準条件の状態の線形の補正の後（lattice histories と同じ式）
         rs = []
         for k, (p, u) in enumerate(((1, 0), (4, 2))):
             deltas = [a - b for a, b in zip(branch_densities[k], micro["densities"][u])]
@@ -165,7 +165,7 @@ class Compare(unittest.TestCase):
         self.assertEqual(s["format"], "xlc-compare-history-residual")
         self.assertEqual([r["burnup"] for r in s["rows"]], [0.0, 20.0])
         for k, r in enumerate(s["rows"]):
-            # 公称の条件の状態 + 線形の補正 + R は分岐の定数（2 群の k の差は丸めだけ）
+            # 基準条件の状態 + 線形の補正 + R はブランチ計算の定数（2 群の k の差は丸めだけ）
             self.assertAlmostEqual(r["reproduce_constants_pcm"], 0.0, places=8)
             f0 = nominal["states"][(1, 4)[k]]
             fb = branch["states"][k]
@@ -181,7 +181,7 @@ class Compare(unittest.TestCase):
                 r["residual_pcm"] - r["reverse_residual_pcm"],
                 places=9,
             )
-        # 第 1 項の分岐は履歴の k∞ を再現する（20 で履歴の 1/k が 2e-6 大きい = 分岐が +0.2 pcm）
+        # 第 1 項のブランチ計算は履歴の k∞ を再現する（20 で履歴の 1/k が 2e-6 大きい = ブランチ計算が +0.2 pcm）
         self.assertAlmostEqual(s["rows"][0]["first_term_pcm"], 0.0, places=9)
         self.assertAlmostEqual(s["rows"][1]["first_term_pcm"], 0.2, places=6)
 
@@ -220,7 +220,7 @@ class Compare(unittest.TestCase):
     def test_the_whole_difference_at_the_nominal_state_is_measured_against_the_reverse(
         self,
     ):
-        # 定数の差の全体 f(分岐の組成、条件 j) − f(公称の組成、条件 j) を、基準条件の定数に足した誤差（ADR-0215 の案 S1 の R'）
+        # 定数の差の全体 f(履歴ブランチの組成、条件 j) − f(ベース計算の組成、条件 j) を、基準条件の定数に足した誤差（ADR-0215 の案 S1 の R'）
         nominal, branch, reverse, history = self.tables()
         s = c.compare(nominal, branch, reverse, history)
         r = s["rows"][1]
@@ -245,7 +245,7 @@ class Compare(unittest.TestCase):
         reverse["micro"]["densities"] = [[7.0e-4, 0.0], [5.3e-4, 2.6e-5]]
         with self.assertRaises(SystemExit):
             c.compare(nominal, branch, reverse, history)
-        # 逆向きは公称の条件
+        # 逆向きは基準条件
         nominal, branch, reverse, history = self.tables()
         reverse["axes"] = axes([0.0, 20.0], [600.0], [0.661], 600.0)
         with self.assertRaises(SystemExit):

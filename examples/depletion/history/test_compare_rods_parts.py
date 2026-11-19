@@ -91,7 +91,7 @@ def expected_node(t, b, densities, w):
     out = t["histories"][1]["rods"][1]
     branch = [x - y for x, y in zip(out["densities"][b], nominal)]
     f = added(f, c.scaled(out["untracked"][b], w))
-    # 履歴ブランチの数密度が公称と同じ点（燃焼度 0）は L を足さない（core の `production_ratio`）
+    # 履歴ブランチの数密度がベース計算と同じ点（燃焼度 0）は L を足さない（core の `production_ratio`）
     if all(d == 0.0 for d in branch):
         return f, factors, None
     a = production(factors, deltas) / production(factors, branch)

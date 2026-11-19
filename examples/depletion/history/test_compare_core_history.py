@@ -1,4 +1,4 @@
-"""compare_core_history.py（履歴の補正の core の確認: 公称の出力の一致、条件 j の k、途中で条件を変えた燃焼の w と R の効き）。
+"""compare_core_history.py（履歴の補正の core の確認: 基準条件の出力の一致、条件 j の k、途中で条件を変えた燃焼の w と R の効き）。
 
 実行: python3 -m unittest discover -s examples/depletion/history -p 'test_compare_core_history.py'
 """
@@ -50,7 +50,7 @@ STATES = {
 
 
 def table():
-    """ベース計算のテーブル（燃焼度 0、10、20。減速材の公称 565 K と条件 600 K。条件は 0 と 20 で解く）と、R（燃焼度 0 と 20）"""
+    """ベース計算のテーブル（燃焼度 0、10、20。減速材の基準の 565 K と条件 600 K。条件は 0 と 20 で解く）と、R（燃焼度 0 と 20）"""
     points = [[0, 0, 0, 0], [0, 0, 1, 0], [1, 0, 0, 0], [2, 0, 0, 0], [2, 0, 1, 0]]
     states = [few(p) for p in range(5)]
     micro = {
@@ -142,7 +142,7 @@ def scaled(x, w):
 
 def node_k(t, b, m, n, w):
     """テーブル `t` の燃焼度の点 `b`、減速材の点 `m` の定数 + 線形の補正（数密度 `n`）+ w U + (P / P_j) L の 2 群の k。P は熱群の νΣf の
-    線形の補正（ノードの数密度の差）、P_j は同じ係数の履歴ブランチの数密度の差のもの。履歴ブランチの数密度が公称と同じ点は L を足さない"""
+    線形の補正（ノードの数密度の差）、P_j は同じ係数の履歴ブランチの数密度の差のもの。履歴ブランチの数密度がベース計算と同じ点は L を足さない"""
     p = t["points"].index([b, 0, m, 0])
     densities = t["micro"]["densities"][b]
     coefficients = r.coefficients(t["micro"]["states"][p])
@@ -203,7 +203,7 @@ class Compare(unittest.TestCase):
                 (10.0, 20.0, "branch", node_k(t, 2, 1, N20, 1.0), N20, 0.661),
             ]
         )
-        # 10 MWd/kg まで公称、その後を条件 j: 20 MWd/kg の H = (0.743 × 10 + 0.661 × 10) / 20
+        # 10 MWd/kg まで基準条件、その後を条件 j: 20 MWd/kg の H = (0.743 × 10 + 0.661 × 10) / 20
         h = (0.743 * 10.0 + 0.661 * 10.0) / 20.0
         w = (h - 0.743) / (0.661 - 0.743)
         switch = core(
@@ -241,7 +241,7 @@ class Compare(unittest.TestCase):
             r.rho(branch["points"][2]["k"]) - r.rho(k_table),
             places=9,
         )
-        # 公称の燃焼の core と、ベース計算のテーブルの基準条件の k∞
+        # 基準条件で燃焼させた core と、ベース計算のテーブルの基準条件の k∞
         self.assertAlmostEqual(
             last["nominal_difference_pcm"],
             r.rho(0.9) - r.rho(t["states"][3]["k_inf"]),
@@ -292,7 +292,7 @@ class Compare(unittest.TestCase):
         self.assertAlmostEqual(
             u235["pcm"], r.rho(r.k_inf(only)) - r.rho(r.k_inf(base)), places=9
         )
-        # 微視的断面積の相対差（第 1 項 / 公称の条件 j − 1、群ごと。捕獲は MT 102 の経路の和）
+        # 微視的断面積の相対差（第 1 項 / ベース計算のテーブルの条件 j − 1、群ごと。捕獲は MT 102 の経路の和）
         first = branch_table()["micro"]["states"][1][0]
         own = micro["states"][p][0]
         self.assertAlmostEqual(
