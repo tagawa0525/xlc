@@ -1,6 +1,6 @@
 ---
 type: ADR
-status: proposed
+status: accepted
 date: 2026-11-19
 requires: [ADR-0184, ADR-0212, ADR-0223]
 supersedes: []
@@ -38,7 +38,7 @@ issues: []
 - 案 C: hook が投げる前に数える。hook は Bash のコマンドの前に 10 秒の timeout で走り、数えるための dvc の呼び出しは
   1 つの yaml で 1 分を超える（下の確認）ので、hook の中では数えられない
 - 案 D: ラッパーが先に正規形のステージ（`python-ast`、`toml-values`、`build` と `binary-forms`）を実行してから数える。docstring
-  だけの .py の変更などで正規形のバイトが変わらない場合の過大な数え（下の決定の「上限」）が減るが、`build`（数分の cargo）が
+  だけの .py の変更などで正規形のバイトが変わらない場合に下流まで数える分（下の決定の「上限」）が減るが、`build`（数分の cargo）が
   `bin/` を書き換えてから止まることになり、「何も実行せずに止まる」が崩れる。正規形の作り直しは /dvc-relock の前半が手元で
   行う
 - 案 E: 参照解のステージを、`references-shell.txt` を deps に持つステージ（`dvc dag` で `references-shell` の子）として見分ける。
@@ -85,7 +85,7 @@ issues: []
   ときは /dvc-relock の前半のとおり正規形を手元で作り直してから数え直す
 - ジョブのコマンドの中の生の `dvc repro`（`a && dvc repro …` を含む）は hook が止める。`slurm-run.sh` を通さずに Slurm に渡す形
   （直接の sbatch は claude-hooks が止める）と、ADR-0223 の帰結に挙げた読まない書き方は止め損なう
-- 数えるのに dvc を 3 種類（dag は目標ごと）呼ぶので、ジョブの始めに 1 分ほどかかる（下の確認）
+- 数えるのに dvc を 3 種類（dag は目標ごと）呼ぶので、ジョブの始めに 1 分ほどかかる（下の確認の examples/vera/dvc.yaml で 57 秒）
 
 ### 確認
 
@@ -93,3 +93,9 @@ issues: []
   dvc repro を呼ぶこと（PATH に置いた偽の dvc で）。下流の数え、references-shell の扱い、組の許可、`-s` を受けないこと
 - `.claude/hooks/test_block_raw_dvc_repro_in_slurm.py`: `slurm-run.sh` に生の dvc repro を渡すコマンドを止め、ラッパー、
   stage_runner、手元の `dvc repro` と `dvc repro -s` を止めないこと
+- 2026-11-19、xlc 52006f73f（分岐点は main 3eaeb4dcd。出力は `scripts/worktree-restore-outputs.sh` で dvc.lock のとおりに戻した）で
+  `scripts/dvc-repro.py --max-stages 100 --count-only examples/vera/dvc.yaml`: 走りうるステージは 83（xs-nuclide 60、keno-assembly 12、
+  keno-pincell 3、xs-range、xs、lattice-1B、compare-1B、references-shell、参照解 3）で、どれも dvc status の changed（下流から足した
+  ものは無い）。参照解の openmc-1B-model、openmc-1B、openmc-1B-extract を許していないので、何も実行せずに終了コード 1 で止まった。
+  changed の deps は xs と lattice の正規形（`binary-forms/xs.md5` が 62 ステージ、`binary-forms/lattice.md5` が 16）、openmc-1B-model と
+  openmc-1B-extract は python-ast の 5 つと入力の正規形、openmc-1B は model.xml、ライブラリ、入力と cmd（同じ日に `dvc status --json` で数えた）。dvc の呼び出しは repro --dry 7.2 秒、dag 9.0 秒、status 41.1 秒（手元。references-shell.txt は devShell と同じ）
