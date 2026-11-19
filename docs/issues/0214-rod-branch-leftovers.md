@@ -40,5 +40,5 @@ examples/core を今の bin とライブラリで再実行して `dvc.lock` と�
 - 2026-11-03: #0093 のレビューで出た指摘のうち、落ちるテストか誤った数値を示せないものをまとめた
 - 2026-11-04: #0213 の後半（ADR-0227）で、径方向の反射体の格子のノードごとの軸の付け分けを作り、examples/core/dvc.lock の前の形の記載を消した
 - 2026-11-19: レビューの残りを点ごとに片付けた（扱いは、この行を足したコミットの本文。そこで捨てたとした lattice の文の 2 点（history.rs の
-  燃焼の領域の照合の説明、`rod-burnup` のエラーの文）は、docs/plans/upstream-error-budget.md の「作り直しのときに入れる xs と lattice の修正」に寄せた）。
+  燃焼の領域の照合の説明、`rod-burnup` のエラーの文）は、docs/plans/upstream-error-budget.md の「結果を変えない xs と lattice の修正」に寄せた）。
   残るのは examples/core の再実行と、カラーセットと平板の形
