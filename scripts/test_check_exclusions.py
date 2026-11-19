@@ -198,12 +198,43 @@ class InputComments(unittest.TestCase):
     def test_an_exclusion_that_cites_only_closed_issues_is_reported(self):
         files = {
             "examples/a/xs.toml": "# 表を作る（#0001）\n# Pm-147 は NaN になるので外す（#0002）\nx = 1\n",
-            "examples/b/xs.toml": "# 不連続因子を外した定数\n# 時間のために外した（#0001、#0002 の後）\nx = 1\n",
+            "examples/b/xs.toml": "# 時間のために外した（#0001、#0002 の後）\nx = 1\n",
         }
         found = problems(files)
         self.assertEqual(len(found), 1)
         self.assertIn("examples/a/xs.toml:2", found[0])
         self.assertIn("#0002", found[0])
+
+    def test_removing_without_an_issue_next_to_it_is_reported(self):
+        lines = [
+            "# Pm-147 は輸送する核種から外す",
+            "# Eu-151 は外した（理由は下の行）",
+            "# （#0001）",
+            "# 外して測る。温度の点はずっと後の段落で決める #0001",
+            "# Hf は除き、ギャップは真空",
+            "x = 1",
+        ]
+        files = {"examples/a/xs.toml": "\n".join(lines)}
+        found = problems(files)
+        self.assertEqual(len(found), 3)
+        for found_line, line in zip(found, (1, 2, 4)):
+            self.assertIn(f"examples/a/xs.toml:{line}:", found_line)
+            self.assertIn("同じ行", found_line)
+
+    def test_a_list_issue_alone_is_not_a_reason(self):
+        statuses = {**STATUSES, exc.LIST_ISSUE: "open"}
+        lines = [
+            f"# Pm-147 は外したまま（#{exc.LIST_ISSUE} の 1）",
+            f"# Pm-148 は外したまま（#0001。#{exc.LIST_ISSUE} の 1）",
+            f"# 核種の組は確かめていない（#{exc.LIST_ISSUE}）",
+            "x = 1",
+        ]
+        files = {"examples/a/xs.toml": "\n".join(lines)}
+        found = exc.violations(exc.find_markers(files), statuses)
+        self.assertEqual(len(found), 2)
+        for found_line, line in zip(found, (1, 3)):
+            self.assertIn(f"examples/a/xs.toml:{line}:", found_line)
+            self.assertIn("一覧", found_line)
 
     def test_trial_inputs_of_an_issue_are_not_checked_but_their_tests_are(self):
         files = {
