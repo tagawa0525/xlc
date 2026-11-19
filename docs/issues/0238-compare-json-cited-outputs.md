@@ -69,6 +69,8 @@ ADR-0222 の対象に、比較のツールが書いて git で追跡する JSON 
 18. 2026-11-07 の経緯の行は 13〜15 を足したことだけを書き、3 と 11 を直したこと（1fad68d30）を書かない
 19. 15 の `trial-0156/.gitignore` の注は、`trial-0076` と `trial-0244` の `compare-acceleration.json` が `trial-0156/core-p9.msgpack` を
     md5 で引くことも書かない（9 の `trial-0231` と同じ抜け）
+20. `examples/depletion/branches/compare-core-small-restart.json` が md5 で引く restart の 5 本と装荷替えの 1 本の履歴も `.dvc` が無く、
+    手元にも DVC のキャッシュにも無い（2026-11-19。記録の「restart と装荷替え（小さな炉心）」に書いた）
 
 ## 完了の条件
 
