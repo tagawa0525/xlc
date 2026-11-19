@@ -114,7 +114,9 @@ class Summarize(unittest.TestCase):
         s = cdv.summarize(four(VIII0={"k": (1.2, 1.0, 0.89)}), "VII.1")
         largest = s["versions"]["VIII.0"]["largest_reactivity_pcm"]
         self.assertEqual(largest["problem9"]["burnup"], 17.0)
+        self.assertEqual(largest["problem9"]["upto"], 17.0)
         self.assertEqual(largest["all"]["burnup"], 17.0)
+        self.assertEqual(largest["all"]["upto"], 60.0)
         self.assertAlmostEqual(
             largest["all"]["pcm"], s["versions"]["VIII.0"]["reactivity_pcm"][1]
         )
@@ -187,6 +189,18 @@ class Report(unittest.TestCase):
         self.assertIn("基準 VII.1", text)
         self.assertIn("17 MWd/kg", text)
         self.assertIn("60 MWd/kg", text)
+
+    def test_report_names_the_range_and_the_point_of_the_largest(self):
+        s = {
+            "format": "xlc-compare-depletion-versions",
+            "inputs": [{"path": "endfb70/x.msgpack", "md5": "0" * 32}],
+            **cdv.summarize(four(VIII0={"k": (1.19, 1.1, 0.9)}), "VII.1"),
+        }
+        line = next(
+            line for line in cdv.report(s) if line.startswith("VIII.0 − VII.1 の反応度")
+        )
+        self.assertIn("17 MWd/kg までで", line)
+        self.assertIn("（0 MWd/kg）", line)
 
     def test_report_needs_the_inputs(self):
         s = cdv.summarize(four(), "VII.1")
