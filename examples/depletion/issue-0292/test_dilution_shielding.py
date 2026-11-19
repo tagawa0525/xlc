@@ -47,6 +47,25 @@ class Weights(unittest.TestCase):
         self.assertAlmostEqual(w[0] / w[1], 2.0)
 
 
+class WeightsBoundary(unittest.TestCase):
+    def test_groups_must_have_a_boundary_at_the_two_group_split(self):
+        with self.assertRaises(SystemExit):
+            ds.weights([1e3, 1.0, 0.1, 1e-5], 565.0, 1.0, 1.0)
+
+
+class CaptureAndFission(unittest.TestCase):
+    def test_the_weight_check_compares_capture_and_fission_only(self):
+        nuclide = {
+            "fission": 1.0,
+            "reactions": [
+                {"mt": 102, "channels": [2.0, 0.5]},
+                {"mt": 103, "channels": [4.0]},
+                {"mt": 16, "channels": [8.0]},
+            ],
+        }
+        self.assertAlmostEqual(ds.capture_and_fission(nuclide), 3.5)
+
+
 class Ratio(unittest.TestCase):
     def test_a_dilute_nuclide_keeps_its_infinite_dilution_cross_section(self):
         x = nuclide([[100.0, 1.0], [50.0, 1.0]])

@@ -234,6 +234,28 @@ class Prune(unittest.TestCase):
             pruned["pruned"], {"count": 1, "sum_pcm": 0.004, "nuclides": ["B"]}
         )
 
+    def test_a_large_negative_estimate_stays_and_dropped_sums_take_magnitudes(self):
+        points = [{"untransported_all": {"A": {}, "B": {}, "C": {}}}]
+        ranked = {
+            "ranking": [
+                {"nuclide": "A", "max_pcm": -3.0},
+                {"nuclide": "B", "max_pcm": -0.004},
+                {"nuclide": "C", "max_pcm": 0.002},
+            ],
+            "counts": {},
+        }
+        pruned = ua.prune(points, ranked, 0.01)
+        self.assertEqual([r["nuclide"] for r in pruned["ranking"]], ["A"])
+        self.assertAlmostEqual(pruned["pruned"]["sum_pcm"], 0.006)
+
+
+class LatticeVolume(unittest.TestCase):
+    def test_a_nuclide_zero_on_one_side_only_is_an_error(self):
+        h = history([(0.0, 10.0, {"U-238": 2.0, "U-235": 1.0})], ["U-238", "U-235"])
+        table = {"micro": {"nuclides": ["U-238", "U-235"], "densities": [[1.0, 0.0]]}}
+        with self.assertRaises(SystemExit):
+            ua.lattice_volume(h, table, 0, 10.0)
+
 
 class Category(unittest.TestCase):
     def test_tracked_nuclides_come_first_then_the_transported_ones(self):

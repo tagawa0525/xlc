@@ -11,9 +11,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import compare_added
 
 
-def history(ks):
+def history(ks, transportable=()):
     return {
         "format": "xlc-depletion-history",
+        "transportable": list(transportable),
         "points": [{"burnup": b, "k_inf": k} for b, k in ks],
     }
 
@@ -37,14 +38,14 @@ def absorption(points, pruned=()):
 
 class Compare(unittest.TestCase):
     def test_added_nuclides_dropped_from_the_json_count_as_zero(self):
-        h = history([(10.0, 1.0)])
+        before, after = history([(10.0, 1.0)]), history([(10.0, 1.0)], ["A", "P"])
         shares = absorption([(10.0, 1.0, {"A": (0.01, 1.0)})], pruned=["P"])
-        (row,) = compare_added.compare(h, h, shares, ["A", "P"])["points"]
+        (row,) = compare_added.compare(before, after, shares, ["A", "P"])["points"]
         self.assertAlmostEqual(row["decay_only_pcm"], -1e3)
 
     def test_the_direct_difference_and_both_estimates_sum_the_added_nuclides(self):
-        before = history([(0.0, 1.2), (10.0, 1.0), (20.0, 0.9)])
-        after = history([(0.0, 1.2), (10.0, 0.99), (20.0, 0.88)])
+        before = history([(0.0, 1.2), (10.0, 1.0), (20.0, 0.9)], ["U-235"])
+        after = history([(0.0, 1.2), (10.0, 0.99), (20.0, 0.88)], ["U-235", "A", "B"])
         shares = absorption(
             [(10.0, 1.0, {"A": (0.01, 0.5), "B": (0.002, 1.0), "C": (0.5, 1.0)})]
         )
@@ -53,8 +54,17 @@ class Compare(unittest.TestCase):
         self.assertAlmostEqual(row["decay_only_pcm"], -1e5 * 0.012)
         self.assertAlmostEqual(row["captured_pcm"], -1e5 * 0.007)
 
+    def test_added_nuclides_the_libraries_do_not_add_are_errors(self):
+        before = history([(10.0, 1.0)], ["A"])
+        after = history([(10.0, 1.0)], ["A", "B"])
+        shares = absorption([(10.0, 1.0, {"A": (0.1, 1.0), "B": (0.1, 1.0)})])
+        with self.assertRaises(SystemExit):
+            compare_added.compare(before, after, shares, ["A", "B"])
+        with self.assertRaises(SystemExit):
+            compare_added.compare(before, after, shares, ["B", "C"])
+
     def test_added_nuclides_missing_from_the_absorption_shares_are_errors(self):
-        h = history([(10.0, 1.0)])
+        h = history([(10.0, 1.0)], ["Z"])
         with self.assertRaises(SystemExit):
             compare_added.compare(
                 h, h, absorption([(10.0, 1.0, {"A": (0.1, 1.0)})]), ["Z"]
