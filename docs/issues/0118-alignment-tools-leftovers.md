@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [performance, build]
 opened: 2026-10-14
-closed:
+closed: 2026-11-19
 milestone:
 blocked-by: []
-resolution:
+resolution: "wontfix: レビューで直さなかった指摘を集めた issue は作らない決定（nixfiles の ADR-0066）に合わせ、点ごとに確かめた。再現のある点は無く、build-binaries.sh の grep -q は #0113 が扱う"
 ---
 
 # ADR-0157 の測定のツールのレビューで残った指摘
@@ -36,3 +36,4 @@ ADR-0144 の判定の手順を決めるとき（#0112）に、上のそれぞれ
 ## 経緯
 
 - 2026-10-14: perf/0105-code-alignment のレビューで残った指摘をまとめた
+- 2026-11-19: 点ごとに確かめて閉じた（扱いは閉じるコミットの本文）。build-binaries.sh の grep -q は #0113、#0112 の表の 284、287、292 の出どころは #0112 の表の注にある
