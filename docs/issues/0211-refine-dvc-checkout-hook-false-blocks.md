@@ -19,7 +19,7 @@ True を返すことを示した。また、出力に触れない `dvc checkout 
 渡す引数を読む手段がない（`nix develop -c dvc checkout --help` も止まる）。
 
 2 周目（同日）は、bash の値を取るオプションのうち、テストの無いもの（`-O`、`--rcfile`、`--init-file`、`-c -- '…'`）を
-挙げた。3 周目（同日）は、リダイレクトの待ちを区切りで解く直しが止めるようにした `tee >(dvc checkout)` と
+挙げた。3 周目（同日）は、リダイレクトの待ちを区切りで解く修正が止めるようにした `tee >(dvc checkout)` と
 `echo x > $(mktemp) && dvc checkout` にテストが無いことを挙げた。
 
 親の 2 周目（同日、rebase の後）は、止め損なう形として `nix --offline develop -c …`（nix のグローバルオプションが先）、

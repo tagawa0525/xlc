@@ -25,7 +25,7 @@ MOC の反射体の透過（出ていく正味の中性子流 / 入る正味の�
 
 - D = 1/(3Σt) のまま（[ADR-0044](0044-collapse-to-two-groups.md)）: 散乱の非等方性を入れない。水の多い領域と反射体で D を小さく見積もる
 - outflow（out-scatter）の輸送補正 Σtr,g = Σt,g − Σ_g' Σs1(g→g')、D = 1/(3Σtr): 広く使われる（MPACT 4.4 Theory
-  Manual、式 (5.24)〜(5.26)。手元の写し）。軽い核種で誤差が出る。MPACT は軽い核種に inflow の補正、水素に neutron leakage
+  Manual、式 (5.24)〜(5.26)。手元のコピー）。軽い核種で誤差が出る。MPACT は軽い核種に inflow の補正、水素に neutron leakage
   conservation を使う（同 5.3.3 節。B. C. Yee, E. W. Larsen, B. Kochunas, PHYSOR 2016 を引く。読んでいない）
 - inflow（in-scatter）の輸送補正 Σtr,g = Σt,g − Σ_g' Σs1(g'→g) φ1_g' / φ1_g（中性子流の1次のモーメント φ1 で重みづけ）:
   より厳密だが、中性子流のスペクトル φ1 が要る。STREAM は減速材と近似のバックリングの 1D の P_N の計算で φ1 を求める

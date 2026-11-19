@@ -37,7 +37,7 @@ ADR-0232 の実装（ブランチ perf/0076-core-cmfd）のローカルのレビ
 - `docs/plans/architecture.md` の共通のクレートの一覧に `xlc-cmfd` が無い（依頼の変える範囲の外）
 - `verification_tables.py` の `core_acceleration_runs` は 1 回の時間を小数 2 桁で描き、小さな炉心の最小（0.003 s など）が 0.00 になる（比較のツールの
   `--report` は 3 桁）
-- `compare_core_acceleration.py` の `main`、`parse`、`report` の前半と、`core_acceleration_runs` は、初期値と Xe とホウ素の比較のものの 3 つ目の写し
+- `compare_core_acceleration.py` の `main`、`parse`、`report` の前半と、`core_acceleration_runs` は、初期値と Xe とホウ素の比較のものの 3 つ目のコピー
 - `xlc-numeric` にモジュールを足すと、それを使わない xs と lattice の実行ファイルのバイトが変わった原因を確かめていない（ADR-0232 の案 S2）。
   共通のクレートに足すたびにステージが changed になるなら、構造の側で直す候補がある
 

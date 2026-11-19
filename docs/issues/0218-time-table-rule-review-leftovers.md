@@ -24,7 +24,7 @@ resolution:
   超える項では表の名前が切れるので、`TABLES` の関数の本文を `inspect.getsource` で読む 1 行の Python に替えた（1 周目の指摘）。
   その 1 行も、補助の関数を通して `seconds` を読む表は拾わない（スキルに書いた）
 
-3 周目の直し（564419355）に回した記録の周が挙げた blocking（/git-merge の「直す指摘の基準」の歯止めで直さず、ユーザーの判断に回す）:
+3 周目の修正（564419355）に回した記録の周が挙げた blocking（/git-merge の「直す指摘の基準」の歯止めで直さず、ユーザーの判断に回す）:
 
 - スキルの「格子計算のステージの出力を消してから `dvc repro --no-run-cache <yaml>:<ステージ>`」は、格子計算を実行しない。DVC 3.67.1
   の `run_stage`（dvc/stage/run.py）は force でなければ `stage_cache.restore` を呼び、`restore`（dvc/stage/cache.py 198〜203 行）は

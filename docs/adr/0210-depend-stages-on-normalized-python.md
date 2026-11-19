@@ -17,7 +17,7 @@ ADR-0159 は Rust のステージの deps をビルドした実行ファイル�
 ものを deps にしていたので、docstring とコメントだけの変更でも md5 が変わり、下流のステージが changed になる（#0145）。
 13 の `dvc.yaml` が 33 の .py を deps に持っていた。
 
-- 履歴の書き換え（#0141）と語の直し（4aa33c0c9）が docstring とコメントだけを直し、examples/depletion と p2 の OpenMC の
+- 履歴の書き換え（#0141）と語の修正（4aa33c0c9）が docstring とコメントだけを直し、examples/depletion と p2 の OpenMC の
   ライブラリと燃焼（数時間）、examples/vera の OpenMC のライブラリが changed になった
 - そのたびに、出力を作り直さず `dvc commit` で lock を付け直した（db574cfbd、92a332fd8、e43631a01 の 3 度）。ADR-0159 の案 B、
   ADR-0130 の案 L、ADR-0143 が退けた形を、限り方を決めずにその場の判断で繰り返していた

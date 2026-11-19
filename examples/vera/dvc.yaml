@@ -87,7 +87,7 @@ stages:
       - p1/openmc-1B-model
   openmc-1B:
     # ライブラリはディレクトリ全体を deps にする（どの核種が変わっても走るが、組成をコピーした並びの漏れがない。ADR-0130）。
-    # スクリプトを deps にしない（モデルを変えない直しで再実行しないため。ADR-0136）。入力は、このスクリプトが読む
+    # スクリプトを deps にしない（モデルを変えない修正で再実行しないため。ADR-0136）。入力は、このスクリプトが読む
     # ライブラリのパスとスレッド数だけを params にする
     cmd: nix develop ../..#references -c python3 openmc_model.py run p1/openmc-1B.toml p1/openmc-1B-model p1/openmc-1B
     deps:

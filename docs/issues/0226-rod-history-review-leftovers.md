@@ -27,7 +27,7 @@ resolution: wontfix: レビューで直さなかった指摘を集めた issue �
   テーブルをブランチ計算に渡すと、選んだ値の軸に無い `out` の残りで検査が誤った文で止まる
 - core の `node_micro` の Σ_j a_j ΔN̄ᵢ^j は最初の変数の長さで zip する（長さはテーブルの検査が揃える）。`expected` の名前が
   `linearization_weights` の Σ w_k P_k と重なる
-- 2 周目: examples/depletion/history/compare_rods_switch.py の `compare()` と `report()` を呼ぶテストが無い（`continued` の読み方の直しも
+- 2 周目: examples/depletion/history/compare_rods_switch.py の `compare()` と `report()` を呼ぶテストが無い（`continued` の読み方の修正も
   テストなし）。比較のツールのテストと実装は 1 つのコミット（7c8fa1869）。`compare()` は core が参照の `continued` の燃焼度で切り替えたこと、
   20 MWd/kg まで H_r が 1、減速材の密度の重みが 0 であることを照らさず、JSON の `density_weight` は w_m でなく H_m。`nodes`、`at_burnup`、
   `production`、`scaled` は compare_core_history.py などの複製。燃焼度の軸を最初の軸と置く。切り替えの後の点が無いと `report()` が空の列で
@@ -41,7 +41,7 @@ resolution: wontfix: レビューで直さなかった指摘を集めた issue �
   ずれは再構成の検査だけが止める）。`state_point` は compare_rods_switch.py の `state_index` の複製
 - trial/0190-rods-forgetting の 3 周目: compare_rods_parts.py は core の状態の名前（`[state.out]`）を制御棒の値 out と比べ、名前が同じことに頼る。
   切り替えの後の点が無いと `report()` と verification_tables.py の `history_rods_parts_nuclides` が空の列で止まる（TableError でなく IndexError）。
-  表の関数の直し（両方の P / P_j の列）は、記録の表の検査の hook が JSON と記録を同じコミットに求めるので、記録のコミット 45f520d1 に入った
+  表の関数の修正（両方の P / P_j の列）は、記録の表の検査の hook が JSON と記録を同じコミットに求めるので、記録のコミット 45f520d1 に入った
 
 関係する ADR: ADR-0228
 
@@ -57,5 +57,5 @@ resolution: wontfix: レビューで直さなかった指摘を集めた issue �
   変数になっているが `rods` は制御棒の値の基準の格子点を固定で使う（`rod_history_condition`）、制御棒の軸を持たないテーブルは値 `out` にしか
   渡せない規則（residual.rs の 247〜249 行）が書かれていない、ハイブリッドの「同じ軸と点」は `rod_value` で値を選んだ後の照合である
   （`check_hybrid`）、「`rods` は制御棒の軸が要る」と「H^0 = 0、H^b = 1」が同じ段落に 2 度ある、「## 変更」の 2026-11-05 の項の
-  「変えた部分」が検査の規則の変更に読める（実際は `moderator-density` だけを書いていた括弧を変数ごとにした文言の直し）
+  「変えた部分」が検査の規則の変更に読める（実際は `moderator-density` だけを書いていた括弧を変数ごとにした文言の修正）
 - 2026-11-08: レビューで直さなかった指摘を集めた issue は作らない決定（nixfiles の ADR-0066 の「## 変更」の 2026-11-08）に合わせて閉じた。再現のある項目は無い

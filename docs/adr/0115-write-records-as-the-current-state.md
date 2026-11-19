@@ -39,7 +39,7 @@ requires: []
   （ADR は docs/adr/README.md の書き方のまま。issue には docs/issues/README.md に同じ規則を足す）。記録が書き直されても、
   そのコミットの時点の記録（`git show <コミット>:<ファイル>`）で辿れる。新しい測定には、コミットを必ず書く
 - **コードのコメント**: 今の挙動とその理由を書く。以前の挙動や、どの issue で変わったかは書かない（コミットと ADR に任せる）
-- **ADR と issue**: 経緯の記録なので、今の規則のまま。ADR は accepted、rejected、superseded のあと、誤字、リンクの直し、
+- **ADR と issue**: 経緯の記録なので、今の規則のまま。ADR は accepted、rejected、superseded のあと、誤字、リンクの修正、
   `status` と `superseded-by` の変更だけ（docs/adr/README.md）。issue の「経緯」は日付ごとに足していく。案 C は採らない
 
 ## 確認
