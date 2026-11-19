@@ -287,10 +287,20 @@ def step(a, b):
         + sum(rest[e][r] for e in EFFECTS for r in RANGES)
         + chi,
     }
+    both = (
+        "u238_resonance",
+        "resonance_other",
+        "absorption_other_ranges",
+        "transported_scattering_production",
+    )
     return {
         "total_pcm": total,
         "closure_pcm": sum(parts.values()) - total,
         "parts": parts,
+        "transported_pcm": sum(parts[k] for k in both),
+        "moved_absorption_ranges": {
+            r: summed("absorption", [r], lambda n, k: k in moved) for r in RANGES
+        },
         "moved": sorted(n for n, v in nuclides.items() if v["kind"] in moved),
         "nuclides": nuclides,
         "rest_effects": rest,
@@ -351,6 +361,11 @@ def report(summary):
         parts = "、".join(f"{k} {v:+.1f}" for k, v in s["parts"].items())
         lines.append(
             f"{s['from']} → {s['to']}: 差 {s['total_pcm']:+.1f} pcm（和との差 {s['closure_pcm']:+.1e}）。{parts}"
+        )
+        ranges = s["moved_absorption_ranges"]
+        lines.append(
+            f"  両方で輸送する核種の和 {s['transported_pcm']:+.1f}、扱いを変えた核種の吸収の範囲ごと: "
+            + "、".join(f"{r} {ranges[r]:+.1f}" for r in RANGES)
         )
         largest = sorted(
             s["nuclides"].items(),
