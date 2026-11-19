@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """dvc repro の前に走りうるステージを数え、上限を超えるか、許していない参照解のステージが入っていれば、何も実行せずに止まる（ADR-0257）。
 
-使い方（default の devShell で。リポジトリのどこからでもよい）:
+使い方（default の devShell で、リポジトリの直下から）:
     scripts/dvc-repro.py --max-stages <N> [--allow-reference <yaml>:<ステージか foreach の組>]... [--count-only]
                          [--no-run-cache] (-P | <dvc repro の目標>...)
 
@@ -228,8 +228,12 @@ def main(argv: list[str] | None = None) -> int:
             text=True,
             check=True,
         ).stdout.strip()
-        # dvc の示すステージの key（<yaml>:<ステージ>）はリポジトリの直下からのパス
-        os.chdir(root)
+        # dvc の示すステージの key（<yaml>:<ステージ>）と --allow-reference はリポジトリの直下からのパスで、目標は
+        # cwd からの相対なので、直下に移ると別の dvc.yaml を指しうる。移らずに止める
+        if Path.cwd().resolve() != Path(root).resolve():
+            raise ReproError(
+                f"run from the root of the repository ({root}); the targets are paths from there"
+            )
         cmds = parse_dry_run(dvc("repro", "--dry", "-f", *selection))
         if not cmds:
             raise ReproError(
