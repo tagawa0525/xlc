@@ -9,7 +9,7 @@
 
 pub mod check;
 
-pub use check::{Docs, Violation};
+pub use check::{Citation, Docs, Violation};
 
 use std::fmt;
 
@@ -217,6 +217,27 @@ pub fn issue_refs(text: &str) -> Vec<u32> {
         })
         .filter_map(|(i, _)| four_digits_at(text, i + 1))
         .collect()
+}
+
+/// コミットの hash と見なす語（7〜40 桁の小文字の 16 進で、前後に英数字も `_` も無いもの）を、現れた順に返す。
+/// 小数点の後の数字（`1.212848e-3` の `212848e`）は数なので除く。md5 の先頭 8 桁と短い hash は形で区別できないので、
+/// コミットを指すかは呼ぶ側が git で確かめる
+pub fn hex_words(line: &str) -> Vec<&str> {
+    let is_hex = |b: u8| b.is_ascii_digit() || (b'a'..=b'f').contains(&b);
+    let bytes = line.as_bytes();
+    let mut words = Vec::new();
+    let mut end = 0;
+    while let Some(offset) = bytes[end..].iter().position(|&b| is_hex(b)) {
+        let start = end + offset;
+        end = start + bytes[start..].iter().take_while(|&&b| is_hex(b)).count();
+        let joined = line[..start].chars().next_back().is_some_and(is_word)
+            || line[end..].chars().next().is_some_and(is_word);
+        let decimal = start >= 2 && bytes[start - 1] == b'.' && bytes[start - 2].is_ascii_digit();
+        if (7..=40).contains(&(end - start)) && !joined && !decimal {
+            words.push(&line[start..end]);
+        }
+    }
+    words
 }
 
 /// Markdown のリンク先。外部の URL（`http:`、`https:`、`mailto:`）と、同じ文書の中の `#anchor` だけの

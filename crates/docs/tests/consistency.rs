@@ -1,18 +1,19 @@
 //! リポジトリの文書の整合性の検査（#0013）。
 //!
 //! git が追跡しているファイルを一度だけ読み、xlc_docs::Docs の検査に違反がないことを確かめる。閉じた issue の
-//! `resolution: コミット <hash>` は、git で HEAD かローカルのどれかのブランチの祖先のコミットを指すことを確かめる。
-//! 違反はすべて並べて示す。
+//! `resolution: コミット <hash>` と、文書が引くコミットの hash（`Docs::cited_hashes` のうちコミットを指すもの）は、
+//! git で HEAD、ローカルのブランチ、タグのどれかから辿れることを確かめる。違反はすべて並べて示す。
 
 // テストでは assert! 系を使う（本番のコードでは clippy.toml で禁止している）
 #![cfg_attr(test, allow(clippy::disallowed_macros))]
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
+use std::process::{Command, Output, Stdio};
 
-use xlc_docs::Docs;
+use xlc_docs::{Citation, Docs};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -45,8 +46,8 @@ fn inherited_git_variables() -> Vec<std::ffi::OsString> {
 }
 
 impl Repo<'_> {
-    /// リポジトリの根で git を実行する。git がなければエラーにする。
-    fn git(&self, args: &[&str]) -> Result<Output> {
+    /// リポジトリの根で git を実行するコマンド。
+    fn command(&self, args: &[&str]) -> Command {
         let mut command = Command::new("git");
         command.arg("-C").arg(self.root).args(args);
         if self.isolated {
@@ -55,8 +56,41 @@ impl Repo<'_> {
             }
         }
         command
+    }
+
+    /// リポジトリの根で git を実行する。git がなければエラーにする。
+    fn git(&self, args: &[&str]) -> Result<Output> {
+        self.command(args)
             .output()
             .map_err(|e| format!("cannot run git {args:?} (is git installed?): {e}").into())
+    }
+
+    /// 標準入力に `input` を渡して git を実行し、成功したときの標準出力を返す。入力は別のスレッドで書く（git が
+    /// 書く出力でパイプが詰まると、書き終わるまで待つ側と読まれるのを待つ側で止まる）
+    fn stdout_with_input(&self, args: &[&str], input: String) -> Result<String> {
+        let mut child = self
+            .command(args)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| format!("cannot run git {args:?} (is git installed?): {e}"))?;
+        let mut stdin = child.stdin.take().ok_or("git has no stdin")?;
+        let writer = std::thread::spawn(move || stdin.write_all(input.as_bytes()));
+        let output = child.wait_with_output()?;
+        let written = writer
+            .join()
+            .map_err(|_| "the thread writing to git panicked")?;
+        // git が先に止まると書き込みは broken pipe になるので、git の失敗（標準エラーに原因）を先に示す
+        if !output.status.success() {
+            return Err(format!(
+                "git {args:?} failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            )
+            .into());
+        }
+        written?;
+        Ok(String::from_utf8(output.stdout)?)
     }
 
     /// git を実行し、成功したときの標準出力を返す。
@@ -92,57 +126,109 @@ fn tracked_files(repo: &Repo, pathspecs: &[&str]) -> Result<Vec<String>> {
         .collect())
 }
 
-/// `hash` が HEAD か、ローカルのどれかのブランチの祖先のコミットを指すか。違えば理由を返す。マージのコミットを作る
-/// 前の検査（pre-merge-commit の hook）では、HEAD はまだ元のブランチで、MERGE_HEAD もまだない（git 2.55 で確かめた）。
-/// issue を閉じたブランチの上のコミットは、そのブランチの祖先として認める。rebase で捨てた古いコミットは、どの
-/// ブランチの祖先でもなくなるので見つかる。マージしていないブランチの上のコミットは、そのブランチを消すまで見逃す
-fn commit_problem(repo: &Repo, hash: &str) -> Result<Option<String>> {
-    let commit = format!("{hash}^{{commit}}");
-    if !repo
-        .git(&["rev-parse", "--quiet", "--verify", &commit])?
-        .status
-        .success()
-    {
-        return Ok(Some(format!("commit {hash} does not exist")));
+/// HEAD、ローカルのブランチ、タグから辿れるコミット（完全な hash）。マージのコミットを作る前の検査
+/// （pre-merge-commit の hook）では、HEAD はまだ元のブランチで、MERGE_HEAD もまだない（git 2.55 で確かめた）ので、
+/// マージするブランチの上のコミットは、そのブランチから辿れるものとして認める。rebase で捨てた古いコミットは、
+/// どの ref からも辿れなくなるので見つかる。マージしていないブランチの上のコミットは、そのブランチを消すまで見逃す。
+/// タグは、ブランチを消した後も残すと決めたコミット（`record/`、`archive/`）を辿れるようにする。reflog は数えない
+/// （git gc が期限で消し、そのあとは hash を checkout できない。ADR-0122）
+fn reachable_commits(repo: &Repo) -> Result<HashSet<String>> {
+    Ok(repo
+        .stdout(&["rev-list", "HEAD", "--branches", "--tags"])?
+        .lines()
+        .map(str::to_string)
+        .collect())
+}
+
+/// 文書の中の hash が指すもの。
+enum Named {
+    /// コミット（完全な hash）。注釈つきのタグのオブジェクトは、その先のコミット
+    Commit(String),
+    /// 先頭が同じコミットが 2 つ以上ある
+    Ambiguous,
+    /// コミットでない（md5、ほかのリポジトリのコミット、blob、消えたコミット）
+    Other,
+}
+
+/// `hashes` が指すものを、1 つの `git cat-file --batch-check` で引く。`<hash>^{commit}` で引くので、git は
+/// コミットだけで短い hash を決める（blob や tree と先頭が重なっても 1 つに決まる）。先頭が同じコミットが 2 つ
+/// 以上あると、git は `^{commit}` を `missing` と答え、`ambiguous` とは答えない（git 2.55 で確かめた）ので、
+/// 同じ batch で `<hash>` も引き、それが `ambiguous` のものだけ、候補（`rev-parse --disambiguate`）のコミットを数える
+fn name_commits<'a>(repo: &Repo, hashes: &BTreeSet<&'a str>) -> Result<BTreeMap<&'a str, Named>> {
+    if hashes.is_empty() {
+        return Ok(BTreeMap::new());
     }
-    if is_ancestor(repo, hash, "HEAD")? {
-        return Ok(None);
-    }
-    let branches = repo.git(&[
-        "for-each-ref",
-        "--contains",
-        hash,
-        "--format=%(refname)",
-        "refs/heads/",
-    ])?;
-    if !branches.status.success() {
+    let input: String = hashes
+        .iter()
+        .map(|h| format!("{h}^{{commit}}\n{h}\n"))
+        .collect();
+    let output = repo.stdout_with_input(&["cat-file", BATCH_CHECK, "--buffer"], input)?;
+    let lines: Vec<&str> = output.lines().collect();
+    if lines.len() != 2 * hashes.len() {
         return Err(format!(
-            "git for-each-ref failed: {}",
-            String::from_utf8_lossy(&branches.stderr)
+            "git cat-file answered {} lines for {} names",
+            lines.len(),
+            2 * hashes.len()
         )
         .into());
     }
-    Ok(if branches.stdout.is_empty() {
-        Some(format!(
-            "commit {hash} is not an ancestor of HEAD or any branch (rebased? update the hash)"
-        ))
-    } else {
-        None
-    })
+    let mut named = BTreeMap::new();
+    for (hash, pair) in hashes.iter().zip(lines.chunks(2)) {
+        let value = match (pair[0].split_once(' '), pair[1].split_once(' ')) {
+            (Some((full, "commit")), _) => Named::Commit(full.to_string()),
+            (_, Some((_, "ambiguous"))) if candidate_commits(repo, hash)? > 1 => Named::Ambiguous,
+            _ => Named::Other,
+        };
+        named.insert(*hash, value);
+    }
+    Ok(named)
 }
 
-/// `hash` が `head` の祖先か。
-fn is_ancestor(repo: &Repo, hash: &str, head: &str) -> Result<bool> {
-    let ancestor = repo.git(&["merge-base", "--is-ancestor", hash, head])?;
-    match ancestor.status.code() {
-        Some(0) => Ok(true),
-        Some(1) => Ok(false),
-        _ => Err(format!(
-            "git merge-base failed: {}",
-            String::from_utf8_lossy(&ancestor.stderr)
-        )
-        .into()),
+const BATCH_CHECK: &str = "--batch-check=%(objectname) %(objecttype)";
+
+/// 先頭が `prefix` のオブジェクトのうちコミットの数。
+fn candidate_commits(repo: &Repo, prefix: &str) -> Result<usize> {
+    let candidates = repo.stdout(&["rev-parse", &format!("--disambiguate={prefix}")])?;
+    let types = repo.stdout_with_input(&["cat-file", BATCH_CHECK], candidates)?;
+    Ok(types.lines().filter(|l| l.ends_with(" commit")).count())
+}
+
+/// 閉じた issue の `resolution` の hash（パスと hash）がコミットを指すか、文書が引く hash（`cited`）のうち
+/// コミットを指すものが HEAD、ブランチ、タグから辿れ、1 つのコミットに決まるかを確かめ、違反の文を返す。
+/// `resolution` の行も `cited` に入るので、辿れるかと決まるかは `cited` の側だけで見る（同じ hash を 2 度示さない）。コミットを指さない
+/// 16 進は md5 などと区別できないので、`resolution` のほかでは見ない（git gc の後の消えたコミットも見逃す）
+fn commit_problems(
+    repo: &Repo,
+    resolutions: &[(String, String)],
+    cited: &[Citation],
+) -> Result<Vec<String>> {
+    let hashes: BTreeSet<&str> = resolutions
+        .iter()
+        .map(|(_, h)| h.as_str())
+        .chain(cited.iter().map(|c| c.hash.as_str()))
+        .collect();
+    let named = name_commits(repo, &hashes)?;
+    let reachable = reachable_commits(repo)?;
+    let mut problems: Vec<String> = resolutions
+        .iter()
+        .filter(|(_, hash)| matches!(named.get(hash.as_str()), None | Some(Named::Other)))
+        .map(|(path, hash)| format!("{path}: `resolution` names commit {hash} that does not exist"))
+        .collect();
+    for c in cited {
+        let problem = match named.get(c.hash.as_str()) {
+            Some(Named::Commit(full)) if !reachable.contains(full) => format!(
+                "commit {} is not reachable from HEAD, a branch or a tag \
+                 (cite the rebased commit, or tag the commit to keep it)",
+                c.hash
+            ),
+            Some(Named::Ambiguous) => {
+                format!("{} names more than one commit (write more digits)", c.hash)
+            }
+            _ => continue,
+        };
+        problems.push(format!("{}:{}: {problem}", c.path, c.line));
     }
+    Ok(problems)
 }
 
 /// 今のブランチが main のとき、`trials/` の下で追跡しているファイル。ほかのブランチと detached HEAD では空。
@@ -195,11 +281,11 @@ fn docs_are_consistent() -> Result<()> {
 
     let docs = Docs::new(texts, others);
     let mut violations: Vec<String> = docs.check().iter().map(ToString::to_string).collect();
-    for (path, hash) in docs.resolution_commits() {
-        if let Some(problem) = commit_problem(&repo, &hash)? {
-            violations.push(format!("{path}: `resolution` names {problem}"));
-        }
-    }
+    violations.extend(commit_problems(
+        &repo,
+        &docs.resolution_commits(),
+        &docs.cited_hashes(),
+    )?);
     assert!(
         violations.is_empty(),
         "{} documentation violation(s):\n{}",
@@ -324,8 +410,18 @@ impl TempRepo {
         self.run(&["rev-parse", "HEAD"])
     }
 
+    /// 文書が完全な `hash` を引いたときの最初の違反
     fn problem(&self, hash: &str) -> Result<Option<String>> {
-        commit_problem(&self.repo(), hash)
+        Ok(self.cited(&format!("{hash}\n"))?.into_iter().next())
+    }
+
+    /// 1 つの文書 `text` が引く hash の違反
+    fn cited(&self, text: &str) -> Result<Vec<String>> {
+        let docs = Docs::new(
+            BTreeMap::from([("docs/a.md".to_string(), text.to_string())]),
+            Vec::<String>::new(),
+        );
+        commit_problems(&self.repo(), &[], &docs.cited_hashes())
     }
 }
 
@@ -370,6 +466,116 @@ fn branch_commits_count_until_the_branch_is_gone() -> Result<()> {
         t.problem(&stale)?.is_some(),
         "a commit on no branch after the merge"
     );
+    Ok(())
+}
+
+#[test]
+fn tagged_commits_count() -> Result<()> {
+    // ブランチを消しても、タグ（record/ などで残すと決めたコミット）から辿れるコミットは認める
+    let t = TempRepo::new("tags")?;
+    t.commit("chore: base")?;
+    t.run(&["switch", "-q", "-c", "kept"])?;
+    let kept = t.commit("fix: kept")?;
+    t.run(&["tag", "-a", "-m", "keep", "record/kept", &kept])?;
+    t.run(&["switch", "-q", "main"])?;
+    t.run(&["branch", "-q", "-D", "kept"])?;
+    assert_eq!(t.problem(&kept)?, None);
+    Ok(())
+}
+
+#[test]
+fn cited_commits_must_be_reachable() -> Result<()> {
+    // 文書が引くコミットは、HEAD、ブランチ、タグのどれかから辿れる。コミットでない 16 進（md5、ほかの
+    // リポジトリのコミット、blob）は見ない
+    let t = TempRepo::new("cited")?;
+    let base = t.commit("chore: base")?;
+    t.run(&["switch", "-q", "-c", "gone"])?;
+    let stale = t.commit("fix: gone")?;
+    t.run(&["switch", "-q", "-c", "topic", "main"])?;
+    let topic = t.commit("fix: topic")?;
+    t.run(&["switch", "-q", "-c", "kept"])?;
+    let kept = t.commit("fix: kept")?;
+    t.run(&["tag", "-a", "-m", "keep", "record/kept", &kept])?;
+    t.run(&["switch", "-q", "main"])?;
+    t.run(&["branch", "-q", "-D", "gone", "kept"])?;
+    let blob = t.run(&["hash-object", "-w", "--stdin"])?;
+    let md5 = "0123456789abcdef0123456789abcdef";
+    let text = format!(
+        "xlc {}（分岐点は main の {}）、{}、md5 {md5}、{}、{}\n",
+        &topic[..9],
+        &base[..9],
+        &kept[..9],
+        "abcdef12",
+        &blob[..9]
+    );
+    assert_eq!(t.cited(&text)?, Vec::<String>::new());
+    let problems = t.cited(&format!("{text}rebase の前の {}\n", &stale[..9]))?;
+    assert_eq!(problems.len(), 1, "{problems:?}");
+    assert!(
+        problems[0].starts_with("docs/a.md:2: ") && problems[0].contains(&stale[..9]),
+        "{problems:?}"
+    );
+    Ok(())
+}
+
+#[test]
+fn resolutions_name_existing_commits_and_report_once() -> Result<()> {
+    // `resolution` の hash は、コミットが無ければ違反。辿れないコミットは、文書の行として 1 度だけ示す
+    let t = TempRepo::new("resolution")?;
+    t.commit("chore: base")?;
+    t.run(&["switch", "-q", "-c", "gone"])?;
+    let stale = t.commit("fix: gone")?;
+    t.run(&["switch", "-q", "main"])?;
+    t.run(&["branch", "-q", "-D", "gone"])?;
+    let path = "docs/issues/0001-a.md".to_string();
+    let text = format!("---\nresolution: コミット {}\n---\n", &stale[..9]);
+    let docs = Docs::new(BTreeMap::from([(path.clone(), text)]), Vec::<String>::new());
+    let problems = commit_problems(
+        &t.repo(),
+        &[(path.clone(), stale[..9].to_string())],
+        &docs.cited_hashes(),
+    )?;
+    assert_eq!(problems.len(), 1, "{problems:?}");
+    assert!(
+        problems[0].starts_with(&format!("{path}:2: commit ")),
+        "{problems:?}"
+    );
+    let missing = "abcdef1234";
+    assert_eq!(
+        commit_problems(&t.repo(), &[(path.clone(), missing.to_string())], &[])?,
+        [format!(
+            "{path}: `resolution` names commit {missing} that does not exist"
+        )]
+    );
+    Ok(())
+}
+
+#[test]
+fn prefixes_of_two_commits_are_ambiguous() -> Result<()> {
+    // 7 桁で重なるコミットは作りにくいので、name_commits に 4 桁の先頭を渡す。日付を固めた fast-import で
+    // 作るので、コミットの hash（と重なる先頭）は毎回同じ
+    let t = TempRepo::new("ambiguous")?;
+    let stream: String = (0..1000)
+        .map(|i| {
+            format!(
+                "commit refs/heads/main\ncommitter t <t@t> 1700000000 +0000\ndata {}\nc{i:04}\n\n",
+                "c0000".len() + 1
+            )
+        })
+        .collect();
+    t.repo()
+        .stdout_with_input(&["fast-import", "--quiet"], stream)?;
+    let commits = t.run(&["rev-list", "main"])?;
+    let mut seen = BTreeMap::new();
+    let prefix = commits
+        .lines()
+        .map(|c| &c[..4])
+        .find(|p| seen.insert(*p, ()).is_some())
+        .ok_or("no two of the commits share 4 leading digits")?;
+    let one = commits.lines().next().ok_or("no commit")?;
+    let named = name_commits(&t.repo(), &BTreeSet::from([prefix, &one[..9]]))?;
+    assert!(matches!(named[prefix], Named::Ambiguous));
+    assert!(matches!(&named[&one[..9]], Named::Commit(full) if full == one));
     Ok(())
 }
 

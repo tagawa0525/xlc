@@ -1012,3 +1012,52 @@ fn proposed_amends_leaves_the_old_adr_whole() {
     edit(&mut files, ADR2, "status: accepted", "status: proposed");
     assert_violations(files, &[]);
 }
+
+fn cited(files: BTreeMap<String, String>) -> Vec<(String, usize, String)> {
+    Docs::new(files, Vec::<String>::new())
+        .cited_hashes()
+        .into_iter()
+        .map(|c| (c.path, c.line, c.hash))
+        .collect()
+}
+
+#[test]
+fn cites_hashes_in_the_markdown_of_docs_examples_and_claude() {
+    let mut files = BTreeMap::new();
+    add(&mut files, "CLAUDE.md", "a 1111111aa\n".to_string());
+    add(
+        &mut files,
+        "docs/plans/p.md",
+        "a\n\n```sh\ngit show 2222222bb\n```\n\nxlc 3333333cc\n".to_string(),
+    );
+    add(
+        &mut files,
+        "examples/v/verification.md",
+        "xlc 4444444dd、md5 0123456789abcdef0123456789abcdef\n".to_string(),
+    );
+    add(
+        &mut files,
+        ".claude/skills/s/SKILL.md",
+        "a 7777777aa\n".to_string(),
+    );
+    // Markdown のほかのファイルと、ほかの置き場の Markdown は見ない
+    add(&mut files, "examples/v/run.py", "# 5555555ee\n".to_string());
+    add(&mut files, "crates/x/README.md", "6666666ff\n".to_string());
+    let s = |p: &str, l: usize, h: &str| (p.to_string(), l, h.to_string());
+    assert_eq!(
+        cited(files),
+        [
+            s(".claude/skills/s/SKILL.md", 1, "7777777aa"),
+            s("CLAUDE.md", 1, "1111111aa"),
+            // コードブロックの中も読む
+            s("docs/plans/p.md", 4, "2222222bb"),
+            s("docs/plans/p.md", 7, "3333333cc"),
+            s("examples/v/verification.md", 1, "4444444dd"),
+            s(
+                "examples/v/verification.md",
+                1,
+                "0123456789abcdef0123456789abcdef"
+            ),
+        ]
+    );
+}

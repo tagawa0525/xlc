@@ -6,8 +6,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 use crate::{
-    FrontMatter, Link, Value, adr_refs, issue_refs, links, markdown_lines, numbered_file,
-    parse_front_matter,
+    FrontMatter, Link, Value, adr_refs, hex_words, issue_refs, links, markdown_lines,
+    numbered_file, parse_front_matter,
 };
 
 /// 約束に反しているところ。
@@ -27,6 +27,16 @@ impl fmt::Display for Violation {
             None => write!(f, "{}: {}", self.path, self.message),
         }
     }
+}
+
+/// 文書の中の、コミットの hash らしい語の場所。
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Citation {
+    /// リポジトリの根からのパス（`/` 区切り）。
+    pub path: String,
+    /// 行番号（1 から）。
+    pub line: usize,
+    pub hash: String,
 }
 
 /// 検査するリポジトリのファイル。
@@ -109,6 +119,26 @@ impl Docs {
                 _ => None,
             })
             .collect()
+    }
+
+    /// CLAUDE.md と、docs、examples、.claude の Markdown にあるコミットの hash らしい語（`hex_words`）と、その場所。
+    /// コードブロックの中も読む（`git show <hash>` のような再現の手順こそ、辿れる hash が要る）。git で hash が
+    /// 指すものを確かめるのは呼ぶ側（tests/consistency.rs）。
+    pub fn cited_hashes(&self) -> Vec<Citation> {
+        let mut cited = Vec::new();
+        for (path, text) in &self.texts {
+            if !scanned_for_hashes(path) {
+                continue;
+            }
+            for (i, content) in text.lines().enumerate() {
+                cited.extend(hex_words(content).into_iter().map(|hash| Citation {
+                    path: path.clone(),
+                    line: i + 1,
+                    hash: hash.to_string(),
+                }));
+            }
+        }
+        cited
     }
 
     /// `dir` の直下の番号つきの文書（README.md と、OKF の索引と履歴の `index.md`、`log.md` を除く。ADR-0256）。
@@ -280,6 +310,11 @@ fn scanned_for_refs(path: &str) -> bool {
         || (path.starts_with("docs/") && ext == "md")
         || (path.starts_with("examples/") && ["md", "py", "rs", "toml", "sh"].contains(&ext))
         || (path.starts_with("crates/") && ["rs", "toml"].contains(&ext))
+}
+
+/// 引くコミットを確かめるファイル: CLAUDE.md と、docs、examples、.claude の Markdown。
+fn scanned_for_hashes(path: &str) -> bool {
+    scanned_for_links(path) || (path.starts_with(".claude/") && extension(path) == "md")
 }
 
 /// 相対リンクを確かめるファイル: CLAUDE.md と、docs と examples の Markdown。

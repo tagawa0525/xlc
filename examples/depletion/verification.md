@@ -10192,10 +10192,9 @@ nix develop .#python-tests -c python3 examples/depletion/issue-0293/estimates.py
 
 ### 計算
 
-入力は dc9dede0f（ブランチ feat/0293-upstream-pin-measurements、分岐点は main の 21e8dd608。rebase の前の 97558ed08）で、Slurm 943（ライブラリ a、b）、
+入力は dc9dede0f（ブランチ feat/0293-upstream-pin-measurements、分岐点は main の 21e8dd608）で、Slurm 943（ライブラリ a、b）、
 944（u-40 と、Sn を足す前の urr/u）、945（mox-40 と urr/mox）、946（sab の u。同じジョブの mox は MOX の履歴の前に走って失敗）、947（u-80）、948（mox-80）、
-949（gd-40）、950（gd-80）。urr/u は 4734f6e39（rebase の前の d558aecfb）の Slurm 954、sab の mox は同じコミットの 955、u-160 は 4d56baff8（rebase の前の
-56ab13e4e）の 956、gd-160 は b74c928ef（rebase の前の d747effff）の 957。どれも分岐点は main の 21e8dd608 で、2026-11-19。割り込まれうるジョブなので、
+949（gd-40）、950（gd-80）。urr/u は 4734f6e39 の Slurm 954、sab の mox は同じコミットの 955、u-160 は 4d56baff8 の 956、gd-160 は b74c928ef の 957。どれも分岐点は main の 21e8dd608 で、流したのは rebase の前の同じ変更、2026-11-19。割り込まれうるジョブなので、
 時間は記録に使わない。`bin/lattice` は md5 c3b3bba1、`bin/xs` は md5 28e28365。ライブラリはピンセルの `depletion.msgpack`（md5 58a25945）と
 `p2/depletion.msgpack`（md5 975be970）、チェーンは `chain.msgpack`（md5 1f1de180）。sab のライブラリ a、b は md5 e4b679db と 85a1fa0b で、a の H-1 は
 ピンセルのライブラリの H-1（`xs-nuclides/H-1.msgpack`）と同じ md5（a1cb1cc7）。b の H-1 は md5 8e161082。出力と作り直した核種は `.dvc` で追う
@@ -10299,7 +10298,7 @@ python3 $T --report issue-0292/absorption-2A.json
 
 ### 計算
 
-セルの燃焼とテーブルは ecc12d834（実行したのは rebase の前の同じ変更 c2c3e4184、分岐点 ef018e8ae）の `bin/lattice`（md5 c3b3bba1）と
+セルの燃焼とテーブルは ecc12d834（実行したのは rebase の前の同じ変更、分岐点 ef018e8ae）の `bin/lattice`（md5 c3b3bba1）と
 p2 のライブラリ（md5 975be970）で、2026-11-19、Slurm 939（MOX）、940（U）、941（Gd）。割り込まれうるジョブで、時間は記録に使わない。
 比較は同じコミットで手元。入力の md5 は JSON の `inputs`（2A は履歴 0f5c5d1f とテーブル 078e571d、2O は 837733fd と 17001a10、セルは
 U 72d681bb と 024861be、MOX 3c0306da と 36d4239f、Gd 512ac23e と f87e907e）。セルのテーブルの燃焼度 0.1 MWd/kg の k∞ は履歴の k∞ と
