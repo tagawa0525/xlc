@@ -39,7 +39,7 @@ Marker = namedtuple("Marker", "path line kind text issues adrs")
 ISSUE = re.compile(r"#(\d{4})(?!\w)")
 ADR = re.compile(r"ADR-\d{4}")
 ISSUE_FILE = re.compile(r"^docs/issues/(\d{4})-[^/]*\.md$")
-TRIAL_DIRECTORY = re.compile(r"(^|/)(issue-\d{4}|trial[^/]*)/")
+TRIAL_DIRECTORY = re.compile(r"(^|/)(issue-\d{4}|trial)[^/]*/")
 RUST_IGNORE = re.compile(r"^\s*#\[(cfg_attr\(.*,\s*)?ignore\b")
 # `skip\b` は skipIf、skipUnless、skipif に当たらない（語の途中）
 PYTHON_SKIP = re.compile(
@@ -49,9 +49,8 @@ PROVISIONAL = re.compile(r"確かめていない|暫定|仮の|仮に|仮置き|
 # 除外の語と issue の番号が、文をまたがずに 16 文字以内で並ぶもの。離れた issue は、同じ行の別の話のことがある
 # （「H-1 を除く全核種に…履歴（#NNNN）の温度」）
 DROPPING = r"(?:外[すし]|除[くいき]|省[くいき]|除外)"
-EXCLUDED = re.compile(
-    rf"{DROPPING}[^。#]{{0,16}}#(\d{{4}})(?!\w)|#(\d{{4}})(?!\w)[^。#]{{0,16}}{DROPPING}"
-)
+EXCLUDED_BEFORE = re.compile(rf"#(\d{{4}})(?!\w)[^。#]{{0,16}}{DROPPING}")
+EXCLUDED_AFTER = re.compile(rf"{DROPPING}[^。#]{{0,16}}#(\d{{4}})(?!\w)")
 REVIEW_LEFTOVER = re.compile(r"review|leftover")
 # 開いている issue のほかに、ADR を理由にできる印（決めた除外。参照の出力が要るテストなど）
 ADR_ALLOWED = {"rust-ignore", "python-skip"}
@@ -100,9 +99,15 @@ def unbalanced(text):
 def comment_of(line):
     """行の注釈の部分（引用符の外の最初の `#` から）。無ければ空の文字列。"""
     quote = None
+    escaped = False
     for position, character in enumerate(line):
         if quote:
-            if character == quote:
+            # 基本文字列（"…"）の中の \" は閉じない。リテラル文字列（'…'）にエスケープは無い
+            if escaped:
+                escaped = False
+            elif character == "\\" and quote == '"':
+                escaped = True
+            elif character == quote:
                 quote = None
         elif character in "\"'":
             quote = character
@@ -118,7 +123,10 @@ def input_markers(path, text):
             yield Marker(
                 path, number, "provisional", line.strip(), *references(comment)
             )
-        adjacent = tuple(first or second for first, second in EXCLUDED.findall(comment))
+        # 語の前と後ろを別々に探す（1 つの式では、前の番号の一致が語を使い、後ろの番号を拾えない）
+        adjacent = tuple(
+            EXCLUDED_BEFORE.findall(comment) + EXCLUDED_AFTER.findall(comment)
+        )
         if adjacent:
             yield Marker(path, number, "excluded", line.strip(), adjacent, ())
 
