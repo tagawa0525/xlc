@@ -498,6 +498,37 @@ fn reads_slbw_range_in_the_form_of_mlbw() {
     );
 }
 
+/// 標的スピン 2.5 の s 波に、J = I = 2.5 の共鳴（ENDF/B-VII.0 の Am-241 と同じ形）を置いた範囲。`lrf` は 1 か 2
+fn spin_equal_to_target(lrf: &str) -> Result<Mf2, Error> {
+    mf2(&[
+        ["9.524100+4", "2.389500+2", "0", "0", "1", "0"],
+        ["9.524100+4", "1.0", "0", "0", "1", "0"],
+        ["1.0-5", "1.5+2", "1", lrf, "0", "0"],
+        ["2.5", "9.37-1", "0", "0", "1", "0"],
+        ["2.389500+2", "0.0", "0", "0", "12", "2"],
+        ["3.07-1", "3.0", "4.5-2", "5.5-5", "4.4-2", "4.3-4"],
+        ["1.27", "2.5", "4.6-2", "1.1-4", "4.5-2", "4.5-4"],
+    ])
+}
+
+#[test]
+fn slbw_reads_resonances_whose_spin_equals_the_target_spin() {
+    // J = I は J の分からない共鳴に置いた古い慣習で、g = 1/2 を表す（ENDF-102 の 2.4.7）。SLBW は J を g にだけ使い、
+    // 準位の系列を分けないので、その g のまま読む
+    let data = spin_equal_to_target("1").unwrap();
+    let RangeKind::Slbw(bw) = &data.ranges[0].kind else {
+        panic!("expected SLBW");
+    };
+    assert_eq!(bw.l_values[0].resonances[1].aj, 2.5);
+}
+
+#[test]
+fn mlbw_rejects_resonances_whose_spin_equals_the_target_spin() {
+    // MLBW は J ごとの系列の中で干渉させるので、作れない J はどの系列にも入らない
+    let err = spin_equal_to_target("2").unwrap_err();
+    assert_eq!(err.line, 7);
+}
+
 #[test]
 fn energy_dependent_radius_in_slbw_is_error() {
     // NRO≠0 は MLBW の NAPS=0 だけを読む（ADR-0167）
