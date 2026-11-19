@@ -59,9 +59,8 @@ description: xlc で計算を流す前に読む。Slurm の投げ方と区分、
   deps は `bin/` でなく、`binary-forms` が書く正規形（行と列の番号を 0 にしたコピーの md5。`binary-forms/<名前>.md5`、git で追跡）に
   する（cmd は `bin/` を呼ぶ。`scripts/test_normalize_binary.py` が食い違いを止める。ADR-0255）。
   ステージの deps の .py は、元のファイルでなく、直下の `dvc.yaml` の `python-ast` が書く正規形（docstring とコメントを除いた形。
-  `python-ast/<パス>.ast`、git で追跡）にする（cmd は元の .py を呼ぶ。ADR-0210）。.py を deps に足すときは、`python-ast` の
-  foreach にも足す（`scripts/test_normalize_python.py` が食い違いを止める）。入力の TOML（ステージの出力を除く）も同じく、`toml-values` が書く
-  値の正規形（`toml-values/<パス>.json`）を deps にし、foreach に足す（`scripts/test_normalize_toml.py`。ADR-0254）。
+  `python-ast/<パス>.ast`、git で追跡）にする（cmd は元の .py を呼ぶ。ADR-0210）。入力の TOML（ステージの出力を除く）も同じく、`toml-values` が書く
+  値の正規形（`toml-values/<パス>.json`）を deps にする（ADR-0254）。foreach と正規形は pre-commit の hook が deps から書き直す（ADR-0258）。
   NJOY と OpenMC を使うステージは cmd が `nix develop ../..#references -c` で包んであるので、`dvc repro` は default の
   devShell で実行する
 - 記録か ADR が md5 か名前で引く、または比較のツールが書いて git で追跡する JSON が md5 で引く、git で追跡しない生成物
