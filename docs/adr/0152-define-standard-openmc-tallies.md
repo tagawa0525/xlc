@@ -5,7 +5,7 @@ date: 2026-10-29
 requires: [ADR-0075, ADR-0123, ADR-0130, ADR-0150, ADR-0151]
 supersedes: []
 superseded-by:
-issues: ["#0096"]
+issues: ["#0096", "#0301"]
 ---
 
 # ADR-0152: OpenMC の参照解に、細かな比較に要るタリーの組（標準のタリーの組）を版つきで固定して仕込む
