@@ -6,7 +6,7 @@ opened: 2026-11-03
 closed: 2026-11-19
 milestone:
 blocked-by: []
-resolution: コミット c820508a9
+resolution: コミット 04f181bc4
 ---
 
 # ADR-0184 の -s の例外の一覧と確かめ方の残り

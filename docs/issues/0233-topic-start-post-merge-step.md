@@ -6,7 +6,7 @@ opened: 2026-11-06
 closed: 2026-11-19
 milestone:
 blocked-by: []
-resolution: コミット 9d11896ec
+resolution: コミット dc90a5fc6
 ---
 
 # topic-start の後片付けの節と説明の、dvc-relock の後半との食い違い
