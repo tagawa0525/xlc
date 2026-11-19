@@ -1,6 +1,6 @@
 ---
 type: ADR
-status: proposed
+status: accepted
 date: 2026-11-20
 requires: [ADR-0079, ADR-0164, ADR-0175]
 supersedes: []
@@ -70,5 +70,5 @@ VII.1: C-12、C-13）にする。xs の側で天然の元素の評価を当て�
   `rejects_a_natural_evaluation_that_no_listed_isotope_takes`、`rejects_a_listed_isotope_without_a_natural_evaluation_of_its_element`、
   `rejects_a_listed_isotope_that_has_its_own_evaluation`、
   `rejects_a_listed_isotope_outside_the_decay_data_or_in_an_excited_state`、`rejects_two_natural_evaluations_of_one_element`）
-- 実データ: 版ごとの入力（`examples/depletion/endfb70/chain.toml`、`endfb71/chain.toml`）で `bin/chain` が終了コード 0 で
-  チェーンを作る（#0303 の経緯）
+- 実データ: VII.1 の入力（`examples/depletion/endfb71/chain.toml`）で `bin/chain` が終了コード 0 でチェーンを作る（#0303 の
+  経緯）
