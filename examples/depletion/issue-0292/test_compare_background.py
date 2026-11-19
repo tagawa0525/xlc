@@ -202,6 +202,23 @@ class Step(unittest.TestCase):
         self.assertAlmostEqual(step["total_pcm"], rho(a, b), places=9)
         self.assertAlmostEqual(sum(step["parts"].values()), step["total_pcm"], places=9)
         self.assertLess(abs(step["closure_pcm"]), 1e-9)
+        # 扱いを変えた核種の吸収の範囲ごとの和と、両方で輸送する核種の和
+        self.assertAlmostEqual(
+            sum(step["moved_absorption_ranges"].values()),
+            step["parts"]["moved_absorption"],
+            places=9,
+        )
+        both = (
+            "u238_resonance",
+            "resonance_other",
+            "absorption_other_ranges",
+            "transported_scattering_production",
+        )
+        self.assertAlmostEqual(
+            step["transported_pcm"],
+            sum(step["parts"][k] for k in both),
+            places=9,
+        )
 
     def test_a_change_of_one_resonance_cross_section_falls_in_its_own_part(self):
         form = base_nuclides()
