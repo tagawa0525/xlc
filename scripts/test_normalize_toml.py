@@ -7,7 +7,6 @@ import functools
 import hashlib
 import json
 import os
-import re
 import subprocess
 import sys
 import tempfile
@@ -20,6 +19,7 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import normalize_toml as norm
+import normalized_forms as forms
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -188,87 +188,10 @@ def toml_values_items() -> list[str]:
     return stages["toml-values"]["foreach"]
 
 
-def load_vars(base: Path, entries: list) -> dict:
-    """dvc.yaml の vars（ファイルの名前か、その場の辞書）を 1 つの辞書にする"""
-    merged = {}
-    for entry in entries:
-        if isinstance(entry, dict):
-            merged.update(entry)
-        elif entry.endswith(".toml"):
-            merged.update(tomllib.loads((base / entry).read_text(encoding="utf-8")))
-        elif entry.endswith((".yaml", ".yml")):
-            merged.update(yaml.safe_load((base / entry).read_text(encoding="utf-8")))
-        else:
-            raise AssertionError(f"{base}: unsupported vars entry {entry!r}")
-    return merged
-
-
-def lookup(context: dict, name: str):
-    value = context
-    for part in name.split("."):
-        value = value[part]
-    return value
-
-
-def resolve(text: str, context: dict) -> str:
-    """`${name}` と `${item.attr}` を埋める（DVC の補間のうち、例の dvc.yaml が使う形だけ。知らない名前は KeyError）"""
-    return re.sub(r"\$\{([^}]+)\}", lambda m: str(lookup(context, m.group(1))), text)
-
-
-def stage_paths(base: Path, spec: dict, field: str, context: dict) -> list[str]:
-    entries = spec.get(field) or []
-    # outs の項目は、`cache: false` などを付けると {パス: 設定} の辞書になる
-    names = [next(iter(e)) if isinstance(e, dict) else e for e in entries]
-    return [
-        os.path.relpath(os.path.normpath(base / resolve(n, context)), ROOT)
-        for n in names
-    ]
-
-
 @functools.cache
 def example_stages() -> list[dict]:
-    """例の dvc.yaml のステージごとの、解決した cmd、deps と outs（deps と outs はリポジトリの直下からのパス）
-
-    DVC の Python の API は python-tests の devShell に無いので、foreach と補間を例が使う形だけ解く。foreach の値は
-    並び、`${名前}`（vars の並びか辞書）。辞書なら `${key}` と `${item.属性}`、並びなら `${item}` を埋める。
-    """
-    result = []
-    for name in tracked(":(glob)examples/**/dvc.yaml"):
-        base = (ROOT / name).parent
-        doc = yaml.safe_load((ROOT / name).read_text(encoding="utf-8"))
-        variables = load_vars(base, doc.get("vars", []))
-        for stage, body in (doc.get("stages") or {}).items():
-            if "foreach" in body:
-                items = body["foreach"]
-                if isinstance(items, str):
-                    items = lookup(
-                        variables, items.removeprefix("${").removesuffix("}")
-                    )
-                pairs = (
-                    [(key, {"key": key, "item": value}) for key, value in items.items()]
-                    if isinstance(items, dict)
-                    else [(item, {"item": item}) for item in items]
-                )
-                expanded = [
-                    (f"{stage}@{key}", body["do"], extra) for key, extra in pairs
-                ]
-            else:
-                expanded = [(stage, body, {})]
-            for label, spec, extra in expanded:
-                context = {**variables, **extra}
-
-                cmd = spec.get("cmd", "")
-                result.append(
-                    {
-                        "stage": f"{name}:{label}",
-                        "cmd": resolve(
-                            " ".join(cmd) if isinstance(cmd, list) else cmd, context
-                        ),
-                        "deps": stage_paths(base, spec, "deps", context),
-                        "outs": stage_paths(base, spec, "outs", context),
-                    }
-                )
-    return result
+    """例の dvc.yaml のステージごとの、解決した cmd、deps と outs（deps と outs はリポジトリの直下からのパス）"""
+    return forms.stages(ROOT, tracked(":(glob)examples/**/dvc.yaml"))
 
 
 def form_path(source: str) -> str:

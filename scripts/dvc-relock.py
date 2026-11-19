@@ -12,9 +12,10 @@
    pick では pre-commit の hook が走らないので、ブランチのコミットの分も見る。作業ツリーを書き換える前に行う（読めない lock を
    入れたコミットを直す fixup と rebase は、汚れた作業ツリーでは動かない）。読めない lock があれば止まる
 1. scripts/dvc-checkout.py。hash があるのに戻らない出力があれば止まる
-2. 直下の dvc.yaml の build、python-ast、binary-forms、toml-values を 1 つの `dvc repro -s` で、この順に実行する。
-   実行ファイルと正規形は止まらずに書き直す（下流の changed が今のコードを示すように、dvc status の前に行う）。dvc repro が
-   失敗すれば止まる
+2. python-ast と toml-values の foreach を例の deps に合わせ（scripts/normalized_forms.py の sync。rebase の pick は
+   pre-commit の hook を通らない）、直下の dvc.yaml の build、python-ast、binary-forms、toml-values を 1 つの `dvc repro -s` で、
+   この順に実行する。実行ファイルと正規形は止まらずに書き直す（下流の changed が今のコードを示すように、dvc status の前に
+   行う）。並びが空になるか、dvc repro が失敗すれば止まる
 3. `dvc status --json`（<dvc.yaml> を渡せば `--with-deps` でその範囲）。失敗すれば止まる。`changed outs` だけのステージか .dvc が
    あれば止まる（出力が dvc.lock と違うのに deps は同じで、再実行の理由にならない。原因を調べる）
 4. scripts/check-references-shell.sh。references-shell.txt は devShell が変わっても dvc status に出ないので、ここで比べ、食い違えば
@@ -39,6 +40,9 @@ import sys
 from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parent
+sys.path.insert(0, str(SCRIPTS))
+import normalized_forms
+
 # `dvc repro -s` は目標を挙げた順に実行し、DAG で並べ直さない（dvc 3.67.1 の dvc/repo/reproduce.py）。binary-forms は build の
 # bin/ と python-ast の normalize_binary.py.ast を読むので、その 2 つの後に置く
 FORMS = (
@@ -212,6 +216,7 @@ def relock(args: argparse.Namespace, ran: list[str]) -> None:
         [str(SCRIPTS / "dvc-checkout.py")],
         "outputs did not come back as dvc.lock records them (see MISSING: above)",
     )
+    normalized_forms.sync(Path.cwd())
     run(
         ["dvc", "repro", "-s", *FORMS],
         "dvc repro -s of the build or a normalized form failed",
@@ -256,7 +261,7 @@ def report(ran: list[str], before: dict[str, str]) -> None:
 
 
 # 部品を起動できない（devShell の外、実行の許可が無い）ときの OSError も、止まる理由として報告する
-STOPS = (Stop, subprocess.CalledProcessError, OSError)
+STOPS = (Stop, normalized_forms.Stop, subprocess.CalledProcessError, OSError)
 
 
 def stop_reason(e: Exception) -> str:

@@ -9,7 +9,6 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import textwrap
 import unittest
 from pathlib import Path
 
@@ -71,17 +70,16 @@ TOML = ["examples/v/a.toml"]
 
 
 def lock_entry(name: str, source: str) -> str:
-    return textwrap.dedent(
-        f"""\
-          {name}:
-            cmd: python3 scripts/normalize.py {source}
-              out/{source}
-            deps:
-            - path: {source}
-              hash: md5
-              md5: 0123
-              size: 1
-        """
+    """直下の dvc.lock の 1 項（dvc の書き方: 項は 2 文字、その中は 4 文字の字下げ、長い cmd は折り返す）"""
+    return (
+        f"  {name}:\n"
+        f"    cmd: python3 scripts/normalize.py {source}\n"
+        f"      out/{source}\n"
+        "    deps:\n"
+        f"    - path: {source}\n"
+        "      hash: md5\n"
+        "      md5: 0123\n"
+        "      size: 1\n"
     )
 
 
@@ -123,6 +121,8 @@ class Repository(unittest.TestCase):
         self.write("python-ast/examples/v/compare.py.ast", "x = 1\n")
         self.write("python-ast/scripts/normalize_toml.py.ast", "y = 1\n")
         self.write("toml-values/examples/v/a.toml.json", "{}\n")
+        self.script = self.repo / "scripts" / "normalized_forms.py"
+        shutil.copy(SCRIPTS / "normalized_forms.py", self.script)
         self.git("add", ".")
         self.git("commit", "-q", "-m", "base")
         bindir = self.d / "bin"
@@ -131,8 +131,6 @@ class Repository(unittest.TestCase):
         fake.write_text(FAKE_DVC.format(d=self.d))
         fake.chmod(0o755)
         self.env = {**os.environ, "PATH": f"{bindir}{os.pathsep}{os.environ['PATH']}"}
-        self.script = self.repo / "scripts" / "normalized_forms.py"
-        shutil.copy(SCRIPTS / "normalized_forms.py", self.script)
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -284,7 +282,7 @@ class Hook(Repository):
 
     def test_a_stage_whose_forms_no_stage_depends_on_is_an_error(self):
         # 空の foreach を書かない（並びの無いステージは、手で消すか、deps を足して残すかを人が決める）
-        self.write("examples/v/dvc.yaml", "stages:\n  compare:\n    cmd: true\n")
+        self.write("examples/v/dvc.yaml", "stages:\n  compare:\n    cmd: echo\n")
         self.write("dvc.yaml", root_yaml(["examples/v/compare.py"], TOML))
         r = self.run_hook()
         self.assertEqual(r.returncode, 1)

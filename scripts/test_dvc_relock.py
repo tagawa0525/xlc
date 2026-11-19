@@ -168,6 +168,7 @@ class Process(unittest.TestCase):
         self.script = repo / "scripts" / SCRIPT.name
         shutil.copy(SCRIPT, self.script)
         shutil.copy(SCRIPT.parent / "count-changed-stages.py", repo / "scripts")
+        shutil.copy(SCRIPT.parent / "normalized_forms.py", repo / "scripts")
         for name in PARTS:
             part = repo / "scripts" / name
             part.write_text(FAKE_PART.format(name=name, d=self.d))
