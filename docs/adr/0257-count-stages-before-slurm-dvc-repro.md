@@ -98,7 +98,7 @@ issues: []
 - `.claude/hooks/test_block_raw_dvc_repro_in_slurm.py`: `slurm-run.sh` に生の dvc repro を渡すコマンドを止め、ラッパー、
   stage_runner、手元の `dvc repro` と `dvc repro -s` を止めないこと。`slurm-run.sh … 2>&1 | tail` のように fd の番号が後に続いても
   止めること。`.claude/hooks/test_block_raw_dvc_checkout.py` は `2>/dev/null dvc checkout` を止めること
-- 2026-11-19、xlc 52006f73f（分岐点は main 3eaeb4dcd。出力は `scripts/worktree-restore-outputs.sh` で dvc.lock のとおりに戻した）で
+- 2026-11-19、xlc 4d6af2c0f（分岐点は main 3eaeb4dcd。出力は `scripts/worktree-restore-outputs.sh` で dvc.lock のとおりに戻した）で
   `scripts/dvc-repro.py --max-stages 100 --count-only examples/vera/dvc.yaml`: 走りうるステージは 83（xs-nuclide 60、keno-assembly 12、
   keno-pincell 3、xs-range、xs、lattice-1B、compare-1B、references-shell、参照解 3）で、どれも dvc status の changed（下流から足した
   ものは無い）。参照解の openmc-1B-model、openmc-1B、openmc-1B-extract を許していないので、何も実行せずに終了コード 1 で止まった。
