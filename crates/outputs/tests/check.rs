@@ -13,7 +13,7 @@ use std::process::{Command, Output};
 use rmpv::Value;
 use xlc_format::medium::{Medium, MediumState};
 
-const MEDIUM_MD5: &str = "11111111111111111111111111111111";
+const MEDIUM_MD5: &str = "1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a";
 
 const ROOT_YAML: &str = "\
 stages:
@@ -31,20 +31,20 @@ stages:
     outs:
     - path: medium.msgpack
       hash: md5
-      md5: 11111111111111111111111111111111
+      md5: 1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a
   axial:
     cmd: ../../bin/lattice axial.toml
     deps:
     - path: medium.msgpack
       hash: md5
-      md5: 11111111111111111111111111111111
+      md5: 1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a
     - path: ../../binary-forms/lattice.md5
       hash: md5
-      md5: 22222222222222222222222222222222
+      md5: 2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b
     outs:
     - path: axial.out
       hash: md5
-      md5: 33333333333333333333333333333333
+      md5: 3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c
 ";
 
 const OPEN_ISSUE: &str = "\

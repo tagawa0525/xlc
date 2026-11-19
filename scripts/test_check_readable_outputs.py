@@ -166,7 +166,7 @@ stages:
     - path: pins.msgpack
       hash: md5
       md5: {pins}
-    - path: ../../binary-forms/lattice.md5
+    - path: ../../python-ast/examples/a/compare.py.ast
       hash: md5
       md5: {form}
     outs:
@@ -182,7 +182,7 @@ outs:
   path: art.msgpack
 """
 MD5 = {
-    name: f"{i:02x}" + "0" * 30
+    name: f"{i:02x}" + "a" * 30
     for i, name in enumerate(
         ["lib", "range", "part", "axial", "pins", "form", "bin", "art", "t1", "t2"],
         start=16,
