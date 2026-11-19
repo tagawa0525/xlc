@@ -254,6 +254,13 @@ class Differences(unittest.TestCase):
         ]
         self.assertEqual([(y["a"], y["b"]) for y in yields], [(0.0024, 0.0024)])
 
+    def test_a_watched_nuclide_stable_in_both_has_no_half_life(self):
+        nuclides = chain_nuclides() + [nuclide("Nd-143", 60, 143)]
+        summary = compare_chain_versions.summarize(build(nuclides), build(nuclides))
+        nd = next(w for w in summary["watched"]["nuclides"] if w["nuclide"] == "Nd-143")
+        self.assertEqual(nd["half_life"], {"a": None, "b": None})
+        self.assertEqual(nd["modes"], [])
+
     def test_a_stable_and_an_unstable_state_differ_in_half_life(self):
         nuclides = chain_nuclides()
         by_name(nuclides, "Cs-135")["decay"] = {
