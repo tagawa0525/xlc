@@ -23,6 +23,7 @@ DVC のライブラリ（ステージの展開、ファイルとディレクト�
 
 import argparse
 import copy
+import fnmatch
 import importlib.util
 import json
 import os
@@ -539,6 +540,7 @@ class Tool:
         self.consumed = set()
         self.pairs = set()  # 確かめたステージで組になった (動かす前, 今) のパス
         self.round_pairs = set()  # 今の周に確かめたステージで組になったパス
+        self.moved_olds = set()  # self.pairs のうち、別のパスへ動いた動かす前のパス
         self.tomls = {}  # (動かす前か, パス) → TOML の値か None
         self.results = {}  # 今のステージの key → (動かす前の項, 新しい項)
         self.unverified = {}
@@ -603,9 +605,33 @@ class Tool:
             old, new = dirname(old), dirname(new)
         return False
 
+    def moved_from(self, path, local_pairs):
+        """path か、その上のディレクトリが、組で別のパスへ動いたか（動かしたファイルの前の名前を名指ししたままの語や
+        文字列は、今そこにある別のファイルか、無いファイルを指す）"""
+        local = {o for o, n in local_pairs if o != n}
+        while path and path != "/":
+            if path in local or path in self.moved_olds:
+                return True
+            path = dirname(path)
+        return False
+
+    def glob_touches_moved(self, pattern, local_pairs):
+        """組で動いたパス（動かす前か今の、それかその上のディレクトリ）に、glob が当たるか"""
+        for o, n in local_pairs | self.pairs:
+            if o == n:
+                continue
+            for path in (o, n):
+                while path:
+                    if fnmatch.fnmatchcase(path, pattern):
+                        return True
+                    path = dirname(path)
+        return False
+
     def same_file(self, old, new, local_pairs):
         """old（動かす前）と new（今）が同じファイルか"""
-        if old == new or self.paired(old, new, local_pairs):
+        if old == new:
+            return not self.moved_from(old, local_pairs)
+        if self.paired(old, new, local_pairs):
             return True
         base_md5 = self.base.md5(old)
         return base_md5 is not None and base_md5 == self.cur_md5(new)
@@ -818,12 +844,15 @@ class Tool:
         for wo, wn in named:
             if (wo, wn) == (old, new):
                 return True
+            # 上のディレクトリでの名指しは、そのディレクトリが動いたときだけ数える（動かないディレクトリの下の名前は、
+            # プログラムが決める）
             for outer_o, outer_n, inner_o, inner_n in (
                 (wo, wn, old, new),
                 (old, new, wo, wn),
             ):
                 if (
-                    inner_o.startswith(outer_o + "/")
+                    outer_o != outer_n
+                    and inner_o.startswith(outer_o + "/")
                     and inner_n.startswith(outer_n + "/")
                     and inner_o[len(outer_o) :] == inner_n[len(outer_n) :]
                 ):
@@ -832,17 +861,23 @@ class Tool:
 
     def same_word(self, wo, wn, old_wdir, new_wdir, pairs):
         if wo == wn and old_wdir == new_wdir:
-            # 同じ文字列は同じ場所を指す。ただし、指す先が動かす前にあり今は無ければ、動かしたファイルの名前を
-            # 直し忘れた語である
+            # 同じ文字列は同じ場所を指す。ただし、指す先が組で別のパスへ動いたか、動かす前にあり今は無ければ、動かした
+            # ファイルの前の名前を直し忘れた語である。glob は、動いたパスに当たれば展開が変わる
             p = join(old_wdir, split_word(wo)[1])
-            return not (self.base.exists(p) and not self.cur.exists(p))
+            if GLOB_CHARS & set(wo):
+                return not self.glob_touches_moved(p, pairs)
+            return not self.moved_from(p, pairs) and not (
+                self.base.exists(p) and not self.cur.exists(p)
+            )
         (po_pre, po, po_suf), (pn_pre, pn, pn_suf) = split_word(wo), split_word(wn)
         if po_pre != pn_pre or po_suf != pn_suf:
             return False
         if GLOB_CHARS & set(po + pn):
             return False
         old, new = join(old_wdir, po), join(new_wdir, pn)
-        if old == new or self.paired(old, new, pairs):
+        if old == new:
+            return not self.moved_from(old, pairs)
+        if self.paired(old, new, pairs):
             return True
         if old in self.base.files and self.base.md5(old) == self.cur_md5(new):
             return True
@@ -877,7 +912,7 @@ class Tool:
             # 読めない JSON を、inputs の無い JSON と扱わない（比較のステージを見落として書き換えるため）
             try:
                 paths = inputs_paths(json.loads(self.read_json_out(item, [old, new])))
-            except (json.JSONDecodeError, UnicodeDecodeError, ValueError) as e:
+            except ValueError as e:  # JSONDecodeError と UnicodeDecodeError を含む
                 raise Unverified(f"出力の {new} を、JSON として読めない: {e}") from e
             for s_old in paths or []:
                 p = join(old_dir, s_old)
@@ -916,15 +951,16 @@ class Tool:
             so, sn = normal_form_source(old), normal_form_source(new)
             if so is not None and sn is not None:
                 local.add((so, sn))
-        # 置き場の変わった入力の TOML は、中身が同じでも、中の相対パスが新しい置き場から同じファイルを指すことを確かめる
-        # （xs、lattice、core は TOML の中のパスを TOML の置き場から解く）
+        # 入力の TOML は、中身も置き場も同じでも、中のパスが動かす前と同じファイルを指すことを確かめる（xs、lattice、core は
+        # TOML の中のパスを TOML の置き場から解く。置き場が変われば同じ文字列も別の場所を指し、変わらなくても、指す先を
+        # 動かして TOML を直し忘れた文字列がある）。動かさずに中身を変えた TOML は除く。中のパスだけの書き換えは
+        # toml_rewrite が同じ確認で確かめ、ほかの変更なら lock の md5 が残って changed のまま残る（判定の原則の動かして
+        # いない項）
         for old, new in sorted(local):
             src_old, src_new = toml_source(old), toml_source(new)
-            if (
-                src_old is None
-                or src_new is None
-                or dirname(src_old) == dirname(src_new)
-            ):
+            if src_old is None or src_new is None:
+                continue
+            if src_old == src_new and self.base.md5(src_old) != self.cur_md5(src_new):
                 continue
             if not self.toml_path_only(src_old, src_new, local):
                 raise Unverified(
@@ -1058,6 +1094,7 @@ class Tool:
         self.results[s.key()] = (entry, data, s)
         self.pairs |= local
         self.round_pairs |= local
+        self.moved_olds |= {o for o, n in local if o != n}
         if new_outs is None:
             new_outs = [(join(s.wdir, o["path"]), o) for o in data.get("outs", [])]
         for path, item in new_outs:
@@ -1112,6 +1149,7 @@ class Tool:
         # 集まりが前の周と同じになれば、どの組もこの周に確かめたステージのものである
         for _ in range(len(stages) + 2):
             self.pairs, self.round_pairs = set(previous), set()
+            self.moved_olds = {o for o, n in previous if o != n}
             self.results, self.unverified, self.comparison = {}, {}, {}
             self.no_entry, self.consumed = [], set()
             self.cur.recorded = dict(initial)
