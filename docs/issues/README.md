@@ -17,7 +17,7 @@ description: issue（未解決の問題とやること）の書式と運用。
 ---
 type: Issue
 status: open          # open | closed
-labels: [lattice, shielding]
+labels: [lattice, shielding]   # 1 行の [a, b] の形。list は前提を並べる一覧の印（scripts/check-exclusions.py が理由に数えない）
 opened: 2026-10-08
 closed:
 milestone:            # 任意。M3、M4 など
