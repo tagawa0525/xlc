@@ -323,7 +323,7 @@ def main() -> None:
         pairs = []
         for a in args[4:]:
             fraction, sep, path = a.partition("=")
-            if not sep:
+            if not sep or not path:
                 raise SystemExit(f"give <fraction>=<core history>, got {a}")
             pairs.append((float(fraction), Path(path)))
         files = [Path(args[2]), Path(args[3])] + [p for _, p in pairs]
