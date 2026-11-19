@@ -219,7 +219,8 @@ def openmc_input(job: str) -> str:
         f"batches = {BATCHES}\n"
         f"inactive = {INACTIVE}\n"
         f"seed = {SEED}\n"
-        f"threads = {THREADS}\n" + gd
+        f"threads = {THREADS}\n"
+        'normalization = "fission-q"\n' + gd
     )
 
 
@@ -249,7 +250,8 @@ def s_input(name: str) -> str:
         f"batches = {S_BATCHES}\n"
         f"inactive = {S_INACTIVE}\n"
         f"seed = {SEED}\n"
-        f"threads = {S_THREADS}\n" + extra
+        f"threads = {S_THREADS}\n"
+        'normalization = "fission-q"\n' + extra
     )
 
 

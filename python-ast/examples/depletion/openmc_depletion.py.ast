@@ -16,15 +16,19 @@ sys.path.insert(0, str(HERE.parent / 'vera'))
 from openmc_common import eigenvalue_settings, material
 from openmc_input import input_path, read_input
 from openmc_model import CLAD_INNER, CLAD_OUTER, FUEL, FUEL_TEMPERATURE, MODERATOR_OF, MODERATOR_TEMPERATURE, PELLET, PITCH, ZIRCALOY, temperature_settings
-KEYS = {'problem', 'rings', 'cross-sections', 'chain', 'power', 'burnup', 'particles', 'batches', 'inactive', 'seed', 'threads'}
+KEYS = {'problem', 'rings', 'cross-sections', 'chain', 'power', 'burnup', 'particles', 'batches', 'inactive', 'seed', 'threads', 'normalization'}
 PROBLEMS = ['1B', '1C', '1D']
+NORMALIZATIONS = ['fission-q', 'energy-deposition']
 YIELD_CUTOFF = math.sqrt(0.0253 * 500000.0)
+EV = 1.602176634e-19
 TRANSPORT_SECONDS: list[float] = []
 
 def read(source: Path) -> dict:
     run = read_input(source, KEYS, set())
     if run['problem'] not in PROBLEMS:
         raise SystemExit(f"unknown problem {run['problem']}; expected one of {PROBLEMS}")
+    if run['normalization'] not in NORMALIZATIONS:
+        raise SystemExit(f"unknown normalization {run['normalization']}; expected one of {NORMALIZATIONS}")
     if not (isinstance(run['rings'], int) and run['rings'] > 0):
         raise SystemExit(f"rings must be a positive integer, got {run['rings']}")
     burnup = run['burnup']
@@ -118,7 +122,7 @@ def solve(source: Path, work: Path) -> None:
     openmc.config['cross_sections'] = run['cross-sections']
     model, _ = build(run)
     TimedOperator.fuel_temperature = FUEL_TEMPERATURE[run['problem']]
-    operator = TimedOperator(model, chain_file=run['chain'], normalization_mode='fission-q', fission_yield_mode='cutoff', fission_yield_opts={'cutoff': YIELD_CUTOFF}, reaction_rate_mode='direct')
+    operator = TimedOperator(model, chain_file=run['chain'], normalization_mode=run['normalization'], fission_yield_mode='cutoff', fission_yield_opts={'cutoff': YIELD_CUTOFF}, reaction_rate_mode='direct')
     burnup = run['burnup']
     steps = [b - a for a, b in itertools.pairwise([0.0, *burnup])]
     integrator = openmc.deplete.CECMIntegrator(operator, steps, power_density=run['power'], timestep_units='MWd/kg', solver='cram48')
@@ -127,6 +131,18 @@ def solve(source: Path, work: Path) -> None:
     total = time.perf_counter() - start
     (work / 'transport-seconds.json').write_text(json.dumps({'transport': TRANSPORT_SECONDS, 'total': total, 'transportable': TimedOperator.transportable}) + '\n')
     print(f'transport {sum(TRANSPORT_SECONDS):.1f} s in {len(TRANSPORT_SECONDS)} solves, total {total:.1f} s')
+
+def fission_power(rates: dict[str, list[float]], q: dict[str, float]) -> list[float]:
+    points = len(next(iter(rates.values())))
+    total = [0.0] * points
+    for name, rate in rates.items():
+        if not any(rate):
+            continue
+        if name not in q:
+            raise SystemExit(f'{name} fissions but has no fission Q in the chain')
+        for i, r in enumerate(rate):
+            total[i] += r * q[name] * EV
+    return total
 
 def extract(source: Path, work: Path, output: Path) -> None:
     run = read(source)
@@ -140,7 +156,11 @@ def extract(source: Path, work: Path, output: Path) -> None:
         densities = {name: results.get_atoms(mat, name, nuc_units='atom/b-cm')[1].tolist() for name in nuclides}
         rings.append({'name': fuel.name, 'volume': fuel.volume, 'densities': densities})
     seconds = json.loads((work / 'transport-seconds.json').read_text())
-    output.write_bytes(msgpack.packb({'format': 'openmc-depletion', 'burnup': [0.0, *run['burnup']], 'time': np.asarray(times).tolist(), 'k': k[:, 0].tolist(), 'k-std': k[:, 1].tolist(), 'rings': rings, 'transport-seconds': seconds['transport'], 'total-seconds': seconds['total'], 'cram-seconds': [float(r.proc_time) for r in results], 'transportable': seconds['transportable']}))
+    q = {nuclide.name: reaction.Q for nuclide in openmc.deplete.Chain.from_xml(run['chain']).nuclides for reaction in nuclide.reactions if reaction.type == 'fission'}
+    rates = {}
+    for name in results[0].rates[0].index_nuc:
+        rates[name] = np.sum([results.get_reaction_rate(str(f.id), name, 'fission')[1] for f in fuels], axis=0).tolist()
+    output.write_bytes(msgpack.packb({'format': 'openmc-depletion', 'burnup': [0.0, *run['burnup']], 'time': np.asarray(times).tolist(), 'k': k[:, 0].tolist(), 'k-std': k[:, 1].tolist(), 'rings': rings, 'transport-seconds': seconds['transport'], 'total-seconds': seconds['total'], 'cram-seconds': [float(r.proc_time) for r in results], 'transportable': seconds['transportable'], 'power': run['power'] * sum((f.fissionable_mass for f in fuels)), 'fission-power': fission_power(rates, q), 'fission-rates': {n: r for n, r in rates.items() if any(r)}, 'fission-q-values': {n: q[n] for n, r in rates.items() if any(r)}, 'normalization': run['normalization']}))
     for b, kk in zip([0.0, *run['burnup']], k):
         print(f'burnup {b} k {kk[0]:.6f} +- {kk[1]:.6f}')
 if __name__ == '__main__':

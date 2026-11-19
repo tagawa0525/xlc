@@ -10,3 +10,4 @@ batches = 20
 inactive = 10
 seed = 1
 threads = 1
+normalization = "fission-q"

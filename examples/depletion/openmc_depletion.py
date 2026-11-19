@@ -9,15 +9,18 @@
 燃料のリングの数（`rings`、等しい面積に分け、リングごとに 1 つの燃焼する物質にする）、openmc_library.py で作った
 `cross-sections`、燃焼チェーン（`chain`。`Chain.from_endf` の XML）、初めの重金属の出力密度（`power`、W/g）、燃焼度の点（`burnup`、
 MWd/kg、0 より大きく増える列）、1 世代の粒子数（`particles`）、世代数（`batches`）、非アクティブバッチ数（`inactive`）、乱数のシード
-（`seed`）、スレッド数（`threads`）。パスは入力のファイルからの相対。
+（`seed`）、スレッド数（`threads`）、出力の規格化（`normalization`。ADR-0173 のチェーンの核分裂の Q の "fission-q" か、OpenMC の
+`heating-local` の tally（捕獲の γ を含む、その場に落とすエネルギー）の "energy-deposition"。#0293 の項目 3）。パスは入力のファイルからの相対。
 
 方式は ADR-0173 の表のとおり xlc と揃える: CE/CM（`CECMIntegrator`、CRAM48）、一定の出力密度（`timestep_units="MWd/kg"`）、
-チェーンの核分裂の Q で規格化（`normalization_mode="fission-q"`）、連続エネルギーの反応率（`reaction_rate_mode="direct"`）、
+規格化は入力の `normalization`（xlc と揃えるのは "fission-q"）、連続エネルギーの反応率（`reaction_rate_mode="direct"`）、
 収率は 112.47 eV（0.0253 eV と 500 keV の幾何平均。ADR-0183）で熱と速に分ける（`fission_yield_mode="cutoff"`）。
 2 次元のピンセルなので、物質の体積は高さ 1 cm あたりの面積 (cm²) にする（出力と重金属の質量はどちらも 1 cm あたり）。
 
 run は作業ディレクトリに depletion_results.h5 を書き、輸送（`CoupledOperator.__call__`）と CRAM の時間を表示する。extract は
-燃焼点ごとの k と統計誤差、リングごとの全核種の数密度 (1/(barn cm))、ステップごとの輸送と CRAM の時間を msgpack に書く
+燃焼点ごとの k と統計誤差、リングごとの全核種の数密度 (1/(barn cm))、ステップごとの輸送と CRAM の時間、決めた出力（`power`、W）と
+燃焼点ごとの核分裂の率とチェーンの核分裂の Q の積の和（`fission-power`、W。"fission-q" では `power` に等しい）、核分裂する核種ごとの
+燃料の核分裂の率（`fission-rates`、1/s）とチェーンの核分裂の Q（`fission-q-values`、eV）、規格化（`normalization`）を msgpack に書く
 （compare_depletion.py が読む）。
 """
 
@@ -65,10 +68,15 @@ KEYS = {
     "inactive",
     "seed",
     "threads",
+    "normalization",
 }
 PROBLEMS = ["1B", "1C", "1D"]
+# `CoupledOperator` の `normalization_mode`。"source-rate" は出力密度を使わないので選ばせない
+NORMALIZATIONS = ["fission-q", "energy-deposition"]
 # 収率の熱と速の境界 (eV): 0.0253 eV と 500 keV の幾何平均（ADR-0183）
 YIELD_CUTOFF = math.sqrt(0.0253 * 5.0e5)
+# 1 eV (J)
+EV = 1.602176634e-19
 # 輸送の時間（CoupledOperator.__call__ の 1 回ごと、s）
 TRANSPORT_SECONDS: list[float] = []
 
@@ -78,6 +86,11 @@ def read(source: Path) -> dict:
     if run["problem"] not in PROBLEMS:
         raise SystemExit(
             f"unknown problem {run['problem']}; expected one of {PROBLEMS}"
+        )
+    if run["normalization"] not in NORMALIZATIONS:
+        raise SystemExit(
+            f"unknown normalization {run['normalization']}; "
+            f"expected one of {NORMALIZATIONS}"
         )
     if not (isinstance(run["rings"], int) and run["rings"] > 0):
         raise SystemExit(f"rings must be a positive integer, got {run['rings']}")
@@ -204,7 +217,7 @@ def solve(source: Path, work: Path) -> None:
     operator = TimedOperator(
         model,
         chain_file=run["chain"],
-        normalization_mode="fission-q",
+        normalization_mode=run["normalization"],
         fission_yield_mode="cutoff",
         fission_yield_opts={"cutoff": YIELD_CUTOFF},
         reaction_rate_mode="direct",
@@ -237,6 +250,20 @@ def solve(source: Path, work: Path) -> None:
     )
 
 
+def fission_power(rates: dict[str, list[float]], q: dict[str, float]) -> list[float]:
+    """燃焼点ごとの核分裂の率 (1/s) と核分裂の Q (eV) の積の、核種の和 (W)。率が 0 でない核種に Q が無ければ止める。"""
+    points = len(next(iter(rates.values())))
+    total = [0.0] * points
+    for name, rate in rates.items():
+        if not any(rate):
+            continue
+        if name not in q:
+            raise SystemExit(f"{name} fissions but has no fission Q in the chain")
+        for i, r in enumerate(rate):
+            total[i] += r * q[name] * EV
+    return total
+
+
 def extract(source: Path, work: Path, output: Path) -> None:
     run = read(source)
     results = openmc.deplete.Results(work / "depletion_results.h5")
@@ -252,6 +279,18 @@ def extract(source: Path, work: Path, output: Path) -> None:
         }
         rings.append({"name": fuel.name, "volume": fuel.volume, "densities": densities})
     seconds = json.loads((work / "transport-seconds.json").read_text())
+    q = {
+        nuclide.name: reaction.Q
+        for nuclide in openmc.deplete.Chain.from_xml(run["chain"]).nuclides
+        for reaction in nuclide.reactions
+        if reaction.type == "fission"
+    }
+    rates = {}
+    for name in results[0].rates[0].index_nuc:
+        rates[name] = np.sum(
+            [results.get_reaction_rate(str(f.id), name, "fission")[1] for f in fuels],
+            axis=0,
+        ).tolist()
     output.write_bytes(
         msgpack.packb(
             {
@@ -265,6 +304,12 @@ def extract(source: Path, work: Path, output: Path) -> None:
                 "total-seconds": seconds["total"],
                 "cram-seconds": [float(r.proc_time) for r in results],
                 "transportable": seconds["transportable"],
+                # OpenMC の `heavy_metal`（openmc/deplete/openmc_operator.py）と同じ、燃料の fissionable_mass の和
+                "power": run["power"] * sum(f.fissionable_mass for f in fuels),
+                "fission-power": fission_power(rates, q),
+                "fission-rates": {n: r for n, r in rates.items() if any(r)},
+                "fission-q-values": {n: q[n] for n, r in rates.items() if any(r)},
+                "normalization": run["normalization"],
             }
         )
     )

@@ -1,0 +1,45 @@
+# VERA の燃焼のベンチマークの仕様書（K. S. Kim、CASL-X-2015-1014-000 Rev. 0、2015-12-17）の Table 3.1「Recoverable energy per fission」の
+# ENDF/B-7.0 の 2 つの列（J/核分裂）。仕様書は列の定義を書かない（Kappa0 は ENDF/B-VII.0 の MF3 MT18 の QI と約 0.001% の差で同じ。
+# ../fission_energy.py kappa）。
+# Am242_m1 の値は仕様書の表でも Am243 と同じ。名前は OpenMC の名前。https://info.ornl.gov/sites/publications/files/Pub61302.pdf の 6〜7 ページから取った
+
+Th230 = { kappa = 3.24352E-11, kappa0 = 3.05372E-11 }
+Th232 = { kappa = 3.22345E-11, kappa0 = 3.01965E-11 }
+Pa231 = { kappa = 3.38655E-11, kappa0 = 3.06082E-11 }
+Pa233 = { kappa = 3.27020E-11, kappa0 = 3.06082E-11 }
+U232 = { kappa = 3.40754E-11, kappa0 = 3.06082E-11 }
+U233 = { kappa = 3.20712E-11, kappa0 = 3.06082E-11 }
+U234 = { kappa = 3.26494E-11, kappa0 = 3.07364E-11 }
+U235 = { kappa = 3.24187E-11, kappa0 = 3.09997E-11 }
+U236 = { kappa = 3.30019E-11, kappa0 = 3.11610E-11 }
+U237 = { kappa = 3.36652E-11, kappa0 = 3.14446E-11 }
+U238 = { kappa = 3.40626E-11, kappa0 = 3.17285E-11 }
+U240 = { kappa = 3.33592E-11, kappa0 = 3.17330E-11 }
+Np237 = { kappa = 3.37405E-11, kappa0 = 3.14622E-11 }
+Np238 = { kappa = 3.37181E-11, kappa0 = 3.18579E-11 }
+Np239 = { kappa = 3.42660E-11, kappa0 = 3.18579E-11 }
+Pu236 = { kappa = 3.29971E-11, kappa0 = 3.11610E-11 }
+Pu237 = { kappa = 3.30131E-11, kappa0 = 3.13869E-11 }
+Pu238 = { kappa = 3.36748E-11, kappa0 = 3.16240E-11 }
+Pu239 = { kappa = 3.43312E-11, kappa0 = 3.18586E-11 }
+Pu240 = { kappa = 3.43157E-11, kappa0 = 3.19589E-11 }
+Pu241 = { kappa = 3.47426E-11, kappa0 = 3.23611E-11 }
+Pu242 = { kappa = 3.47643E-11, kappa0 = 3.22969E-11 }
+Pu244 = { kappa = 3.41266E-11, kappa0 = 3.25004E-11 }
+Am241 = { kappa = 3.48348E-11, kappa0 = 3.23578E-11 }
+Am242 = { kappa = 3.45085E-11, kappa0 = 3.22969E-11 }
+Am243 = { kappa = 3.56147E-11, kappa0 = 3.26238E-11 }
+Am242_m1 = { kappa = 3.56147E-11, kappa0 = 3.26238E-11 }
+Cm241 = { kappa = 3.40465E-11, kappa0 = 3.24203E-11 }
+Cm242 = { kappa = 3.54821E-11, kappa0 = 3.24524E-11 }
+Cm243 = { kappa = 3.50159E-11, kappa0 = 3.24764E-11 }
+Cm244 = { kappa = 3.54308E-11, kappa0 = 3.25004E-11 }
+Cm245 = { kappa = 3.45048E-11, kappa0 = 3.27359E-11 }
+Cm246 = { kappa = 3.51248E-11, kappa0 = 3.29731E-11 }
+Cm247 = { kappa = 3.48348E-11, kappa0 = 3.32086E-11 }
+Cm248 = { kappa = 3.50703E-11, kappa0 = 3.34441E-11 }
+Bk249 = { kappa = 3.50703E-11, kappa0 = 3.34441E-11 }
+Cf249 = { kappa = 3.50703E-11, kappa0 = 3.34441E-11 }
+Cf250 = { kappa = 3.50703E-11, kappa0 = 3.34441E-11 }
+Cf251 = { kappa = 3.50703E-11, kappa0 = 3.34441E-11 }
+Cf252 = { kappa = 3.50703E-11, kappa0 = 3.34441E-11 }

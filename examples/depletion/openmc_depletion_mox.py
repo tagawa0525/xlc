@@ -10,11 +10,13 @@
 MOX-2）、燃料のリングの数（`rings`、等しい面積に分け、リングごとに 1 つの燃焼する物質にする）、燃料の温度（`fuel-temperature`、K）、
 被覆管と減速材の温度（`moderator-temperature`、K）、openmc_library.py で作った `cross-sections`、燃焼チェーン（`chain`）、初めの
 重金属の出力密度（`power`、W/g）、燃焼度の点（`burnup`、MWd/kg、0 より大きく増える列）、1 世代の粒子数（`particles`）、世代数
-（`batches`）、非アクティブバッチ数（`inactive`）、乱数のシード（`seed`）、スレッド数（`threads`）。パスは入力のファイルからの相対。
+（`batches`）、非アクティブバッチ数（`inactive`）、乱数のシード（`seed`）、スレッド数（`threads`）、出力の規格化（`normalization`。openmc_depletion.py と同じ）。パスは入力のファイルからの相対。
 
 形状と組成は examples/mox/openmc_model.py の問題のもの（ギャップのない被覆管、ホウ素のない減速材）。燃焼の方式、輸送する核種の
 規則、run と extract の出力の形は openmc_depletion.py と同じ（ADR-0173、ADR-0183）で、extract の msgpack は compare_depletion.py が読む。
 `read`、`ring_radii`、`solve`、`extract` は openmc_depletion.py の同じ名前の関数のコピー（問題、形状、温度の扱いだけが違う）。
+ただし、ピンセルの extract の出力の `power`、`fission-power`、`fission-rates`、`fission-q-values`、`normalization`（#0293 の項目 3 の
+比較が読む）は持たない。
 共通の関数にすると、そちらを deps にする openmc-1C が古くなるのでコピーしている（#0132）。
 """
 
@@ -36,7 +38,12 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 sys.path.insert(0, str(HERE))
 from openmc_common import eigenvalue_settings, material
-from openmc_depletion import TRANSPORT_SECONDS, YIELD_CUTOFF, TimedOperator
+from openmc_depletion import (
+    NORMALIZATIONS,
+    TRANSPORT_SECONDS,
+    YIELD_CUTOFF,
+    TimedOperator,
+)
 from openmc_input import input_path, read_input
 
 
@@ -67,6 +74,7 @@ KEYS = {
     "inactive",
     "seed",
     "threads",
+    "normalization",
 }
 
 
@@ -75,6 +83,11 @@ def read(source: Path) -> dict:
     if run["problem"] not in MOX.FUEL:
         raise SystemExit(
             f"unknown problem {run['problem']}; expected one of {list(MOX.FUEL)}"
+        )
+    if run["normalization"] not in NORMALIZATIONS:
+        raise SystemExit(
+            f"unknown normalization {run['normalization']}; "
+            f"expected one of {NORMALIZATIONS}"
         )
     if not (isinstance(run["rings"], int) and run["rings"] > 0):
         raise SystemExit(f"rings must be a positive integer, got {run['rings']}")
@@ -163,7 +176,7 @@ def solve(source: Path, work: Path) -> None:
     operator = TimedOperator(
         model,
         chain_file=run["chain"],
-        normalization_mode="fission-q",
+        normalization_mode=run["normalization"],
         fission_yield_mode="cutoff",
         fission_yield_opts={"cutoff": YIELD_CUTOFF},
         reaction_rate_mode="direct",
