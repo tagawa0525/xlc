@@ -185,6 +185,13 @@ def match_by_content(n_left, ranked_edges):
     return bipartite(n_left, [[j for _, j in sorted(e)] for e in ranked_edges])
 
 
+def unmatched_reason(kind, old_left, edges):
+    alone = [old for (old, _), e in zip(old_left, edges, strict=True) if not e]
+    if alone:
+        return f"{kind} の {', '.join(alone)} と中身の同じものが、今の {kind} に見つからない"
+    return f"{kind} の {', '.join(o for o, _ in old_left)} を、今の {kind} に 1 対 1 に対応させられない"
+
+
 def toml_values_differ_only_by_paths(old, new, same_file):
     """2 つの TOML の値が、文字列の値のほかは同じで、違う文字列がどれも同じファイルを指すか。
     same_file(old の文字列, new の文字列) が文字列の対を判定する"""
@@ -567,9 +574,21 @@ class Tool:
     def cur_md5(self, path):
         return self.cur.md5(path)
 
+    def paired(self, old, new, local_pairs):
+        """(old, new) が、このステージか確かめたステージで組になったパスか、組になったディレクトリの下の同じ名前か。
+        ディレクトリの md5 は中のファイルの相対パスを含むので、組になったディレクトリの下の同じ相対パスは同じファイル
+        （cmd が上流の出力のディレクトリを名指しし、deps がその中のファイルを挙げる形）"""
+        while old and new:
+            if (old, new) in local_pairs or (old, new) in self.pairs:
+                return True
+            if posixpath.basename(old) != posixpath.basename(new):
+                return False
+            old, new = dirname(old), dirname(new)
+        return False
+
     def same_file(self, old, new, local_pairs):
         """old（動かす前）と new（今）が同じファイルか"""
-        if old == new or (old, new) in local_pairs or (old, new) in self.pairs:
+        if old == new or self.paired(old, new, local_pairs):
             return True
         base_md5 = self.base.md5(old)
         return base_md5 is not None and base_md5 == self.cur_md5(new)
@@ -661,10 +680,7 @@ class Tool:
             edges.append(ranked)
         found = match_by_content(len(old_left), edges)
         if found is None:
-            missing = ", ".join(o for o, _ in old_left)
-            raise Unverified(
-                f"deps の {missing} と中身の同じファイルが、今の deps に見つからない"
-            )
+            raise Unverified(unmatched_reason("deps", old_left, edges))
         for i, (old, item) in enumerate(old_left):
             result.append((old, item, new_left[found[i]], "content"))
         out = []
@@ -702,11 +718,7 @@ class Tool:
             edges.append(ranked)
         found = match_by_content(len(old_left), edges)
         if found is None:
-            raise Unverified(
-                "params の "
-                + ", ".join(o for o, _ in old_left)
-                + " と値の同じファイルが、今の params に見つからない"
-            )
+            raise Unverified(unmatched_reason("params", old_left, edges))
         for i, (old, values) in enumerate(old_left):
             result.append((old, values, new_left[found[i]]))
         out = []
@@ -752,7 +764,7 @@ class Tool:
         if GLOB_CHARS & set(po + pn):
             return False
         old, new = join(old_wdir, po), join(new_wdir, pn)
-        if old == new or (old, new) in pairs:
+        if old == new or self.paired(old, new, pairs):
             return True
         if old in self.base.files and self.base.md5(old) == self.cur_md5(new):
             return True
