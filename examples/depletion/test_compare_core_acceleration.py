@@ -51,5 +51,11 @@ class Compare(unittest.TestCase):
         self.assertIn("1 回の外側の反復 900〜4,000 → 15〜60 回", text)
 
 
+class ParseAccelerationEmptyPathTest(unittest.TestCase):
+    def test_an_empty_path_in_the_list_is_rejected(self):
+        with self.assertRaises(SystemExit):
+            compare_core_acceleration.parse("case=a,a,a,")
+
+
 if __name__ == "__main__":
     unittest.main()

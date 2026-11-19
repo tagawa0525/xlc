@@ -97,5 +97,11 @@ class Compare(unittest.TestCase):
             compare_core_guess.compare(core(), log([1] * 4), other, log([1] * 4))
 
 
+class ParseGuessEmptyPathTest(unittest.TestCase):
+    def test_an_empty_path_in_the_list_is_rejected(self):
+        with self.assertRaises(SystemExit):
+            compare_core_guess.parse("case=a,a,a,")
+
+
 if __name__ == "__main__":
     unittest.main()
