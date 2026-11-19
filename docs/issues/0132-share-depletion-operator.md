@@ -6,7 +6,7 @@ opened: 2026-10-15
 closed: 2026-11-19
 milestone:
 blocked-by: []
-resolution: コミット 62d28d54e
+resolution: コミット 64031634c
 ---
 
 # Share the operator setup between openmc_depletion.py and the resumable run

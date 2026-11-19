@@ -6,7 +6,7 @@ opened: 2026-10-11
 closed: 2026-11-19
 milestone:
 blocked-by: []
-resolution: コミット 558699aa5
+resolution: コミット ae90aba41
 ---
 
 # VERA 2F、2G、2H の入力で計装管のセルの注釈が「案内管」になっている

@@ -6,7 +6,7 @@ opened: 2026-10-24
 closed: 2026-11-19
 milestone: M4
 blocked-by: []
-resolution: コミット 44736401b
+resolution: コミット 90036fc99
 ---
 
 # 集合体をまたぐ燃焼の比較の要約の表が検証の記録に無い
