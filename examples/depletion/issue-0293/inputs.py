@@ -15,7 +15,7 @@ S(α,β) を持たない核種の温度が 565、600、900、1200 K だけで、
 `python3 inputs.py` は次を書く（出力は各ディレクトリの out/。`.gitignore` で追跡しない）:
 
 - steps/<燃料>-40.toml、steps/<燃料>-80.toml（項目 2）: 燃焼度の点を本番の 40 点（../p9-product/lattice-2A.toml）にした燃焼と、
-  隣り合う点の中点（0 と最初の点の中点を含む）を足して倍にした 80 点の燃焼。u はさらに倍の 160 点（steps/u-160.toml）も
+  隣り合う点の中点（0 と最初の点の中点を含む）を足して倍にした 80 点の燃焼。u と gd はさらに倍の 160 点（steps/<燃料>-160.toml）も
 - sab/xs-<a|b>.toml と sab/nuclides-<a|b>/（項目 8）: H-1 の温度だけが違う 2 つのライブラリの入力。a は H-1 を評価済みの
   550、573.6、600 K、b は 550、600 K で作る（b の 573.6 K は 550 と 600 K から内挿する）。どちらも O-16、B-10、B-11 に 573.6 K を
   足す（S(α,β) を持たない核種は内挿できないので、減速材を 573.6 K にするため）。ほかの核種は ../xs-nuclides/ への symlink
@@ -312,8 +312,9 @@ def write(path: Path, text: str) -> None:
 
 def main() -> None:
     for fuel in FUELS:
-        # U は 80 点と 40 点の差が目安の 5 pcm を超えたので、さらに倍の 160 点で 2 次の収束を確かめる
-        for points in (40, 80, 160) if fuel == "u" else (40, 80):
+        # U は 80 点と 40 点の差が目安の 5 pcm を超えたので、さらに倍の 160 点で 2 次の収束を確かめる。Gd の本番の履歴
+        # （../p9-gd/lattice-2O.toml の 72 点）は燃え尽きの間を 80 点と同じ 0.5 MWd/kg で刻むので、その誤差を 160 点で見る
+        for points in (40, 80, 160) if fuel in ("u", "gd") else (40, 80):
             write(
                 HERE / "steps" / f"{fuel}-{points}.toml", depletion_input(fuel, points)
             )
