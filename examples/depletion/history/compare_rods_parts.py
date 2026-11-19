@@ -114,7 +114,7 @@ def slope(points, k):
 
 
 def burnup_terms(points, x):
-    """燃焼度 `x` の内挿の（点の番号、重み）。core の `burnup_terms`（ADR-0192）の写し: 3 点の放物線の傾きの 3 次 Hermite で、燃焼度 0 の
+    """燃焼度 `x` の内挿の（点の番号、重み）。core の `burnup_terms`（ADR-0192）のコピー: 3 点の放物線の傾きの 3 次 Hermite で、燃焼度 0 の
     点は曲線に使わず、0 から次の点までと、0 を除いて 3 点に満たない軸は線形"""
     linear = bracket(points, x)
     first = 1 if points[0] == 0.0 else 0
