@@ -546,6 +546,35 @@ fn resolutions_name_existing_commits_and_report_once() -> Result<()> {
 }
 
 #[test]
+fn prefixes_of_two_commits_are_ambiguous() -> Result<()> {
+    // 7 桁で重なるコミットは作りにくいので、name_commits に 4 桁の先頭を渡す。日付を固めた fast-import で
+    // 作るので、コミットの hash（と重なる先頭）は毎回同じ
+    let t = TempRepo::new("ambiguous")?;
+    let stream: String = (0..1000)
+        .map(|i| {
+            format!(
+                "commit refs/heads/main\ncommitter t <t@t> 1700000000 +0000\ndata {}\nc{i:04}\n\n",
+                "c0000".len() + 1
+            )
+        })
+        .collect();
+    t.repo()
+        .stdout_with_input(&["fast-import", "--quiet"], stream)?;
+    let commits = t.run(&["rev-list", "main"])?;
+    let mut seen = BTreeMap::new();
+    let prefix = commits
+        .lines()
+        .map(|c| &c[..4])
+        .find(|p| seen.insert(*p, ()).is_some())
+        .ok_or("no two of the commits share 4 leading digits")?;
+    let one = commits.lines().next().ok_or("no commit")?;
+    let named = name_commits(&t.repo(), &BTreeSet::from([prefix, &one[..9]]))?;
+    assert!(matches!(named[prefix], Named::Ambiguous));
+    assert!(matches!(&named[&one[..9]], Named::Commit(full) if full == one));
+    Ok(())
+}
+
+#[test]
 fn main_reports_trials_left_by_a_merge() -> Result<()> {
     // ブランチの上では、記録に書いた試行を trials/ に追跡してよい。マージのコミットを作る前（index がマージの
     // 結果で、HEAD はまだ main）に trials/ が残っていれば見つける
