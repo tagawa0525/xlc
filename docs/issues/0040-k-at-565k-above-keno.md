@@ -6,7 +6,7 @@ opened: 2026-10-09
 closed: 2026-11-19
 milestone: M3
 blocked-by: []
-resolution: "wontfix: examples/vera の同じライブラリと入力の形の 2A（565 K）と 2B（600 K）が KENO-VI より反応度で +26、+19 pcm（2A は OpenMC より +13 pcm）。170 pcm は ADR-0209 の前の古い設定の examples/branches の状態 13 だけに残り、作り直すまで原因を分ける対象が無い"
+resolution: "wontfix: examples/vera の同じライブラリと入力の形の 2A（565 K）と 2B（600 K）が KENO-VI より反応度で +26、+19 pcm（2A は OpenMC より +12.5 pcm）。170 pcm は ADR-0209 の前の古い設定の examples/branches の状態 13 だけに残り、作り直すまで原因を分ける対象が無い"
 ---
 
 # 565 K の集合体の k∞ が KENO の Problem 2A より約 170 pcm 大きい
