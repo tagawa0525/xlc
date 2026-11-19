@@ -27,10 +27,14 @@ resolution:
 
 ## 完了の条件
 
-- [ ] MF5 の LF=12 を ENDF-102 の式で読み、NJOY と比べる（形を決める ADR）
-- [ ] MF1 の LNU=1 を読む
+- [x] MF5 の LF=12 を ENDF-102 の式で読み、NJOY と比べる（式と群への振り分けは GROUPR と同じで、NJOY の誤りに当たらず、形の決定は
+  ENDF-102 の定義のとおりなので ADR にしない。比較は examples/depletion/verification.md の「版ごとのライブラリの Madland-Nix の核分裂
+  スペクトルと多項式の ν」）
+- [x] MF1 の LNU=1 を読む（MT452 の定数と 1 次の多項式。4 つの版の全評価の LNU=1 はどれも MT452 の NC=2。同じ節）
 - [ ] VII.0 と VII.1 の 65 核種の `xs nuclide` が、打ち切らずに最後まで終わる
 
 ## 経緯
 
 - 2026-11-20: SLBW を読めるようにした後に VII.0 と VII.1 の 65 核種を `xs nuclide` に通して見つけ、起こした（#0305）
+- 2026-11-20: LF=12 と LNU=1 を読めるようにし、VII.0 の Am-241、Am-243、Np-239 と VII.1 の Am-241、Am-243 の `xs nuclide` が終了コード 0 で
+  終わることを確かめた（ブランチ fix/0307-read-madland-nix-and-polynomial-nu）。65 核種の全部は、マージの後に確かめる
