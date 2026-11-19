@@ -17,6 +17,9 @@ sys.path.insert(0, str(HERE))
 
 import openmc_core_2d
 import openmc_model_3d
+from openmc_resume import (
+    check_model,
+)  # openmc_core_2d が sys.path に足す親のディレクトリ
 
 
 def write_model_xml(module, source: Path, work: Path) -> None:
@@ -48,6 +51,21 @@ class ExtractChecksTheModel(unittest.TestCase):
                 with self.assertRaises(SystemExit) as stop:
                     module.extract(HERE / given, work, Path(tmp) / "results")
                 self.assertIn("model.xml", str(stop.exception))
+
+
+class ExtractRebuildsTheRunModel(unittest.TestCase):
+    def test_the_model_of_the_input_matches_the_model_xml_the_run_wrote(self):
+        """extract が入力から作り直すモデルは、同じ入力の run が書く model.xml と同じ（ID の振り方を含む）"""
+        for module, given in (
+            (openmc_core_2d, "p5/openmc-5A-2D.toml"),
+            (openmc_model_3d, "p3/openmc-3A.toml"),
+        ):
+            with self.subTest(given), tempfile.TemporaryDirectory() as tmp:
+                work = Path(tmp) / "work"
+                write_model_xml(module, HERE / given, work)
+                openmc.reset_auto_ids()
+                run = module.read_run(HERE / given)
+                check_model(module.model_of(run, module.Options()), work)
 
 
 if __name__ == "__main__":

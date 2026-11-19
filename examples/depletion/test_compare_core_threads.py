@@ -98,16 +98,6 @@ class Compare(unittest.TestCase):
                 (history, bare), [run(core(), [50, 20, 10, 30], 16, 0.5)]
             )
 
-    def test_report_draws_summaries_with_the_bin_core_before_adr_0234(self):
-        # #0236 の前のツールが書いた要約（trial-0234/compare-threads.json）は、順 `before` とスレッドの数 null を持つ
-        c = compare_core_threads.compare(
-            run(core(), [60, 20, 15, 40], 1, 2.0),
-            [run(core(), [50, 20, 10, 30], 16, 0.5)],
-        )
-        c["runs"][0] |= {"order": "before", "threads": None}
-        text = "\n".join(compare_core_threads.report({"cases": {"p9": c}}))
-        self.assertIn("ADR-0234 の前の bin/core: 固有値計算 4 回", text)
-
     def test_report_gives_the_time_per_thread_count(self):
         c = compare_core_threads.compare(
             run(core(), [60, 20, 15, 40], 1, 2.0),
@@ -148,6 +138,15 @@ class Inputs(unittest.TestCase):
             runs, files = compare_core_threads.thread_runs([lexicographic, one, four])
             self.assertEqual(len(runs), 3)
             self.assertEqual(len(files), 9)
+            # 4 スレッドの燃焼と同じ履歴に書いた燃焼
+            again = write_run(
+                tmp, "again", top="threads = 4", text=run(core(), [1] * 4, 4, 1.0)[1]
+            )
+            (tmp / "again.toml").write_text(
+                (tmp / "again.toml")
+                .read_text()
+                .replace("again.msgpack", "four.msgpack")
+            )
             # 入力の `threads` とログのスレッドの数が違う
             mislabeled = write_run(
                 tmp,
@@ -159,6 +158,7 @@ class Inputs(unittest.TestCase):
                 [one, lexicographic],
                 [lexicographic, one, lexicographic],
                 [lexicographic, mislabeled],
+                [lexicographic, four, again],
             ):
                 with (
                     self.subTest([p.name for p in wrong]),

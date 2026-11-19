@@ -133,6 +133,21 @@ class Inputs(unittest.TestCase):
                 pair_runs(GUESS, flat, default)
         self.assertIn("acceleration", str(stop.exception))
 
+    def test_inputs_that_name_one_history_are_errors(self):
+        """2 本が同じ履歴に書けば、後の燃焼が前の燃焼の履歴を上書きしている"""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            flat = write_run(tmp, "flat", depletion='initial-guess = "flat"')
+            (tmp / "flat.toml").write_text(
+                (tmp / "flat.toml")
+                .read_text()
+                .replace("flat.msgpack", "default.msgpack")
+            )
+            default = write_run(tmp, "default")
+            with self.assertRaises(SystemExit) as stop:
+                pair_runs(GUESS, flat, default)
+        self.assertIn("default.msgpack", str(stop.exception))
+
     def test_the_log_is_named_after_the_input(self):
         """記録のコマンドは core の標準エラーを `<入力の名前>.log` に書く"""
         with tempfile.TemporaryDirectory() as tmp:
