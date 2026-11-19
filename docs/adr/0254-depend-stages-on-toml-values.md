@@ -98,8 +98,9 @@ ADR-0159 は Rust のステージの deps をビルドした実行ファイル�
   それぞれ deps に並べ（ADR-0159）、TOML ならその正規形を並べる。正規形は参照をたどらない
 - `dvc.yaml` を書くツール（`examples/core/rods_cases.py`、`examples/vera/p3/p3_inputs.py`、`p5_inputs.py`、`p6_inputs.py`）も正規形の
   パスを書く
-- 比較のスクリプトは、TOML の入力の md5 を `input_md5` で書く（JSON の `inputs` に TOML を書く 3 つ:
-  `compare_branch_cross_terms.py`、`compare_grid_interpolation.py`、`compare_p6.py`）。`examples/record_provenance.py` の照合も、
+- ステージの cmd が呼ぶ比較のスクリプトは、TOML の入力の md5 を `input_md5` で書く（JSON の `inputs` に TOML を書く 3 つ:
+  `compare_branch_cross_terms.py`、`compare_grid_interpolation.py`、`compare_p6.py`）。手で実行する試行のスクリプト
+  （`compare_core_boron.py` など）は変えない。その JSON はステージの出力でなく、lock の deps と照らす相手が無い`examples/record_provenance.py` の照合も、
   TOML の入力を正規形の deps と比べる
 
 ADR-0159 の deps の規則（ステージの入力と、ステージが呼ぶ実行ファイル）のうち、入力の TOML を並べる部分を、その正規形に
@@ -139,7 +140,10 @@ deps のパスを替えると、TOML を deps に持つステージの lock が�
   直下の `dvc.lock` をコミットする
 - run-checks.sh は .py の差分があるときだけ Python のテストを実行するので、pre-commit の hook `toml-values` が、`dvc.yaml`、
   `dvc.lock`、`toml-values/`、TOML、JSON を変えるコミットで `RepositoryDepsTest` と `JsonInputsTest` を実行する
-- 比較のスクリプトが JSON の `inputs` に TOML を書くときは `input_md5` を使う。使わなければ `JsonInputsTest` が止める
+- ステージの比較のスクリプトが JSON の `inputs` に TOML を書くときは `input_md5` を使う。使わなければ `JsonInputsTest` が止める。
+  手で実行する試行のスクリプトは、TOML の入力もバイトの md5 を書いたままで、`inputs` の md5 の意味がステージの JSON と違う。
+  試行のスクリプトをステージにするときに `input_md5` に替える（替えなければ `JsonInputsTest` が止める）。ステージの出力の TOML
+  （`xs-range.toml`）を `inputs` に書くと、`input_md5` は正規形の md5 を書き、lock はバイトの md5 なので、同じテストが止める
 - ほかのブランチ（feat/0279-off-history-comparison、feat/0293-upstream-pin-measurements）が examples/depletion に足した入力は、
   main への rebase の後に `RepositoryDepsTest` が止めるので、そこで正規形に替える
 - `dvc status examples/<問題>/dvc.yaml` は上流の `toml-values` を示さない（ADR-0210 の帰結の `python-ast` と同じ）。rebase の後の
@@ -176,7 +180,8 @@ deps のパスを替えると、TOML を deps に持つステージの lock が�
   ステージのうち 1,064 が changed（実行ファイルの差が 1,048）。移行の後も changed の集合は同じ 1,064 で、理由は 1,279 ステージで
   同じ、169 ステージは TOML の差（記録した版と今の版の正規形が同じ。examples/core の `assemblies.toml` の 51 ほか）が理由から
   外れ、どれも実行ファイルの差などで changed のまま、2 ステージは上の `openmc-1B`。比較のスクリプトを変えた 12 ステージは、
-  再実行の前に changed になり、再実行（565aec357。`-s` で 67 秒）の後に changed でなくなった。JSON の差は `inputs` の md5 の
+  再実行の前に changed になり、再実行（565aec357。`-s` で 67 秒。レビューで `input_md5` を直した後に add88fb59 で
+  もう一度、JSON は同じバイト）の後に changed でなくなった。JSON の差は `inputs` の md5 の
   行だけで、examples/core の `compare.out` は同じ
 - 付け直した OpenMC の参照解（examples/depletion の `openmc-1C@rings1`、`@rings4`、`openmc-mox1`）は、移行の後も `dvc status` で
   up to date（e327c56ca）

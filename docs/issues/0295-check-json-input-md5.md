@@ -36,4 +36,5 @@ compare-6（p6）の 4 本を落とした（レビューで見つかり、後の
   `scripts/test_normalize_toml.py` の `JsonInputsTest` が、追跡している比較の JSON の `inputs` と、それを書いたステージの dvc.lock の
   deps（TOML は正規形）の md5 を照らす（pre-commit の hook `toml-values`）。今のファイルとの比較（この issue の書いた形）は採らない:
   上流の値を変えて再実行するまでの間（ADR-0130 で changed のまま残してよい）も止まり、JSON と lock が一致すれば、今のファイルとの
-  食い違いはステージの changed として `dvc status` に出る。JSON の md5 を変えた 11 本を再実行した（565aec357）
+  食い違いはステージの changed として `dvc status` に出る。JSON の md5 を変えた 11 本を再実行した（565aec357）。照らすのはステージの
+  出力の JSON だけで、手で実行した試行の JSON（examples/depletion/branches/ など）は、照らす lock が無いので見ない（ADR-0254 の帰結）
