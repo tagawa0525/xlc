@@ -264,7 +264,7 @@ fn unresolved() -> RangeKind {
 }
 
 fn mlbw() -> RangeKind {
-    RangeKind::Mlbw(crate::endf::Mlbw {
+    RangeKind::Mlbw(crate::endf::BreitWigner {
         spi: 0.0,
         ap: 0.9,
         ap_energy: None,

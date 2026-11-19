@@ -30,7 +30,7 @@ pub enum RangeKind {
     /// LRU=1, LRF=3
     ReichMoore(ReichMoore),
     /// LRU=1, LRF=2
-    Mlbw(Mlbw),
+    Mlbw(BreitWigner),
     /// LRU=1, LRF=7
     RMatrixLimited(RMatrixLimited),
     /// LRU=2（LRF=1 も LRF=2 と同じ形にして持つ）
@@ -57,7 +57,7 @@ pub fn scattering_radius_at(ap: f64, table: Option<&Tab1>, e: f64) -> Option<f64
     }
 }
 
-impl Mlbw {
+impl BreitWigner {
     /// エネルギー e (eV) で位相シフトに使う散乱半径（[`scattering_radius_at`]）。
     pub fn scattering_radius(&self, e: f64) -> Option<f64> {
         scattering_radius_at(self.ap, self.ap_energy.as_ref(), e)
@@ -132,9 +132,9 @@ pub struct RmlResonance {
     pub widths: Vec<f64>,
 }
 
-/// 多準位 Breit-Wigner（MLBW）の共鳴パラメータ。
+/// Breit-Wigner 形式の共鳴パラメータ（MLBW）。
 #[derive(Debug, Clone, PartialEq)]
-pub struct Mlbw {
+pub struct BreitWigner {
     pub spi: f64,
     /// 散乱半径 (10^-12 cm)
     pub ap: f64,
@@ -751,7 +751,12 @@ fn read_reich_moore(r: &mut Reader<'_>, naps: i64) -> Result<ReichMoore, Error> 
 }
 
 /// MLBW の範囲 [el, eh] のパラメータ。`nro` が 1 なら、先に散乱半径の TAB1 を読む。
-fn read_mlbw(r: &mut Reader<'_>, naps: i64, nro: i64, (el, eh): (f64, f64)) -> Result<Mlbw, Error> {
+fn read_mlbw(
+    r: &mut Reader<'_>,
+    naps: i64,
+    nro: i64,
+    (el, eh): (f64, f64),
+) -> Result<BreitWigner, Error> {
     let ap_energy = if nro == 1 {
         let table_line = r.line() + 1;
         // 補間の区切りと x の並びは TAB1 を読むときに確かめる。範囲の外へ外挿しないので、範囲を覆うことを確かめる
@@ -826,7 +831,7 @@ fn read_mlbw(r: &mut Reader<'_>, naps: i64, nro: i64, (el, eh): (f64, f64)) -> R
             resonances,
         });
     }
-    Ok(Mlbw {
+    Ok(BreitWigner {
         spi,
         ap: cont.c2,
         ap_energy,
