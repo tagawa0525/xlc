@@ -1,0 +1,5 @@
+outs:
+- md5: 36a18575be308853d72cc7c2228cec92
+  size: 14135092
+  hash: md5
+  path: nominal.msgpack
