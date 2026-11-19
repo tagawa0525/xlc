@@ -240,12 +240,13 @@ main d17396374（2026-11-19）で数えた。数え方は「## 補足」にあ�
 ### 実行
 
 - ステージを実行する入口（`scripts/dvc-repro.py` と `examples/stage_runner.py`）は、`dvc repro` と `dvc commit` の前に同じ前の段を
-  通る。(1) 追跡しているファイルに変更のある作業ツリーで止まる（lock をコミットするコミットで出し直せることを保つ。ADR-0122。
-  ステージが書くもの（`dvc.lock`、git で追跡する `cache: false` の outs、出力のパスを足す `.gitignore` の行）の差は除く。案 B の
-  runner と同じ）。(2) worktree ごとの排他のロックを取り、終わるまで持つ（`bin/` を DVC のリポジトリのロックの外で作るので、
-  同じ worktree の 2 つ目が走っている実行の `bin/` を作り直さないため）。(3) ビルドの入力（今の `build` のステージの deps）の
-  HEAD の木が前のビルドと違うときだけ `scripts/build-binaries.sh` を実行する（スクリプトは実行ファイルのパッケージを毎回消して
-  作り直すので、数秒の再実行のたびに作り直さないため。前のビルドの入力は `bin/` の隣の追跡しないファイルに書く）
+  通る。(1) 追跡しているファイルに変更があるか、追跡も無視もしていないファイルがある作業ツリーで止まる（lock をコミットする
+  コミットで出し直せることを保つ。ADR-0122。ステージの実行が書くもの（`dvc.lock`、git で追跡する `cache: false` の outs、
+  `stage-cpu-seconds.json`、出力のパスを足す `.gitignore` の行）の差は除く。案 B の runner と同じ）。(2) worktree ごとの排他のロックを取り、終わるまで持つ（`bin/` を DVC のリポジトリのロックの外で作るので、
+  同じ worktree の 2 つ目が走っている実行の `bin/` を作り直さないため）。(3) ビルドの入力の HEAD の木が前のビルドと違うか、
+  `bin/` の実行ファイルの md5 が前のビルドが書いたものと違うときだけ `scripts/build-binaries.sh` を実行する（スクリプトは実行ファイルの
+  パッケージを毎回消して作り直すので、数秒の再実行のたびに作り直さないため）。前のビルドの入力の木と実行ファイルの md5 は、
+  `bin/` の隣の追跡しないファイルに書く。ビルドの入力の一覧（今の `build` のステージの deps）は `build-binaries.sh` に移す
 - `dvc-repro.py` に `-s` の経路を足す。前の段の後に、`scripts/check-skip-upstream.py` と `scripts/check-references-shell.sh` で
   上流を確かめ、`dvc repro -s <目標>` を実行する
 - `check-skip-upstream.py` は今の判定から正規形の項（`RUN_FIRST`）だけを消す。上流が `changed outs`、`changed command`、
@@ -271,10 +272,11 @@ main d17396374（2026-11-19）で数えた。数え方は「## 補足」にあ�
    段 1 の `dvc add` の時間の測りと並べて比べ直す。目安は担当 1 本
 1. 正規形をやめ、deps を元のファイルに戻す。例の `dvc.yaml` の deps を元のファイルに書き換え、lock の 1,405 のステージ（正規形を
    deps に持つもの）の deps を付け替える。付け替える md5 は、正規形の元のファイルの md5 を git の履歴から引く。正規形は
-   多対 1（注釈だけが違う元のファイルは同じ正規形になる）なので、正規形の md5 から引かず、ステージの lock の項を入れたコミットで、
-   直下の `dvc.lock` の `binary-forms@<名前>`、`toml-values@<パス>`、`python-ast@<パス>` の項が持つ元のファイルの md5（deps）を使う。
-   項が正規形への移行のコミット（実行ファイルは 37e3044cb、TOML は e327c56ca）で書き換えたものなら、その親の例の lock の元のファイルの
-   md5 を使う（実行ファイルは 4 つの版。37e3044cb の本文）。outs と cmd は変えず、`compare-dvc-lock.py` で変わったのが deps だけと確かめる。比較の JSON の
+   多対 1（注釈だけが違う元のファイルは同じ正規形になる）なので、正規形の md5 から引かない。ステージの lock の項を最後に書いた
+   コミットが実行のコミットなら、.py と TOML はそのコミットの木のファイルの md5、実行ファイルはそのコミットの直下の `dvc.lock` の
+   `binary-forms@<名前>` の deps の md5 を使う。項を最後に書いたのが正規形への付け直し（outs と cmd を変えず、deps だけを正規形に
+   替えたもの。.py は c6723bba9 など、TOML は e327c56ca、実行ファイルは 37e3044cb）なら、その親の例の lock の、付け直しの前の元の
+   ファイルの md5 を使う（実行ファイルは 4 つの版。37e3044cb の本文）。outs と cmd は変えず、`compare-dvc-lock.py` で変わったのが deps だけと確かめる。比較の JSON の
    `inputs` の TOML の md5 は正規形の md5（ADR-0254）なので、JSON を書き換えるか、照合で書いたコミットの木の正規形を読むかを
    この段で決める（案 B の段 2 と同じ問題）。比較のツール 3 本（compare_branch_cross_terms.py、compare_grid_interpolation.py、
    compare_p6.py）は元のファイルの md5 を書く形にする。直下の `dvc.yaml` の正規形のステージ、正規形の 480 ファイル、pre-commit の
@@ -282,8 +284,8 @@ main d17396374（2026-11-19）で数えた。数え方は「## 補足」にあ�
    の python-ast、toml-values、binary-forms の行、スキル dvc-relock の前半の正規形の手順、compute と topic-start の該当の項）を
    直す。目安は担当 1〜2 本、レビュー 2〜3 周
 2. `build` をやめ、前の段と `-s` の経路を足す。直下の `dvc.yaml` と `dvc.lock` を消し、`scripts/worktree-restore-outputs.sh` は
-   `bin/` を前の段の (3) で作る。`dvc-repro.py` と `stage_runner.py` の前の段、`-s` の経路、hook の範囲（決定と理由の「実行」）を
-   TDD で足す。スキル dvc-relock の前半の残り（relock）を消し、compute、topic-start、openmc-reference、verification-record の
+   `bin/` を前の段の (1)〜(3) を通して作る。`dvc-repro.py` と `stage_runner.py` の前の段、`-s` の経路、hook の範囲（決定と理由の
+   「実行」）を TDD で足す。スキル dvc-relock の前半の 2〜6 のうち段 1 で消していない部分（relock。前半の 1 の出力の戻しは残す）を消し、compute、topic-start、openmc-reference、verification-record の
    該当の項と、CLAUDE.md の DVC の行、docs/environment.md を直す。目安は担当 1 本、レビュー 2 周
 3. ADR と issue を今の状態に合わせる。ADR-0210、ADR-0254、ADR-0255 を、この ADR で置き換える（superseded）。一部を変える 7 本は
    「## 変更」で直す。#0150 など、正規形と relock があるために開いている issue を閉じるか書き直す。目安は担当 1 本
@@ -327,8 +329,8 @@ main d17396374（2026-11-19）で数えた。数え方は「## 補足」にあ�
 棚卸しの数え方（main d17396374 の worktree の直下。2026-11-19）:
 
 - `dvc.yaml`: `git ls-files '*dvc.yaml'`。ステージの定義と foreach は各 `dvc.yaml` の `stages` を YAML で読み、lock のステージは
-  各 `dvc.lock` の `stages` の数。cmd の分け方は、`#references` を含むものを参照解、`bin/xs` などを含むものをその実行ファイル、
-  `normalize` を含むものを正規形とした（この順に当て、正規形を先に分ける。`binary-forms` の cmd は `bin/xs` なども含む）
+  各 `dvc.lock` の `stages` の数。cmd の分け方は、`normalize` を含むものを正規形とし（`binary-forms` の cmd は `bin/xs` なども含むので
+  先に分ける）、残りのうち `#references` を含むものを参照解、`bin/xs` などを含むものをその実行ファイルとした
 - lock の outs: 各 `dvc.lock` の outs を、パスが `git ls-files` にあるかと、`references/dvc-cache/files/md5/<md5 の先頭 2 文字>/<残り>`
   があるかで分けた
 - `.dvc`: `git ls-files '*.dvc'`（`find . -name '*.dvc'` の 766 は `.dvc` のディレクトリを含む）。大きさは各ファイルの `size` の和
