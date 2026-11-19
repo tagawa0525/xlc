@@ -627,10 +627,16 @@ class Tool:
                     path = dirname(path)
         return False
 
+    def stale(self, path, local_pairs):
+        """動かす前後で同じ path が、動かしたファイルの前の名前か（組で別のパスへ動いたか、動かす前にあり今は無い）"""
+        return self.moved_from(path, local_pairs) or (
+            self.base.exists(path) and not self.cur.exists(path)
+        )
+
     def same_file(self, old, new, local_pairs):
         """old（動かす前）と new（今）が同じファイルか"""
         if old == new:
-            return not self.moved_from(old, local_pairs)
+            return not self.stale(old, local_pairs)
         if self.paired(old, new, local_pairs):
             return True
         base_md5 = self.base.md5(old)
@@ -866,9 +872,7 @@ class Tool:
             p = join(old_wdir, split_word(wo)[1])
             if GLOB_CHARS & set(wo):
                 return not self.glob_touches_moved(p, pairs)
-            return not self.moved_from(p, pairs) and not (
-                self.base.exists(p) and not self.cur.exists(p)
-            )
+            return not self.stale(p, pairs)
         (po_pre, po, po_suf), (pn_pre, pn, pn_suf) = split_word(wo), split_word(wn)
         if po_pre != pn_pre or po_suf != pn_suf:
             return False
@@ -876,7 +880,7 @@ class Tool:
             return False
         old, new = join(old_wdir, po), join(new_wdir, pn)
         if old == new:
-            return not self.moved_from(old, pairs)
+            return not self.stale(old, pairs)
         if self.paired(old, new, pairs):
             return True
         if old in self.base.files and self.base.md5(old) == self.cur_md5(new):
@@ -953,14 +957,20 @@ class Tool:
                 local.add((so, sn))
         # 入力の TOML は、中身も置き場も同じでも、中のパスが動かす前と同じファイルを指すことを確かめる（xs、lattice、core は
         # TOML の中のパスを TOML の置き場から解く。置き場が変われば同じ文字列も別の場所を指し、変わらなくても、指す先を
-        # 動かして TOML を直し忘れた文字列がある）。動かさずに中身を変えた TOML は除く。中のパスだけの書き換えは
-        # toml_rewrite が同じ確認で確かめ、ほかの変更なら lock の md5 が残って changed のまま残る（判定の原則の動かして
-        # いない項）
-        for old, new in sorted(local):
+        # 動かして TOML を直し忘れた文字列がある）。lock の項（正規形の md5 か params の値）が今の中身と違って残る TOML は
+        # 除く。ステージはその項で changed のまま残り、最新と示さない（判定の原則の動かしていない項）
+        tomls = [
+            (old, new)
+            for old, item, new, rewritten in deps
+            if rewritten or item.get("md5") == self.cur_md5(new)
+        ] + [
+            (old, new)
+            for old, values, new, rewritten in params
+            if rewritten or values == self.cur.params(new, values)
+        ]
+        for old, new in sorted(tomls):
             src_old, src_new = toml_source(old), toml_source(new)
             if src_old is None or src_new is None:
-                continue
-            if src_old == src_new and self.base.md5(src_old) != self.cur_md5(src_new):
                 continue
             if not self.toml_path_only(src_old, src_new, local):
                 raise Unverified(
