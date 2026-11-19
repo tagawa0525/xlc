@@ -70,6 +70,10 @@ def channel_text(channels) -> str:
             where = f'MF{state[0]} LFS {state[1]}: '
         parts.append(where + products_text(products))
     return '; '.join(parts)
+NO_FISSION = {'q': None, 'yield_source': None, 'energies': None, 'tables': {}}
+
+def energies_text(energies) -> str | None:
+    return None if energies is None else ' '.join((repr(e) for e in energies))
 
 def collect(a: dict, b: dict) -> dict:
     items = {q: [] for q in QUANTITIES}
@@ -89,11 +93,13 @@ def collect(a: dict, b: dict) -> dict:
             xr, yr = (x['reactions'].get(mt), y['reactions'].get(mt))
             items['reactions'].append({'nuclide': name, 'mt': mt, 'a': None if xr is None else channel_text(xr), 'b': None if yr is None else channel_text(yr)})
         xf, yf = (x['fission'], y['fission'])
-        if xf is None or yf is None:
+        if xf is None and yf is None:
             continue
+        xf = xf or NO_FISSION
+        yf = yf or NO_FISSION
         items['fission_q'].append({'nuclide': name, 'a': xf['q'], 'b': yf['q']})
         items['yield_sources'].append({'nuclide': name, 'a': xf['yield_source'], 'b': yf['yield_source']})
-        items['yield_energies'].append({'nuclide': name, 'a': ' '.join((repr(e) for e in xf['energies'])), 'b': ' '.join((repr(e) for e in yf['energies']))})
+        items['yield_energies'].append({'nuclide': name, 'a': energies_text(xf['energies']), 'b': energies_text(yf['energies'])})
         for e in sorted(set(xf['tables']) | set(yf['tables'])):
             xt, yt = (xf['tables'].get(e), yf['tables'].get(e))
             for product in sorted(set(xt or {}) | set(yt or {})):
@@ -125,10 +131,12 @@ def summarize(a: dict, b: dict) -> dict:
         by_table.setdefault((i['nuclide'], i['energy']), []).append(i)
     tables = []
     for (name, e), ys in by_table.items():
-        if any((i['a'] is None or i['b'] is None for i in ys)):
+        if any((i['a'] is None for i in ys)) or any((i['b'] is None for i in ys)):
+            only = 'b' if ys[0]['a'] is None else 'a'
+            tables.append({'nuclide': name, 'energy': e, 'only': only, 'products': len(ys)})
             continue
         worst = max(ys, key=lambda i: abs(i['a'] - i['b']))
-        tables.append({'nuclide': name, 'energy': e, 'products': len(ys), 'differ': sum((1 for i in ys if differs(i))), 'sum_a': sum((i['a'] for i in ys)), 'sum_b': sum((i['b'] for i in ys)), 'sum_abs': sum((abs(i['a'] - i['b']) for i in ys)), 'max_abs': abs(worst['a'] - worst['b']), 'max_product': worst['product']})
+        tables.append({'nuclide': name, 'energy': e, 'only': None, 'products': len(ys), 'differ': sum((1 for i in ys if differs(i))), 'sum_a': sum((i['a'] for i in ys)), 'sum_b': sum((i['b'] for i in ys)), 'sum_abs': sum((abs(i['a'] - i['b']) for i in ys)), 'max_abs': abs(worst['a'] - worst['b']), 'max_product': worst['product']})
     watched_nuclides = []
     for name in WATCHED_PARENTS + WATCHED_NUCLIDES:
         if name not in na or name not in nb:
@@ -185,7 +193,14 @@ def report(summary: dict) -> list[str]:
     lines.append('| 核種 | E (eV) | 生成物 | 違う | 和 a | 和 b | 差の絶対値の和 | 差の最大 | その生成物 |')
     lines.append('| --- | --- | --- | --- | --- | --- | --- | --- | --- |')
     for t in summary['yield_tables']:
+        if t['only'] is not None:
+            continue
         lines.append(f"| {t['nuclide']} | {t['energy']:g} | {t['products']} | {t['differ']} | {t['sum_a']:.6f} | {t['sum_b']:.6f} | {t['sum_abs']:.3e} | {t['max_abs']:.3e} | {t['max_product']} |")
+    only = [t for t in summary['yield_tables'] if t['only'] is not None]
+    if only:
+        lines.append('')
+        lines.append('片方の版だけにある収率の表:')
+        lines.extend((f"- {t['nuclide']} E={t['energy']:g} eV: {t['only']} だけ（生成物 {t['products']}）" for t in only))
     lines.append('')
     lines.append('## 注目する核種（等しくても両方の値）')
     for w in summary['watched']['nuclides']:

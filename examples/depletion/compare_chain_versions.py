@@ -12,14 +12,14 @@ xlc のチェーンと OpenMC のチェーンを比べるのは compare_chain.py
   - `decay_energy`: 崩壊の平均のエネルギーの 3 成分（両方で不安定な核種）
   - `decay_modes`: 崩壊の（型、生まれる核種）ごとの分岐比（両方で不安定な核種）。同じ型と生成物を 2 度書いたものは足す。
     片方に無い分岐は値なし
-  - `fission_q`: 核分裂の Q 値（両方で核分裂する核種）
-  - `yield_sources`: 収率を取った核種（両方で核分裂する核種）
-  - `yield_energies`: 収率の入射エネルギーの並び（両方で核分裂する核種）
+  - `fission_q`: 核分裂の Q 値（どちらかで核分裂する核種。片方だけなら、もう片方は値なし）
+  - `yield_sources`: 収率を取った核種（どちらかで核分裂する核種。片方だけなら、もう片方は値なし）
+  - `yield_energies`: 収率の入射エネルギーの並び（どちらかで核分裂する核種。片方だけなら、もう片方は値なし）
   - `fission_yields`: （核分裂する核種、入射エネルギー、生成物）ごとの独立収率。両方にある表で片方に無い生成物の
     収率は 0、片方の版だけにある入射エネルギーの表の項目は、もう片方を値なしにする
   - `reactions`: （核種、MT）ごとの経路（生成物の状態と生まれる核種）の集合。片方だけの反応も違いに数える
   数値は値が等しいかで比べ（ENDF の書き方と、チェーンの中の並びには依らない）、相対差は |a − b| / max(|a|, |b|)（片方が 0 なら 1）。
-  あわせて、（核分裂する核種、入射エネルギー）ごとの収率の差の絶対値の和と最大（`yield_tables`。両方にある表だけ）と、`WATCHED_PARENTS` と
+  あわせて、（核分裂する核種、入射エネルギー）ごとの収率の差の絶対値の和と最大（`yield_tables`。片方の版だけにある表は、その側と生成物の数だけ）と、`WATCHED_PARENTS` と
   `WATCHED_NUCLIDES` の半減期、分岐比、核分裂の Q 値、`WATCHED_PARENTS` から `WATCHED_NUCLIDES` への収率の両方の値（等しくても。
   `watched`）を書く。`inputs` は読んだファイルのパス（ステージの cwd から）と md5
 - `--report`: 要約の JSON を文章で描く
@@ -146,6 +146,14 @@ def channel_text(channels) -> str:
     return "; ".join(parts)
 
 
+NO_FISSION = {"q": None, "yield_source": None, "energies": None, "tables": {}}
+
+
+def energies_text(energies) -> str | None:
+    # repr は float を往復できる桁で書くので、値が違えば文字も違う
+    return None if energies is None else " ".join(repr(e) for e in energies)
+
+
 def collect(a: dict, b: dict) -> dict:
     """量ごとの比べた項目。数値の項目は `a`、`b`、`relative` を持ち、ほかは `a`、`b` の文字"""
     items = {q: [] for q in QUANTITIES}
@@ -196,8 +204,11 @@ def collect(a: dict, b: dict) -> dict:
                 }
             )
         xf, yf = x["fission"], y["fission"]
-        if xf is None or yf is None:
+        if xf is None and yf is None:
             continue
+        # 片方の版だけで核分裂する核種は、もう片方の Q、収率を取った核種、入射エネルギー、表を値なしにする
+        xf = xf or NO_FISSION
+        yf = yf or NO_FISSION
         items["fission_q"].append({"nuclide": name, "a": xf["q"], "b": yf["q"]})
         items["yield_sources"].append(
             {"nuclide": name, "a": xf["yield_source"], "b": yf["yield_source"]}
@@ -205,9 +216,8 @@ def collect(a: dict, b: dict) -> dict:
         items["yield_energies"].append(
             {
                 "nuclide": name,
-                # repr は float を往復できる桁で書くので、値が違えば文字も違う
-                "a": " ".join(repr(e) for e in xf["energies"]),
-                "b": " ".join(repr(e) for e in yf["energies"]),
+                "a": energies_text(xf["energies"]),
+                "b": energies_text(yf["energies"]),
             }
         )
         for e in sorted(set(xf["tables"]) | set(yf["tables"])):
@@ -267,13 +277,19 @@ def summarize(a: dict, b: dict) -> dict:
         by_table.setdefault((i["nuclide"], i["energy"]), []).append(i)
     tables = []
     for (name, e), ys in by_table.items():
-        if any(i["a"] is None or i["b"] is None for i in ys):
+        if any(i["a"] is None for i in ys) or any(i["b"] is None for i in ys):
+            # 片方の版だけにある表は、その側と生成物の数だけを書く
+            only = "b" if ys[0]["a"] is None else "a"
+            tables.append(
+                {"nuclide": name, "energy": e, "only": only, "products": len(ys)}
+            )
             continue
         worst = max(ys, key=lambda i: abs(i["a"] - i["b"]))
         tables.append(
             {
                 "nuclide": name,
                 "energy": e,
+                "only": None,
                 "products": len(ys),
                 "differ": sum(1 for i in ys if differs(i)),
                 "sum_a": sum(i["a"] for i in ys),
@@ -399,9 +415,19 @@ def report(summary: dict) -> list[str]:
     )
     lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- |")
     for t in summary["yield_tables"]:
+        if t["only"] is not None:
+            continue
         lines.append(
             f"| {t['nuclide']} | {t['energy']:g} | {t['products']} | {t['differ']} | {t['sum_a']:.6f} | "
             f"{t['sum_b']:.6f} | {t['sum_abs']:.3e} | {t['max_abs']:.3e} | {t['max_product']} |"
+        )
+    only = [t for t in summary["yield_tables"] if t["only"] is not None]
+    if only:
+        lines.append("")
+        lines.append("片方の版だけにある収率の表:")
+        lines.extend(
+            f"- {t['nuclide']} E={t['energy']:g} eV: {t['only']} だけ（生成物 {t['products']}）"
+            for t in only
         )
     lines.append("")
     lines.append("## 注目する核種（等しくても両方の値）")
