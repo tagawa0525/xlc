@@ -56,8 +56,8 @@ rebase のあとの relock（スキル dvc-relock）、生の `dvc checkout` を
 main d17396374（2026-11-19）で数えた。数え方は「## 補足」にある。
 
 - `dvc.yaml` は 24（リポジトリの直下の 1 と examples の 23）。ステージの定義は 354（うち foreach が 30）、`dvc.lock` の
-  ステージは展開して 1,897。lock の cmd で分けると xs 745、正規形 476、参照解（cmd が references の devShell で包まれた NJOY と
-  OpenMC）281、lattice 207、core 98、比較 75、ほか 15
+  ステージは展開して 1,897。lock の cmd で分けると xs 744、正規形 480、参照解（cmd が references の devShell で包まれた NJOY と
+  OpenMC）281、lattice 206、core 97、比較 75、ほか 14
 - `dvc.lock` の outs は 2,326。git で追跡しないものが 1,768（すべてキャッシュにある）、`cache: false` で git が追跡するものが
   558（正規形の 480 = python-ast 40、toml-values 436、binary-forms 4。`references-shell.txt` 4、比較の JSON 63、ほかの JSON 7、
   `xs-range.toml` 4）。追跡しない outs の大きさの和は 9.5 GB
@@ -112,8 +112,9 @@ main d17396374（2026-11-19）で数えた。数え方は「## 補足」にあ�
   - 新しく作るもの: 例ごとの手順の一覧（`steps.toml` 23）と、それを書くスクリプトの付け替え、runner（指定した手順だけを実行し、
     上流を自動で実行しない。汚れた作業ツリーで止まり、`bin/` を作り、入力の md5 を前後で比べ、worktree ごとの排他を持つ）、
     `.dvc` の `meta` と出どころのファイルの書き手、`record_provenance.py`、`verification_tables.py`、JSON の入力の照合の付け替え、
-    lock の 1,768 の outs を `.dvc` に移すスクリプト。runner の働きのうち、指定した手順だけを上流なしに実行すること、入力の md5 を
-    出どころに書くこと、同じ worktree の 2 つ目を止めることは、`dvc repro -s`、dvc.lock の deps、dvc のリポジトリのロックが今も持つ
+    lock の 1,768 の outs を `.dvc` に移すスクリプト。runner の働きのうち、指定した手順だけを上流なしに実行することと、入力の md5 を
+    出どころに書くことは、`dvc repro -s` と dvc.lock の deps が今も持つ。`bin/` を作る間の排他は、`bin/` を DVC の外で作る案 C2 でも
+    足す
   - 要らなくなるもの: 補足の「案 B の設計」の「要らなくなるもの」
   - 移行: 補足の「案 B の設計」の「移行の順と見積もり」（4 段）
 - 案 C: DVC のステージを残し、changed を「再実行の義務」として扱う規則だけをやめる。ADR-0130 は既に「changed は結果が要るとき
@@ -173,7 +174,8 @@ main d17396374（2026-11-19）で数えた。数え方は「## 補足」にあ�
     `scripts/dvc-repro.py`、`check-skip-upstream.py`、`count-changed-stages.py`、`dvc-checkout.py`、`check-dvc-lock.sh`、
     `check-references-shell.sh`、`.claude/hooks` の 2 つの hook、`examples/stage_runner.py`（`dvc status` と `dvc commit` を含む）、
     DVC の遅さ（#0268）
-  - 新しく作るもの: `scripts/dvc-repro.py` の `-s` の経路と、hook の範囲を手元の `dvc repro` に広げること（決定と理由の「実行」）。
+  - 新しく作るもの: `dvc-repro.py` と `stage_runner.py` が通る前の段（汚れた作業ツリーで止まる、worktree ごとの排他、ビルドの入力が
+    変わったときだけ `bin/` を作る）、`dvc-repro.py` の `-s` の経路、hook の範囲を手元の `dvc repro` に広げること（決定と理由の「実行」）。
     lock の deps を元のファイルに付け替える 1 回のスクリプト（決定と理由の「移行の順と見積もり」）
   - 移行: 決定と理由の「移行の順と見積もり」（段 0 の測りと 3 段）
 - 案 D: DVC のステージを残し、deps からコード（`bin/` の正規形、python-ast）を外して、入力の TOML と上流の出力だけにする。
@@ -192,7 +194,7 @@ main d17396374（2026-11-19）で数えた。数え方は「## 補足」にあ�
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 失うもの            | `dvc status` の古さの一覧、目標の上流を自動で実行すること、run-cache、`dvc dag`                                                                                              | 結果を変えない変更で changed にならないこと（今も Rust の 1,048 のステージのすべてが changed で、効いていない）                                                                                |
 | 要らなくなるもの    | `dvc.yaml` と `dvc.lock` の 24 ずつ、正規形 480、script 9 とテスト 8、Claude Code の hook 2、pre-commit の hook 5、スキル dvc-relock の全体、ADR の置き換え 6 と一部の変更 9 | 直下の `dvc.yaml` と `dvc.lock`、正規形 480、script 3 とテスト 3（と移行の後の `compare-dvc-lock.py`）、pre-commit の hook 3、スキル dvc-relock の前半の 2〜6、ADR の置き換え 3 と一部の変更 7 |
-| 新しく作るもの      | 手順の一覧 23 とそれを書くスクリプトの付け替え、runner、出どころの書き手、記録と JSON の照合のツールの付け替え、1,768 の outs の移し替え                                     | `dvc-repro.py` の `-s` の経路、hook の範囲の拡張、lock の deps の付け替え（1 回）                                                                                                              |
+| 新しく作るもの      | 手順の一覧 23 とそれを書くスクリプトの付け替え、runner、出どころの書き手、記録と JSON の照合のツールの付け替え、1,768 の outs の移し替え                                     | 実行の前の段（作業ツリーの検査、排他、ビルド）、`dvc-repro.py` の `-s` の経路、hook の範囲の拡張、lock の deps の付け替え（1 回）                                                              |
 | DVC の遅さ（#0268） | ステージの操作は無くなる（代わりの `dvc add` の時間は測っていない）                                                                                                          | 残る（段 0 で測る）                                                                                                                                                                            |
 | 移行                | 4 段                                                                                                                                                                         | 段 0 の測りと 3 段                                                                                                                                                                             |
 
@@ -206,9 +208,9 @@ main d17396374（2026-11-19）で数えた。数え方は「## 補足」にあ�
   残す前提に拠る。案 C2 の (c) に数えたとおり、正規形と relock をやめると、修正のコミットとマージに付く DVC の手続きは無くなる。
   上流を先に実行する順序は、`-s` の経路で外す
 - 案 B と案 C2 は、どちらも (a)、(b)、(c) を満たす。案 B が新しく作る runner と出どころの書き手の働きのうち、指定した手順だけを
-  上流なしに実行すること、入力の md5 を出どころに書くこと、同じ worktree の 2 つ目を止めることは、`dvc repro -s`、dvc.lock の deps、
-  dvc のリポジトリのロックが今も持つ。事実上の標準のツールと手書きのうち保守の小さい方を選ぶ（グローバルの CLAUDE.md の設計
-  指針）と、作り直さない案 C2 になる。案 C2 が新しく作るのは `-s` の経路と 1 回の移行のスクリプトで、1,768 の outs の移し替えも、
+  上流なしに実行することと、入力の md5 を出どころに書くことは、`dvc repro -s` と dvc.lock の deps が今も持つ。事実上の標準の
+  ツールと手書きのうち保守の小さい方を選ぶ（グローバルの CLAUDE.md の設計指針）と、作り直さない案 C2 になる。案 C2 が新しく
+  作るのは、`bin/` を作る前の段（排他と、入力が変わったときだけのビルド）、`-s` の経路、1 回の移行のスクリプトで、1,768 の outs の移し替えも、
   `record_provenance.py` と `verification_tables.py` の付け替えも無い。移行は 3 段で、案 B の 4 段より短い（上の表）
 - 案 C2 が案 B に劣る点は 2 つある。1 つは DVC の遅さ（#0268）が残ること。Slurm 887（p2 の 545 核種、2026-11-15）の 2 時間 3 分の
   うち、16 コアの計算は約 27 分で、`dvc commit` が約 1 時間 40 分、上流の確認が 547 秒だった。これは判断の軸の実行速度に当たり、
@@ -237,21 +239,26 @@ main d17396374（2026-11-19）で数えた。数え方は「## 補足」にあ�
 
 ### 実行
 
-- `scripts/dvc-repro.py` に `-s` の経路を足す。`-s` のときは、(1) 追跡しているファイルに変更のある作業ツリーで止まり（lock を
-  コミットするコミットで出し直せることを保つ。ADR-0122。dvc が書く `dvc.lock` の差と、出力のパスを足す `.gitignore` の行の差は
-  除く。案 B の runner と同じ）、(2) `scripts/build-binaries.sh` を実行し、(3)
-  `scripts/check-skip-upstream.py` で目標の上流が `changed outs` を持たないことを確かめ、(4) `dvc repro -s <目標>` を実行する。
-  `-s` の無いときも (1) と (2) を行う
-- `check-skip-upstream.py` は、上流の outs が lock のとおりかで判定する（消えた出力は `deleted`、中身が違えば `modified` の
-  `changed outs` に出る）。正規形の項（`RUN_FIRST`）は消す。ADR-0184 が防いだ、上流の outs を戻していない作業ツリーで下流を作る
-  誤りは、この判定で止まる（ADR-0184 で `-s` の条件にしていた判定と同じ）。`changed command` と `changed checksum` でも止めるかは、
-  その種類が lock のつながりを壊すかを段 2 で確かめて決める
+- ステージを実行する入口（`scripts/dvc-repro.py` と `examples/stage_runner.py`）は、`dvc repro` と `dvc commit` の前に同じ前の段を
+  通る。(1) 追跡しているファイルに変更のある作業ツリーで止まる（lock をコミットするコミットで出し直せることを保つ。ADR-0122。
+  ステージが書くもの（`dvc.lock`、git で追跡する `cache: false` の outs、出力のパスを足す `.gitignore` の行）の差は除く。案 B の
+  runner と同じ）。(2) worktree ごとの排他のロックを取り、終わるまで持つ（`bin/` を DVC のリポジトリのロックの外で作るので、
+  同じ worktree の 2 つ目が走っている実行の `bin/` を作り直さないため）。(3) ビルドの入力（今の `build` のステージの deps）の
+  HEAD の木が前のビルドと違うときだけ `scripts/build-binaries.sh` を実行する（スクリプトは実行ファイルのパッケージを毎回消して
+  作り直すので、数秒の再実行のたびに作り直さないため。前のビルドの入力は `bin/` の隣の追跡しないファイルに書く）
+- `dvc-repro.py` に `-s` の経路を足す。前の段の後に、`scripts/check-skip-upstream.py` と `scripts/check-references-shell.sh` で
+  上流を確かめ、`dvc repro -s <目標>` を実行する
+- `check-skip-upstream.py` は今の判定から正規形の項（`RUN_FIRST`）だけを消す。上流が `changed outs`、`changed command`、
+  `changed checksum` を持てば止まる（ADR-0184 の決定と同じ種類）。ADR-0184 が防いだ、上流の outs を戻していない作業ツリーで下流を
+  作る誤りは、`changed outs`（消えた出力は `deleted`、中身が違えば `modified`）で止まる。`references-shell.txt` は devShell が
+  変わっても `dvc status` に出ないので、ADR-0184 のとおり `check-references-shell.sh` で確かめる
 - 目標が数秒で終わるという条件はやめる。重いステージも、上流の outs が lock のとおりなら、`-s` で 1 本だけ実行してよい。記録には、
   ADR-0184 のとおり、上流の出どころ（上流を実行したコミットと分岐点）を下流と別に書く
 - hook `block-raw-dvc-repro-in-slurm.py` の範囲を、Slurm の外の `dvc repro` にも広げる（手元の `-s` も (1)〜(3) を通すため）。
   `--max-stages` と参照解の許可（ADR-0257）は残す
-- 核種ごとの xs（`examples/stage_runner.py`、ADR-0193）は今のまま、changed のものを実行する。xs のコードを直すとすべてが changed に
-  なり、作り直すかは、ライブラリを読む作業が決める
+- 核種ごとの xs（`examples/stage_runner.py`、ADR-0193）は、上の前の段を足すほかは今のまま、changed のものを実行する。今は組の外の
+  上流として `build` を `dvc repro` で実行しているが、`build` のステージが無くなるので、前の段の (3) に替える。xs のコードを直すと
+  すべてが changed になり、作り直すかは、ライブラリを読む作業が決める
 
 ### 移行の順と見積もり
 
@@ -263,18 +270,21 @@ main d17396374（2026-11-19）で数えた。数え方は「## 補足」にあ�
    p2 の 545 核種で固定費が計算（約 27 分）を下回る見込みが立てば段 1 に進み、直す形は #0268 で実装する。立たなければ、案 B の
    段 1 の `dvc add` の時間の測りと並べて比べ直す。目安は担当 1 本
 1. 正規形をやめ、deps を元のファイルに戻す。例の `dvc.yaml` の deps を元のファイルに書き換え、lock の 1,405 のステージ（正規形を
-   deps に持つもの）の deps を付け替える。付け替える md5 は、正規形の元のファイルの md5 を git の履歴から引く: 実行ファイルは
-   37e3044cb の親の例の lock の `bin/` の md5（4 つの版。そのコミットの本文）、TOML は e327c56ca の親の lock、.py は直下の
-   `dvc.lock` の履歴の `python-ast@<パス>` の項（deps の元のファイルと outs の正規形の md5 の組）のうち、ステージの lock の項を
-   入れたコミットのもの。outs と cmd は変えず、`compare-dvc-lock.py` で変わったのが deps だけと確かめる。比較の JSON の
+   deps に持つもの）の deps を付け替える。付け替える md5 は、正規形の元のファイルの md5 を git の履歴から引く。正規形は
+   多対 1（注釈だけが違う元のファイルは同じ正規形になる）なので、正規形の md5 から引かず、ステージの lock の項を入れたコミットで、
+   直下の `dvc.lock` の `binary-forms@<名前>`、`toml-values@<パス>`、`python-ast@<パス>` の項が持つ元のファイルの md5（deps）を使う。
+   項が正規形への移行のコミット（実行ファイルは 37e3044cb、TOML は e327c56ca）で書き換えたものなら、その親の例の lock の元のファイルの
+   md5 を使う（実行ファイルは 4 つの版。37e3044cb の本文）。outs と cmd は変えず、`compare-dvc-lock.py` で変わったのが deps だけと確かめる。比較の JSON の
    `inputs` の TOML の md5 は正規形の md5（ADR-0254）なので、JSON を書き換えるか、照合で書いたコミットの木の正規形を読むかを
    この段で決める（案 B の段 2 と同じ問題）。比較のツール 3 本（compare_branch_cross_terms.py、compare_grid_interpolation.py、
    compare_p6.py）は元のファイルの md5 を書く形にする。直下の `dvc.yaml` の正規形のステージ、正規形の 480 ファイル、pre-commit の
-   hook 3、normalize の script とテストを消し、`check-skip-upstream.py` の正規形の項を消す。目安は担当 1〜2 本、レビュー 2〜3 周
-2. `build` をやめ、`-s` の経路を足す。直下の `dvc.yaml` と `dvc.lock` を消し、`scripts/worktree-restore-outputs.sh` は `bin/` を
-   `scripts/build-binaries.sh` で作る。`dvc-repro.py` の `-s` の経路と hook の範囲（決定と理由の「実行」）を TDD で足す。スキル
-   dvc-relock の前半の 2〜6 を消し、compute、topic-start、openmc-reference、verification-record の該当の項と、CLAUDE.md の DVC の
-   行、docs/environment.md を直す。目安は担当 1 本、レビュー 2 周
+   hook 3、normalize の script とテストを消し、`check-skip-upstream.py` の正規形の項を消す。同じ段で、正規形を使えと書く文書（CLAUDE.md
+   の python-ast、toml-values、binary-forms の行、スキル dvc-relock の前半の正規形の手順、compute と topic-start の該当の項）を
+   直す。目安は担当 1〜2 本、レビュー 2〜3 周
+2. `build` をやめ、前の段と `-s` の経路を足す。直下の `dvc.yaml` と `dvc.lock` を消し、`scripts/worktree-restore-outputs.sh` は
+   `bin/` を前の段の (3) で作る。`dvc-repro.py` と `stage_runner.py` の前の段、`-s` の経路、hook の範囲（決定と理由の「実行」）を
+   TDD で足す。スキル dvc-relock の前半の残り（relock）を消し、compute、topic-start、openmc-reference、verification-record の
+   該当の項と、CLAUDE.md の DVC の行、docs/environment.md を直す。目安は担当 1 本、レビュー 2 周
 3. ADR と issue を今の状態に合わせる。ADR-0210、ADR-0254、ADR-0255 を、この ADR で置き換える（superseded）。一部を変える 7 本は
    「## 変更」で直す。#0150 など、正規形と relock があるために開いている issue を閉じるか書き直す。目安は担当 1 本
 
@@ -303,8 +313,7 @@ main d17396374（2026-11-19）で数えた。数え方は「## 補足」にあ�
   ステージを移す前後で静的に数え、増えたものが、lock の後に注釈などだけを変えた .py と TOML を deps に持つステージであること。
   .py、TOML、Rust の 1 行の変更で、pre-commit の hook がどれも止めないこと（案 C2 の (c) と同じ手順）。`verification_tables.py --check`、
   `cargo test`、`scripts/run-python-tests.sh`、新しい worktree での `scripts/worktree-restore-outputs.sh`（MISSING なし）
-- 段 2: `dvc-repro.py` の `-s` の経路のテスト（汚れた作業ツリーで止まる、`bin/` を先に作る、上流の `changed outs` で止まる、
-  上流が `changed deps` だけなら実行する）、hook のテスト（Slurm の外の生の `dvc repro` も止める）。消した名前（正規形、relock、
+- 段 2: 前の段、`-s` の経路、hook のテスト（ケースは実装のブランチで詰める）。消した名前（正規形、relock、
   `dvc.yaml:build`）を `git grep` して、残る箇所が凍結した ADR と検証の記録の経緯、閉じた issue だけであること
 - 段 3: `design-records check`、docs の整合性の検査（ADR と issue の両方向）
 
@@ -319,7 +328,7 @@ main d17396374（2026-11-19）で数えた。数え方は「## 補足」にあ�
 
 - `dvc.yaml`: `git ls-files '*dvc.yaml'`。ステージの定義と foreach は各 `dvc.yaml` の `stages` を YAML で読み、lock のステージは
   各 `dvc.lock` の `stages` の数。cmd の分け方は、`#references` を含むものを参照解、`bin/xs` などを含むものをその実行ファイル、
-  `normalize` を含むものを正規形とした
+  `normalize` を含むものを正規形とした（この順に当て、正規形を先に分ける。`binary-forms` の cmd は `bin/xs` なども含む）
 - lock の outs: 各 `dvc.lock` の outs を、パスが `git ls-files` にあるかと、`references/dvc-cache/files/md5/<md5 の先頭 2 文字>/<残り>`
   があるかで分けた
 - `.dvc`: `git ls-files '*.dvc'`（`find . -name '*.dvc'` の 766 は `.dvc` のディレクトリを含む）。大きさは各ファイルの `size` の和
