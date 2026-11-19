@@ -18,8 +18,8 @@ worktree xlc-feat-core-cmfd は 2026-11-06 に消し、先端 68f762520 にタ�
 
 - 未コミットだった `crates/numeric/src/cmfd.rs` と `lib.rs` の変更は、タグに入らない。残るコピーは履歴の書き換え（#0141）の控え
   `~/.local/share/history-rewrite/xlc-2026-10-21/` の `cmfd.rs.before`（10,077 バイト）、`worktree-2.patch` と `worktree-2.after.patch`（lib.rs の
-  `pub mod cmfd;` の 1 行。書き換えの前と後）で、旧 worktree の HEAD（13fddc36e）は同じ場所の `worktree-state` にある。13fddc36e は書き換えの前の hash で、同じ場所の `transaction` の
-  `update refs/heads/feat/core-cmfd 68f762520… 13fddc36e…`（新しい値、古い値）のとおり、書き換えの後は 68f762520（タグ archive/feat-core-cmfd の先）。どれも 2026-10-21 の時点のもの（消した worktree の最後の中身と同じかは確かめていない）。#0077 の完了の条件は、
+  `pub mod cmfd;` の 1 行。書き換えの前と後）で、旧 worktree の HEAD は同じ場所の `worktree-state` にある。その HEAD は書き換えの前の hash で、同じ場所の `transaction` の
+  `refs/heads/feat/core-cmfd` の更新の行（新しい値、古い値）のとおり、書き換えの後は 68f762520（タグ archive/feat-core-cmfd の先）。どれも 2026-10-21 の時点のもの（消した worktree の最後の中身と同じかは確かめていない）。#0077 の完了の条件は、
   この作業ディレクトリを消す前に控えのパッチの変更がコミットされたかを確かめることを求めるが、変更はそのままはコミットしておらず
   （ADR-0232 の案 S1 に書き、`xlc-cmfd` に取り込んだ）、コピーを消してよいかはユーザーが決めていない。#0076 と docs/branches.md も
   このコピーの場所を書いていない
@@ -33,7 +33,7 @@ worktree xlc-feat-core-cmfd は 2026-11-06 に消し、先端 68f762520 にタ�
   0119 番の ADR を直している（書式の更新）。docs/branches.md はブランチの一覧の文書で、タグの「消さない」は表の外の段落にある
 - 例外の周の non-blocking: #0249 と #0077 は worktree-2.patch と worktree-2.after.patch を「書き換えの前と後」と書くが、`diff` では
   index の行の hash の桁（`33284c83..a05c838d` と `33284c83d..a05c838d3`）だけが違い、中身は同じ（`+pub mod cmfd;`）で、中身が違うように読める。
-  13fddc36e と 68f762520 の対応は、transaction より同じ場所の `commit-map` の 259 行目（古い値、新しい値の順）が直接の出典。#0076 の
+  書き換えの前の HEAD と 68f762520 の対応は、transaction より同じ場所の `commit-map` の 259 行目（古い値、新しい値の順）が直接の出典。#0076 の
   問題の節の「（ADR-0232、09f1c4c59。経緯）」は経緯のどの項かが曖昧。#0076 の閉じる行は経緯の判断の要約と重なる。#0076 の閉じる行は、
   完了の条件の Problem 3 と 4 の値が無いまま閉じる理由を書いていない
 
@@ -60,6 +60,6 @@ worktree xlc-feat-core-cmfd は 2026-11-06 に消し、先端 68f762520 にタ�
     CMFD を入れるかをユーザーの判断（ADR-0232 の背景）で決めたと書いている。下書きを 177d63bc5 で引くのは、ADR-0232 が比べた版がそれなので
     事実の誤りでない（先端 68f762520 の 0119 番の ADR の変更は書式の 1 行）。docs/branches.md のタグの段落の置き場所は言い回しで、直さない
   - 例外の周の non-blocking: #0077 の「書き換えの前と後」は、行の中身 `pub mod cmfd;` で書いた（21897d650）。この issue の問題の節の同じ書き方は、
-    起こした時点の記録で、同じ節の項が読み違いを書いているので直さない。13fddc36e と 68f762520 の対応の出典（commit-map か transaction か）は、
+    起こした時点の記録で、同じ節の項が読み違いを書いているので直さない。書き換えの前の HEAD と 68f762520 の対応の出典（commit-map か transaction か）は、
     控えを消してどちらも開けないので直さない
   上のとおり、控えのコピーを消すとユーザーが決めて #0077 の完了の条件を合わせ、ほかの項目も直すか直さないかを決めたので閉じる
