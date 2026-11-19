@@ -42,7 +42,7 @@ PWR の解析コード。xs（ENDF から多群定数）→ lattice（MOC の格
 - 高速化の途中は、高速化の測定以外のジョブを流さない。遅い bin で流した計算は流し直しになる。後回しは 0 コスト、見込みの外れた
   ジョブは理由を書いて止める（ユーザー 2026-10-24）
 - 仕様書に KENO-VI の参照解がある問題は ENDF/B-VII.0 の検証用ライブラリで KENO と直接比べ、OpenMC の参照解は仕様書に参照のない
-  問題（燃焼、分岐、HFP）と診断だけに作る（ADR-0175）。3D の全炉心と Problem 4 の OpenMC は作らない（ADR-0124、docs/plans/m3-core-hzp.md。ユーザー 2026-10-15）
+  問題（燃焼、ブランチ計算、HFP）と診断だけに作る（ADR-0175）。3D の全炉心と Problem 4 の OpenMC は作らない（ADR-0124、docs/plans/m3-core-hzp.md。ユーザー 2026-10-15）
 - 結果を変えない deps の変更で、重いステージを再実行せず `dvc commit` で付け直してよいのは、ADR-0212 の (b) の条件（値の同じ TOML だけ）を
   満たすときと、ADR が決めた移行（ADR-0159、ADR-0210）だけ。参照のステージ（NJOY、OpenMC）が使わない Python のパッケージは、flake.nix の `pythonPackages` にだけ足す（`references` の
   devShell の store のパスが参照解の deps。食い違いは pre-commit の hook `references-shell` が止める。ADR-0212）

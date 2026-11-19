@@ -24,7 +24,7 @@ resolution:
 
 ## やること
 
-- 2M の履歴を読む作業（履歴からのテーブル、分岐、warm-start の比較など）を始める前に、
+- 2M の履歴を読む作業（履歴からのテーブル、ブランチ計算、warm-start の比較など）を始める前に、
   `dvc repro examples/depletion/p2/dvc.yaml:compare@2M` を Slurm の timed で流し、`dvc.lock` と `compare-2M.json` をコミットする
 - examples/depletion/verification.md の「集合体の燃焼」の「計算」「時間」と「2M」の節を書き直す（今は前の本番の数値）
 

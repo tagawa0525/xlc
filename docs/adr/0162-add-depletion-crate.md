@@ -49,7 +49,7 @@ issues: []
   （`xlc-numeric` と `xlc-depletion`）だけとする。ステージの間の依存をファイル形式だけにする（[ADR-0001](0001-split-into-three-stage-crates.md)）ことを、クレートの依存でも
   守るため
 - 燃焼のソルバは `xlc-depletion`（crates/depletion）に置く。いまは faer と数値の型だけに依存し、`xlc-format` と `xlc-numeric` には
-  依存しない（受け渡すのは燃焼行列と数密度だけ）。ステージの間を渡る燃焼の型（燃焼点の状態など）は、[ADR-0003](0003-extract-shared-computation-on-second-use.md) のとおり分岐計算の
+  依存しない（受け渡すのは燃焼行列と数密度だけ）。ステージの間を渡る燃焼の型（燃焼点の状態など）は、[ADR-0003](0003-extract-shared-computation-on-second-use.md) のとおりブランチ計算の
   流し方を決めるときに決め、ファイルで渡す型は `xlc-format` に置く
 - ステージの間を渡るデータファイルの型（多群ライブラリ、群構造、少数群定数など）と MessagePack の厳密な読み書きは `xlc-format` に
   置く（M3 の初めに移した）

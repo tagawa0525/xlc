@@ -13,7 +13,7 @@ resolution:
 ## 問題
 
 - 燃焼の解の個数密度のうち、CRAM の近似の誤差（領域の最大の 1e-15 倍ほど。ADR-0161）より小さい値を、正のものは値のまま輸送と
-  自己遮蔽に渡している。負のものは ADR-0173 のとおり 0 にして渡し（`depletion::region_material`。燃焼の輸送と履歴からの分岐で
+  自己遮蔽に渡している。負のものは ADR-0173 のとおり 0 にして渡し（`depletion::region_material`。燃焼の輸送と履歴からのブランチ計算で
   同じ。ADR-0187）、領域の最大の 1e-12 倍より大きな負の値はエラーで止める（`depletion::check_negative`）。負の値が輸送に渡る
   経路は無い
 - 大きさ（examples/depletion/p9-product/lattice-2A.msgpack、md5 f455243f。燃料の 195 の燃焼の領域。2026-11-12 に履歴を読んで数えた）:

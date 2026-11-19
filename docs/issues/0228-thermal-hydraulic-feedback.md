@@ -21,7 +21,7 @@ for at-power conditions」とし、燃料の温度を、温度、照射、燃焼
 [ADR-0229](../adr/0229-couple-assembly-channels-and-fuel-rods-to-core.md) が置き換えた）。core はケースの状態ごとに減速材の温度と燃料の温度を 1 つずつ持ち、炉心のすべてのノードで同じ値を使う
 （crates/core/src/input.rs の `CaseState`、crates/core/src/state.rs の `State`。減速材の密度はテーブルの格子点の組で決まる）。
 熱水力のあるケースのノードごとの状態は ADR-0229 で入った（「残り」）。
-ブランチのテーブルの温度の格子点は、M3 の HZP のテーブルが 550〜580 K（ADR-0097）、燃焼の分岐の入力の燃料の温度が 565 と 600 K
+ブランチのテーブルの温度の格子点は、M3 の HZP のテーブルが 550〜580 K（ADR-0097）、燃焼のブランチ計算の入力の燃料の温度が 565 と 600 K
 （examples/depletion/branches の `fuel = { temperature = [565, 600] }`）で、HFP の燃料の温度と減速材の密度の範囲を持たない。
 
 これを待つもの（docs/plans/m4-depletion.md の「進め方」）:

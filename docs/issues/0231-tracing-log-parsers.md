@@ -32,7 +32,7 @@ examples/depletion/issue-0045/compare.py（ms と s だけ）。ログの書き�
 - `other`（全体から span の和を引いた残り）を「入力の読み込み、出力など」と書くが、span の外の計算（`layout.problem`、`partial_nodes`、
   `solve_rodded` の部分挿入の準備、`fission_rates`、燃焼度の更新、点の記録）も入る
 - 解の表は点の `days` を持たないので、同じ EFPD の 2 つの点（出力のステップの終わりと崩壊の後）を見分けられない（記録の本文で補った）
-- 出力のステップの終わりの点の「平衡 Xe の解き直し」は、前の状態（ADR-0218 の分岐）の解の回数で、点のホウ素を探した状態の回数ではない（記録の本文で補った）
+- 出力のステップの終わりの点の「平衡 Xe の解き直し」は、前の状態（ADR-0218 のブランチ計算）の解の回数で、点のホウ素を探した状態の回数ではない（記録の本文で補った）
 - `nem.count` は span のすべてを数え、`nem.iterations` は `iterations` のフィールドを持つ span だけから範囲を取る（失敗した解の span は数えが合わない）
 - core の case.rs の内挿の span は `enter()` のガードで、depletion.rs の `xenon anderson` は `in_scope`（書き方が 2 つ）
 - examples/test_verification_tables.py の `cells()` と、同じ式を書いた 10 か所ほどの行

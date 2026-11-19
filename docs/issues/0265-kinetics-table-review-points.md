@@ -28,10 +28,10 @@ ADR-0238 の実装（ブランチ feat/0153-kinetics-table-data）のレビュ�
 - crates/lattice/src/history.rs の `history_branches`: 基準条件の検査は入力だけで決まるが、ライブラリと履歴を読み、値ごとの形状の
   トラックを作った後に行う（`LatticeInput::parse` で止められる）
 - crates/lattice/src/history.rs: 放射化の核種の燃焼の領域の温度のデータ（`cooling`）と、遅発中性子の族のデータの有無と族の数（`kinetics`）は
-  ライブラリと分岐の温度で決まるが、最初の基準条件を輸送した後に確かめる
+  ライブラリとブランチ条件の温度で決まるが、最初の基準条件を輸送した後に確かめる
 - crates/lattice/src/input.rs の `[history]` の split の検査: 直前の `matches!` で `output` が `Some` と分かった後に `if let Some` で
   取り直し、`None` の枝が起きない形になっている
-- crates/lattice/src/history.rs の基準条件のないときのエラーの文: 点が 1 つの軸は入力と違っても公称になるのに、どの軸も入力の物質を残すことを
+- crates/lattice/src/history.rs の基準条件のないときのエラーの文: 点が 1 つの軸は入力と違っても基準点になるのに、どの軸も入力の物質を残すことを
   求める文で、どの軸が原因かを示さない（branches.rs の部分格子のエラーは軸の名前を出す）。ADR-0238 の帰結も、止まる条件（点が 2 つ以上の軸に
   入力の物質の格子点がない）を書かない
 - 点が 1 つの軸が入力の物質と違う値のとき、基準条件 x₀ は履歴の輸送と違う状態で、冷却計算の断面積はその状態で黙って作られる（ADR-0238 の

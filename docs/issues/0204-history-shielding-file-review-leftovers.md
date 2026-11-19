@@ -16,9 +16,9 @@ resolution: wontfix: レビューで直さなかった指摘を集めた issue �
 examples/depletion/micro/make_shifted.py の `--kind` の、ブランチ feat/0191-linearization-error-split の /code-review（1 周目）で、
 直さなかった指摘（再現する誤動作がなく、効率、重複、使い勝手のもの）:
 
-- `shielding = "every-state"`（またはホウ素が 1 点の分岐）と `shielding-file` を組むと、状態ごとに参照の番号（`references.len() + b`）が
+- `shielding = "every-state"`（またはホウ素が 1 点のブランチ計算）と `shielding-file` を組むと、状態ごとに参照の番号（`references.len() + b`）が
   違い、`BranchShielder` の `held` が燃焼度の点の中のすべての状態の `FuelShielding` を持つ。#0191 の計算は燃焼度の点ごとに状態 1 つなので
-  増えない。状態の多い分岐で使うなら、1 つの状態だけが使う参照を使った後に捨てる
+  増えない。状態の多いブランチ計算で使うなら、1 つの状態だけが使う参照を使った後に捨てる
 - `HistoryBranches::reference_state` は 1 つの番号で 2 つの並び（ホウ素の軸の参照と、ブランチ計算の状態）を引き、範囲の外の番号は
   panic する。呼ぶのは `reference` の返した番号だけ。列挙型か、`shield_with` で参照の並びを伸ばす形にすれば番号の約束が要らない
 - `BranchShielder` に渡す作り直す物質は、呼び出し側（main.rs と history/tests.rs）がホウ素の軸の物質に `remixed` を足して作る。

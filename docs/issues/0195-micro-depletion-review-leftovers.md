@@ -23,7 +23,7 @@ core のミクロ燃焼（ADR-0216、ブランチ feat/0153-core-micro-depletion
   最初の 1 つだけを使う（ほかは反応の並びの検査のため）。状態の重みの組み立て（`state_weights`）は、少数群定数の内挿、微視的断面積の内挿、
   `deplete_nodes` の微視的断面積の内挿で、同じ状態と燃焼度について 3 回行う。核分裂のあるテーブルかの判定（`fissile`）を位置ごとに評価する
 - 格子計算の燃焼との複製: 収率の点の選び方（`yield_weights`）、熱と高速の点、境界、`ELECTRON_VOLT`、`BARN`、負の数密度の許容は
-  crates/lattice/src/depletion.rs と同じ値を core に複製した（core のブランチは lattice を変えない範囲）。片方だけを直すと、公称の条件の
+  crates/lattice/src/depletion.rs と同じ値を core に複製した（core のブランチは lattice を変えない範囲）。片方だけを直すと、基準条件の
   再現（ADR-0216 の確認 (b)）が崩れる。xlc-depletion に置けば 1 つになる（lattice の実行ファイルが変わるので、ステージの付け直しの費用を数える）
 - コミット f30f09ac の本文は、2A のミクロ燃焼の履歴が変わらないと書いたが、丸めの水準で変わった（訂正は b3f920f2 の本文と記録）
 

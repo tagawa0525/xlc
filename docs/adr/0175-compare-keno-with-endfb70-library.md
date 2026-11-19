@@ -41,7 +41,7 @@ OpenMC の参照解を作ってきた（ADR-0031。ツールの固定は ADR-012
   （`endfb70/xs.toml`）。本番のライブラリ（VIII.0）と、その結果は変えない。コードも変えない。ステージは `examples/vera/endfb70/dvc.yaml`（入力は `endfb70/xs.toml`、
   3A・3B の入力は `p3_inputs.py --library-dir endfb70` が `endfb70/p3` に書く）
 - 仕様書に KENO-VI の値がある問題（1B〜1D、2A〜2K、2Q、3A、3B）を VII.0 のライブラリで解き、KENO-VI と比べる
-- OpenMC の参照解は、仕様書に参照がない問題（燃焼、分岐、HFP）と、原因の診断に反応率が要るときの 2D の小さな問題だけ作る。
+- OpenMC の参照解は、仕様書に参照がない問題（燃焼、ブランチ計算、HFP）と、原因の診断に反応率が要るときの 2D の小さな問題だけ作る。
   3D の全炉心と Problem 4 の OpenMC は作らない（ADR-0031 の帰結を維持する）
 - ADR-0124 と ADR-0031 の関係: ADR-0124 はツールの固定と `references/` の扱い（案 A、D、F、J、N）を決め、参照解の作り方を
   ADR-0031 から引き継いだ。この ADR は、その引き継いだ「参照解の作り方」のうち、KENO-VI の値がある問題の比べ方だけを

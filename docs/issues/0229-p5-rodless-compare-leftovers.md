@@ -18,7 +18,7 @@ fix/0229-table-error-placement のレビューで残した点）:
 
 - 棒のない格子 8 本は p5 の常設のステージで、`bin/lattice` か `vera.msgpack` が変わるたびに、p5 の再実行に約 30 分（棒のない 8 本を
   解いた Slurm 694 が 29 分 28 秒。割り込まれうるパーティション main のジョブの経過時間なので、目安）を足す。炉心はその出力を読まない。1 周目のレビューは、`dvc add` で固めた棒のない出力を比べる形
-  （照合の先が古い bin のまま残り、分岐の格子点を変えると軸の違いで `dvc repro` が止まる）を誤りとし、ステージにした。既定の
+  （照合の先が古い bin のまま残り、ブランチ計算の格子点を変えると軸の違いで `dvc repro` が止まる）を誤りとし、ステージにした。既定の
   `dvc repro -P` から外す形か、照合を 1 度だけ記録して Rust のテスト（`nodes_without_replaced_cells_hold_the_rodless_states`）に任せる形かは
   決めていない
 - `compare_rodless.py` の `md5_inputs` と `leaves` は、examples/vera/compare_p5.py の `md5_inputs` と

@@ -66,7 +66,7 @@ core: fe2d8761 → 0c2b88d6）。モジュールを外すと元に戻る。依�
 - xs のステージは `xlc-xs` と `xlc-chain` の 2 つのクレートからなる。`xlc-chain` は `xlc-xs` のライブラリ（ENDF の読み口）と
   共通のクレートに依存してよく、ほかのクレートは `xlc-chain` に依存しない。ENDF を読むのは xs のステージのクレートだけとする
   （燃焼チェーンも xs のステージが作る。[ADR-0034](0034-build-full-depletion-chain.md)）
-- ステージの間を渡る燃焼の型のうち、燃焼点の状態などチェーンのほかのものは、分岐計算の流し方を決めるときに決める（[ADR-0003](0003-extract-shared-computation-on-second-use.md)）
+- ステージの間を渡る燃焼の型のうち、燃焼点の状態などチェーンのほかのものは、ブランチ計算の流し方を決めるときに決める（[ADR-0003](0003-extract-shared-computation-on-second-use.md)）
 - ステージの間を渡るデータファイルの型と MessagePack の厳密な読み書きは `xlc-format` に置く。ただし燃焼チェーンの型は `xlc-depletion`
   に置く（`xlc-format` に足すと、チェーンを使わない実行ファイルが変わるため）。燃焼のソルバ（[ADR-0161](0161-solve-depletion-with-ipf-cram.md)）と、チェーンと反応率から燃焼行列を
   組み立てるコードも `xlc-depletion` に置く。`xlc-depletion` は `xlc-format` に依存してよい（MessagePack の読み書きに使う。ADR-0162 では依存しなかった）
