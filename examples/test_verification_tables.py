@@ -776,6 +776,12 @@ class DrawChainVersions(unittest.TestCase):
         with self.assertRaises(vt.TableError):
             vt.chain_versions([s])
 
+    def test_an_input_without_a_path_is_an_error(self):
+        s = chain_versions("endfb70/chain.msgpack", "endfb71/chain.msgpack", 0)
+        del s["inputs"][0]["path"]
+        with self.assertRaises(vt.TableError):
+            vt.chain_versions([s])
+
     def test_a_summary_without_the_one_sided_counts_is_an_error(self):
         s = chain_versions("endfb70/chain.msgpack", "endfb71/chain.msgpack", 0)
         del s["quantities"]["half_life"]["one_sided"]

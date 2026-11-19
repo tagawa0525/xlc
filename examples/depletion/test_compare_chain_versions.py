@@ -338,12 +338,29 @@ class FissionInOneChain(unittest.TestCase):
         yields = quantities["fission_yields"]
         self.assertEqual((yields["differ"], yields["one_sided"]), (4, 4))
 
-    def test_a_table_of_one_chain_is_named_in_the_yield_tables(self):
-        rows = [r for r in self.summary["yield_tables"] if r["nuclide"] == "U-235"]
+    def test_a_table_of_one_chain_is_listed_apart_from_the_yield_tables(self):
         self.assertEqual(
-            [(r["energy"], r["only"], r["products"]) for r in rows],
-            [(0.0253, "b", 2), (5.0e5, "b", 2)],
+            [r for r in self.summary["yield_tables"] if r["nuclide"] == "U-235"], []
         )
+        self.assertEqual(
+            [
+                (r["nuclide"], r["energy"], r["only"], r["products"])
+                for r in self.summary["one_sided_tables"]
+            ],
+            [("U-235", 0.0253, "b", 2), ("U-235", 5.0e5, "b", 2)],
+        )
+
+    def test_the_report_names_the_tables_of_one_chain(self):
+        text = "\n".join(compare_chain_versions.report({"inputs": [], **self.summary}))
+        self.assertIn("U-235 E=0.0253 eV: b だけ（生成物 2）", text)
+
+    def test_a_table_of_only_the_first_chain_is_on_side_a(self):
+        nuclides = chain_nuclides()
+        by_name(nuclides, "U-235")["fission"] = None
+        summary = compare_chain_versions.summarize(
+            build(chain_nuclides()), build(nuclides)
+        )
+        self.assertEqual({r["only"] for r in summary["one_sided_tables"]}, {"a"})
 
 
 class Channels(unittest.TestCase):
