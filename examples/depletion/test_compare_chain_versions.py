@@ -320,6 +320,32 @@ class YieldEnergies(unittest.TestCase):
         self.assertEqual(summary["quantities"]["fission_yields"]["one_sided"], 4)
 
 
+class FissionInOneChain(unittest.TestCase):
+    def setUp(self):
+        nuclides = chain_nuclides()
+        by_name(nuclides, "U-235")["fission"] = None
+        self.summary = compare_chain_versions.summarize(
+            build(nuclides), build(chain_nuclides())
+        )
+
+    def test_the_fission_data_of_one_chain_is_one_sided(self):
+        quantities = self.summary["quantities"]
+        for q in ("fission_q", "yield_sources", "yield_energies"):
+            self.assertEqual(
+                (quantities[q]["differ"], quantities[q]["one_sided"]), (1, 1), q
+            )
+        # U-235 の 2 つの表の 2 つずつの生成物
+        yields = quantities["fission_yields"]
+        self.assertEqual((yields["differ"], yields["one_sided"]), (4, 4))
+
+    def test_a_table_of_one_chain_is_named_in_the_yield_tables(self):
+        rows = [r for r in self.summary["yield_tables"] if r["nuclide"] == "U-235"]
+        self.assertEqual(
+            [(r["energy"], r["only"], r["products"]) for r in rows],
+            [(0.0253, "b", 2), (5.0e5, "b", 2)],
+        )
+
+
 class Channels(unittest.TestCase):
     def test_the_remainder_to_the_ground_state_is_named(self):
         text = compare_chain_versions.channel_text([((9, None), (("Am-242", 1),))])
