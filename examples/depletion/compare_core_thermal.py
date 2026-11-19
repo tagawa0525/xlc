@@ -239,8 +239,9 @@ def report(summary: dict) -> list[str]:
 
 def parse(arg: str) -> tuple[str, list[Path]]:
     name, _, files = arg.partition("=")
-    paths = [Path(p) for p in files.split(",")]
-    if not name or len(paths) != 4 or not all(str(p) for p in paths):
+    parts = files.split(",")
+    paths = [Path(p) for p in parts]
+    if not name or len(paths) != 4 or not all(parts):
         raise SystemExit(
             f"give <name>=<isothermal history>,<isothermal log>,<thermal history>,<thermal log>, got {arg}"
         )
