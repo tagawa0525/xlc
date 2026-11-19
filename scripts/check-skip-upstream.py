@@ -5,9 +5,9 @@
 
 `dvc status --with-deps --json <目標>` の目標の上流のステージが、どれも `changed deps` だけを持つ（`always changed` の項目は数えない）
 ときに 0、ほかの種類（`changed outs`、`changed command`、`changed checksum`）を持つものがあれば、その一覧を出して 1 で終わる。
-直下の dvc.yaml の `python-ast` と `toml-values` のステージは、`changed deps` だけでも止める: 下流の cmd は元の .py と TOML を読むので、
-先に実行して changed でなくしないと、dvc.lock に古い正規形の md5 が入る（ADR-0184、ADR-0254）。
-目標のステージ自身の変更は再実行の理由なので数えない。知らない種類の変更は ValueError で止める。
+直下の dvc.yaml の正規形のステージ（`python-ast`、`toml-values`、`binary-forms`）は、`changed deps` だけでも止める: 下流の cmd は
+元の .py、TOML、bin/ を読むので、先に実行して changed でなくしないと、dvc.lock に古い正規形の md5 が入る（ADR-0184、ADR-0254、ADR-0255）。
+目標のステージ自身の変更は再実行の理由なので数えない（foreach の目標 `<yaml>:<名前>` は、`<名前>@<項目>` のすべてが目標）。知らない種類の変更は ValueError で止める。
 
 `dvc status` に出ない条件は判定しない: `references-shell.txt` は devShell が変わっても `dvc status` に出ないので、
 `scripts/check-references-shell.sh` で確かめる（ADR-0184）。
@@ -27,7 +27,7 @@ KINDS = (
 # `always changed` は always_changed のステージ（references-shell）がいつも出す項目で、deps と outs の差を表さない
 ALLOWED_UPSTREAM = {"changed deps", "always changed"}
 # 下流が出力でなく元のファイルを読む正規形のステージ（foreach の `<名前>@<パス>`）。changed なら先に実行する
-RUN_FIRST = ("python-ast@", "toml-values@")
+RUN_FIRST = ("python-ast@", "toml-values@", "binary-forms@")
 
 
 def status_key(target):
@@ -48,7 +48,7 @@ def blockers(status, target):
         unknown = kinds - set(KINDS)
         if unknown:
             raise ValueError(f"{key}: unknown change kind {sorted(unknown)}")
-        if key == status_key(target):
+        if key == status_key(target) or key.startswith(status_key(target) + "@"):
             continue
         if key.startswith(RUN_FIRST):
             blocking = sorted(kinds - {"always changed"})
@@ -78,7 +78,7 @@ def main(argv):
         print(f"BLOCKED: {key}: {', '.join(kinds)}")
     if found:
         print(
-            "ERROR: 上流に changed deps でない変更か、changed の python-ast、toml-values がある。python-ast と toml-values は先に"
+            "ERROR: 上流に changed deps でない変更か、changed の python-ast、toml-values、binary-forms がある。それらは先に"
             " dvc repro で実行し、ほかは -s を使わず dvc repro <目標> で上流から実行する（ADR-0184）",
             file=sys.stderr,
         )
