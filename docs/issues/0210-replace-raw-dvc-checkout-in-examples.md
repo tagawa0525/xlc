@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [dvc, tooling]
 opened: 2026-10-31
-closed:
+closed: 2026-11-19
 milestone:
 blocked-by: []
-resolution:
+resolution: コミット cf114d0d4
 ---
 
 # examples の手順と文言に生の dvc checkout が残る
@@ -34,3 +34,4 @@ hook に止められれば拒否の文言がスクリプトを示すので作業
 ## 経緯
 
 - 2026-10-31: ADR-0223 のブランチ（feat/dvc-checkout-hook）で、examples/ を変える範囲の外としたので書いた
+- 2026-11-19: 閉じた。上の手順と文言を scripts/dvc-checkout.py の形に直した（`grep -rn "dvc checkout" examples` に生の形が残らない）
