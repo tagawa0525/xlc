@@ -64,6 +64,15 @@ stages:
     - path: lib.msgpack
       hash: md5
       md5: {lib}
+  gen:
+    cmd: python3 gen.py
+    outs:
+    - path: gen.toml
+      hash: md5
+      md5: {gen}
+    - path: gen.json
+      hash: md5
+      md5: {gen}
   range:
     cmd: ../../bin/xs range xs.toml xs-range.toml
     outs:
@@ -114,6 +123,12 @@ stages:
     - path: unrun.msgpack
       hash: md5
       md5: {lib}
+    - path: gen.toml
+      hash: md5
+      md5: {gen}
+    - path: gen.json
+      hash: md5
+      md5: {gen}
     outs:
     - path: lattice.out
       hash: md5
@@ -184,7 +199,19 @@ outs:
 MD5 = {
     name: f"{i:02x}" + "a" * 30
     for i, name in enumerate(
-        ["lib", "range", "part", "axial", "pins", "form", "bin", "art", "t1", "t2"],
+        [
+            "lib",
+            "range",
+            "part",
+            "axial",
+            "pins",
+            "form",
+            "bin",
+            "art",
+            "t1",
+            "t2",
+            "gen",
+        ],
         start=16,
     )
 }
@@ -257,7 +284,7 @@ class CheckReadableOutputs(unittest.TestCase):
             "-qm",
             "base",
         )
-        for name in ["lib", "range", "part", "pins", "art", "t1", "t2", "bin"]:
+        for name in ["lib", "range", "part", "pins", "art", "t1", "t2", "bin", "gen"]:
             self.write_cache(MD5[name], b"ok")
         manifest = [
             {"md5": MD5["t1"], "relpath": "t1.msgpack"},
@@ -357,6 +384,13 @@ class CheckReadableOutputs(unittest.TestCase):
             str(self.cache_path(MD5["pins"])), "\n".join(self.read_lines())
         )
 
+    def test_files_in_no_xlc_format_are_not_read(self):
+        self.write_cache(MD5["gen"], b"bad")
+        result = self.run_check("--all")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn(str(self.cache_path(MD5["gen"])), "\n".join(self.read_lines()))
+        self.assertIn("2 outputs in no xlc format", result.stdout)
+
     def test_an_output_tied_to_an_open_issue_passes_and_others_still_stop(self):
         self.write_cache(MD5["lib"], b"bad")
         self.exempt(f"""\
@@ -400,6 +434,20 @@ class CheckReadableOutputs(unittest.TestCase):
                 self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
                 self.assertIn("STOP:", result.stdout)
 
+    def test_a_malformed_entry_stops(self):
+        for text in [
+            'output = ["x"]\n',
+            '[[output]]\nmd5 = 123\nissue = "#0001"\npath = "p"\n',
+            '[[output]]\nmd5 = "{lib}"\nissue = 1\npath = "p"\n'.format(**MD5),
+            '[[output]]\nmd5 = "{lib}"\nissue = "#0001"\npath = 1\n'.format(**MD5),
+        ]:
+            with self.subTest(text=text):
+                self.exempt(text)
+                result = self.run_check()
+                self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+                self.assertIn("STOP:", result.stdout)
+                self.assertNotIn("Traceback", result.stderr)
+
     def test_an_output_missing_from_the_cache_stops(self):
         self.cache_path(MD5["t2"]).unlink()
         result = self.run_check("--all")
@@ -418,6 +466,18 @@ class CheckReadableOutputs(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("SKIP:", result.stdout)
         self.assertEqual(self.read_lines(), [])
+
+    def test_moving_a_file_out_of_the_build_deps_reads_the_outputs(self):
+        git(self.root, "mv", "crates/x.rs", "docs/x.rs")
+        result = self.run_check("--base", "main")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("READ: 6 files", result.stdout)
+
+    def test_an_untracked_file_in_the_build_deps_reads_the_outputs(self):
+        (self.root / "crates/new.rs").write_text("fn new() {}\n")
+        result = self.run_check("--base", "main")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("READ: 6 files", result.stdout)
 
     def test_a_branch_that_changes_the_build_deps_reads_the_outputs(self):
         for path in ["crates/x.rs", "Cargo.lock"]:
