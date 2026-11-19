@@ -1,6 +1,6 @@
 ---
 type: ADR
-status: proposed
+status: accepted
 date: 2026-11-19
 requires: []
 supersedes: []
@@ -75,5 +75,6 @@ claude-harness の ADR-0092 は、`docs/index.md` のフロントマターに `o
 ### 確認
 
 - `design-records check` が xlc の docs/ で違反 0 で通る（注意は、main の 385 件と同じものと、#0012 の題の違いの 2 件）
-- crates/docs の `accepts_the_okf_type_key_in_adrs_and_issues`
-- `type` の無い文書と、索引に載っていない文書を足したコミットを、pre-commit の hook が止めることを手で確かめた
+- crates/docs の `accepts_the_okf_type_key_in_adrs_and_issues` と `treats_okf_index_and_log_files_as_not_records`
+- `type` の無い文書と、索引に載っていない文書を足したコミットを、pre-commit の hook が止めることを手で確かめた（2026-11-19。
+  「a concept needs a YAML front matter with `type`」と「is not listed in the index」の違反）
