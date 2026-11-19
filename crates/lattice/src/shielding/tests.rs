@@ -2306,7 +2306,7 @@ pub(crate) mod lattice {
 
     #[test]
     fn dancoff_factors_are_solved_again_when_a_non_fuel_material_changes() {
-        // 燃料でない物質（燃焼させる吸収体、分岐の状態の減速材）の組成が変われば、Dancoff 係数を解き直す。同じ組成に
+        // 燃料でない物質（燃焼させる吸収体、ブランチ計算の状態の減速材）の組成が変われば、Dancoff 係数を解き直す。同じ組成に
         // 戻れば、また解く（持ち越すのは直前の入力の結果だけ）
         let library = library();
         let (tracking, regions) = geometry(vec![vec![0, 0], vec![0, 1]]);

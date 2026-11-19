@@ -1,4 +1,4 @@
-"""compare_rodless.py: 制御棒の分岐を解いた格子の値 out の状態と、同じ層の棒のない格子の状態の比べ方。
+"""compare_rodless.py: 制御棒のブランチを解いた格子の値 out の状態と、同じ層の棒のない格子の状態の比べ方。
 
 実行: python3 -m unittest discover -s examples/vera/p5 -p 'test_compare_rodless.py'
 """

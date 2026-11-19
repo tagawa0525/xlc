@@ -5,10 +5,10 @@
 
 記録の表は、この JSON から examples/verification_tables.py が描く。
 
-読むのは、R を持つ公称のテーブル（`lattice histories residual.toml` の出力。w の H⁰ と Hᵇ、続ける点の条件 j の状態の k∞）、
+読むのは、R を持つベース計算のテーブル（`lattice histories residual.toml` の出力。w の H⁰ と Hᵇ、続ける点の条件 j の状態の k∞）、
 格子計算の途中で条件を変えた燃焼の履歴（`switch-density-history.toml`。2A の公称の履歴の 20 MWd/kg の点から条件 j で続けた）、
 その燃焼点を条件 j で解いた参照（`switch-density-branch.toml`。燃焼度ごとに 1 状態）、core の 2 つの燃焼の履歴（どちらも 20 MWd/kg
-まで公称の状態、その後を条件 j）と、一生を条件 j で燃焼させた core の比較の要約（`core-history.json`）:
+まで基準条件、その後を条件 j）と、一生を条件 j で燃焼させた core の比較の要約（`core-history.json`）:
 
 - 履歴の補正の core（`core-2A-residual-switch.toml`。H_m を燃焼度で重みを付けた平均で進め、U と Δσ_U を w、L と Δσ_L を P / P_j で足す）
 - 補正を切った core（`core-2A-plain-switch.toml`。R と Δσ を持たないテーブルで同じ燃焼）
@@ -16,7 +16,7 @@
 と、参照の追う核種だけを公称の履歴に入れた組成（ハイブリッド）を参照と同じ点と条件 j で解いた分岐（`hybrid-switch-branch.toml`）。
 
 参照の燃焼度の点ごとに、core の k の参照の k∞ からの差と、それを追う核種の数密度の違いで説明する分（数密度の効き）: 参照の定数に、
-core の数密度と参照の均質化した数密度 N̄ᵢ の差の線形の補正 Σᵢ cᵢ (Nᵢ − N̄ᵢ)（係数は core と同じ、R を持つ公称のテーブルの
+core の数密度と参照の均質化した数密度 N̄ᵢ の差の線形の補正 Σᵢ cᵢ (Nᵢ − N̄ᵢ)（係数は core と同じ、R を持つベース計算のテーブルの
 同じ燃焼度の条件 j の状態のもの。Pu-240 は数密度の微分）を足した
 2 群の k と、参照の定数の 2 群の k の差。核種ごと（その核種だけの差）の効きと、`GROUPS` の核種ごとと残りの核種をまとめた効き。
 核種の数密度の相対差の絶対値が最大の核種（N̄ᵢ が 0 の核種は除く）と、主な核種の相対差。
@@ -28,9 +28,9 @@ core の数密度と参照の均質化した数密度 N̄ᵢ の差の線形の�
 (P / P_j) Δσ_L + 自分の数密度の項 − Δσ_L,switch に分け、自分の数密度の項も並べる（`GROUPS` の核種の、核分裂と捕獲（MT 102）の和、群ごと、参照の σ に対する %）。参照が求める
 Δσ_L の重み Δσ_L,switch / Δσ_L（群ごと）と、その核種の数密度の比 (N̄ᵢ − N̄ᵢ⁰) / (N̄ᵢ^j − N̄ᵢ⁰)（N̄ᵢ は参照）も並べる。core は P / P_j を
 解ごとの組成（予測子は点、修正子は中点）で作るので、点の組成の比は目安。
-続ける点の参照の k∞ は公称の組成を条件 j で解いたもので、公称のテーブルの条件 j の状態の k∞ との差（`check_pcm`）は、同じ組成と
+続ける点の参照の k∞ は公称の組成を条件 j で解いたもので、ベース計算のテーブルの条件 j の状態の k∞ との差（`check_pcm`）は、同じ組成と
 状態の 2 つの分岐の解の差なので、MOC の収束の程度で 0 のはず。参照の分岐の k∞ と格子計算の履歴の点の k∞ の差も並べる。目安として、一生を条件 j で燃焼させた
-core と第 1 項のテーブルの差、公称の燃焼の core と公称のテーブルの差（`core-history.json`）を同じ点に並べる。
+core と第 1 項のテーブルの差、公称の燃焼の core とベース計算のテーブルの差（`core-history.json`）を同じ点に並べる。
 ρ = 1 − 1/k で、差は pcm。
 """
 
@@ -272,7 +272,7 @@ def compare(table, reference, history, core, plain, core_history, hybrid):
         state = reference["states"][p]
         n_ref = reference["micro"]["densities"][b]
         n = at(core_nodes, u, "core")
-        # 係数は core と同じ、R を持つ公称のテーブルのノードの状態（条件 j）の格子点のもの（微分を持つ核種は微分。ADR-0221）
+        # 係数は core と同じ、R を持つベース計算のテーブルのノードの状態（条件 j）の格子点のもの（微分を持つ核種は微分。ADR-0221）
         table_point, table_burnup = t.point(u, n["moderator"], "core")
         coeff = coefficients(table["micro"]["states"][table_point])
         q = at(plain_nodes, u, "plain")
@@ -338,7 +338,7 @@ def compare(table, reference, history, core, plain, core_history, hybrid):
             if row["weight"] == 0.0 or fill == 0.0
             else row["weight"] * row["plain_difference_pcm"] / fill
         )
-    # 続ける点の参照と、公称のテーブルの条件 j の状態（同じ組成と状態）
+    # 続ける点の参照と、ベース計算のテーブルの条件 j の状態（同じ組成と状態）
     u0, _, p0 = states[0]
     node = at(core_nodes, u0, "core")
     table_point, _ = t.point(u0, node["moderator"], "core")
@@ -409,7 +409,7 @@ def report(summary):
 
     needed = [x for x in later if x["needed_weight"] is not None]
     return (
-        f"続ける点 {u0:.4g} MWd/kg の参照の k∞ と公称のテーブルの条件 j の状態の k∞ の差は {summary['check_pcm']:+.4f} pcm"
+        f"続ける点 {u0:.4g} MWd/kg の参照の k∞ とベース計算のテーブルの条件 j の状態の k∞ の差は {summary['check_pcm']:+.4f} pcm"
         f"（core − 参照は {rows[0]['difference_pcm']:+.3f} pcm、補正を切った core も {rows[0]['plain_difference_pcm']:+.3f} pcm）。"
         f"参照の分岐と格子計算の履歴の点の k∞ の差は {span('reference_history_pcm', rows)} pcm。"
         f"\n{u0:.4g} MWd/kg より後の参照の点 {len(later)} で、履歴の補正の core − 参照は {span('difference_pcm')} pcm"

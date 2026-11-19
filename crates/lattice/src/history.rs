@@ -1,12 +1,12 @@
 //! 燃焼の履歴の燃焼点からの分岐（ADR-0187）。
 //!
 //! 入力の `[history]` が挙げた燃焼点ごとに、燃焼の履歴（ADR-0173）の燃焼の領域の数密度を固定し、`[branches]` の状態
-//! （ADR-0097）で輸送する。分岐の状態では燃焼させない。燃焼の領域は燃焼の輸送と同じ `<物質>@<セル>` の物質として解き、
+//! （ADR-0097）で輸送する。ブランチ計算の状態では燃焼させない。燃焼の領域は燃焼の輸送と同じ `<物質>@<セル>` の物質として解き、
 //! 輸送する核種は履歴の `transportable`（数密度が 0 の核種も含め、負の値は 0 にする）。状態は燃焼度がいちばん遅く変わり、
-//! 各燃焼度の点の中は分岐の軸の直積の順。解くのは、公称の状態（`[branches]` の公称）をすべての燃焼点で、ほかの部分格子の状態を
+//! 各燃焼度の点の中は分岐の軸の直積の順。解くのは、基準条件（`[branches]` の公称）をすべての燃焼点で、ほかの部分格子の状態を
 //! `off-nominal-burnup` の燃焼点で（ADR-0200）。
 //!
-//! 制御棒の分岐（`[branches.rod]`。ADR-0224）があれば、値ごとに、その値の形状（基準の形状のセルを置き換えたもの）から燃焼の領域を
+//! 制御棒のブランチ（`[branches.rod]`。ADR-0224）があれば、値ごとに、その値の形状（基準の形状のセルを置き換えたもの）から燃焼の領域を
 //! 求め、履歴の燃焼の領域（物質、組の代表のセル、体積）と同じことを確かめ、その形状の MOC の領域で同じ燃焼度の点の組成を解く。
 //! 制御棒の値のすべての状態（公称を含む）は、その値の `rod-burnup`（書かなければ `off-nominal-burnup`）の燃焼点で解く（ADR-0225）。
 //!
@@ -17,8 +17,8 @@
 //! [history]
 //! file = "history.msgpack"   # 燃焼の履歴（入力のファイルのあるディレクトリから）
 //! chain = "chain.msgpack"    # 履歴を作った燃焼チェーン（κΣf の Q 値。核種の名前と順が履歴と同じこと）
-//! burnup = [0, 10, 20, 40]   # 分岐を解く燃焼点 (MWd/kg)。履歴の燃焼度から選ぶ。公称の状態はすべての点で解く
-//! off-nominal-burnup = [0, 20, 40]   # 公称でない状態を解く燃焼点（burnup から選ぶ。省略すると burnup のすべて。ADR-0200）
+//! burnup = [0, 10, 20, 40]   # ブランチ計算を行う燃焼点 (MWd/kg)。履歴の燃焼度から選ぶ。基準条件はすべての点で解く
+//! off-nominal-burnup = [0, 20, 40]   # ブランチ条件を解く燃焼点（burnup から選ぶ。省略すると burnup のすべて。ADR-0200）
 //! rod-burnup = { aic = [0, 40] }       # 制御棒の値ごとの、その値の状態を解く燃焼点（省略した値は off-nominal-burnup。ADR-0225）
 //! shielding-file = "other.msgpack"    # 燃焼の領域を自己遮蔽する組成の履歴（省略すると状態の組成。#0191）
 //! shielding-burnup = [0, 20]           # 自己遮蔽を解く燃焼点（ほかの点はその前で最後のこの点の組成。省略するとすべて。#0180）
@@ -41,7 +41,7 @@
 //! その組成の参照を解き直す）。
 //!
 //! 動特性のデータ（[`HistoryBranches::kinetics`]）は状態ごとに、冷却計算の 1 群の微視的断面積（[`HistoryBranches::cooling`]）は燃焼度の点ごとの
-//! 公称の状態で作る（ADR-0238）。
+//! 基準条件で作る（ADR-0238）。
 
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
@@ -81,9 +81,9 @@ pub struct HistoryInput {
     pub file: PathBuf,
     /// 履歴を作った燃焼チェーンのファイル（入力のファイルのあるディレクトリから。κΣf の Q 値。ADR-0190）
     pub chain: PathBuf,
-    /// 分岐を解く燃焼点 (MWd/kg)。0 以上で増え、どれも履歴の燃焼度のどれかと等しい
+    /// ブランチ計算を行う燃焼点 (MWd/kg)。0 以上で増え、どれも履歴の燃焼度のどれかと等しい
     pub burnup: Vec<f64>,
-    /// 公称でない状態を解く燃焼点 (MWd/kg)。`burnup` から選び、増える（ADR-0200）
+    /// ブランチ条件を解く燃焼点 (MWd/kg)。`burnup` から選び、増える（ADR-0200）
     pub off_nominal: Vec<f64>,
     /// 制御棒の値（`[branches.rod]` の値）ごとの、その値のすべての状態を解く燃焼点 (MWd/kg)。`burnup` から選び、最初と最後の点を
     /// 含んで増える。書かない値は `off_nominal`（ADR-0225）
@@ -158,11 +158,11 @@ struct ValueShape {
     region_materials: Vec<String>,
     /// [燃焼度の点][追う核種] の、この値の格子で均質化した数密度 (1/(barn cm))
     micro_densities: Vec<Vec<f64>>,
-    /// 燃焼度の点ごとに、この値の公称でない状態（制御棒の値はすべての状態）を解くか
+    /// 燃焼度の点ごとに、この値のブランチ条件（制御棒の値はすべての状態）を解くか
     burnups: Vec<bool>,
 }
 
-/// 履歴の燃焼点からの分岐の状態。状態ごとの物質は `state` で作る。
+/// 履歴の燃焼点からのブランチ計算の状態。状態ごとの物質は `state` で作る。
 #[derive(Debug, Clone, PartialEq)]
 pub struct HistoryBranches {
     /// 連続の軸（燃焼度、続いて分岐の軸）。テーブルは制御棒の値があれば制御棒の軸を最後に足す（ADR-0224）
@@ -179,15 +179,15 @@ pub struct HistoryBranches {
     transported: Vec<usize>,
     /// 輸送する核種（`transported` の順）の、チェーンの核分裂の Q 値 (eV)。核分裂を持たない核種は `None`
     fission_q: Vec<Option<f64>>,
-    /// 分岐の状態ごとの、燃焼させない物質と、燃焼の領域ごとの温度 (K)
+    /// ブランチ計算の状態ごとの、燃焼させない物質と、燃焼の領域ごとの温度 (K)
     branch: Vec<(Vec<MaterialInput>, Vec<f64>)>,
-    /// 分岐の状態ごとの参照の番号（`Branches::reference`。ADR-0201）
+    /// ブランチ計算の状態ごとの参照の番号（`Branches::reference`。ADR-0201）
     reference_of: Vec<Option<usize>>,
     /// 参照の状態（ホウ素が公称。`Branches::references` の順）の、燃焼させない物質と、燃焼の領域ごとの温度 (K)
     references: Vec<(Vec<MaterialInput>, Vec<f64>)>,
-    /// 分岐の状態ごとに、解くか（`Branches::solved`）
+    /// ブランチ計算の状態ごとに、解くか（`Branches::solved`）
     solved: Vec<bool>,
-    /// 公称の分岐の状態（`Branches::nominal_state`）
+    /// 状態のうちの基準条件の番号（`Branches::nominal_state`）
     nominal: Option<usize>,
     /// ミクロ燃焼で追う核種の名前（ADR-0216）
     micro_nuclides: Vec<String>,
@@ -214,7 +214,7 @@ pub struct HistoryBranches {
     remixed: Vec<String>,
 }
 
-/// 入力 `input` の `[history]` と `[branches]` から、履歴 `history` の燃焼点ごとの分岐の状態を作る。`geometries` は制御棒の値
+/// 入力 `input` の `[history]` と `[branches]` から、履歴 `history` の燃焼点ごとのブランチ計算の状態を作る。`geometries` は制御棒の値
 /// （`LatticeInput::rod_values` の順。0 は基準の形状）ごとの形状。どの値の形状の燃焼の領域（物質、組の代表のセル、体積）も履歴の
 /// ものと同じでなければエラー。燃焼させない物質のセル（案内管の中身など）は履歴の格子と違ってよく、MOC の領域の番号は値ごとの
 /// 形状のもの。`chain` は履歴を作ったチェーンで、核種の名前と順が履歴と違えばエラー（κΣf の Q 値。ADR-0190）
@@ -233,7 +233,7 @@ pub fn history_branches(
         .branches
         .as_ref()
         .ok_or_else(|| anyhow!("[history] needs [branches] (ADR-0187)"))?;
-    // 扇形に分けた履歴の分岐は、扇形の組の物質を作り直す経路が無い（ADR-0244）
+    // 扇形に分けた履歴ブランチは、扇形の組の物質を作り直す経路が無い（ADR-0244）
     if let Some(d) = history.regions.iter().find(|d| d.sector.is_some()) {
         bail!(
             "[history] does not branch a history depleted by sector (material `{}` of cell {}, ADR-0244)",
@@ -455,7 +455,7 @@ pub fn history_branches(
             "not transported: not in the library"
         );
     }
-    // 分岐の状態（と参照の状態）ごとの、燃焼させない物質と、燃焼の領域の温度。輸送する核種がその温度のデータを持つこと（近い
+    // ブランチ計算の状態（と参照の状態）ごとの、燃焼させない物質と、燃焼の領域の温度。輸送する核種がその温度のデータを持つこと（近い
     // 温度で代用しない。ADR-0173 の案 N2）。温度は物質ごとなので、物質ごとに確かめる
     let split = |state: &[MaterialInput]| -> anyhow::Result<(Vec<MaterialInput>, Vec<f64>)> {
         let mut by_material: Vec<(&str, f64)> = Vec::with_capacity(depleted.len());
@@ -522,7 +522,7 @@ pub fn history_branches(
             }
         }
     }
-    // 値ごとの解く燃焼点: 棒のない値は公称でない状態の燃焼点、制御棒の値はその値の燃焼点（ADR-0225）。公称の状態は下で、
+    // 値ごとの解く燃焼点: 棒のない値はブランチ条件の燃焼点、制御棒の値はその値の燃焼点（ADR-0225）。基準条件は下で、
     // 間引いたかによらず求める
     let burnups: Vec<Vec<bool>> = rod_values
         .iter()
@@ -540,7 +540,7 @@ pub fn history_branches(
                 .collect()
         })
         .collect();
-    // 冷却計算の断面積は燃焼度の点ごとの公称の状態で作り（ADR-0238）、燃焼点を間引いた状態の差もそこから内挿する（ADR-0200）。
+    // 冷却計算の断面積は燃焼度の点ごとの基準条件で作り（ADR-0238）、燃焼点を間引いた状態の差もそこから内挿する（ADR-0200）。
     // 輸送の前に止める
     if branches.nominal_state().is_none() {
         bail!(
@@ -668,7 +668,7 @@ pub fn history_branches(
 }
 
 impl HistoryBranches {
-    /// 状態の数（燃焼度の点の数 × 分岐の状態の数）
+    /// 状態の数（燃焼度の点の数 × ブランチ計算の状態の数）
     pub fn len(&self) -> usize {
         self.densities.len() * self.branch.len()
     }
@@ -715,7 +715,7 @@ impl HistoryBranches {
         &self.values[rod].region_materials
     }
 
-    /// 制御棒の値 `rod` の状態 `index`（軸の直積の順）を解くか: 分岐の部分格子の状態で、棒のない値は公称の状態か公称でない状態を
+    /// 制御棒の値 `rod` の状態 `index`（軸の直積の順）を解くか: 分岐の部分格子の状態で、棒のない値は基準条件かブランチ条件を
     /// 解く燃焼点のもの（ADR-0200）、制御棒の値はその値の燃焼点のもの（ADR-0225）
     pub fn solved(&self, rod: usize, index: usize) -> bool {
         let (point, b) = (index / self.branch.len(), index % self.branch.len());
@@ -812,7 +812,7 @@ impl HistoryBranches {
 
     /// 状態 `index` の自己遮蔽を参照の状態から作るなら、その燃焼度の点（`shield_at` の間の点は、自己遮蔽を解く点）と参照の
     /// 番号（ADR-0201）。自己遮蔽の組成（`shield_with` か `shield_at`）があれば、どの状態も
-    /// 参照から作り、ホウ素の軸の参照のない状態は、`references` の後に分岐の状態の番号を続けた番号
+    /// 参照から作り、ホウ素の軸の参照のない状態は、`references` の後にブランチ計算の状態の番号を続けた番号
     pub fn reference(&self, index: usize) -> Option<(usize, usize)> {
         let (point, b) = (index / self.branch.len(), index % self.branch.len());
         let point = self.shielding_points[point];
@@ -1153,8 +1153,8 @@ impl HistoryBranches {
     }
 
     /// 数密度の微分を持つ核種の名前（入力の `derivative` の順。ADR-0221）
-    /// 燃焼度の点 `point` の、棒のない値の公称の状態（ADR-0200 の x₀。入力の物質がどの軸でも格子点にあれば履歴の輸送と同じ問題。
-    /// 冷却計算の断面積を作る状態）の番号。公称の状態の
+    /// 燃焼度の点 `point` の、棒のない値の基準条件（ADR-0200 の x₀。入力の物質がどの軸でも格子点にあれば履歴の輸送と同じ問題。
+    /// 冷却計算の断面積を作る状態）の番号。基準条件の
     /// ない分岐か、点がなければ `None`
     pub fn nominal_state(&self, point: usize) -> Option<usize> {
         (point < self.densities.len())
@@ -1190,7 +1190,7 @@ impl HistoryBranches {
             .collect()
     }
 
-    /// 棒のない値の状態 `index`（公称の状態。`nominal_state`）の、冷却計算の核種（`cooling_nuclides` の順）の 1 群の微視的断面積
+    /// 棒のない値の状態 `index`（基準条件。`nominal_state`）の、冷却計算の核種（`cooling_nuclides` の順）の 1 群の微視的断面積
     /// (barn)（ADR-0238）。輸送する核種は `micro` の定義を 1 群にしたもの（自己遮蔽した断面積）。放射化の核種は、燃焼の領域の温度の
     /// 無限希釈の断面積を、同じく MOC の中性子束と体積と SPH 因子と燃焼の領域の数密度で重みを付けて足し、均質化した数密度と格子の
     /// 中性子束で割る（数密度が 0 の核種は燃焼の領域で 1 として重みを付ける）。放射化の核種が燃焼の領域の温度のデータを持たなければ

@@ -6,16 +6,16 @@
 
 記録の表は、この JSON から examples/verification_tables.py が描く。
 
-読むのは compare_rods_switch.py と同じ、2 つの変数の残りを持つ公称のテーブル、格子計算の参照（2A-rods の履歴の 20 MWd/kg の点から
+読むのは compare_rods_switch.py と同じ、2 つの変数の残りを持つベース計算のテーブル、格子計算の参照（2A-rods の履歴の 20 MWd/kg の点から
 制御棒を抜いて続けた燃焼の履歴）、履歴の補正の core の燃焼の履歴と、その比較の要約（`rods-switch.json`。md5 と core − 参照を照らす）。
 
 参照の燃焼点のうち切り替えの点より後ごとに、core のノードの定数を core の `node_constants` と同じ式で組み立て直す:
 
     f_core = f(公称、out) + Σᵢ cᵢ (Nᵢ − N̄ᵢ⁰) + w U(1) + (P / P_j) L(1)
 
-f(公称、out)、係数 cᵢ（数密度の微分を持つ核種は微分）、N̄ᵢ⁰ はテーブルの制御棒の値 out の公称の状態を、U(1)、L(1)、ΔN̄ᵢ^j は制御棒の
+f(公称、out)、係数 cᵢ（数密度の微分を持つ核種は微分）、N̄ᵢ⁰ はテーブルの制御棒の値 out の基準条件を、U(1)、L(1)、ΔN̄ᵢ^j は制御棒の
 変数の値 out の残りを、core と同じ燃焼度の内挿（`burnup_terms`）で引く。w = (H_r − H⁰) / (Hᵇ − H⁰)、P / P_j は熱群の νΣf の
-線形の補正の比（ノードの数密度 Nᵢ と履歴の分岐の数密度の差）。減速材の密度の履歴は公称（w = 0）で、core はその補正を足さない
+線形の補正の比（ノードの数密度 Nᵢ と履歴ブランチの数密度の差）。減速材の密度の履歴は公称（w = 0）で、core はその補正を足さない
 （公称でなければ止める）。再構成 ρ(core の k) − ρ(f_core) が `RECONSTRUCT_TOLERANCE` を超えれば止める。
 
 参照の定数（参照の組成を制御棒を抜いた状態で解いた少数群定数）は格子計算の燃焼の履歴に無いので、効きは core のノードの定数で測る
@@ -114,7 +114,7 @@ def slope(points, k):
 
 
 def burnup_terms(points, x):
-    """燃焼度 `x` の内挿の（点の番号、重み）。core の `burnup_terms`（ADR-0192）の写し: 3 点の放物線の傾きの 3 次 Hermite で、燃焼度 0 の
+    """燃焼度 `x` の内挿の（点の番号、重み）。core の `burnup_terms`（ADR-0192）のコピー: 3 点の放物線の傾きの 3 次 Hermite で、燃焼度 0 の
     点は曲線に使わず、0 から次の点までと、0 を除いて 3 点に満たない軸は線形"""
     linear = bracket(points, x)
     first = 1 if points[0] == 0.0 else 0
@@ -151,7 +151,7 @@ def combined(items, keys=None):
 
 
 def state_point(table, b):
-    """燃焼度の点の番号 `b` の、制御棒の値 out の公称の状態（連続の軸は公称）の状態の番号"""
+    """燃焼度の点の番号 `b` の、制御棒の値 out の基準条件（連続の軸は公称）の状態の番号"""
     point = []
     for a in table["axes"]:
         if a["name"] == "burnup":

@@ -96,7 +96,7 @@ class Summary(unittest.TestCase):
     def test_table_points_compare_with_the_branch_lattice_k(self):
         s = compare_core_depletion.summarize(*inputs())
         p = s["points"]
-        # 分岐の格子計算の k∞ は、core の状態のテーブルの状態の k∞
+        # ブランチ計算の k∞ は、core の状態のテーブルの状態の k∞
         self.assertEqual([q["branch_k"] for q in p], [1.2 + 2e-8, None, 1.1 - 1e-8])
         self.assertAlmostEqual(
             p[0]["branch_rho_pcm"],

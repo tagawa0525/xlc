@@ -11,7 +11,7 @@ issues: ["#0207", "#0209"]
 
 ## 背景
 
-検証の記録（examples/*/verification*.md）と ADR は、DVC のステージの出力でない生成物（燃焼の履歴、分岐のテーブル、core の
+検証の記録（examples/*/verification*.md）と ADR は、DVC のステージの出力でない生成物（燃焼の履歴、ブランチのテーブル、core の
 履歴、OpenMC の参照解のピン出力など。`.gitignore` が無視する `*.msgpack`）を md5 か名前で引く。生成物は作ったブランチの
 worktree にだけあり、/git-merge の後片付け（`git worktree remove`）が無視されたファイルごと消す。DVC の出力はキャッシュ
 （`references/dvc-cache`。main と共有。ADR-0126）から `scripts/worktree-restore-outputs.sh`（`dvc checkout`。ADR-0130）で戻るが、

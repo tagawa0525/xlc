@@ -12,15 +12,15 @@ resolution:
 
 ## 問題
 
-格子計算は制御棒の分岐を 1 つの入力で解けるようになった（ADR-0224、#0093）が、燃焼の履歴からの分岐（`[history]`。ADR-0187）と
+格子計算は制御棒のブランチを 1 つの入力で解けるようになった（ADR-0224、#0093）が、燃焼の履歴からの分岐（`[history]`。ADR-0187）と
 制御棒の軸は組めない（入力をエラーにする）。次がまだ examples/core/rod_table.py で値ごとのテーブルをまとめている。
 
 - examples/depletion の制御棒の組（`branches/branch-2A-micro-rods.toml`、`branch-2A-micro-boron-rods.toml` とそれをまとめた
   テーブル。ADR-0200 の「lattice の入力」の rod_table.py の項）。燃焼度の軸、ミクロ燃焼の微視的断面積（ADR-0216）、履歴の補正
   （ADR-0215 の制御棒の変数。#0190）と絡む
 - examples/vera/p5 の HZP のテーブル（`p5_inputs.py` が書く dvc.yaml の 8 本。燃料と支持格子の層、I 型の反射体の格子の燃料）。
-  燃焼のない M3 のテーブル。燃料と支持格子の層は今の格子計算の制御棒の分岐で書けるが、I 型の反射体の格子はノードごとの出力で、
-  制御棒の分岐と組む入力はエラーになる（反射体のノードのテーブルは制御棒の軸を持てない。ADR-0127、ADR-0224）。ノードごとに
+  燃焼のない M3 のテーブル。燃料と支持格子の層は今の格子計算の制御棒のブランチで書けるが、I 型の反射体の格子はノードごとの出力で、
+  制御棒のブランチと組む入力はエラーになる（反射体のノードのテーブルは制御棒の軸を持てない。ADR-0127、ADR-0224）。ノードごとに
   制御棒の軸を持たせる扱いが要る
 
 関係する ADR: ADR-0224、ADR-0225、ADR-0227
@@ -29,11 +29,11 @@ resolution:
 
 `[history]` と `[branches.rod]` を組め（値ごとの形状の燃焼の領域と履歴の領域の対応、値ごとに違う燃焼点（ADR-0200 の制御棒を入れた組の
 間引き）の書き方を含む）、径方向の反射体の格子のノードごとの出力で、反射体のノードのテーブルに制御棒の軸を入れない仕組みを作り（ADR-0224）、
-examples/depletion と examples/vera/p5 の入力を制御棒の分岐に置き換え、rod_table.py とそのテストを消す。
+examples/depletion と examples/vera/p5 の入力を制御棒のブランチに置き換え、rod_table.py とそのテストを消す。
 
 ## 経緯
 
-- 2026-11-03: #0093 で格子計算の制御棒の分岐（燃焼なし）と examples/core の置き換えを行い、履歴からの分岐と残りの例を分けた
+- 2026-11-03: #0093 で格子計算の制御棒のブランチ（燃焼なし）と examples/core の置き換えを行い、履歴からの分岐と残りの例を分けた
 - 2026-11-03: #0093 を分岐の部分で閉じた。ADR-0200（213 行目）と ADR-0215（423 行目）の「#0093 まで」の rod_table.py の
   つなぎは、凍結する部分なので直さず、この issue が引き継ぐ
 - 2026-11-03: 前半（`[history]` と `[branches.rod]` の組み合わせ、値ごとの燃焼点 `rod-burnup`、値ごとの形状の燃焼の領域の照合）を
@@ -65,10 +65,10 @@ examples/depletion と examples/vera/p5 の入力を制御棒の分岐に置き�
 
 - examples/depletion/verification.md の「サイクルのステップの core の燃焼（2A の集合体 1 体）」は前の形のテーブル（646d0ec2、
   70b204f3、まとめたもの 9689f898）、「core のミクロ燃焼（2A の集合体 1 体）」は前の棒のないテーブル（be25725e）の数値のまま。
-  作り直したテーブル（経緯の 2026-11-04）で core を再実行して書き直す。「制御棒の分岐と値ごとの格子計算の結合の一致」も、今の形式の
+  作り直したテーブル（経緯の 2026-11-04）で core を再実行して書き直す。「制御棒のブランチと値ごとの格子計算の結合の一致」も、今の形式の
   2A の履歴（`p2/lattice-2A.msgpack` a2cc87df）で再実行して書き直す（下の項）。記録のほかの節にも、2A の履歴を前の md5 7efea664 で
   引く文が残る
-- 前半のレビューの 3 周目（2026-11-03）で、直さずに残した指摘: examples/depletion/verification.md の「制御棒の分岐と値ごとの
+- 前半のレビューの 3 周目（2026-11-03）で、直さずに残した指摘: examples/depletion/verification.md の「制御棒のブランチと値ごとの
   格子計算の結合の一致（燃焼の履歴からの分岐）」と ADR-0225 の確認の計算は、分岐点 3dda2078 の上の ADR-0226 の前のコード
   （b588ab8d。タグ `record/adr-0225-rod-axis-check`）で流した。今のコードでは使った燃焼の履歴（前の形式）を読めず、2A の比較は
   ADR-0226 の `region_mismatch` を値ごとに通す経路を通っていない（単体テスト `rod_values_that_change_the_fuel_orbits_are_errors` が
@@ -77,9 +77,9 @@ examples/depletion と examples/vera/p5 の入力を制御棒の分岐に置き�
   直接比べる形（crates/lattice/tests/history_rod_branch.rs と同じ照らし方）で作り直す
 - rod_table.py を消した後の指す先（2026-11-04。記録の数値と ADR の凍結する部分は直さない）: 次の記録の本文は、消したファイルを
   今の場所で引く。消したファイルは、分岐点の main a12925c46 と、下に挙げる計算のコミットにある
-  - examples/core/verification.md: 「方式の誤差と微分価値」の前の形の説明（18〜19 行目。6a88a865 の値ごとの入力と rod_table.py）、「制御棒の分岐と値ごとの格子計算の結合の一致」（86〜100 行目。入力、
+  - examples/core/verification.md: 「方式の誤差と微分価値」の前の形の説明（18〜19 行目。6a88a865 の値ごとの入力と rod_table.py）、「制御棒のブランチと値ごとの格子計算の結合の一致」（86〜100 行目。入力、
     `compare_rod_branch.py` と手順は c984cefb の `examples/core/rod-branch-check/`）
-  - examples/depletion/verification.md: 「制御棒の分岐と値ごとの格子計算の結合の一致（燃焼の履歴からの分岐）」（6606 行目から。入力と手順はタグ `record/adr-0225-rod-axis-check` の `examples/depletion/rod-axis-check/`）、
+  - examples/depletion/verification.md: 「制御棒のブランチと値ごとの格子計算の結合の一致（燃焼の履歴からの分岐）」（6606 行目から。入力と手順はタグ `record/adr-0225-rod-axis-check` の `examples/depletion/rod-axis-check/`）、
     「サイクルのステップの core の燃焼（2A の集合体 1 体）」（6686 行目。rod_table.py でまとめた 9689f898）と「ステップの大きさの誤差と
     中点の臨界ホウ素（小さな炉心）」（6866 行目。前の形のテーブル）の前の形のテーブルの作り方
   - examples/core/dvc.lock の前の形の `table` と `lattice@<値>` の記載と、2 つの記録のファイルの表の `rod-branch-check/` と

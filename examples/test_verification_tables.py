@@ -3004,8 +3004,8 @@ class DrawHistoryResidual(unittest.TestCase):
                 "再現",
                 "逆向きの R",
                 "状態への依存",
-                "公称の状態で使った誤差",
-                "差の全体を公称の状態で使った誤差",
+                "基準条件で使った誤差",
+                "差の全体を基準条件で使った誤差",
                 "第 1 項",
             ],
         )
@@ -5941,7 +5941,7 @@ class DrawProductionThinning(unittest.TestCase):
         )
 
     def test_tables_finer_than_the_nominal_points_have_no_row_of_every_point(self):
-        # 公称の状態を真値のテーブルより少ない点で解く見込みでは、すべての点で解いたテーブルの誤差は 0 でない
+        # 基準条件を真値のテーブルより少ない点で解く見込みでは、すべての点で解いたテーブルの誤差は 0 でない
         s = self.summary()
         s["thinning"][0]["burnup"] = [float(n) for n in range(73)]
         s["thinning"][0]["nominal_burnup"] = [float(n) for n in range(27)]
@@ -5971,7 +5971,7 @@ class DrawProductionThinning(unittest.TestCase):
         self.assertEqual(
             self.rows(table),
             [
-                ["公称の状態", "1", "36.1"],
+                ["基準条件", "1", "36.1"],
                 ["状態によらない分", "", "14.6"],
                 ["B", "2", "17.4"],
                 ["M、F", "2", "1299.6"],
@@ -5989,7 +5989,7 @@ class DrawProductionThinning(unittest.TestCase):
         self.assertEqual(
             self.rows(table),
             [
-                ["公称の状態", "1", "36.1"],
+                ["基準条件", "1", "36.1"],
                 ["状態によらない分", "", "14.6"],
                 ["B", "5", "17.4"],
                 ["M、F", "0", "1299.6"],
@@ -6064,7 +6064,7 @@ class DrawProductionThinning(unittest.TestCase):
 
 
 class DrawNominalBurnupPoints(unittest.TestCase):
-    """公称の状態の燃焼点（compare_branch_cross_terms.py の `[[nominal]]` の要約）を、テーブルごとの列に並べる"""
+    """基準条件の燃焼点（compare_branch_cross_terms.py の `[[nominal]]` の要約）を、テーブルごとの列に並べる"""
 
     @staticmethod
     def selection(name: str, n: int, hermite: tuple, linear: float) -> dict:
@@ -6174,11 +6174,11 @@ class DrawNominalBurnupPoints(unittest.TestCase):
 
 
 class DrawCombinedBurnupPoints(unittest.TestCase):
-    """公称の状態と公称でない状態の燃焼点の組（compare_branch_cross_terms.py の `[[combined]]` の要約）を、テーブルごとの列に並べる"""
+    """基準条件とブランチ条件の燃焼点の組（compare_branch_cross_terms.py の `[[combined]]` の要約）を、テーブルごとの列に並べる"""
 
     @staticmethod
     def pair(name: str, n: int, off: int, hours: float, errors: dict) -> dict:
-        """`errors` は状態の種類（公称の状態は "nominal"）→ (|Δρ| の最大, 燃焼度)"""
+        """`errors` は状態の種類（基準条件は "nominal"）→ (|Δρ| の最大, 燃焼度)"""
         worst = max(errors, key=lambda k: errors[k][0])
         return {
             "name": name,
@@ -6267,15 +6267,15 @@ class DrawCombinedBurnupPoints(unittest.TestCase):
             self.cells(table),
             [
                 [
-                    "組（公称 / 公称でない）",
-                    "公称の点",
-                    "公称でない点",
+                    "組（基準条件 / ブランチ条件）",
+                    "基準条件の点",
+                    "ブランチ条件の点",
                     "2O、時間の見込み (h)",
                     "2O、Hermite (pcm、燃焼度、状態)",
-                    "2O、公称の状態 (pcm、燃焼度)",
+                    "2O、基準条件 (pcm、燃焼度)",
                     "2P、時間の見込み (h)",
                     "2P、Hermite (pcm、燃焼度、状態)",
-                    "2P、公称の状態 (pcm、燃焼度)",
+                    "2P、基準条件 (pcm、燃焼度)",
                 ],
                 [
                     "33 点 / 19 点",
@@ -6293,10 +6293,10 @@ class DrawCombinedBurnupPoints(unittest.TestCase):
                     "35",
                     "19",
                     "7.71",
-                    "4.84（10.5、公称）",
+                    "4.84（10.5、基準条件）",
                     "4.84（10.5）",
                     "7.71",
-                    "4.84（10.5、公称）",
+                    "4.84（10.5、基準条件）",
                     "4.84（10.5）",
                 ],
             ],
@@ -6307,7 +6307,7 @@ class DrawCombinedBurnupPoints(unittest.TestCase):
         self.assertEqual(
             self.cells(table)[0],
             [
-                "組（公称 / 公称でない）",
+                "組（基準条件 / ブランチ条件）",
                 "2O、total (%)",
                 "2O、reactions (%)",
                 "2P、total (%)",

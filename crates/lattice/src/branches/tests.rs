@@ -87,7 +87,7 @@ fn states_change_the_listed_materials_with_the_first_axis_slowest() {
 
 #[test]
 fn references_keep_the_nominal_boron_at_the_moderator_and_fuel_points_of_each_state() {
-    // 自己遮蔽を公称のホウ素で解くとき（ADR-0201）の参照: 減速材と燃料の温度の軸は状態の格子点、ホウ素は入力のまま
+    // 自己遮蔽を基準ホウ素濃度で解くとき（ADR-0201）の参照: 減速材と燃料の温度の軸は状態の格子点、ホウ素は入力のまま
     let input = LatticeInput::parse(INPUT).unwrap();
     let branches = input.branches.as_ref().unwrap();
     let states = input.branch_states();
@@ -440,7 +440,7 @@ fn the_nominal_state_is_the_grid_point_of_the_input_materials() {
             Axis::fuel(vec![550.0, 565.0, 580.0]).with_nominal(565.0),
         ]
     );
-    // 入力の物質が格子点にない軸があれば、公称の状態はない（INPUT のホウ素は 900 と 1700 ppm で、入力は 1300 ppm）
+    // 入力の物質が格子点にない軸があれば、基準条件はない（INPUT のホウ素は 900 と 1700 ppm で、入力は 1300 ppm）
     let off = LatticeInput::parse(INPUT).unwrap();
     let off = off.branches.as_ref().unwrap();
     assert_eq!(off.nominal(), None);
@@ -466,19 +466,19 @@ fn the_nominal_state_is_the_grid_point_of_the_input_materials() {
 
 #[test]
 fn branches_without_a_history_solve_the_product_unless_told_the_subgrids() {
-    // 燃焼度の軸のない分岐のテーブル（M3）は直積（ADR-0097）
+    // 燃焼度の軸のないブランチのテーブル（M3）は直積（ADR-0097）
     let input = LatticeInput::parse(&three_by_three("")).unwrap();
     let branches = input.branches.as_ref().unwrap();
     assert!((0..27).all(|s| branches.solved(s)));
     assert!(branches.is_product());
-    // 公称の状態のない入力も直積なら解ける
+    // 基準条件のない入力も直積なら解ける
     let off = LatticeInput::parse(INPUT).unwrap();
     assert!((0..12).all(|s| off.branches.as_ref().unwrap().solved(s)));
 }
 
 #[test]
 fn pair_subgrids_solve_the_nominal_state_one_axis_branches_and_pairs() {
-    // 1 + Σ(nᵢ − 1) + Σᵢ<ⱼ(nᵢ − 1)(nⱼ − 1) = 1 + 6 + 12 状態（ADR-0200）。3 つの軸がどれも公称でない状態だけを解かない
+    // 1 + Σ(nᵢ − 1) + Σᵢ<ⱼ(nᵢ − 1)(nⱼ − 1) = 1 + 6 + 12 状態（ADR-0200）。3 つの軸がどれも基準値でない状態だけを解かない
     let input = LatticeInput::parse(&three_by_three(PAIRS)).unwrap();
     let branches = input.branches.as_ref().unwrap();
     assert!(!branches.is_product());
@@ -526,7 +526,7 @@ fn pair_subgrids_solve_the_nominal_state_one_axis_branches_and_pairs() {
 
 #[test]
 fn subgrids_need_the_nominal_state_and_name_distinct_axes() {
-    // 入力の物質が格子点にない（INPUT のホウ素）と、部分格子を組み立てる公称の状態がない
+    // 入力の物質が格子点にない（INPUT のホウ素）と、部分格子を組み立てる基準条件がない
     let text = format!("{INPUT}{PAIRS}\n");
     let err = LatticeInput::parse(&text).unwrap_err().to_string();
     assert!(err.contains("nominal") && err.contains("boron"), "{err}");
@@ -544,7 +544,7 @@ fn subgrids_need_the_nominal_state_and_name_distinct_axes() {
 
 #[test]
 fn references_of_subgrid_states_are_their_moderator_and_fuel_points() {
-    // 公称のホウ素の自己遮蔽（ADR-0201）の参照は、部分格子の状態でも減速材と燃料の温度の格子点で選び、その参照の状態（ホウ素を
+    // 基準ホウ素濃度の自己遮蔽（ADR-0201）の参照は、部分格子の状態でも減速材と燃料の温度の格子点で選び、その参照の状態（ホウ素を
     // 公称にした状態）も部分格子の状態にある
     let input = LatticeInput::parse(&three_by_three(PAIRS)).unwrap();
     let branches = input.branches.as_ref().unwrap();
@@ -694,7 +694,7 @@ fn solving_past_the_last_state_is_an_error() {
     assert!(err.contains("solved"), "{err}");
 }
 
-/// INPUT の格子を、燃料のピンと案内管の 1 行にし、案内管に入れる棒のセルと制御棒の分岐を足したもの
+/// INPUT の格子を、燃料のピンと案内管の 1 行にし、案内管に入れる棒のセルと制御棒のブランチを足したもの
 fn with_rods(rods: &str) -> String {
     let text = INPUT.replace("rows = [\"pin\"]", "rows = [\"pin gt\"]").replace(
         "[branches]",
@@ -733,7 +733,7 @@ fn rod_branches_replace_cells_of_the_base_rows() {
     };
     assert_eq!(input.rod_geometry(1).unwrap(), rows("other rod"));
     assert_eq!(input.rod_geometry(2).unwrap(), rows("pin other"));
-    // 制御棒の分岐のない入力は値 out だけ
+    // 制御棒のブランチのない入力は値 out だけ
     let plain = LatticeInput::parse(&with_rods("")).unwrap();
     assert_eq!(plain.rod_values(), vec!["out".to_string()]);
     assert_eq!(plain.branches.as_ref().unwrap().table_axes().len(), 3);
@@ -758,7 +758,7 @@ fn invalid_rod_branches_are_errors() {
     rejects("aic = { gt = \"pin\" }", "`pin` is in the rows");
 }
 
-/// 径方向の反射体の格子の形（2 × 2 の燃料のピンと案内管の右に反射体の列）に、制御棒の分岐（値 aic は案内管 gt を棒に置き換える）と
+/// 径方向の反射体の格子の形（2 × 2 の燃料のピンと案内管の右に反射体の列）に、制御棒のブランチ（値 aic は案内管 gt を棒に置き換える）と
 /// ノードごとの出力 `nodes`（`few-group` の `nodes` の中身）を組んだ入力。`head` は先頭に足す行
 fn reflector_with_rods(head: &str, nodes: &str) -> String {
     let text = with_rods("\n[branches.rod]\naic = { gt = \"rod\" }\n")
@@ -796,7 +796,7 @@ fn rod_axes_go_to_nodes_with_replaced_cells() {
         LatticeInput::parse(&gap).unwrap().rod_axes(),
         vec![true, false]
     );
-    // 制御棒の分岐がなければ、どのノードも軸を持たない
+    // 制御棒のブランチがなければ、どのノードも軸を持たない
     let plain = reflector_with_rods("", FUEL_AND_REFLECTOR)
         .replace("[branches.rod]\naic = { gt = \"rod\" }\n", "");
     assert!(!plain.contains("[branches.rod]"));
@@ -804,7 +804,7 @@ fn rod_axes_go_to_nodes_with_replaced_cells() {
         LatticeInput::parse(&plain).unwrap().rod_axes(),
         vec![false, false]
     );
-    // 格子全体の 1 つのテーブルは、制御棒の分岐があれば軸を持つ
+    // 格子全体の 1 つのテーブルは、制御棒のブランチがあれば軸を持つ
     let lattice =
         LatticeInput::parse(&with_rods("\n[branches.rod]\naic = { gt = \"rod\" }\n")).unwrap();
     assert_eq!(lattice.rod_axes(), vec![true]);
@@ -858,7 +858,7 @@ fn node_rod_branches_outside_the_radial_reflector_lattice_are_errors() {
     );
 }
 
-/// 制御棒の分岐（値 aic と b4c）と、燃焼の履歴からの分岐（燃焼点 0、10、20、40）の入力。連続の軸は入力の物質を公称の格子点に
+/// 制御棒のブランチ（値 aic と b4c）と、燃焼の履歴からの分岐（燃焼点 0、10、20、40）の入力。連続の軸は入力の物質を公称の格子点に
 /// 持つ（ADR-0200 の部分格子）。`history` は `[history]` に足す行
 fn history_with_rods(history: &str) -> String {
     let text = with_rods(
@@ -872,7 +872,7 @@ fn history_with_rods(history: &str) -> String {
 
 #[test]
 fn history_branches_take_the_rod_axis() {
-    // 燃焼の履歴からの分岐も制御棒の軸を持つ（ADR-0225）。値ごとの燃焼点を書かなければ、制御棒の値の状態は公称でない状態の
+    // 燃焼の履歴からの分岐も制御棒の軸を持つ（ADR-0225）。値ごとの燃焼点を書かなければ、制御棒の値の状態はブランチ条件の
     // 燃焼点で解く
     let input =
         LatticeInput::parse(&history_with_rods("off-nominal-burnup = [0, 20, 40]\n")).unwrap();
@@ -916,7 +916,7 @@ fn rod_burnups_are_history_burnups_of_rod_values() {
             "{why}: {bad}"
         );
     }
-    // 制御棒の分岐のない入力の値ごとの燃焼点は、解く値がないので書けない
+    // 制御棒のブランチのない入力の値ごとの燃焼点は、解く値がないので書けない
     let text = history_with_rods("rod-burnup = { aic = [0, 40] }\n").replace(
         "[branches.rod]\naic = { gt = \"rod\" }\nb4c = { gt = \"other\" }\n",
         "",

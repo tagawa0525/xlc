@@ -54,14 +54,14 @@ class Rows(unittest.TestCase):
             table_history_k.rows(history(), table([0.0, 0.5], [1.1, 1.0]))
 
     def test_tables_with_several_states_per_burnup_are_errors(self):
-        # 燃焼度ごとにホウ素 2 状態あると、公称でない状態も公称の履歴と比べてしまう
+        # 燃焼度ごとにホウ素 2 状態あると、ブランチ条件も公称の履歴と比べてしまう
         with self.assertRaises(SystemExit):
             table_history_k.rows(
                 history(), table([0.0], [1.1, 1.0], boron=(600.0, 1300.0))
             )
 
     def test_tables_off_their_nominal_state_are_errors(self):
-        # 燃焼度ごとに 1 状態でも、公称でない状態（600 ppm）は公称の燃焼の履歴と比べられない
+        # 燃焼度ごとに 1 状態でも、ブランチ条件（600 ppm）はベース計算の履歴と比べられない
         with self.assertRaises(SystemExit):
             table_history_k.rows(history(), table([0.0], [1.1], boron=(600.0,)))
 

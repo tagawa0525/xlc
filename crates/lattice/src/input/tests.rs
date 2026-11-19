@@ -2116,7 +2116,7 @@ fn history_shielding_burnup_points_are_increasing_points_of_burnup_from_its_firs
 
 #[test]
 fn branches_shield_at_the_nominal_boron_unless_told_to_shield_every_state() {
-    // 分岐の自己遮蔽（ADR-0201）。書かなければ、ホウ素だけを変えた状態は公称のホウ素の自己遮蔽を使う。履歴のない分岐も同じ
+    // ブランチ計算の自己遮蔽（ADR-0201）。書かなければ、ホウ素だけを変えた状態は基準ホウ素濃度の自己遮蔽を使う。履歴のない分岐も同じ
     let with = |value: &str| {
         history_branches(HISTORY).replace(
             "[history]\n",
@@ -2146,13 +2146,13 @@ fn branches_shield_at_the_nominal_boron_unless_told_to_shield_every_state() {
 
 #[test]
 fn off_nominal_burnups_are_history_burnups_and_default_to_all() {
-    // 公称でない状態を解く燃焼点（ADR-0200 の案 B2）。書かなければすべての燃焼点（案 B1）
+    // ブランチ条件を解く燃焼点（ADR-0200 の案 B2）。書かなければすべての燃焼点（案 B1）
     let input = LatticeInput::parse(&history_branches(HISTORY)).unwrap();
     assert_eq!(input.history.unwrap().off_nominal, vec![0.0, 10.0, 20.0]);
     let text = history_branches(&format!("{HISTORY}off-nominal-burnup = [0, 20]\n"));
     let history = LatticeInput::parse(&text).unwrap().history.unwrap();
     assert_eq!(history.off_nominal, vec![0.0, 20.0]);
-    // 公称でない状態の差は外挿しないので、最初と最後の燃焼点を含む
+    // ブランチ条件の差は外挿しないので、最初と最後の燃焼点を含む
     for bad in ["[]", "[5]", "[20, 0]", "[0, 0]", "[0, 10]", "[10, 20]"] {
         let text = history_branches(&format!("{HISTORY}off-nominal-burnup = {bad}\n"));
         assert!(LatticeInput::parse(&text).is_err(), "{bad}");
@@ -2174,7 +2174,7 @@ fn three_axes(history: &str) -> String {
 
 #[test]
 fn history_branches_default_to_all_pair_subgrids() {
-    // 燃焼度の軸を持つ分岐のテーブルの既定は、2 軸の組すべての部分格子（ADR-0200）。2 × 2 × 2 で 3 つの軸がどれも公称でない
+    // 燃焼度の軸を持つブランチのテーブルの既定は、2 軸の組すべての部分格子（ADR-0200）。2 × 2 × 2 で 3 つの軸がどれも公称でない
     // 状態だけを解かない
     let input = LatticeInput::parse(&three_axes(HISTORY)).unwrap();
     let branches = input.branches.as_ref().unwrap();

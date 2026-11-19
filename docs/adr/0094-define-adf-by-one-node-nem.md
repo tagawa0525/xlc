@@ -38,7 +38,7 @@ requires: []
   ORNL/SPR-2023/3090、13.1.4 節）。オープンソースの
   格子コード Scarabee も、反射体の ADF を NEM の1ノードの解で作る（https://scarabee.readthedocs.io/en/latest/_modules/scarabee/reseau/reflector.html ）
 - 同じ量を core で計算する（lattice は不均質な面の中性子束と正味の中性子流を出し、core が自分の NEM で ADF にする）:
-  NEM のコードを動かさずに済むが、ステージの間のファイルが ADF でなく途中の量になり、状態の分岐のテーブルで何を
+  NEM のコードを動かさずに済むが、ステージの間のファイルが ADF でなく途中の量になり、ブランチのテーブルで何を
   内挿するかがあいまいになる
 - SPH 因子（DRAGON/DONJON が主に使う。A. Hébert, Applied Reactor Physics, 3rd ed., Presses inter Polytechnique (2020)、
   4 章。未確認）: 面の中性子束の不連続ではなく断面積を補正するので、ADF を入れる NEM（[ADR-0027](0027-solve-core-with-nem.md)）と形が合わない
@@ -142,7 +142,7 @@ ADF は、GET の定義（面の不均質な中性子束 / 同じ面の均質な
   正味の中性子流と不均質な中性子束、隣のノードの漏れを使う横方向の漏れの2次式を加える
 - CDF はまだ出していない（少数群定数の形式にない）。外周が鏡面反射の格子の CDF は、ピン出力の再構成（M3 の進め方の 7）
   とあわせて加える。均質な解が平らでない格子の CDF は #0020
-- 反射体の ADF、CDF の使い方（ピン出力の再構成）、分岐のテーブルに入れる量は、この ADR を前提に別に決める
+- 反射体の ADF、CDF の使い方（ピン出力の再構成）、ブランチのテーブルに入れる量は、この ADR を前提に別に決める
 - core の NEM の ADF の面の条件と真空の外周の境界は [ADR-0101](0101-impose-transport-current-ratio-at-vacuum-faces.md)（[ADR-0099](0099-couple-core-nodes-by-get-with-vacuum-boundary.md) を置き換え）
 - 単一集合体の拡散係数は B1 の臨界スペクトルから、真空の辺のある格子では outflow の輸送断面積から作る
   （[ADR-0098](0098-derive-diffusion-coefficients-from-b1-and-currents.md)）。ADF は定数を作った体系では D の誤差も吸収するが、

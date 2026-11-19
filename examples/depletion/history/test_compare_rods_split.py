@@ -36,7 +36,7 @@ def scaled(r, w):
 
 
 def tables(untracked_weight=0.5, linearization_weight=None):
-    """公称のテーブル、参照、core と、参照の組成の分岐とハイブリッドのテーブル。切り替えの点（燃焼度 10）の参照の U と L はテーブルの
+    """ベース計算のテーブル、参照、core と、参照の組成の分岐とハイブリッドのテーブル。切り替えの点（燃焼度 10）の参照の U と L はテーブルの
     値 out の U(1) と L(1)、燃焼度 20 の U_switch はその U(1) の `untracked_weight` 倍、L_switch は L(1) の `linearization_weight` 倍
     （None なら core の P / P_j 倍）"""
     t, reference, core = histories()

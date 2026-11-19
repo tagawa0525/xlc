@@ -1106,7 +1106,7 @@ pub(crate) fn absorbers_at(temperature: f64) -> String {
         )
 }
 
-/// `library` の `except` を除く核種に、温度 `temperature` (K) のデータ（`T` のデータの写し）を足したもの
+/// `library` の `except` を除く核種に、温度 `temperature` (K) のデータ（`T` のデータのコピー）を足したもの
 pub(crate) fn with_temperature(mut library: Library, temperature: f64, except: &[&str]) -> Library {
     for nuclide in &mut library.nuclides {
         if except.contains(&nuclide.name.as_str()) {

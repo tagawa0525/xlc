@@ -9,16 +9,16 @@
 1. ω の実測: H_m を PARCS の形 H(B₀ + ΔB) = (H(B₀) B₀ + ω x ΔB) / (B₀ + ω ΔB) で進めた core の途中で条件を変えた燃焼
    （`core-2A-residual-switch-omega*.toml`）の k と、参照（`switch-density-branch.toml`）の k∞ の差を、参照の点ごとに出す。
    `switch.json` の、補正の量が w に比例すると置いた見込み（`omegas`）と並べる
-2. R の w への依存: 2A を 565 K のまま減速材の密度を 0.702 g/cc（w = 0.5）と 0.661 g/cc（w = 1）にして燃焼させた履歴の分岐の、
+2. R の w への依存: 2A を 565 K のまま減速材の密度を 0.702 g/cc（w = 0.5）と 0.661 g/cc（w = 1）にして燃焼させた履歴ブランチの、
    自分の条件の 1 状態のテーブル（第 1 項）と、公称の履歴を同じ条件で解いた 1 状態のテーブル（第 2 項と係数）から、燃焼度の点 u
    ごとに compare_residual.py と同じ式で R(w) = f(分岐の組成、条件) − f(公称の組成、条件) − Σᵢ cᵢ(条件) ΔN̄ᵢ を作る
    （`lattice histories` を通さない。テーブルの減速材の軸は同じ温度の 2 点を置けないため）。core は R をノードの定数に w R(1) と
-   足すので、R(0.5) と R(1)/2 を、同じ定数（公称の状態の定数（`table-residual-nominal.msgpack` の 565 K、0.743 g/cc の格子点）に
+   足すので、R(0.5) と R(1)/2 を、同じ定数（基準条件の定数（`table-residual-nominal.msgpack` の 565 K、0.743 g/cc の格子点）に
    w = 0.5 の数密度の線形の補正 Σᵢ cᵢ⁰ ΔN̄ᵢ(0.5) を足した f⁰ + Σᵢ cᵢ⁰ ΔN̄ᵢ(0.5)。core のノードの定数とは別のもの）に足した効き Δρ で比べる:
    差 = ρ(f⁰ + Σᵢ cᵢ⁰ ΔN̄ᵢ(0.5) + R(0.5)) − ρ(f⁰ + Σᵢ cᵢ⁰ ΔN̄ᵢ(0.5) + R(1)/2)。R(w) はそれぞれの分岐の自分の条件で作るので、この差には
    w への非線形と R の瞬時の状態への依存が混ざる。反応率の微視的断面積の差 Δσ(w) = σ(分岐の組成、
    条件) − σ(公称の組成、条件) も、主な反応の Δσ(0.5) / Δσ(1) の比で比べる（比例なら 0.5）
-3. 検算: 600 K、0.661 g/cc の経路（温度の履歴を含む）の R(1) を、公称のテーブルの条件 j の状態と第 1 項
+3. 検算: 600 K、0.661 g/cc の経路（温度の履歴を含む）の R(1) を、ベース計算のテーブルの条件 j の状態と第 1 項
    （`table-residual-density-branch.msgpack`）から同じ式で作り直し、`lattice histories` が書いた R（`histories`）との差を出す。
    その条件 j での効きを、密度だけの経路の R(1) の自分の条件での効きと並べる（差は温度の履歴の分と、効きを測る条件（600 K と 565 K）の違いを含み、分けない）
 4. 案 A の見込み（core を流していない。確かめていない）: R(0) = 0、R(0.5)、R(1) を通る w の 2 次の式は
@@ -244,7 +244,7 @@ def compare_residuals(nominal, histories, branch, half_tables, one_tables):
         c0 = coefficients(nominal["micro"]["states"][p0])
         n0 = nominal["micro"]["densities"][b]
         for x, label in ((h, "w = 0.5"), (o, "w = 1")):
-            # 公称の組成を条件で解いたテーブルは、公称のテーブルと同じ履歴の組成（ΔN̄ᵢ の基準が同じ）
+            # 公称の組成を条件で解いたテーブルは、ベース計算のテーブルと同じ履歴の組成（ΔN̄ᵢ の基準が同じ）
             if x["nominal_densities"] != n0:
                 raise SystemExit(
                     f"{label}: the nominal composition differs from the nominal table at {u}"
@@ -338,7 +338,7 @@ def quadratic(switch, residual_rows, core_switch):
         ratio = x["half_pcm"] / (2.0 * x["one_half_pcm"])
         # w R(1) を w R(1) + 4 w (1 − w) (R(0.5) − R(1)/2) に置き換える。R(0.5) − R(1)/2 を (2 r − 1) R(1)/2 と置き、効きは R に
         # 1 次とする: 変化 = 4 (1 − w) (r − 1/2) × (core がノードに足した w R(1) の効き)。R(1) の効きは足す定数で変わる（60 MWd/kg で
-        # 同じ R(1) を w = 0.5 と 1 の定数（公称の状態 + その w の数密度の線形の補正）に足した効きが 15% 違う。R の大きさによる違いは 1% より小さい。`one_on_half_pcm`）ので、
+        # 同じ R(1) を w = 0.5 と 1 の定数（基準条件 + その w の数密度の線形の補正）に足した効きが 15% 違う。R の大きさによる違いは 1% より小さい。`one_on_half_pcm`）ので、
         # 条件 j の格子点の効きでなく、core のノードの効きを使う
         change = 4.0 * (1.0 - w) * (ratio - 0.5) * found[0]["residual_pcm"]
         out.append(
@@ -430,7 +430,7 @@ def report(summary):
     last = rows[-1]
     worst = max(rows, key=lambda x: abs(x["difference_pcm"]))
     lines.append(
-        f"R(0.5) − R(1)/2 の効き（公称の状態 + w = 0.5 の線形の補正に足した効きの差）は {span([x['difference_pcm'] for x in rows])} pcm"
+        f"R(0.5) − R(1)/2 の効き（基準条件 + w = 0.5 の線形の補正に足した効きの差）は {span([x['difference_pcm'] for x in rows])} pcm"
         f"（絶対値の最大 {abs(worst['difference_pcm']):.3f} pcm、{worst['burnup']:.4g} MWd/kg）。最後の点 {last['burnup']:.4g} MWd/kg で "
         f"R(0.5) の効き {last['half_pcm']:+.3f}、R(1)/2 の効き {last['one_half_pcm']:+.3f}、差 {last['difference_pcm']:+.3f} pcm。"
         f"R(1) を w = 1 の定数に足した効きは {span([x['one_pcm'] for x in rows], '+.2f')} pcm。最後の点で、同じ R(1) を w = 0.5 の定数に足した効き "

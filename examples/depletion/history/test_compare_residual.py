@@ -199,7 +199,7 @@ class Compare(unittest.TestCase):
         linear = c.corrected(f0, c.coefficients(nominal["micro"]["states"][3]), deltas)
         expected = c.rho(c.k_inf(reverse["states"][1])) - c.rho(c.k_inf(linear))
         self.assertAlmostEqual(r["reverse_residual_pcm"], expected, places=9)
-        # 条件の R の公称の状態での効きと、それを公称の状態で使った誤差（= 公称の状態での R の効き − 逆向きの R の効き）
+        # 条件の R の基準条件での効きと、それを基準条件で使った誤差（= 基準条件での R の効き − 逆向きの R の効き）
         self.assertAlmostEqual(
             r["residual_nominal_pcm"],
             c.rho(c.k_inf(c.added(linear, self.rs[1]))) - c.rho(c.k_inf(linear)),
@@ -220,7 +220,7 @@ class Compare(unittest.TestCase):
     def test_the_whole_difference_at_the_nominal_state_is_measured_against_the_reverse(
         self,
     ):
-        # 定数の差の全体 f(分岐の組成、条件 j) − f(公称の組成、条件 j) を、公称の状態の定数に足した誤差（ADR-0215 の案 S1 の R'）
+        # 定数の差の全体 f(分岐の組成、条件 j) − f(公称の組成、条件 j) を、基準条件の定数に足した誤差（ADR-0215 の案 S1 の R'）
         nominal, branch, reverse, history = self.tables()
         s = c.compare(nominal, branch, reverse, history)
         r = s["rows"][1]

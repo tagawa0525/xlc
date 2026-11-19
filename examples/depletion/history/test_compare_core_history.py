@@ -50,7 +50,7 @@ STATES = {
 
 
 def table():
-    """公称のテーブル（燃焼度 0、10、20。減速材の公称 565 K と条件 600 K。条件は 0 と 20 で解く）と、R（燃焼度 0 と 20）"""
+    """ベース計算のテーブル（燃焼度 0、10、20。減速材の公称 565 K と条件 600 K。条件は 0 と 20 で解く）と、R（燃焼度 0 と 20）"""
     points = [[0, 0, 0, 0], [0, 0, 1, 0], [1, 0, 0, 0], [2, 0, 0, 0], [2, 0, 1, 0]]
     states = [few(p) for p in range(5)]
     micro = {
@@ -142,7 +142,7 @@ def scaled(x, w):
 
 def node_k(t, b, m, n, w):
     """テーブル `t` の燃焼度の点 `b`、減速材の点 `m` の定数 + 線形の補正（数密度 `n`）+ w U + (P / P_j) L の 2 群の k。P は熱群の νΣf の
-    線形の補正（ノードの数密度の差）、P_j は同じ係数の履歴の分岐の数密度の差のもの。履歴の分岐の数密度が公称と同じ点は L を足さない"""
+    線形の補正（ノードの数密度の差）、P_j は同じ係数の履歴ブランチの数密度の差のもの。履歴ブランチの数密度が公称と同じ点は L を足さない"""
     p = t["points"].index([b, 0, m, 0])
     densities = t["micro"]["densities"][b]
     coefficients = r.coefficients(t["micro"]["states"][p])
@@ -241,7 +241,7 @@ class Compare(unittest.TestCase):
             r.rho(branch["points"][2]["k"]) - r.rho(k_table),
             places=9,
         )
-        # 公称の燃焼の core と、公称のテーブルの公称の状態の k∞
+        # 公称の燃焼の core と、ベース計算のテーブルの基準条件の k∞
         self.assertAlmostEqual(
             last["nominal_difference_pcm"],
             r.rho(0.9) - r.rho(t["states"][3]["k_inf"]),
@@ -252,7 +252,7 @@ class Compare(unittest.TestCase):
             self.assertAlmostEqual(x["reconstruct_pcm"], 0.0, places=9)
 
     def test_the_branch_difference_is_split_by_the_tracked_densities(self):
-        # core の数密度と第 1 項のテーブルの数密度の違いの効き（核種ごと）と、第 1 項のテーブルの微視的断面積の公称のテーブルの
+        # core の数密度と第 1 項のテーブルの数密度の違いの効き（核種ごと）と、第 1 項のテーブルの微視的断面積のベース計算のテーブルの
         # 条件 j の値との相対差
         t, nominal, branch, switch, _ = self.cores()
         nj = branch_table()["micro"]["densities"][1]
@@ -415,7 +415,7 @@ class Compare(unittest.TestCase):
                 SUMMARY,
                 True,
             )
-        # 公称の燃焼と条件 j の燃焼の R の点が食い違う
+        # ベース計算と条件 j の燃焼の R の点が食い違う
         shifted = dict(nominal, points=nominal["points"][:2])
         with self.assertRaises(SystemExit):
             c.compare(

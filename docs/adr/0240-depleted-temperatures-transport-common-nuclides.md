@@ -16,7 +16,7 @@ issues: ["#0139"]
 ピンセルで決めたもので、[ADR-0179](0179-deplete-absorbers-with-their-shielded-cross-sections.md) は吸収体を燃焼させるときに、燃焼させる
 物質の温度が複数のときの集合を決めず、温度が複数なら止めた（#0139）。
 
-Problem 9 の本番の燃焼度のテーブルの公称の状態（ブランチ feat/production-burnup-table-grid の案）は燃料 900 K、減速材 580 K で、
+Problem 9 の本番の燃焼度のテーブルの基準条件（ブランチ feat/production-burnup-table-grid の案）は燃料 900 K、減速材 580 K で、
 吸収体（Pyrex など）は減速材の温度に置くので、燃料と吸収体の温度が違う。吸収体を燃焼させる集合体の履歴は、この決定まで走らない。
 
 前提:
@@ -81,4 +81,4 @@ Problem 9 の本番の燃焼度のテーブルの公称の状態（ブランチ 
   履歴が進み、輸送する核種が両方の温度のデータのある核種）、`nuclides_without_data_at_every_depletion_temperature_only_decay`
   （燃料の温度だけのデータを持つ Xe-135 は燃料でも輸送せず、吸収体の Xe-135 は崩壊だけで減る）
 - crates/lattice/src/history/tests.rs の `nominal_branches_of_absorbers_at_another_temperature_reproduce_the_history_points`
-  （その履歴からの分岐の燃焼の領域は燃焼させた物質の温度で、公称の状態が履歴の点の k を再現する）
+  （その履歴からの分岐の燃焼の領域は燃焼させた物質の温度で、基準条件が履歴の点の k を再現する）

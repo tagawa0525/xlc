@@ -182,7 +182,7 @@ fn media_have_no_rod_axis() {
 
 #[test]
 fn media_hold_no_nominal_values() {
-    // 媒質は軸の直積の状態を持ち、部分格子の公称の状態を使わない（ADR-0200）
+    // 媒質は軸の直積の状態を持ち、部分格子の基準条件を使わない（ADR-0200）
     let mut medium = sample();
     medium.axes = medium
         .axes

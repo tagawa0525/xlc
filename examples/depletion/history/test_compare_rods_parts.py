@@ -17,7 +17,7 @@ from test_compare_rods_switch import few, residual
 NUCLIDES = ["U-235", "U-238", "Pu-240"]
 BURNUPS = [0.0, 10.0, 20.0]
 NOMINAL = [[7.0e-4, 2.2e-2, 0.0], [6.0e-4, 2.19e-2, 1.0e-5], [5.0e-4, 2.18e-2, 2.0e-5]]
-# 制御棒を入れた履歴の分岐の数密度（制御棒の値 out の R の点）
+# 制御棒を入れた履歴ブランチの数密度（制御棒の値 out の R の点）
 BRANCH = [NOMINAL[0], [5.8e-4, 2.19e-2, 1.4e-5], [4.7e-4, 2.18e-2, 2.9e-5]]
 # 制御棒を抜いた燃焼度
 SWITCH = 10.0
@@ -33,7 +33,7 @@ def sigma(s):
 
 
 def table():
-    """燃焼度 0、10、20、制御棒の軸（out、aic）、追う核種 3 つの公称のテーブルと、2 つの変数の補正"""
+    """燃焼度 0、10、20、制御棒の軸（out、aic）、追う核種 3 つのベース計算のテーブルと、2 つの変数の補正"""
     axes = [
         {"name": "burnup", "points": BURNUPS},
         {"name": "boron", "points": [1300.0], "nominal": 1300.0},
@@ -91,7 +91,7 @@ def expected_node(t, b, densities, w):
     out = t["histories"][1]["rods"][1]
     branch = [x - y for x, y in zip(out["densities"][b], nominal)]
     f = added(f, c.scaled(out["untracked"][b], w))
-    # 履歴の分岐の数密度が公称と同じ点（燃焼度 0）は L を足さない（core の `production_ratio`）
+    # 履歴ブランチの数密度が公称と同じ点（燃焼度 0）は L を足さない（core の `production_ratio`）
     if all(d == 0.0 for d in branch):
         return f, factors, None
     a = production(factors, deltas) / production(factors, branch)

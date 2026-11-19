@@ -137,7 +137,7 @@ class ProductTest(unittest.TestCase):
     def test_the_product_fit_takes_the_nominal_state_of_the_burnup_point(self):
         def g(u, b, m, f):
             a, n, s = model(f)
-            # 公称の状態（ホウ素 325、減速材 570）の 10 MWd/kg だけ 1200 K が片寄る
+            # 基準条件（ホウ素 325、減速材 570）の 10 MWd/kg だけ 1200 K が片寄る
             hit = (u, b, m, f) == (10.0, 325.0, 570.0, 1200.0)
             return (a * (1 + 5e-5) if hit else a, n, s)
 

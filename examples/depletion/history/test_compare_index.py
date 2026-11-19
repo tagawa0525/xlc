@@ -33,7 +33,7 @@ def compared(t=None, weights=WEIGHTS):
 
 
 def index_of(t, table, burnup):
-    """`table` の燃焼度 `burnup`（テーブルの燃焼度の点の番号）の数密度の、公称の状態での線形の補正の効き"""
+    """`table` の燃焼度 `burnup`（テーブルの燃焼度の点の番号）の数密度の、基準条件での線形の補正の効き"""
     nominal = t["nominal"]
     densities = t[table]["micro"]["densities"][burnup]
     u = t[table]["axes"][0]["points"][burnup]
@@ -261,7 +261,7 @@ class Switch(unittest.TestCase):
 
 
 def group_index(t, table, burnup, key):
-    """`table` の燃焼度 `burnup`（燃焼度の点の番号）の数密度の、公称の状態の係数での熱群（最後の群）の線形の補正（`key` は
+    """`table` の燃焼度 `burnup`（燃焼度の点の番号）の数密度の、基準条件の係数での熱群（最後の群）の線形の補正（`key` は
     `nu_fission` か `absorption`）"""
     nominal = t["nominal"]
     densities = t[table]["micro"]["densities"][burnup]

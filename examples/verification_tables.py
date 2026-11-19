@@ -796,7 +796,7 @@ def aws_depletion_densities(sources: list[dict]) -> str:
 
 def core_depletion_k(sources: list[dict]) -> str:
     """core の燃焼（集合体 1 体）: 燃焼点ごとの格子計算の履歴と core の k∞ と反応度の差（core − 履歴。ADR-0190）と、テーブルの点の
-    分岐の格子計算との反応度の差（core − 分岐）"""
+    ブランチ計算との反応度の差（core − 分岐）"""
     (s,) = sources
     if s.get("format") != "xlc-compare-core-depletion":
         raise TableError("not an xlc-compare-core-depletion summary")
@@ -1856,7 +1856,7 @@ def p6_layers(sources: list[dict]) -> str:
 
 
 def p5_rodless_states(sources: list[dict]) -> str:
-    """Problem 5 の 3D の格子の、制御棒の分岐を解いた格子の値 out の状態と棒のない格子の状態の比較（compare_rodless.py。#0225）:
+    """Problem 5 の 3D の格子の、制御棒のブランチを解いた格子の値 out の状態と棒のない格子の状態の比較（compare_rodless.py。#0225）:
     出力（hzp/ から）、種類、比べた状態の数、ビットまで同じ状態の数、最大の相対差（項目）、k∞ の差の最大（pcm。媒質は空欄）"""
     (s,) = sources
     if s.get("format") != "xlc-compare-rodless":
@@ -1961,7 +1961,7 @@ def branch_cross_terms_summary(sources: list[dict]) -> dict:
 
 
 def branch_cross_terms(sources: list[dict]) -> str:
-    """分岐のテーブルの交差の項（ADR-0200）: モデルごと、テーブルごとの、組み立てた状態の |Δρ| の最大（pcm。燃焼度の点が
+    """ブランチのテーブルの交差の項（ADR-0200）: モデルごと、テーブルごとの、組み立てた状態の |Δρ| の最大（pcm。燃焼度の点が
     複数あればその最大）と、モデルが解く状態の数"""
     s = branch_cross_terms_summary(sources)
     models = []
@@ -2026,7 +2026,7 @@ def branch_cross_terms_burnups(sources: list[dict]) -> str:
     )
 
 
-# 状態の軸の記録の記号（examples/depletion/verification.md の「分岐のテーブルの交差の項」）
+# 状態の軸の記録の記号（examples/depletion/verification.md の「ブランチのテーブルの交差の項」）
 BRANCH_AXIS_LETTERS = {"boron": "B", "moderator": "M", "fuel": "F"}
 
 
@@ -2107,11 +2107,11 @@ def thinning_kinds(t: dict) -> list[str]:
 
 def production_thinning(sources: list[dict]) -> str:
     """本番の形のテーブルの燃焼点の間引き（ADR-0200）: 選び方ごとの、テーブルを作る時間の見込みと、除いた点の |Δρ| の最大
-    （Hermite は全体と状態の種類ごと、線形は全体。pcm）。公称の状態をテーブルのすべての点で解く見込みでは、最初の行はすべての燃焼点で
+    （Hermite は全体と状態の種類ごと、線形は全体。pcm）。基準条件をテーブルのすべての点で解く見込みでは、最初の行はすべての燃焼点で
     解いたテーブル"""
     t = production_thinning_summary(sources)
     kinds = thinning_kinds(t)
-    # 公称の状態をテーブルより少ない点で解く見込みでは、すべての点で解いたテーブルは見込むテーブルでなく、誤差も 0 でない
+    # 基準条件をテーブルより少ない点で解く見込みでは、すべての点で解いたテーブルは見込むテーブルでなく、誤差も 0 でない
     rows = (
         [
             ["すべての燃焼点", str(len(t["burnup"])), f"{t['hours']:.2f}", "0"]
@@ -2179,7 +2179,7 @@ def production_thinning_plans(sources: list[dict]) -> str:
 
 
 def production_thinning_time(sources: list[dict]) -> str:
-    """時間の見込みの、燃焼点 1 つの内訳（状態の数と秒）。公称の状態と状態によらない分は見込むテーブルの公称の状態の燃焼点（`nominal_burnup`）で数える。状態の数は、
+    """時間の見込みの、燃焼点 1 つの内訳（状態の数と秒）。基準条件と状態によらない分は見込むテーブルの基準条件の燃焼点（`nominal_burnup`）で数える。状態の数は、
     時間の見込みに数えた状態の数（compare_branch_cross_terms.py の `timed_states`）"""
     t = production_thinning_summary(sources)
     kinds = thinning_kinds(t)
@@ -2190,7 +2190,7 @@ def production_thinning_time(sources: list[dict]) -> str:
         )
     counts = {k: first[k]["timed_states"] for k in kinds}
     rows = [
-        ["公称の状態", "1", f"{t['timing']['solve']:.1f}"],
+        ["基準条件", "1", f"{t['timing']['solve']:.1f}"],
         ["状態によらない分", "", f"{t['other_seconds']:.1f}"],
     ]
     rows += [
@@ -2205,7 +2205,7 @@ def production_thinning_time(sources: list[dict]) -> str:
 
 
 def nominal_burnup_points(sources: list[dict]) -> str:
-    """公称の状態の燃焼点（compare_branch_cross_terms.py の `[[nominal]]`）: 選び方ごとの、除いた点の |Δρ| の最大（pcm）。
+    """基準条件の燃焼点（compare_branch_cross_terms.py の `[[nominal]]`）: 選び方ごとの、除いた点の |Δρ| の最大（pcm）。
     列はテーブルごとの Hermite（最大の燃焼度を添える）と線形。どのテーブルも同じ選び方を持つ"""
     tables = []
     for s in sources:
@@ -2250,7 +2250,7 @@ def nominal_burnup_points(sources: list[dict]) -> str:
 
 
 def combined_summaries(sources: list[dict]) -> list[dict]:
-    """テーブルごとの、公称の状態と公称でない状態の燃焼点の組（compare_branch_cross_terms.py の `[[combined]]`）。どのテーブルも
+    """テーブルごとの、基準条件とブランチ条件の燃焼点の組（compare_branch_cross_terms.py の `[[combined]]`）。どのテーブルも
     同じ組（名前と点）を持つこと"""
     tables = []
     for s in sources:
@@ -2276,8 +2276,8 @@ def combined_summaries(sources: list[dict]) -> list[dict]:
 
 
 def combined_burnup_points(sources: list[dict]) -> str:
-    """公称の状態と公称でない状態の燃焼点の組ごとの、テーブルごとの時間の見込みと、除いた点の |Δρ| の最大（Hermite。pcm。燃焼度と、
-    最大の状態の種類（公称の状態は「公称」）を添える）と、公称の状態の |Δρ| の最大"""
+    """基準条件とブランチ条件の燃焼点の組ごとの、テーブルごとの時間の見込みと、除いた点の |Δρ| の最大（Hermite。pcm。燃焼度と、
+    最大の状態の種類を添える）と、基準条件の |Δρ| の最大"""
     tables = combined_summaries(sources)
     rows = []
     for n, pair in enumerate(tables[0]["pairs"]):
@@ -2286,8 +2286,8 @@ def combined_burnup_points(sources: list[dict]) -> str:
             p = t["pairs"][n]
             hermite = p["results"]["hermite"]
             nominal = hermite["nominal"]
-            # 最大の状態の種類: 公称の状態、状態の種類の順に、最大と同じ値を持つ最初のもの
-            kinds = [("公称", nominal["max_abs_pcm"])] + [
+            # 最大の状態の種類: 基準条件、状態の種類の順に、最大と同じ値を持つ最初のもの
+            kinds = [("基準条件", nominal["max_abs_pcm"])] + [
                 (kind_letters(k), r["max_abs_pcm"]) for k, r in hermite["kinds"].items()
             ]
             kind = next(k for k, e in kinds if e == hermite["max_abs_pcm"])
@@ -2306,16 +2306,16 @@ def combined_burnup_points(sources: list[dict]) -> str:
         )
     return markdown_table(
         [
-            "組（公称 / 公称でない）",
-            "公称の点",
-            "公称でない点",
+            "組（基準条件 / ブランチ条件）",
+            "基準条件の点",
+            "ブランチ条件の点",
             *(
                 label
                 for t in tables
                 for label in (
                     f"{t['name']}、時間の見込み (h)",
                     f"{t['name']}、Hermite (pcm、燃焼度、状態)",
-                    f"{t['name']}、公称の状態 (pcm、燃焼度)",
+                    f"{t['name']}、基準条件 (pcm、燃焼度)",
                 )
             ),
         ],
@@ -2323,12 +2323,12 @@ def combined_burnup_points(sources: list[dict]) -> str:
     )
 
 
-# 公称の状態と公称でない状態の燃焼点の組の表に並べる、微視的断面積の項目
+# 基準条件とブランチ条件の燃焼点の組の表に並べる、微視的断面積の項目
 COMBINED_MICRO_ITEMS = ["total", "reactions"]
 
 
 def combined_burnup_micro(sources: list[dict]) -> str:
-    """公称の状態と公称でない状態の燃焼点の組ごとの、テーブルごとの、微視的断面積の項目（`COMBINED_MICRO_ITEMS`）の、除いた点の
+    """基準条件とブランチ条件の燃焼点の組ごとの、テーブルごとの、微視的断面積の項目（`COMBINED_MICRO_ITEMS`）の、除いた点の
     相対の差の最大（Hermite。%。核種と燃焼度を添える）"""
     tables = combined_summaries(sources)
     rows = []
@@ -2348,7 +2348,7 @@ def combined_burnup_micro(sources: list[dict]) -> str:
         rows.append([pair["name"], *cells])
     return markdown_table(
         [
-            "組（公称 / 公称でない）",
+            "組（基準条件 / ブランチ条件）",
             *(
                 f"{t['name']}、{item} (%)"
                 for t in tables
@@ -2771,8 +2771,8 @@ def history_effect(case: str, sources: list[dict]) -> str:
 
 def history_residual(sources: list[dict]) -> str:
     """履歴の残り R（ADR-0215）: 燃焼度ごとの、条件の状態での履歴の効き、その線形の補正と R の分（pcm）、R の定義の検査（R を足した
-    定数の 2 群の k と分岐のテーブルの k∞ の差）、逆向きの R、状態への依存、条件の R を公称の状態で使った誤差、線形の補正を引かない
-    定数の差の全体を公称の状態で使った誤差、第 1 項の再現（pcm）"""
+    定数の 2 群の k とブランチのテーブルの k∞ の差）、逆向きの R、状態への依存、条件の R を基準条件で使った誤差、線形の補正を引かない
+    定数の差の全体を基準条件で使った誤差、第 1 項の再現（pcm）"""
     (s,) = sources
     if s.get("format") != "xlc-compare-history-residual":
         raise TableError("not an xlc-compare-history-residual summary")
@@ -2796,8 +2796,8 @@ def history_residual(sources: list[dict]) -> str:
             "再現",
             "逆向きの R",
             "状態への依存",
-            "公称の状態で使った誤差",
-            "差の全体を公称の状態で使った誤差",
+            "基準条件で使った誤差",
+            "差の全体を基準条件で使った誤差",
             "第 1 項",
         ],
         [
@@ -2808,8 +2808,8 @@ def history_residual(sources: list[dict]) -> str:
 
 
 def core_history_branch(sources: list[dict]) -> str:
-    """履歴の補正の core（ADR-0215）: R の点ごとの、条件 j で一生を燃焼させた core の k と第 1 項のテーブルの k∞ の差、公称の燃焼の
-    core と公称のテーブルの k∞ の差（pcm）、core の k と組み立てた 2 群の k の差（pcm）、core の数密度の第 1 項の数密度からの相対差の
+    """履歴の補正の core（ADR-0215）: R の点ごとの、条件 j で一生を燃焼させた core の k と第 1 項のテーブルの k∞ の差、ベース計算の
+    core とベース計算のテーブルの k∞ の差（pcm）、core の k と組み立てた 2 群の k の差（pcm）、core の数密度の第 1 項の数密度からの相対差の
     絶対値が最大の核種と相対差（%）、第 1 項のテーブルで燃焼させた core の同じ量"""
     (s,) = sources
     if s.get("format") != "xlc-compare-core-history":
@@ -3097,8 +3097,8 @@ def history_weight_omega(sources: list[dict]) -> str:
 
 
 def history_weight_residual(sources: list[dict]) -> str:
-    """R の w への依存（ADR-0215）: 燃焼度の点ごとの、密度だけの経路の R(0.5) と R(1)/2 を同じ定数（公称の状態に w = 0.5 の数密度の線形の
-    補正を足したもの）に足した効きとその差、R(1) を w = 1 の定数（公称の状態に w = 1 の線形の補正を足したもの）に足した効き、それぞれの条件での R の効き、600 K の経路の R(1) の条件 j での効き（pcm）と、主な反応の Δσ(0.5)/Δσ(1)
+    """R の w への依存（ADR-0215）: 燃焼度の点ごとの、密度だけの経路の R(0.5) と R(1)/2 を同じ定数（基準条件に w = 0.5 の数密度の線形の
+    補正を足したもの）に足した効きとその差、R(1) を w = 1 の定数（基準条件に w = 1 の線形の補正を足したもの）に足した効き、それぞれの条件での R の効き、600 K の経路の R(1) の条件 j での効き（pcm）と、主な反応の Δσ(0.5)/Δσ(1)
     （群ごと）"""
     s = weight_summary(sources)
     rows = s["residual"]["rows"]
@@ -3178,7 +3178,7 @@ def ratio_or_dash(x) -> str:
 
 
 def history_split_one(sources: list[dict]) -> str:
-    """履歴の残り R の分け方（ADR-0215）: 一生を条件 j で燃焼させた履歴の R(1) の、追わない核種の分 U と線形化の誤差 L と R の、公称の状態の
+    """履歴の残り R の分け方（ADR-0215）: 一生を条件 j で燃焼させた履歴の R(1) の、追わない核種の分 U と線形化の誤差 L と R の、基準条件の
     定数（その履歴の数密度の線形の補正を足したもの）に足した効きと、条件 j での効き（pcm）"""
     s = split_summary(sources)
     return markdown_table(
@@ -3208,7 +3208,7 @@ def history_split_one(sources: list[dict]) -> str:
 
 def history_split_switch(sources: list[dict]) -> str:
     """履歴の残り R の分け方（ADR-0215）: 途中で条件を変えた燃焼の参照の点ごとの、U と L と w U(1)、w L(1) の効き（その点の履歴の数密度の
-    線形の補正を足した公称の状態の定数。pcm）、成分ごとの参照に合う重み、core − 参照と、そのうち数密度の効き、成分の比例からの外れの分、残り（pcm）"""
+    線形の補正を足した基準条件の定数。pcm）、成分ごとの参照に合う重み、core − 参照と、そのうち数密度の効き、成分の比例からの外れの分、残り（pcm）"""
     s = split_summary(sources)
     return markdown_table(
         [
@@ -3256,7 +3256,7 @@ def split_core_summary(sources: list[dict]) -> dict:
 
 def history_split_core_parts(sources: list[dict]) -> str:
     """途中で条件を変えた燃焼の定数の側の、今の core の組成での分け直し（ADR-0215）: 参照の点ごとの、参照の組成の U と L と、core が
-    足す w U(1)、(P / P_j) L(1) の効き（その点の参照の数密度の線形の補正を足した公称の状態の定数。pcm）と、成分ごとの参照に合う重み"""
+    足す w U(1)、(P / P_j) L(1) の効き（その点の参照の数密度の線形の補正を足した基準条件の定数。pcm）と、成分ごとの参照に合う重み"""
     s = split_core_summary(sources)
     return markdown_table(
         [
@@ -3452,7 +3452,7 @@ def history_index_untracked(sources: list[dict]) -> str:
 
 
 def history_index_switch(sources: list[dict]) -> str:
-    """線形化の誤差と組成の指標（ADR-0215）: 途中で条件を変えた燃焼の参照の点ごとの、w、指標の比 E_switch/E(1)（公称の状態と条件 j）、
+    """線形化の誤差と組成の指標（ADR-0215）: 途中で条件を変えた燃焼の参照の点ごとの、w、指標の比 E_switch/E(1)（基準条件と条件 j）、
     成分の効きの比 w_L、w_U、主な核種の ΔN̄ᵢ の比"""
     s = index_summary(sources)
     return markdown_table(
@@ -3819,7 +3819,7 @@ def branch_shielding_groups(s: dict) -> dict:
 
 
 def branch_shielding_k(sources: list[dict]) -> str:
-    """分岐の自己遮蔽を公称の減速材で解いたテーブルの、状態ごとに解き直したテーブルとの k∞ の差（pcm。ADR-0201）。行はホウ素、
+    """ブランチ計算の自己遮蔽を公称の減速材で解いたテーブルの、状態ごとに解き直したテーブルとの k∞ の差（pcm。ADR-0201）。行はホウ素、
     列は減速材の温度と密度"""
     s = branch_shielding_summary(sources)
     groups = branch_shielding_groups(s)
@@ -3864,7 +3864,7 @@ def branch_shielding_k(sources: list[dict]) -> str:
 
 
 def branch_shielding_constants(sources: list[dict]) -> str:
-    """分岐の自己遮蔽を公称の減速材で解いたテーブルの、燃焼度の点ごとの状態の Δk∞ の絶対値の最大（pcm）と、少数群定数の項目ごとの
+    """ブランチ計算の自己遮蔽を公称の減速材で解いたテーブルの、燃焼度の点ごとの状態の Δk∞ の絶対値の最大（pcm）と、少数群定数の項目ごとの
     相対差の最大（ADR-0201）"""
     s = branch_shielding_summary(sources)
     rows = []

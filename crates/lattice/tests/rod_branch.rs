@@ -1,4 +1,4 @@
-//! 制御棒の分岐（`[branches.rod]`。ADR-0224）: 1 つの入力で解いた制御棒の軸を持つテーブルの各状態が、基準の形状のセルを
+//! 制御棒のブランチ（`[branches.rod]`。ADR-0224）: 1 つの入力で解いた制御棒の軸を持つテーブルの各状態が、基準の形状のセルを
 //! 置き換えた別の入力の格子計算の状態とビットで一致する（値ごとの別の格子計算をまとめた形と同じ問題を解く）。細かい群の媒質は
 //! 棒のない値の状態だけを書き、媒質を読む格子は、どの値でも媒質の同じ連続の軸の状態を使う（ADR-0128）。
 #![allow(
@@ -222,7 +222,7 @@ fn table(dir: &Path, file: &str) -> Table {
     Table::from_msgpack(&std::fs::read(dir.join(file)).unwrap()).unwrap()
 }
 
-/// 基準の形状の `rows` の gt を `cell` に置き換えた、制御棒の分岐のない入力
+/// 基準の形状の `rows` の gt を `cell` に置き換えた、制御棒のブランチのない入力
 fn replaced(text: &str, cell: &str) -> String {
     let from = r#"rows = ["pin gt", "gt pin"]"#;
     assert!(text.contains(from));
@@ -313,7 +313,7 @@ fuel = { temperature = [600], materials = ["medium"] }
 #[test]
 fn rod_branches_of_a_slab_use_the_same_medium_state_for_every_value() {
     let dir = scratch("slab");
-    // 媒質は分岐の 2 つの状態を持つ（制御棒の分岐のない格子で作る）
+    // 媒質は分岐の 2 つの状態を持つ（制御棒のブランチのない格子で作る）
     let assembly = dir.join("assembly");
     std::fs::create_dir_all(&assembly).unwrap();
     run(&assembly, ASSEMBLY);

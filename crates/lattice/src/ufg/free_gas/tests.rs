@@ -636,7 +636,7 @@ fn held_kernels_give_the_sources_of_fresh_kernels_bit_for_bit() {
 
 #[test]
 fn the_nuclides_whose_kernels_stay_reuse_their_values_across_temperature_branches() {
-    // 表は核種ごとの核で引くので、燃料の温度の分岐（減速材の核は同じ）でも減速材の温度の分岐（燃料の核は同じ）でも、核の変わらない
+    // 表は核種ごとの核で引くので、燃料の温度のブランチ（減速材の核は同じ）でも減速材の温度のブランチ（燃料の核は同じ）でも、核の変わらない
     // 核種の値を使い、変わった核種だけを評価する。散乱源は表を持たないときとビットで同じ
     let bits = |v: &[Vec<(f64, f64)>]| -> Vec<(u64, u64)> {
         v.iter()

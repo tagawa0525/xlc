@@ -1,29 +1,29 @@
-//! 履歴の補正の残り R（ADR-0215）。公称の燃焼のテーブルと、履歴の分岐の燃焼の履歴を自分の条件で解いた分岐のテーブル（`[history]`）と、
-//! 公称の燃焼の組成のうち追う核種だけを履歴の分岐の値にした組成（ハイブリッド）を同じ条件で解いたテーブルから、燃焼度の点 u ごとに
+//! 履歴の補正の残り R（ADR-0215）。ベース計算のテーブルと、履歴ブランチの燃焼の履歴を自分の条件で解いたブランチのテーブル（`[history]`）と、
+//! ベース計算の組成のうち追う核種だけを履歴ブランチの値にした組成（ハイブリッド）を同じ条件で解いたテーブルから、燃焼度の点 u ごとに
 //!
-//! U(u) = f(履歴の分岐の組成、条件 j) − f(ハイブリッドの組成、条件 j)（追わない核種の分）
+//! U(u) = f(履歴ブランチの組成、条件 j) − f(ハイブリッドの組成、条件 j)（追わない核種の分）
 //! L(u) = f(ハイブリッドの組成、条件 j) − f(公称の組成、条件 j) − Σᵢ cᵢ(条件 j、u) (N̄ᵢ^j(u) − N̄ᵢ^0(u))（線形化の誤差）
 //!
-//! を作り（和が残り R）、履歴の分岐の均質化した数密度 N̄ᵢ^j(u) と一緒に公称のテーブルの `histories` に書き足す。L の第 2 項と係数 cᵢ は
-//! 公称のテーブルの条件 j の状態の値で、cᵢ は core の線形の補正と同じ関数（`xlc_format::table::add_linear_correction`。数密度の微分を
+//! を作り（和が残り R）、履歴ブランチの均質化した数密度 N̄ᵢ^j(u) と一緒にベース計算のテーブルの `histories` に書き足す。L の第 2 項と係数 cᵢ は
+//! ベース計算のテーブルの条件 j の状態の値で、cᵢ は core の線形の補正と同じ関数（`xlc_format::table::add_linear_correction`。数密度の微分を
 //! 持つ核種は ∂Σ/∂N̄ᵢ、ほかは σᵢ。ADR-0216、ADR-0221）。N̄ᵢ^j と N̄ᵢ^0 はそれぞれのテーブルの均質化した数密度（ハイブリッドの N̄ᵢ は
 //! 分岐と同じ）。補正を持たない項目（χ、拡散係数、ADF）の L は 2 つの定数の差。
 //!
 //! 同じ点ごとに、追う核種のミクロ燃焼の反応率の微視的断面積の差を、U と L と同じハイブリッドで分けて書く（ADR-0215 の案 S2。核分裂、
 //! チェーンの反応の経路、収率の境界より下の核分裂の断面積）:
 //!
-//! Δσᵢ_U(u) = σᵢ(履歴の分岐の組成、条件 j) − σᵢ(ハイブリッドの組成、条件 j)（追わない核種の分）
+//! Δσᵢ_U(u) = σᵢ(履歴ブランチの組成、条件 j) − σᵢ(ハイブリッドの組成、条件 j)（追わない核種の分）
 //! Δσᵢ_L(u) = σᵢ(ハイブリッドの組成、条件 j) − σᵢ(公称の組成、条件 j)（追う核種の組成の分）
 //!
 //! 使い方: lattice histories <入力ファイル>（ファイルのパスは入力ファイルのあるディレクトリから）
 //!
 //! ```toml
-//! nominal = "table-nominal.msgpack"            # 公称のテーブル（燃焼度の軸、公称の値、ミクロ燃焼のデータを持つ）
-//! output = "table-nominal-histories.msgpack"   # R を書き足した公称のテーブル
+//! nominal = "table-nominal.msgpack"            # ベース計算のテーブル（燃焼度の軸、公称の値、ミクロ燃焼のデータを持つ）
+//! output = "table-nominal-histories.msgpack"   # R を書き足したベース計算のテーブル
 //!
 //! [[history]]
 //! variable = "moderator-density"               # 履歴の変数（moderator-density か rods）
-//! # 制御棒の値ごとの、履歴の分岐の自分の条件のテーブルと、同じ条件のハイブリッドのテーブル
+//! # 制御棒の値ごとの、履歴ブランチの自分の条件のテーブルと、同じ条件のハイブリッドのテーブル
 //! branches = { out = { branch = "table-density-branch.msgpack", hybrid = "table-hybrid-density-branch.msgpack" } }
 //!
 //! [[history]]
@@ -32,12 +32,12 @@
 //! branches.aic = { branch = "table-rods-branch.msgpack", hybrid = "table-hybrid-rods-branch.msgpack" }
 //! ```
 //!
-//! 履歴の分岐のテーブルは、燃焼度の軸と、点が 1 つの分岐の軸を持ち（制御棒の軸は持てば値 `rod` を含み、その値の状態を使う）、その
-//! 状態（条件 j）が公称のテーブルの格子点であること。条件 j は、減速材の密度（`moderator-density`）は `moderator` の軸だけが公称と
-//! 違い、制御棒の挿入の割合（`rods`）はどの連続の軸も公称の状態（制御棒を入れた値が履歴の分岐の条件で、`out` は逆向きの分岐。
-//! `[branches.rod]` で解いた 1 つのテーブルを両方の値に渡せる）。燃焼度の点は、公称のテーブルが条件 j の状態を解いた燃焼度の点と同じ
-//! こと。ハイブリッドのテーブルは、分岐のテーブルと同じ軸と点、追う核種、初めの重金属、群境界と、同じ均質化した数密度を持つこと。
-//! 変数の値は、減速材の密度は公称の燃焼が公称の格子点の値 H⁰、履歴の分岐が条件 j の格子点の値 Hᵇ、制御棒は H⁰ = 0、Hᵇ = 1。
+//! 履歴ブランチのテーブルは、燃焼度の軸と、点が 1 つの分岐の軸を持ち（制御棒の軸は持てば値 `rod` を含み、その値の状態を使う）、その
+//! 状態（条件 j）がベース計算のテーブルの格子点であること。条件 j は、減速材の密度（`moderator-density`）は `moderator` の軸だけが公称と
+//! 違い、制御棒の挿入の割合（`rods`）はどの連続の軸も基準条件（制御棒を入れた値が履歴ブランチの条件で、`out` は逆向きの分岐。
+//! `[branches.rod]` で解いた 1 つのテーブルを両方の値に渡せる）。燃焼度の点は、ベース計算のテーブルが条件 j の状態を解いた燃焼度の点と同じ
+//! こと。ハイブリッドのテーブルは、ブランチのテーブルと同じ軸と点、追う核種、初めの重金属、群境界と、同じ均質化した数密度を持つこと。
+//! 変数の値は、減速材の密度はベース計算が公称の格子点の値 H⁰、履歴ブランチが条件 j の格子点の値 Hᵇ、制御棒は H⁰ = 0、Hᵇ = 1。
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -55,11 +55,11 @@ use crate::checkpoint::write_synced;
 /// `lattice histories` の入力。
 #[derive(Debug, Clone, PartialEq)]
 pub struct ResidualInput {
-    /// 公称のテーブル
+    /// ベース計算のテーブル
     pub nominal: PathBuf,
-    /// R を書き足した公称のテーブルの出力
+    /// R を書き足したベース計算のテーブルの出力
     pub output: PathBuf,
-    /// 履歴の変数ごとの、制御棒の値と履歴の分岐の自分の条件のテーブル
+    /// 履歴の変数ごとの、制御棒の値と履歴ブランチの自分の条件のテーブル
     pub histories: Vec<HistoryEntry>,
 }
 
@@ -71,7 +71,7 @@ pub struct HistoryEntry {
     pub branches: Vec<(String, BranchFiles)>,
 }
 
-/// 1 つの制御棒の値の、履歴の分岐の自分の条件のテーブルと、同じ条件のハイブリッドのテーブル
+/// 1 つの制御棒の値の、履歴ブランチの自分の条件のテーブルと、同じ条件のハイブリッドのテーブル
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BranchFiles {
@@ -79,7 +79,7 @@ pub struct BranchFiles {
     pub hybrid: PathBuf,
 }
 
-/// 1 つの制御棒の値の、履歴の分岐の自分の条件のテーブルと、追う核種だけを履歴の分岐の値にした公称の組成を同じ条件で解いたテーブル
+/// 1 つの制御棒の値の、履歴ブランチの自分の条件のテーブルと、追う核種だけを履歴ブランチの値にした公称の組成を同じ条件で解いたテーブル
 #[derive(Debug, Clone, PartialEq)]
 pub struct BranchTables {
     pub branch: Table,
@@ -102,13 +102,13 @@ struct HistoryFile {
 }
 
 impl ResidualInput {
-    /// TOML の入力を読む。履歴と、変数ごとの分岐のテーブルが 1 つ以上あり、出力が公称のテーブルと別のファイルであること
+    /// TOML の入力を読む。履歴と、変数ごとのブランチのテーブルが 1 つ以上あり、出力がベース計算のテーブルと別のファイルであること
     pub fn parse(text: &str) -> anyhow::Result<Self> {
         let file: InputFile = toml::from_str(text)?;
         if file.history.is_empty() {
             bail!("give a [[history]]");
         }
-        // 読んだテーブルを上書きすると、R を作る前の公称のテーブルが残らない
+        // 読んだテーブルを上書きすると、R を作る前のベース計算のテーブルが残らない
         if file.output == file.nominal {
             bail!("output must differ from the nominal table");
         }
@@ -136,7 +136,7 @@ impl ResidualInput {
     }
 }
 
-/// 公称のテーブル `nominal` の、変数 `variable` の履歴の補正を、制御棒の値ごとの履歴の分岐の自分の条件のテーブルとハイブリッドの
+/// ベース計算のテーブル `nominal` の、変数 `variable` の履歴の補正を、制御棒の値ごとの履歴ブランチの自分の条件のテーブルとハイブリッドの
 /// テーブル `branches` から作る。変数の値 H⁰ と Hᵇ は制御棒の値によらず同じこと
 pub fn history_correction(
     nominal: &Table,
@@ -189,7 +189,7 @@ fn value(axis: &Axis, i: usize) -> Option<Value> {
     }
 }
 
-/// 公称のテーブル `nominal` の制御棒の値 `rod` の残りを、履歴の分岐の自分の条件のテーブルとハイブリッドのテーブル `tables` から作る。
+/// ベース計算のテーブル `nominal` の制御棒の値 `rod` の残りを、履歴ブランチの自分の条件のテーブルとハイブリッドのテーブル `tables` から作る。
 /// 返すのは (H⁰, Hᵇ, 残り)
 pub fn residuals(
     nominal: &Table,
@@ -226,7 +226,7 @@ pub fn residuals(
         bail!("the branch and the nominal tables have other group bounds");
     }
     check_hybrid(branch, hybrid)?;
-    // 分岐のテーブルの条件 j: 燃焼度のほかの軸の点が 1 つ（制御棒の軸は持てば値が `rod`）
+    // ブランチのテーブルの条件 j: 燃焼度のほかの軸の点が 1 つ（制御棒の軸は持てば値が `rod`）
     let mut condition: Vec<Value> = Vec::new();
     for axis in &branch.axes {
         match axis {
@@ -248,7 +248,7 @@ pub fn residuals(
     if !branch_rod && rod != ROD_OUT {
         bail!("the branch table has no rod axis, so its rod value is {ROD_OUT}, not {rod}");
     }
-    // 変数の値 Hᵇ: 減速材の密度は分岐のテーブルの条件の密度、制御棒の挿入の割合は一生を制御棒を入れた 1（ADR-0215）
+    // 変数の値 Hᵇ: 減速材の密度はブランチのテーブルの条件の密度、制御棒の挿入の割合は一生を制御棒を入れた 1（ADR-0215）
     let hb = if variable == RODS {
         1.0
     } else {
@@ -260,7 +260,7 @@ pub fn residuals(
             })
             .ok_or_else(|| anyhow!("the branch table has no moderator axis for {variable}"))?
     };
-    // 公称のテーブルの条件 j の格子点（テーブルの検査と同じ規則）
+    // ベース計算のテーブルの条件 j の格子点（テーブルの検査と同じ規則）
     let HistoryCondition {
         nominal: h0,
         mut point,
@@ -268,7 +268,7 @@ pub fn residuals(
     } = nominal
         .history_condition(variable, hb, rod)
         .map_err(|e| anyhow!(e))?;
-    // 分岐のテーブルの条件の値（減速材は温度と密度の組）が、その格子点の値と同じこと。公称のテーブルに無い軸の値も、分岐の
+    // ブランチのテーブルの条件の値（減速材は温度と密度の組）が、その格子点の値と同じこと。ベース計算のテーブルに無い軸の値も、分岐の
     // テーブルに無い軸の値も推測しない（違う値の効きが R に混ざる）
     let at_point: Vec<Value> = nominal
         .axes
@@ -294,7 +294,7 @@ pub fn residuals(
             name(missing)
         );
     }
-    // 公称のテーブルが条件 j を解いた燃焼度の点が、分岐のテーブルの燃焼度の点
+    // ベース計算のテーブルが条件 j を解いた燃焼度の点が、ブランチのテーブルの燃焼度の点
     let burnups = nominal.axes[burnup_axis].points();
     let solved: Vec<usize> = (0..burnups.len())
         .filter(|&u| {
@@ -383,7 +383,7 @@ pub fn residuals(
 }
 
 /// テーブル `table` のうち制御棒の値 `rod` の状態だけを持つテーブル（制御棒の軸は値 `rod` だけ）。制御棒の軸のないテーブルはそのまま
-/// （値は `out` だけ。呼ぶ側が確かめる）。制御棒の履歴の分岐を `[branches.rod]` で解くと、1 つのテーブルが制御棒を入れた値（履歴の
+/// （値は `out` だけ。呼ぶ側が確かめる）。制御棒の履歴ブランチを `[branches.rod]` で解くと、1 つのテーブルが制御棒を入れた値（履歴の
 /// 分岐の条件）と `out`（逆向きの分岐）の状態を持つ（ADR-0215）
 fn rod_value(table: &Table, rod: &str) -> anyhow::Result<Table> {
     let Some((a, values)) = table.axes.iter().enumerate().find_map(|(i, x)| match x {
@@ -423,7 +423,7 @@ fn rod_value(table: &Table, rod: &str) -> anyhow::Result<Table> {
     Ok(selected)
 }
 
-/// ハイブリッドのテーブル `hybrid` が、分岐のテーブル `branch` と同じ条件と燃焼度の点（軸と点）、追う核種、初めの重金属、群境界と、
+/// ハイブリッドのテーブル `hybrid` が、ブランチのテーブル `branch` と同じ条件と燃焼度の点（軸と点）、追う核種、初めの重金属、群境界と、
 /// 同じ均質化した数密度を持つこと（U と L は同じ状態の 2 つの定数の差で、ハイブリッドは追う核種が分岐と同じ組成。体積の平均の
 /// N̄ᵢ が違えば、置き換えた核種か履歴が違う）
 fn check_hybrid(branch: &Table, hybrid: &Table) -> anyhow::Result<()> {
@@ -527,7 +527,7 @@ fn difference(a: &FewGroup, b: &FewGroup) -> Residual {
     }
 }
 
-/// 入力ファイル `path` を読み、R を書き足した公称のテーブルを書く。公称のテーブルが既に R を持てばエラー（重ねて足さない）
+/// 入力ファイル `path` を読み、R を書き足したベース計算のテーブルを書く。ベース計算のテーブルが既に R を持てばエラー（重ねて足さない）
 pub fn run(path: &Path) -> anyhow::Result<()> {
     let shown = |p: &Path| p.display().to_string();
     let text = std::fs::read_to_string(path).with_context(|| shown(path))?;

@@ -50,7 +50,7 @@ def sigma(s):
 
 
 def table(l_density=1.0, l_rods=2.0):
-    """燃焼度 0 と 20、制御棒の軸（out、aic）、追う核種 2 つの公称のテーブルと、2 つの変数の制御棒の値 out の補正"""
+    """燃焼度 0 と 20、制御棒の軸（out、aic）、追う核種 2 つのベース計算のテーブルと、2 つの変数の制御棒の値 out の補正"""
     axes = [
         {"name": "burnup", "points": [0.0, 20.0]},
         {"name": "boron", "points": [1300.0], "nominal": 1300.0},

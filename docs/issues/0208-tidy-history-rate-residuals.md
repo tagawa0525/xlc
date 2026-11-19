@@ -18,7 +18,7 @@ resolution: wontfix: レビューで直さなかった指摘を集めた issue �
 関係する ADR: ADR-0215
 
 - 型: crates/core/src/case.rs の `node_micro` は、線形の補正の係数を読む `correct` と同じ型 `MicroAt` を返し、`fission`（Σf の係数でもある）と
-  収率の境界より下の割合だけを補正する。補正した値が線形の補正に渡ると、ADR-0215 の案 S2 の「係数は補正しない」が崩れ、履歴の分岐の点に
+  収率の境界より下の割合だけを補正する。補正した値が線形の補正に渡ると、ADR-0215 の案 S2 の「係数は補正しない」が崩れ、履歴ブランチの点に
   (cᵢ^j − cᵢ(j)) ΔN̄ᵢ が残る。今は `node_constants` が `interpolate_micro` を、反応率が `node_micro` を別に呼ぶので起きないが、型が止めない
   （反応率の断面積を別の型にする候補）
 - テスト: crates/core/src/depletion/tests.rs の `micro_depletion_rates_take_the_weighted_rate_residuals_of_the_history` の w = 0 の半分は、
@@ -43,7 +43,7 @@ resolution: wontfix: レビューで直さなかった指摘を集めた issue �
   - ADR-0215 の検討した案（ミクロ燃焼の微視的断面積の段落）の補正前の数密度の差の出典「#0190 の経緯」は、Pu-241 −0.828% を載せていない
     （main の 1234b653 の examples/depletion/verification.md にある）。差の燃焼度の点（60 MWd/kg）も書いていない
   - ADR-0215 の「理由」の S1 との差の文に Σᵢ と f(S2) − f(S1) の向きがない（検討した案と帰結には書いた）
-  - examples/depletion/verification.md の途中で条件を変えた燃焼: 注記の「公称の状態にある同じ w のノードの目安」は Δσ の状態への依存（測って
+  - examples/depletion/verification.md の途中で条件を変えた燃焼: 注記の「基準条件にある同じ w のノードの目安」は Δσ の状態への依存（測って
     いない）を含まないことを書かず、ADR-0215 の確認の文と範囲が食い違う。「この燃焼の誤差は…比例の分」は、履歴の補正のない 1 の水準
     （−3.808〜+7.714 pcm）を除いた、履歴の補正の分に限って書くべき。表の列「点の誤差の上限」と本文の「誤差の上限」の名前が、この燃焼に
     当たらない目安になった注記と合わない（列名は compare_core_history.py と verification_tables.py が出す）

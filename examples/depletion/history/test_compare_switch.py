@@ -45,7 +45,7 @@ def rate(a, b):
     }
 
 
-# 履歴の分岐（一生を条件 j）の R の点 0、20 の、追う核種ごとの反応率の微視的断面積の差 Δσ_U（分岐 − ハイブリッド）と Δσ_L（ハイブリッド −
+# 履歴ブランチ（一生を条件 j）の R の点 0、20 の、追う核種ごとの反応率の微視的断面積の差 Δσ_U（分岐 − ハイブリッド）と Δσ_L（ハイブリッド −
 # 公称の条件 j）
 RATE_UNTRACKED = [
     [
@@ -70,7 +70,7 @@ RATE_LINEARIZATION = [
 
 
 def table():
-    """R を持つ公称のテーブルに、10 MWd/kg の条件 j の状態と、反応率の微視的断面積の差を足したもの"""
+    """R を持つベース計算のテーブルに、10 MWd/kg の条件 j の状態と、反応率の微視的断面積の差を足したもの"""
     t = residual_table()
     t["points"].append([1, 0, 1, 0])
     t["states"].append(few(2.6))
@@ -211,7 +211,7 @@ class Compare(unittest.TestCase):
         self.assertEqual(last["nominal_difference_pcm"], -1.5)
 
     def test_the_continued_point_matches_the_nominal_table_at_condition_j(self):
-        # 続ける点の参照は、公称の組成を条件 j で解いたもので、公称のテーブルの条件 j の状態と同じ
+        # 続ける点の参照は、公称の組成を条件 j で解いたもので、ベース計算のテーブルの条件 j の状態と同じ
         s = compared()
         t = table()
         k_table = t["states"][t["points"].index([1, 0, 1, 0])]["k_inf"]
@@ -224,7 +224,7 @@ class Compare(unittest.TestCase):
         s = compared()
         last = s["rows"][1]
         ref = reference()
-        # 係数は core と同じ、R を持つ公称のテーブルの同じ燃焼度の条件 j の状態のもの（微分を持つ核種は微分）
+        # 係数は core と同じ、R を持つベース計算のテーブルの同じ燃焼度の条件 j の状態のもの（微分を持つ核種は微分）
         t = table()
         coeff = r.coefficients(t["micro"]["states"][t["points"].index([2, 0, 1, 0])])
         base = ref["states"][1]
@@ -457,7 +457,7 @@ class Compare(unittest.TestCase):
                     )
             if not derivative:
                 self.assertIsNone(x["own_density_percent"])
-            # 参照の Δσ_L,switch の Δσ_L に対する実効の比（群ごと）と、参照の数密度の差の履歴の分岐の差に対する比（この核種だけの指標）
+            # 参照の Δσ_L,switch の Δσ_L に対する実効の比（群ごと）と、参照の数密度の差の履歴ブランチの差に対する比（この核種だけの指標）
             for g in range(2):
                 self.assertAlmostEqual(
                     x["linearization_ratio"][g], (hyb[g] - nom[g]) / dl[g], places=12

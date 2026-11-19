@@ -128,7 +128,7 @@ fn branches_of(
     history_branches(&input, history, &chain(), library, &geometries)
 }
 
-/// 分岐の状態の物質を、自己遮蔽と MOC（`moc` の打ち切り条件と加速）で解いた k
+/// ブランチ計算の状態の物質を、自己遮蔽と MOC（`moc` の打ち切り条件と加速）で解いた k
 fn k_of(
     text: &str,
     library: &Library,
@@ -332,7 +332,7 @@ fn the_branch_lattice_must_be_the_lattice_of_the_history() {
 
 #[test]
 fn histories_depleted_by_sector_are_not_branched() {
-    // 扇形の組ごとの物質を分岐の状態で作り直す経路は無いので、扇形に分けた履歴は分岐の前に止める（ADR-0244）
+    // 扇形の組ごとの物質をブランチ計算の状態で作り直す経路は無いので、扇形に分けた履歴は分岐の前に止める（ADR-0244）
     let library = library_with_boron();
     let sectored = borated(PIN).replace("rings = 1 }]\n", "rings = 1 }]\nsectors = 8\n");
     let history = deplete_with(&format!("{sectored}sectors = 8\n"), &library);
@@ -509,7 +509,7 @@ fn two_moderators(burnup: &str) -> String {
 /// 状態の物質の一覧と、領域ごとのその番号
 type Shielding = (Vec<Material>, Vec<usize>);
 
-/// 入力 `text` の履歴からの分岐の状態を順に `BranchShielder` で自己遮蔽した物質と、自己遮蔽を解いた回数
+/// 入力 `text` の履歴からのブランチ計算の状態を順に `BranchShielder` で自己遮蔽した物質と、自己遮蔽を解いた回数
 fn shield_states(
     text: &str,
     history: &History,
@@ -554,7 +554,7 @@ fn shield_states(
     (branches, shielded, solved)
 }
 
-/// 分岐の自己遮蔽の物質の一覧と [領域] のその番号
+/// ブランチ計算の自己遮蔽の物質の一覧と [領域] のその番号
 fn owned(state: crate::branches::StateShielding) -> Shielding {
     (state.materials().to_vec(), state.region_material().to_vec())
 }
@@ -592,9 +592,9 @@ fn nominal_boron_shielding_solves_once_per_burnup_moderator_and_fuel_point() {
     for point in 0..2 {
         for moderator in 0..2 {
             let at = |boron: usize| (point * 2 + boron) * 2 + moderator;
-            // 公称のホウ素の状態は、その減速材で解いた自己遮蔽そのもの
+            // 基準ホウ素濃度の状態は、その減速材で解いた自己遮蔽そのもの
             assert_eq!(reused[at(1)], solved[at(1)]);
-            // ホウ素を変えた状態の燃料は公称のホウ素の状態の物質のまま。解き直すと Dancoff 係数を通して変わる
+            // ホウ素を変えた状態の燃料は基準ホウ素濃度の状態の物質のまま。解き直すと Dancoff 係数を通して変わる
             for &r in &fuel {
                 assert_eq!(
                     region_material(&reused[at(0)], r),
@@ -682,7 +682,7 @@ fn shield_ratio_states(
 #[test]
 fn ratio_shielding_solves_the_ufg_at_the_anchors_only() {
     // ADR-0250 の (F1): 燃焼点と燃料の温度の点ごとに、減速材が公称の参照だけを解き、ほかの減速材の参照は比で求める。(F2) は燃焼点
-    // ごとに公称の 1 つだけを解く。ホウ素の軸は公称のホウ素の参照から作り直す（ADR-0201）。テストのライブラリは UFG の範囲を
+    // ごとに公称の 1 つだけを解く。ホウ素の軸は基準ホウ素濃度の参照から作り直す（ADR-0201）。テストのライブラリは UFG の範囲を
     // 持たないので、比で求めた参照は参照ごとに解いたもの（範囲の外の等価原理）とビットで同じで、状態は既定の解き方とビットで同じ
     let library = library_for_reuse();
     let history = deplete_with(&borated(PIN), &library);
@@ -843,7 +843,7 @@ fn branches_without_a_history_shield_at_the_nominal_boron_too() {
     }
 }
 
-/// 枠（Zr-90 の塊）のある格子の、燃焼度 0.5 MWd/kg の分岐（減速材 2 点）と、その公称の状態（状態 2）で解いた自己遮蔽
+/// 枠（Zr-90 の塊）のある格子の、燃焼度 0.5 MWd/kg の分岐（減速材 2 点）と、その基準条件（状態 2）で解いた自己遮蔽
 fn framed_nominal(
     library: &Library,
 ) -> (
@@ -988,7 +988,7 @@ fn a_reference_that_differs_beyond_the_boron_axis_is_an_error() {
 
 #[test]
 fn off_nominal_states_are_solved_at_their_burnups_only() {
-    // 燃焼度 0、0.5、2.0 の点で、公称の状態（ホウ素 1000 ppm、減速材 600 K、燃料 600 K）はすべての点、ほかの状態は 0 と 2.0 だけ
+    // 燃焼度 0、0.5、2.0 の点で、基準条件（ホウ素 1000 ppm、減速材 600 K、燃料 600 K）はすべての点、ほかの状態は 0 と 2.0 だけ
     // （ADR-0200 の案 B2）。ホウ素 2 点 × 減速材 2 点 × 燃料 1 点は 2 軸の組で直積
     let (history, library) = history();
     let text = format!(
@@ -1000,7 +1000,7 @@ fn off_nominal_states_are_solved_at_their_burnups_only() {
     let solved: Vec<usize> = (0..12).filter(|&i| branches.solved(0, i)).collect();
     // 状態の番号は燃焼度 × 4 + (ホウ素 × 2 + 減速材)。公称は (1, 0)
     assert_eq!(solved, vec![0, 1, 2, 3, 6, 8, 9, 10, 11]);
-    // 公称の状態が格子点にないと、公称でない状態の燃焼点を間引けない
+    // 基準条件が格子点にないと、ブランチ条件の燃焼点を間引けない
     let off = text.replace(
         "boron = { ppm = [500, 1000], materials = [\"water\"] }",
         "boron = { ppm = [500, 700], materials = [\"water\"] }",
@@ -1011,7 +1011,7 @@ fn off_nominal_states_are_solved_at_their_burnups_only() {
 
 #[test]
 fn pair_subgrid_states_shield_like_the_product_states() {
-    // 2 軸の組の部分格子の状態を公称のホウ素の自己遮蔽（ADR-0201）で解くと、直積の同じ状態とビットで同じ。参照は、解く状態の
+    // 2 軸の組の部分格子の状態を基準ホウ素濃度の自己遮蔽（ADR-0201）で解くと、直積の同じ状態とビットで同じ。参照は、解く状態の
     // 燃焼度、減速材、燃料の点ごとに 1 度
     let library = library_for_reuse();
     let history = deplete_with(&borated(PIN), &library);
@@ -1028,7 +1028,7 @@ fn pair_subgrid_states_shield_like_the_product_states() {
     let solved: Vec<usize> = (0..branches.len())
         .filter(|&i| branches.solved(0, i))
         .collect();
-    // 2 × 2 × 2 の 8 状態から、3 つの軸がどれも公称でない状態（ホウ素 500 ppm、650 K、650 K）を除く
+    // 2 × 2 × 2 の 8 状態から、3 つの軸がどれも基準値でない状態（ホウ素 500 ppm、650 K、650 K）を除く
     assert_eq!(solved.len(), 2 * 7);
     for (n, &i) in solved.iter().enumerate() {
         assert_eq!(pairs[n], all[i], "state {i}");
@@ -1037,7 +1037,7 @@ fn pair_subgrid_states_shield_like_the_product_states() {
     assert_eq!(all_solves, 2 * 4);
 }
 
-/// 分岐の状態 `index` を自己遮蔽と MOC（`tight`）で解いた、自己遮蔽の結果と MOC の解
+/// ブランチ計算の状態 `index` を自己遮蔽と MOC（`tight`）で解いた、自己遮蔽の結果と MOC の解
 fn solved(
     text: &str,
     library: &Library,
@@ -1209,7 +1209,7 @@ fn micro_cross_sections_close_the_homogenized_rates_of_the_depleted_materials() 
 
 #[test]
 fn micro_cross_sections_take_the_fuel_shielding_of_the_branch_shielder() {
-    // 分岐の自己遮蔽（ADR-0201）が返す燃料の自己遮蔽は、状態ごとに解いたもの（every-state）でも、ホウ素の軸の物質だけを作り直す
+    // ブランチ計算の自己遮蔽（ADR-0201）が返す燃料の自己遮蔽は、状態ごとに解いたもの（every-state）でも、ホウ素の軸の物質だけを作り直す
     // 参照のもの（nominal-boron）でも、返した物質の燃料と同じ実効断面積と SPH 因子を持つ
     let (history, library) = history();
     for text in [
@@ -1546,7 +1546,7 @@ fn a_shielding_history_shields_the_depletion_regions_at_its_densities() {
     }
 }
 
-/// 入力 `text` の履歴 `history` からの分岐の状態 `index` の物質
+/// 入力 `text` の履歴 `history` からのブランチ計算の状態 `index` の物質
 fn at_previous_state(
     text: &str,
     history: &History,
@@ -1730,7 +1730,7 @@ fn perturbed_states_scale_only_the_derivative_nuclide_in_the_depletion_regions()
                 name,
                 0.25,
             );
-            // 自己遮蔽の参照（公称のホウ素。ADR-0201）も同じ核種を同じ割合で変えた組成で、摂動の組成を公称の組成と同じに扱う
+            // 自己遮蔽の参照（基準ホウ素濃度。ADR-0201）も同じ核種を同じ割合で変えた組成で、摂動の組成を公称の組成と同じに扱う
             if let Some((point, r)) = branches.reference(index) {
                 assert_scaled(
                     &branches.perturbed_reference_state(point, r, j),
@@ -1786,7 +1786,7 @@ fn shifted_micro(
     out
 }
 
-/// 分岐の状態 `index` を `BranchShielder` と MOC（`tight`）で解いた、格子全体の少数群定数と追う核種の微視的断面積
+/// ブランチ計算の状態 `index` を `BranchShielder` と MOC（`tight`）で解いた、格子全体の少数群定数と追う核種の微視的断面積
 fn solve_state<'a>(
     s: &Setup,
     library: &Library,
@@ -2257,7 +2257,7 @@ fn perturbed_shieldings_are_solved_again_when_the_input_or_the_generalized_deriv
 #[test]
 fn density_derivatives_change_with_the_perturbation_like_forward_differences() {
     // 前進差分の誤差は摂動の割合 ε に比例するので、ε を倍にしたときの微分の変わり方は、その前の倍の変わり方の約 2 倍（ADR-0221）。
-    // 摂動の組成は自己遮蔽（公称のホウ素の参照）から解き直す
+    // 摂動の組成は自己遮蔽（基準ホウ素濃度の参照）から解き直す
     let (history, library) = history();
     let index = 3;
     let derivative_at = |fraction: f64| -> Vec<xlc_format::table::MicroDerivative> {
@@ -2447,7 +2447,7 @@ fn rod_values_take_the_history_densities_in_the_regions_of_their_own_geometry() 
 
 #[test]
 fn rod_values_are_solved_at_their_own_burnups() {
-    // 棒のない値は公称の状態をすべての燃焼点で、ほかの状態を off-nominal-burnup で解き、制御棒の値はすべての状態（公称を含む）を
+    // 棒のない値は基準条件をすべての燃焼点で、ほかの状態を off-nominal-burnup で解き、制御棒の値はすべての状態（公称を含む）を
     // その値の燃焼点で解く（ADR-0200 の制御棒を入れた組。ADR-0225）。状態の番号は燃焼度 × 2 + ホウ素で、公称は 1000 ppm
     let library = library_with_boron();
     let history = deplete_with(&guided(&borated(PIN), WATER_GUIDE), &library);
@@ -2566,7 +2566,7 @@ fn chain_with_fissile_u238(q: f64) -> xlc_depletion::chain::Chain {
     chain
 }
 
-/// 分岐の状態 `index` を解いて、κΣf と、輸送するすべての核種の微視的断面積を求める
+/// ブランチ計算の状態 `index` を解いて、κΣf と、輸送するすべての核種の微視的断面積を求める
 fn kappa_and_micro(
     text: &str,
     library: &Library,
@@ -2987,7 +2987,7 @@ fn activation_cross_sections_need_the_temperature_of_the_depletion_regions() {
 
 #[test]
 fn history_branches_need_the_nominal_state_for_the_cooling_cross_sections() {
-    // 入力の物質（1000 ppm）がホウ素の軸の格子点でなければ公称の状態がなく、冷却計算の断面積（ADR-0238）を作る状態がない。
+    // 入力の物質（1000 ppm）がホウ素の軸の格子点でなければ基準条件がなく、冷却計算の断面積（ADR-0238）を作る状態がない。
     // 輸送の前に止める
     let (history, library) = history();
     let text = branch_input("[0, 2.0]", "[600]").replace("ppm = [500, 1000]", "ppm = [500, 1500]");
@@ -3025,7 +3025,7 @@ fn generalized_input(perturbation: f64, shielded: &[&str], derivative: &[&str]) 
     )
 }
 
-/// 入力 `text` の分岐の状態 `index` を解き、追う核種の微視的断面積に一般化摂動の微分（ADR-0247）を入れたもの。摂動の組成は核種ごとの
+/// 入力 `text` のブランチ計算の状態 `index` を解き、追う核種の微視的断面積に一般化摂動の微分（ADR-0247）を入れたもの。摂動の組成は核種ごとの
 /// `BranchShielder` で自己遮蔽し、直接の摂動を解く核種は MOC（`tight`）も解く。`calls` に（摂動の核種、直接の摂動を解いたか）を足す
 fn generalized_derivatives(
     text: &str,

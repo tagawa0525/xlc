@@ -1,7 +1,7 @@
 //! 細かい群のまま均質化した媒質（単一集合体の格子計算から、軸方向の反射体の平板の格子計算に渡すファイル。ADR-0128）。
 //!
 //! フィールド名付きの map 形式の MessagePack（ADR-0011、ADR-0013）:
-//! `format` ("xlc-medium"), `bounds`（ライブラリの群境界 (eV)、降順）, `axes`（分岐のテーブルと同じ軸。ADR-0097）,
+//! `format` ("xlc-medium"), `bounds`（ライブラリの群境界 (eV)、降順）, `axes`（ブランチのテーブルと同じ軸。ADR-0097）,
 //! `states`（軸の直積の順で、最初の軸がいちばん遅く変わる。状態ごとに `total`、`scatter`（[モーメント（P0 から）]
 //! [入射の群][出射の群]）、`fission`、`nu_fission`、`chi`（核分裂がなければ 0））。軸のない媒質は状態が1つ。
 
@@ -14,7 +14,7 @@ use crate::table::{Axis, AxisFile, validate_axes};
 /// χ の和と 1 の差の許容値（生成率で重みづけして和で割った値なので、丸めの程度）
 const CHI_TOLERANCE: f64 = 1.0e-12;
 
-/// 分岐の状態ごとの、細かい群の均質な媒質。
+/// ブランチ計算の状態ごとの、細かい群の均質な媒質。
 #[derive(Debug, Clone, PartialEq)]
 pub struct Medium {
     /// 群境界 (eV)、降順
@@ -150,7 +150,7 @@ impl Medium {
         if self.axes.iter().any(|a| matches!(a, Axis::Rod { .. })) {
             return invalid("media have no rod axis (ADR-0128)".into());
         }
-        // 媒質は軸の直積の状態を持ち、部分格子の公称の状態を使わない（ADR-0200）
+        // 媒質は軸の直積の状態を持ち、部分格子の基準条件を使わない（ADR-0200）
         if self.axes.iter().any(|a| a.nominal_index().is_some()) {
             return invalid("media have no nominal values (ADR-0200)".into());
         }

@@ -1138,7 +1138,7 @@ fn cut_hdmr_points_return_the_table_states() {
 
 #[test]
 fn rod_values_assemble_from_their_own_nominal_state() {
-    // 制御棒を入れた組（公称の状態を制御棒を入れた状態にした別の組。ADR-0200）は 1 軸ずつの分岐だけを持ち、吸収を半分にした値
+    // 制御棒を入れた組（基準条件を制御棒を入れた状態にした別の組。ADR-0200）は 1 軸ずつの分岐だけを持ち、吸収を半分にした値
     let out = subgrid_table(0.0, pairs);
     let rodded = subgrid_table(0.0, |p| p.iter().filter(|&&i| i != 1).count() <= 1);
     let mut t = out.clone();
@@ -1159,7 +1159,7 @@ fn rod_values_assemble_from_their_own_nominal_state() {
     rows.sort_by(|a, b| a.0.cmp(&b.0));
     (t.points, t.states) = rows.into_iter().unzip();
     t.validate().unwrap();
-    // 公称の状態で、制御棒を入れた組の公称の状態を返す
+    // 基準条件で、制御棒を入れた組の基準条件を返す
     let nominal = interpolate(&t, Some(&state(1300.0, 565.0, 565.0)), Some("aic"))
         .unwrap()
         .remove(0);
@@ -1205,7 +1205,7 @@ fn negative_cut_hdmr_assemblies_are_errors() {
     assert!(interpolate(&t, Some(&state(900.0, 550.0, 565.0)), None).is_ok());
 }
 
-/// 燃焼度の点 CURVED のテーブルで、ホウ素 3 点 × 減速材 1 点 × 燃料 2 点（公称は 1300 ppm、565 K、550 K）の状態を解き、公称の状態は
+/// 燃焼度の点 CURVED のテーブルで、ホウ素 3 点 × 減速材 1 点 × 燃料 2 点（公称は 1300 ppm、565 K、550 K）の状態を解き、基準条件は
 /// すべての燃焼度の点で、ほかの点は `thinned` の燃焼度の点だけで解いたもの。状態は few(1300, 565, 550) の
 /// `shape(燃焼度) + c × quadratic(燃焼度)` 倍（c は点ごとの係数で、公称で 0）
 fn thinned_table(thinned: &[f64], shape: impl Fn(f64) -> f64) -> Table {
@@ -1256,7 +1256,7 @@ fn quadratic(bu: f64) -> f64 {
     0.01 * bu - 2.0e-4 * bu * bu
 }
 
-/// 燃焼度の点の間で 2 次でない形（公称の状態だけが持つ曲がり）
+/// 燃焼度の点の間で 2 次でない形（基準条件だけが持つ曲がり）
 fn wiggle(bu: f64) -> f64 {
     if bu == 0.0 {
         1.3
@@ -1267,14 +1267,14 @@ fn wiggle(bu: f64) -> f64 {
 
 #[test]
 fn off_nominal_states_add_their_difference_from_the_nominal_state_over_their_burnups() {
-    // 公称でない状態は 0、0.5、5、18 MWd/kg だけで解く（ADR-0200 の案 B2）
+    // ブランチ条件は 0、0.5、5、18 MWd/kg だけで解く（ADR-0200 の案 B2）
     let t = thinned_table(&[0.0, 0.5, 5.0, 18.0], wiggle);
     t.validate().unwrap();
     let template = few(1300.0, 565.0, 550.0).k_inf;
     for (i, ppm) in PPM.into_iter().enumerate() {
         for (k, tf) in TF.into_iter().enumerate() {
             let c = coefficient(&[i, 0, k]);
-            // 公称の状態だけを解いた燃焼度の点では、公称の状態の値に 2 次の差（3 点の放物線の傾きの Hermite が再現する）を足した値
+            // 基準条件だけを解いた燃焼度の点では、基準条件の値に 2 次の差（3 点の放物線の傾きの Hermite が再現する）を足した値
             for bu in [2.0, 10.0] {
                 let got = interpolate(&t, Some(&at_burnup(bu, ppm, 565.0, tf)), None)
                     .unwrap()
@@ -1296,7 +1296,7 @@ fn off_nominal_states_add_their_difference_from_the_nominal_state_over_their_bur
             }
         }
     }
-    // 燃焼度の点の間でも、公称の状態の内挿に差の内挿を足したもの
+    // 燃焼度の点の間でも、基準条件の内挿に差の内挿を足したもの
     let bu = 7.5;
     let s = at_burnup(bu, 1000.0, 565.0, 700.0);
     let nominal = interpolate(&t, Some(&at_burnup(bu, 1300.0, 565.0, 550.0)), None)
@@ -1315,7 +1315,7 @@ fn off_nominal_states_add_their_difference_from_the_nominal_state_over_their_bur
 
 #[test]
 fn burnups_outside_the_points_of_an_off_nominal_state_are_errors() {
-    // 公称でない状態を 10 MWd/kg までしか解いていないテーブルは、その先の燃焼度で外挿しない（読み込みの検査も止める）
+    // ブランチ条件を 10 MWd/kg までしか解いていないテーブルは、その先の燃焼度で外挿しない（読み込みの検査も止める）
     let t = thinned_table(&[0.0, 0.5, 5.0, 10.0], wiggle);
     assert!(t.validate().is_err());
     assert!(interpolate(&t, Some(&at_burnup(15.0, 1300.0, 565.0, 550.0)), None).is_ok());
@@ -1325,8 +1325,8 @@ fn burnups_outside_the_points_of_an_off_nominal_state_are_errors() {
 
 #[test]
 fn negative_differences_from_the_nominal_state_are_errors() {
-    // 公称の状態の熱群の吸収が燃焼度 2 の点だけ小さく、公称でない状態の差（0、0.5、5、18 で解いた）が大きく負だと、燃焼度 2 で
-    // 公称の状態に差を足した値が負になる。燃焼度の重みは凸結合でも、差の内挿は公称の状態を負の重みで引く
+    // 基準条件の熱群の吸収が燃焼度 2 の点だけ小さく、ブランチ条件の差（0、0.5、5、18 で解いた）が大きく負だと、燃焼度 2 で
+    // 基準条件に差を足した値が負になる。燃焼度の重みは凸結合でも、差の内挿は基準条件を負の重みで引く
     let mut t = thinned_table(&[0.0, 0.5, 5.0, 18.0], |_| 1.0);
     for (p, s) in t.points.iter().zip(t.states.iter_mut()) {
         let nominal = p[1..] == [1, 0, 0];

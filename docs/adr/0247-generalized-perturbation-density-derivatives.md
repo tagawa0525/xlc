@@ -35,7 +35,7 @@ xlc の今の状態（main d6db07223、2026-11-12）:
   持つ。自己遮蔽の後の物質は SPH 因子を掛けた値（crates/lattice/src/depletion.rs）
 - 微分（crates/lattice/src/history.rs の `add_derivatives`、`density_derivative`）は、格子全体の少数群の全断面積、νΣf、Σf、散乱行列の
   差分と、その核種の反応率の微視的断面積の差分（`rate`。ADR-0215 の自分の数密度の項）を持つ。core は前者を線形の補正の係数
-  （crates/core/src/micro.rs の `correct`）に、後者を履歴の分岐の R の項（crates/core/src/state.rs）に使う
+  （crates/core/src/micro.rs の `correct`）に、後者を履歴ブランチの R の項（crates/core/src/state.rs）に使う
 
 ## 調べたこと
 

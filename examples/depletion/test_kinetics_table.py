@@ -1,4 +1,4 @@
-"""kinetics_table.py の要約（燃焼度の点ごとの公称の状態の動特性と冷却計算のデータ。ADR-0238）。
+"""kinetics_table.py の要約（燃焼度の点ごとの基準条件の動特性と冷却計算のデータ。ADR-0238）。
 
 実行: python3 -m unittest discover -s examples/depletion -p 'test_kinetics_table.py'
 """
@@ -33,7 +33,7 @@ def kinetics(scale: float) -> dict:
 
 
 def table() -> dict:
-    """燃焼度 2 点 × ホウ素 2 点（公称 1300）。公称でない状態は燃焼度 0 だけ"""
+    """燃焼度 2 点 × ホウ素 2 点（公称 1300）。ブランチ条件は燃焼度 0 だけ"""
     points = [[0, 0], [0, 1], [1, 1]]
     scales = [1.0, 1.1, 0.9]
     cooling = lambda s: [

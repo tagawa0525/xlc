@@ -29,7 +29,7 @@ M2 までで、燃料と案内管だけの 17×17 集合体を格子計算で解
 - セルの形と長方形の格子、CMFD の粗メッシュ: [ADR-0083](../adr/0083-generalize-to-rectilinear-lattice.md)（[ADR-0059](../adr/0059-use-square-lattice-geometry.md)、[ADR-0061](../adr/0061-accelerate-moc-with-cmfd.md) を置き換え）
 - 出力に、集合体の面ごとの不連続因子（ADF）、ピン出力の再構成用の形状関数、反射体の少数群定数を加える。
   反射体の定数の作り方: [ADR-0084](../adr/0084-make-reflector-constants-with-fuel.md)
-- 状態の分岐とテーブル: [ADR-0085](../adr/0085-branch-on-core-states.md)
+- ブランチ計算とテーブル: [ADR-0085](../adr/0085-branch-on-core-states.md)
 - 構造材の塊の自己遮蔽: [ADR-0086](../adr/0086-shield-structural-lumps.md)
 - 影の計算の全断面積: [ADR-0087](../adr/0087-use-dilute-totals-in-shadows.md)
 - 等価なセルの支持格子のリング: [ADR-0088](../adr/0088-add-frame-ring-to-equivalent-cell.md)
@@ -73,13 +73,13 @@ M2 までで、燃料と案内管だけの 17×17 集合体を格子計算で解
 4. セルの形の追加（中実の棒、支持格子の枠、長方形の領域、場所で違う格子の幅） — 作業中（枠は 025f774、長方形の格子は
    33cb13c、構造材の自己遮蔽は bb1a203 と 3b14564。中実の棒は同心円のセルで表せるが、シンブルプラグの物質（SS304）は
    新しい核種が要り、まだ確かめていない）
-5. 格子計算の出力（ADF、ピン出力の形状関数、反射体の定数）と状態の分岐のテーブル — 作業中（反射境界の ADF は d4f0a56、
+5. 格子計算の出力（ADF、ピン出力の形状関数、反射体の定数）とブランチのテーブル — 作業中（反射境界の ADF は d4f0a56、
    アルベド境界は 9009058、真空の辺のある格子の ADF（1ノードの NEM。ADR-0094）は 446d704、真空の辺の比 J/φ
    （ADR-0101）は 155ffd4。格子のノードごとの均質化と I 型の反射体の定数（ADR-0095。f*と、反射体の Koebke の等価な D（ADR-0104）、
    core の f* の面）は 7f284cb で、core が MOC の k を +0.0006 pcm で再現する（examples/reflector/verification.md、9f1f00c6）。燃料が真空に
    面する 17×17 の集合体の ADF（#0027）、L 型（#0029。いまの格子の形では作れない。#0068）の反射体、非反射の格子の CDF（#0020）は未。軸方向の反射体の定数（ADR-0128。集合体の高さ全体の平板、燃料の媒質、`mix`、少数群定数の z の辺）は済み（VERA 3A の平板で core が MOC の k を再現する。examples/reflector/verification.md）。上の層の制御棒の軸と Problem 3 の比較は #0030。
    角型の反射体の格子（燃料に角の点だけで接するノードにも反射体の印を付ける）は済み（#0029。examples/reflector/verification.md）。鏡面反射の格子の形状関数と
-   CDF（ADR-0096）は 4a620bc。分岐のテーブル（ADR-0097、ADR-0106）は 79bc489 の VERA 2B での確かめまで済み（ホウ素の
+   CDF（ADR-0096）は 4a620bc。ブランチのテーブル（ADR-0097、ADR-0106）は 79bc489 の VERA 2B での確かめまで済み（ホウ素の
    格子点は #0038））
 6. core: 装荷図と軸方向の層、テーブルの内挿、ADF を入れた NEM、CMFD（粗メッシュのソルバを共通のクレートに切り出す）
    — 作業中（ADF は c4ebed9、真空の境界は 408dda6 と ea25dc2、格子計算の比 J/φ を課す真空の面は 65dc54a

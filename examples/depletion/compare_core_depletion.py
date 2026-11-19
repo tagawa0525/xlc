@@ -6,7 +6,7 @@
 - `--json`: core の履歴が集合体 1 体・軸方向のノード 1 つ（反射境界で k∞ を解くケース）であることと、core の燃焼点の燃焼度が
   格子計算の履歴の燃焼点のどれかと相対 1e-9 で一致することを確かめ、燃焼点ごとに反応度の差 Δρ = (1/k_履歴 − 1/k_core) × 1e5 pcm と、
   その燃焼度がテーブルの燃焼度の点か（点の上は内挿の誤差がない）を書く。テーブルの点では、core の状態（履歴の `states` のただ 1 つの状態。テーブルの
-  格子点であること）のテーブルの状態の k∞（分岐の格子計算の k∞）との差 (1/k_分岐 − 1/k_core) × 1e5 pcm も書く（ADR-0187 の確認と
+  格子点であること）のテーブルの状態の k∞（ブランチ計算の k∞）との差 (1/k_分岐 − 1/k_core) × 1e5 pcm も書く（ADR-0187 の確認と
   同じ比べ方。分岐と履歴の差を除いた、テーブルの読み書きと内挿の差）。`inputs` は読んだファイルのパスと md5
 - `--report`: 要約の JSON を文章で描く（記録の本文の数値はここからコピーする。ADR-0176）
 """
@@ -136,7 +136,7 @@ def report(summary: dict) -> list[str]:
     if on:
         lines.append(
             f"テーブルの点の |Δρ| の最大 {summary['on_table_max_abs_pcm']:.4f} pcm（履歴と）、"
-            f"{summary['on_table_branch_max_abs_pcm']:.4f} pcm（分岐の格子計算と）"
+            f"{summary['on_table_branch_max_abs_pcm']:.4f} pcm（ブランチ計算と）"
         )
     if between:
         worst = max(between, key=lambda p: abs(p["rho_pcm"]))

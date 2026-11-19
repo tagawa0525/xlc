@@ -42,7 +42,7 @@
 //! # 含む）の 1 から数えた最初と最後。ノードは格子を重ならずに覆う。reflector は反射体のノード（燃料と接する辺の
 //! # ADF と、燃料のノードに接する角の点の CDF を燃料の値で割る。燃料に角の点だけで接するノードにも付ける。
 //! # 省略すると false）
-//! # 制御棒の分岐（[branches.rod]）と組むと、制御棒の値が置き換えるセルを含むノードのテーブルだけが制御棒の軸を持ち、ほかの
+//! # 制御棒のブランチ（[branches.rod]）と組むと、制御棒の値が置き換えるセルを含むノードのテーブルだけが制御棒の軸を持ち、ほかの
 //! # ノードのテーブルは棒のない値の状態だけを持つ。組めるのは径方向の反射体の格子（平板でなく、燃料のノードが 1 つ）だけ（ADR-0227）
 //! # few-group = { bounds = [1e7, 0.625, 1e-5], nodes = [
 //! #   { output = "fuel.msgpack", columns = [1, 19], rows = [1, 19] },
@@ -116,8 +116,8 @@
 //! [history]                       # 燃焼の履歴の燃焼点からの分岐（ADR-0187。[branches] とファイルの few-group と組む）
 //! file = "history.msgpack"        # 燃焼の履歴（`[depletion]` の output）
 //! chain = "chain.msgpack"         # 履歴を作った燃焼チェーン（`[depletion]` の chain。テーブルの κΣf の Q 値。ADR-0190）
-//! burnup = [0, 10, 20]            # 分岐を解く燃焼点 (MWd/kg)。履歴の燃焼度から選ぶ
-//! off-nominal-burnup = [0, 20]    # 公称でない状態を解く燃焼点（省略すると burnup のすべて。ADR-0200）
+//! burnup = [0, 10, 20]            # ブランチ計算を行う燃焼点 (MWd/kg)。履歴の燃焼度から選ぶ
+//! off-nominal-burnup = [0, 20]    # ブランチ条件を解く燃焼点（省略すると burnup のすべて。ADR-0200）
 //! rod-burnup = { aic = [0, 20] }  # 制御棒の値ごとの、その値のすべての状態を解く燃焼点（省略した値は off-nominal-burnup。ADR-0225）
 //! micro = ["U-235", "Xe-135"]     # ミクロ燃焼で追う核種（テーブルに微視的断面積を書く。省略すると書かない。ADR-0216）
 //! derivative = ["Xe-135"]         # 数密度の微分をテーブルに書く核種（micro から選ぶ。省略すると書かない。ADR-0221）
@@ -555,7 +555,7 @@ struct InputFile {
     /// 巨視的断面積のときは書かない
     material: Option<BTreeMap<String, MaterialEntry>>,
     cell: BTreeMap<String, CellEntry>,
-    /// 省略すると分岐なし
+    /// 省略するとブランチなし
     branches: Option<BranchesEntry>,
     /// 省略すると燃焼させない
     depletion: Option<DepletionEntry>,
@@ -1886,14 +1886,14 @@ impl LatticeInput {
                         h.burnup
                     ));
                 }
-                // core は公称の状態との差を外挿しないので、最初と最後の燃焼点を含む
+                // core は基準条件との差を外挿しないので、最初と最後の燃焼点を含む
                 let thinned = |points: &[f64]| {
                     points.first() == h.burnup.first()
                         && points.last() == h.burnup.last()
                         && points.iter().all(|b| h.burnup.contains(b))
                         && points.windows(2).all(|w| w[0] < w[1])
                 };
-                // 公称でない状態を解く燃焼点。書かなければすべての燃焼点（ADR-0200 の案 B1）
+                // ブランチ条件を解く燃焼点。書かなければすべての燃焼点（ADR-0200 の案 B1）
                 let off_nominal = h.off_nominal_burnup.unwrap_or_else(|| h.burnup.clone());
                 if !thinned(&off_nominal) {
                     return Err(format!(
@@ -2224,7 +2224,7 @@ impl LatticeInput {
         self.geometry_replacing(&BTreeMap::new())
     }
 
-    /// 制御棒の軸の値の名前（`out` と `[branches.rod]` の値。制御棒の分岐がなければ `out` だけ。ADR-0224）
+    /// 制御棒の軸の値の名前（`out` と `[branches.rod]` の値。制御棒のブランチがなければ `out` だけ。ADR-0224）
     pub fn rod_values(&self) -> Vec<String> {
         self.branches.as_ref().map_or_else(
             || vec![xlc_format::table::ROD_OUT.to_string()],
@@ -2232,7 +2232,7 @@ impl LatticeInput {
         )
     }
 
-    /// 少数群定数の出力のファイルごとに、テーブルが制御棒の軸を持つか（ADR-0224、ADR-0227）。格子全体のテーブルは制御棒の分岐が
+    /// 少数群定数の出力のファイルごとに、テーブルが制御棒の軸を持つか（ADR-0224、ADR-0227）。格子全体のテーブルは制御棒のブランチが
     /// あれば持ち、ノードのテーブルは制御棒の値が置き換えるセルを含めば持つ
     pub fn rod_axes(&self) -> Vec<bool> {
         let rods = self.branches.as_ref().map_or(&[][..], |b| b.rods());
@@ -2444,7 +2444,7 @@ impl LatticeInput {
 }
 
 impl LatticeInput {
-    /// 分岐の状態ごとの物質の組（軸の直積の順）。分岐がなければ、書いたままの物質の1つの組
+    /// ブランチ計算の状態ごとの物質の組（軸の直積の順）。分岐がなければ、書いたままの物質の1つの組
     pub fn branch_states(&self) -> Cow<'_, [Vec<MaterialInput>]> {
         match &self.branches {
             Some(branches) => Cow::Borrowed(branches.states()),

@@ -1,9 +1,9 @@
-"""燃焼度の軸を持つテーブルの動特性と冷却計算のデータ（ADR-0238）を、燃焼度の点ごとの公称の状態で要約する。
+"""燃焼度の軸を持つテーブルの動特性と冷却計算のデータ（ADR-0238）を、燃焼度の点ごとの基準条件で要約する。
 
 使い方: python3 kinetics_table.py --json <要約の出力先> <テーブル（xlc-table）>
         python3 kinetics_table.py --report <要約の JSON>
 
-- 公称の状態は、連続の軸がどれも公称の値（`nominal`）の格子点で、制御棒の軸があれば `out` の点
+- 基準条件は、連続の軸がどれも公称の値（`nominal`）の格子点で、制御棒の軸があれば `out` の点
 - 中性子束は少数群定数の無限媒質の基本モード φ = A⁻¹ χ（A = diag(Σt) − Σsᵀ。Σs は [元の群][先の群]）。そのときの
   k = νΣfᵀ φ を `k`、テーブルの `k_inf`（格子計算の k∞）との差を `k_minus_lattice_pcm`（(1/k_inf − 1/k) × 1e5）に書く
 - 遅発中性子の割合 β_k = Σ_G ν_dΣf,k,G φ_G / Σ_G νΣf_G φ_G（重みを付けない割合）と、族の崩壊定数
@@ -27,7 +27,7 @@ NUCLIDES = ["U-235", "Pu-239", "Cs-133", "Cs-134", "Eu-154"]
 
 
 def nominal_points(table: dict) -> list[int]:
-    """燃焼度の点の順に、公称の状態の点の番号（`points` の中の番号）"""
+    """燃焼度の点の順に、基準条件の点の番号（`points` の中の番号）"""
     axes = table["axes"]
     names = [a["name"] for a in axes]
     if names[0] != "burnup":
