@@ -5227,6 +5227,13 @@ def core_acceleration_summary():
 
 
 class DrawCoreAcceleration(unittest.TestCase):
+    def test_the_fastest_solve_of_a_small_core_keeps_its_digits(self):
+        """小さな炉心の 1 回の固有値計算は数 ms なので、比較のツールの --report と同じ小数 3 桁で描く"""
+        s = core_acceleration_summary()
+        s["cases"]["search"]["runs"]["cmfd"]["per_solve"]["seconds"] = [0.003, 0.25]
+        rows = cells(vt.core_acceleration_runs([s]))
+        self.assertEqual(rows[1][6], "0.003〜0.250")
+
     def test_runs_list_both_iterations_their_range_and_ratio(self):
         rows = cells(vt.core_acceleration_runs([core_acceleration_summary()]))
         self.assertEqual(
@@ -5239,7 +5246,7 @@ class DrawCoreAcceleration(unittest.TestCase):
                     "4,000",
                     "500〜1,500",
                     "8.0",
-                    "1.00〜3.00",
+                    "1.000〜3.000",
                     "10.0",
                 ],
                 [
@@ -5249,7 +5256,7 @@ class DrawCoreAcceleration(unittest.TestCase):
                     "2,000",
                     "20〜900",
                     "4.0",
-                    "0.25〜1.50",
+                    "0.250〜1.500",
                     "6.0",
                 ],
                 [
@@ -5508,7 +5515,7 @@ class DrawCoreThreads(unittest.TestCase):
                     "4,000",
                     "20〜900",
                     "8.0",
-                    "0.25〜1.50",
+                    "0.250〜1.500",
                     "10.0",
                     "",
                 ],
@@ -5520,7 +5527,7 @@ class DrawCoreThreads(unittest.TestCase):
                     "3,000",
                     "15〜700",
                     "8.0",
-                    "0.20〜1.25",
+                    "0.200〜1.250",
                     "10.0",
                     "同じ",
                 ],
@@ -5532,7 +5539,7 @@ class DrawCoreThreads(unittest.TestCase):
                     "3,000",
                     "15〜700",
                     "2.0",
-                    "0.05〜0.25",
+                    "0.050〜0.250",
                     "3.0",
                     "同じ",
                 ],
