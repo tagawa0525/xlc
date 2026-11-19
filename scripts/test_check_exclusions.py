@@ -100,6 +100,25 @@ class SkippedTests(unittest.TestCase):
         for found_line, line in zip(found, (1, 5, 7, 8)):
             self.assertIn(f"examples/test_a.py:{line}:", found_line)
 
+    def test_other_spellings_of_a_skip_and_a_wrapped_reason_are_read(self):
+        files = {
+            "examples/test_a.py": "\n".join(
+                [
+                    "@" + 'skip("後で")',
+                    "@" + "mark.xfail",
+                    SKIP + "(",
+                    '    "参照が要る（#0001）"',
+                    ")",
+                ]
+            ),
+            "crates/a/src/tests.rs": "#" + '[cfg_attr(not(feature = "x"), ignore)]',
+        }
+        found = problems(files)
+        self.assertEqual(len(found), 3)
+        self.assertIn("crates/a/src/tests.rs:1", found[0])
+        self.assertIn("examples/test_a.py:1", found[1])
+        self.assertIn("examples/test_a.py:2", found[2])
+
 
 class InputComments(unittest.TestCase):
     def test_an_unverified_premise_needs_an_open_issue_in_its_comment_block(self):
@@ -116,11 +135,37 @@ class InputComments(unittest.TestCase):
     def test_an_issue_elsewhere_in_the_comment_block_does_not_cover_a_premise(self):
         files = {
             "examples/a/xs.toml": "# 温度は履歴の点（#0001）\n# 別の話\n# 核種の組は暫定\nx = 1\n",
-            "examples/b/xs.toml": "# 核種の組は暫定で、決めるのは\n# 寄与を測ってから（#0001）\nx = 1\n",
+            "examples/b/xs.toml": "# 核種の組は暫定\n# 温度は履歴の点（#0001）\nx = 1\n",
+            "examples/c/xs.toml": "# 核種の組は暫定（#0001 で決める）\nx = 1\n",
+            "examples/d/xs.toml": "# 仮置きの値\n# 未確認の一覧\nx = 1\n",
         }
         found = problems(files)
-        self.assertEqual(len(found), 1)
+        self.assertEqual(len(found), 4)
         self.assertIn("examples/a/xs.toml:3", found[0])
+        self.assertIn("examples/b/xs.toml:1", found[1])
+        self.assertIn("examples/d/xs.toml:1", found[2])
+        self.assertIn("examples/d/xs.toml:2", found[3])
+
+    def test_a_comment_after_a_value_is_read_and_a_value_is_not(self):
+        lines = [
+            "temperatures = [560]  # 暫定",
+            'note = "仮の値 # 暫定"',
+            "x = 1 # Pm を外す（#0002）",
+        ]
+        files = {"examples/a/xs.toml": "\n".join(lines)}
+        found = problems(files)
+        self.assertEqual(len(found), 2)
+        self.assertIn("examples/a/xs.toml:1", found[0])
+        self.assertIn("examples/a/xs.toml:3", found[1])
+
+    def test_an_exclusion_is_judged_by_the_issue_next_to_it(self):
+        files = {
+            "examples/a/xs.toml": "# Pm-147 は外す（#0002）。温度の点は #0001 の履歴\n",
+            "examples/b/xs.toml": "# Pm-147 は外し、後で戻す（#0002）\n# #0002 まで省く\n",
+        }
+        found = problems(files)
+        self.assertEqual(len(found), 3)
+        self.assertIn("examples/a/xs.toml:1", found[0])
 
     def test_an_exclusion_is_a_dropping_word_next_to_an_issue(self):
         lines = [
@@ -146,12 +191,15 @@ class InputComments(unittest.TestCase):
         self.assertIn("examples/a/xs.toml:2", found[0])
         self.assertIn("#0002", found[0])
 
-    def test_trial_inputs_of_an_issue_are_not_checked(self):
+    def test_trial_inputs_of_an_issue_are_not_checked_but_their_tests_are(self):
         files = {
             "examples/depletion/issue-0002/pin.toml": "# 時間のために外した（#0002）\n",
             "examples/depletion/trials-x/pin.toml": "# 仮の値\n",
+            "examples/depletion/issue-0002/test_a.py": SKIP + '("後で")\n',
         }
-        self.assertEqual(problems(files), [])
+        found = problems(files)
+        self.assertEqual(len(found), 1)
+        self.assertIn("examples/depletion/issue-0002/test_a.py:1", found[0])
 
     def test_values_are_not_comments(self):
         files = {"examples/a/xs.toml": 'note = "仮の値"\n'}
@@ -159,11 +207,25 @@ class InputComments(unittest.TestCase):
 
 
 class Statuses(unittest.TestCase):
-    def test_an_unknown_issue_is_reported(self):
-        files = {".textlintignore": "# 後で（#0999）\na.toml\n"}
+    def test_an_unknown_issue_is_reported_unless_an_open_one_is_cited(self):
+        files = {
+            ".textlintignore": "# 後で（#0999）\na.toml\n\n# 色は #0000ff、理由は #0001、上流の #1234\nb.toml\n"
+        }
         found = problems(files)
         self.assertEqual(len(found), 1)
+        self.assertIn(".textlintignore:2", found[0])
         self.assertIn("#0999", found[0])
+
+    def test_a_status_must_be_a_word_in_the_front_matter_of_one_file_per_number(self):
+        empty = {"docs/issues/0001-a.md": "---\nstatus:\nlabels: [x]\n---\n"}
+        outside = {"docs/issues/0001-a.md": "---\nlabels: [x]\n---\n\nstatus: open\n"}
+        twice = {
+            "docs/issues/0001-a.md": "---\nstatus: open\n---\n",
+            "docs/issues/0001-b.md": "---\nstatus: closed\n---\n",
+        }
+        for issues in (empty, outside, twice):
+            with self.assertRaises(ValueError):
+                exc.issue_statuses(issues)
 
     def test_statuses_come_from_the_given_issue_files_only(self):
         issues = {
