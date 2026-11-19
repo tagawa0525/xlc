@@ -28,7 +28,6 @@ ADR-0234 で固有値計算を市松の 2 色の順で並列に解いた後に�
 - スレッドの数の規則（`RAYON_NUM_THREADS` の読み取りと、物理コアの数を許された論理 CPU の数で抑えた既定）が、lattice の `use_allowed_cpus`、xs の
   `parallel::cores`、core の `use_threads` に分かれている（レビューの指摘）。共通のクレートに移すと xs と lattice の実行ファイルのバイトが変わる（ADR-0232 の案 S2
   と同じ）。物理コアの数は機械の全体の数なので、排他でない `-c` のジョブでは SMT の兄弟を含む数になる（xs と同じ。CLAUDE.md の「計算」）
-- 比べるツールの `parse` は、`compare_core_guess.py` と `compare_core_acceleration.py` でも空のパスを見つけない（`Path('')` は `.`。`compare_core_threads.py` は直した）
 
 - 状態を並列に解く `case::solve_states`（ADR-0234 の案 S1）は、スレッドを固定で状態のワーカーに分けるので、待つ状態が無くなったワーカーのスレッドは、まだ解いて
   いる状態を手伝わない（16 スレッドで 17 状態なら、17 番目は 1 スレッドで解く）。ワーカーごとにプールを作り、作れないワーカーが取った状態だけがエラーになる
