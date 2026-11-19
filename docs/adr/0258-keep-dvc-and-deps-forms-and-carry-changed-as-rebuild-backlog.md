@@ -448,11 +448,14 @@ ADR-0257）は、上の段の実装のブランチで、その ADR の決定と�
 - 残高の大きさは、`scripts/count-changed-stages.py` の changed の数で読む。時間の和を出す手段は無く、ステージごとの実行時間の
   記録も持たない（案 T1 を採らない）ので、作り直しの見積もりは、文書の値（背景の「作り直しの規模」）、検証の記録、Slurm の
   ログから人が出す
-- 実装は決定に一部だけ追いついている。移行の順の段 2（`scripts/dvc-repro.py -s`）と段 3（付け直しのコマンド
-  `scripts/dvc-relock.py`）は入り、ADR-0184 の 2 つの例外、ADR-0130 の帰結、ADR-0257 の「使い方」を合わせた。スキル dvc-relock の
-  前半は、コマンドを呼ぶことと、止まったときの調べ方になった。段 1、4、5 は未着手で、#0298 にある。段 1 が入るまでは、Python と
-  TOML の正規形はコミットの hook でなく付け直しのコマンドとステージの実行の前に書き直し、段 5 が入るまでは、形式を変える修正かは
-  差分を読んで判断する
+- 実装は決定に一部だけ追いついている。移行の順の段 1（pre-commit の hook `normalized-forms`、`scripts/normalized_forms.py`）、
+  段 2（`scripts/dvc-repro.py -s`）と段 3（付け直しのコマンド `scripts/dvc-relock.py`）は入り、ADR-0184 の 2 つの例外、ADR-0130 の
+  帰結、ADR-0257 の「使い方」を合わせた。スキル dvc-relock の前半は、コマンドを呼ぶことと、止まったときの調べ方になった。段 4、5 は
+  未着手で、#0298 にある。段 5 が入るまでは、形式を変える修正かは差分を読んで判断する
+- 段 1 の hook は、foreach の並びを、追跡しているすべての `dvc.yaml` のステージが deps にする正規形から決め、並びから外れた項の
+  直下の lock の項と正規形のファイルも消す（`dvc repro` は、foreach から消えた項の lock を残すため）。付け直しのコマンドも、正規形を
+  実行する前に同じ部品で並びを合わせる（rebase の pick は pre-commit の hook を通らない）。hook は .py、TOML、
+  YAML、`dvc.yaml`、直下の `dvc.lock`、正規形を変えたコミットで走り、手元で 1 回 1.4〜3.1 秒かかる（「確認」の段 1）
 - `-s` の経路は、上流の正規形のステージが changed なら、目標の前にそれを `dvc repro -s` で実行する。直下の `dvc.lock` と
   `python-ast/`、`toml-values/`、`binary-forms/` が書き換わるので、Slurm のジョブでも、終わった後にこれらを目標の lock と一緒に
   コミットする
@@ -495,6 +498,25 @@ ADR-0257）は、上の段の実装のブランチで、その ADR の決定と�
 - 段 1: 注釈だけを変えた .py と TOML のコミットで、hook が正規形のバイトを変えず、直下の `dvc.lock` の元の md5 だけを書き直すこと。
   値を変えたコミットで、hook が正規形も書き直すこと。例の deps に新しい .py か TOML を足したコミットで、hook が foreach の並びと
   正規形を足すこと。例の `dvc.lock` に差分が無いこと（`git diff --stat`）
+  入ったもの（ブランチ feat/0298-normalized-form-hook、2026-11-20）:
+  - `scripts/test_normalized_forms.py`（dvc を PATH の偽物に替えた一時のリポジトリで）: foreach の並びが、例の deps（vars の
+    foreach を解いたものを含む）と直下のほかのステージの deps の正規形の元のファイルになること。並びが合い、ステージが何も
+    書かなければ、何も書かずに終了コード 0。ステージが書き直したファイルと、並びを書き直した `dvc.yaml` を `REWRITTEN:` に出して
+    終了コード 1 で止まり、それを `git add` すると次は 0 になること。例の deps に足した正規形が並びに入ること。どのステージも
+    deps にしない項は、並び、直下の lock の項、正規形のファイルから消え、ほかの lock の行はバイトで残ること。並びが空になる
+    ステージは何も書かずに止まること。2 組を 1 つの `dvc repro -s dvc.yaml:python-ast dvc.yaml:toml-values` で実行し、失敗すれば
+    止まること
+  - `scripts/test_dvc_relock.py` の `test_the_foreach_follows_the_deps_before_the_normalized_forms_run`: 付け直しのコマンドが、
+    正規形の `dvc repro -s` の前に並びを例の deps に合わせ、`dvc.yaml` を `COMMIT:` に出すこと
+  - 実際のコミット（hook は xlc 7d54a9637、分岐点は main 3e134ac6a。出力を戻していない worktree、手元、2026-11-20。試しの
+    コミットは使い捨てのブランチで行い、消した）: examples/vera/compare_k.py に注釈を 1 行足すと、hook が直下の `dvc.lock` の
+    元の md5 だけを書き直して止まり（正規形は変わらない）、`git add` の後のコミットは通った。examples/vera/p6/core-6.toml に
+    注釈を 1 行足しても、`dvc.lock` だけを書き直して止まった。examples/vera/xs.toml の値を変えると、
+    `dvc.lock` と `toml-values/examples/vera/xs.toml.json` を書き直して止まった。examples/vera/dvc.yaml の compare-1B の deps に
+    新しい .py の正規形を足すと、直下の `dvc.yaml` の並び、`dvc.lock`、その正規形を書き直し、deps から外すと、3 つから消えた。
+    例の `dvc.lock` は、どのコミットでも変わらなかった。hook の時間（pre-commit が出す `duration`）は、書き直す物が無いとき
+    1.4 秒、1 つのファイルを書き直すとき 2.3 秒、正規形を 1 つ足すとき 3.1 秒（直接の実行で、書き直す物が無いときの 3 回は
+    1.4〜2.1 秒）
 - 段 2: `-s` の経路のテスト。上流の outs を消した作業ツリーで止まること。Slurm に投げる生の `dvc repro -s` を hook が止めること。
   入ったもの（ブランチ feat/0298-skip-upstream-route、2026-11-20）:
   - `scripts/test_dvc_repro.py` の `PlanSingleItem` と、`Process` の `test_single_item_*`（PATH に置いた偽の dvc で）: 上流の changed が
