@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [depletion, verification]
 opened: 2026-10-24
-closed:
+closed: 2026-11-19
 milestone: M4
 blocked-by: []
-resolution:
+resolution: コミット 44736401b
 ---
 
 # 集合体をまたぐ燃焼の比較の要約の表が検証の記録に無い
@@ -42,3 +42,4 @@ ADR-0238 の「帰結」のとおり changed で、再実行していない。�
 
 - 2026-10-24: p2 の再実行のあとの評価で、種類をまたぐ表が無いことが分かり、今は直さないと決めた
 - 2026-11-08: M4 の計画の「進め方」の 5 から、2026-11-03〜04 の再実行の要約の値を移し、2026-10-24 の値と置き換えた
+- 2026-11-19: 表 `depletion-assembly-summary` を足し、examples/depletion/verification.md の「集合体の燃焼」の「種類をまたぐ要約」に置いた。値は同じ節の「計算」の実行（2026-11-15〜17）の比較の JSON で、各節の表と一致する（`--check`）
