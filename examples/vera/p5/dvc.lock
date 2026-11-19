@@ -2354,8 +2354,8 @@ stages:
       size: 150197
     - path: hzp/core-hzp.toml
       hash: md5
-      md5: 6b49804e7ff872f02ecd46d8f3a6f584
-      size: 6841
+      md5: b5bbce2e34fa617616e82b56233b3513
+      size: 6853
     outs:
     - path: hzp/compare-hzp.out
       hash: md5

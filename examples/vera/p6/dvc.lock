@@ -304,10 +304,10 @@ stages:
       size: 2153
     - path: lattice-6-fuel.toml
       hash: md5
-      md5: 0109ed27c573060a6aa4e3fb0d9e26d3
-      size: 3941
+      md5: 51a8330abb74b59958bc6993c6bd306a
+      size: 3947
     outs:
     - path: compare-6.json
       hash: md5
-      md5: dff4c3c2a434d0b86a567d0dbf843bae
+      md5: 09012252d3d25819b529b64d51ff6bf2
       size: 10189
