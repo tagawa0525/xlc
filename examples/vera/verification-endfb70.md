@@ -77,24 +77,86 @@ xlc − KENO-VI は (k_xlc − k_KENO-VI) × 1e5 pcm。ENDF/B-VIII.0 の側は�
 
 <!-- /table -->
 
+## NJOY で処理した ENDF/B-VII.0 の OpenMC との比較（1B、1D、2B）
+
+VII.0 の xlc − KENO-VI が、VIII.0 の xlc − OpenMC より大きい理由を分けるため（[#0131](../../docs/issues/0131-endfb70-keno-offset.md)）、
+同じ ENDF/B-VII.0 を NJOY で処理した OpenMC のライブラリ（`endfb70/openmc/openmc-library.toml`）で 1B、1D、2B を解き、xlc（VII.0 の検証用ライブラリ）と
+KENO-VI の間に置いた（ADR-0175 が許す診断。ステージは `endfb70/openmc/dvc.yaml`、比較のツールは `compare_openmc_keno.py`）。xlc − OpenMC の ± は
+OpenMC の統計誤差、OpenMC − KENO-VI の ± は OpenMC と KENO-VI の統計誤差の二乗和の平方根（xlc は決定論で誤差を持たない）。
+
+<!-- table: endfb70-openmc -->
+
+| 問題 | xlc の k | OpenMC の k         | KENO-VI の k        | xlc − OpenMC | OpenMC − KENO-VI | xlc − KENO-VI | ピン出力の差の RMS、最大（OpenMC − KENO-VI） | ピン出力の差の RMS、最大（xlc − OpenMC） |
+| ---- | -------- | ------------------- | ------------------- | ------------ | ---------------- | ------------- | -------------------------------------------- | ---------------------------------------- |
+| 1B   | 1.184189 | 1.183151 ± 0.000045 | 1.182149 ± 0.000068 | +104 ± 4 pcm | +100 ± 8 pcm     | +204 pcm      |                                              |                                          |
+| 1D   | 1.164583 | 1.164411 ± 0.000047 | 1.162603 ± 0.000071 | +17 ± 5 pcm  | +181 ± 9 pcm     | +198 pcm      |                                              |                                          |
+| 2B   | 1.185321 | 1.184300 ± 0.000048 | 1.183360 ± 0.000024 | +102 ± 5 pcm | +94 ± 5 pcm      | +196 pcm      | 0.032%、−0.088%（39 点）                     | 0.080%、+0.197%（264 点）                |
+
+<!-- /table -->
+
+- 3 つの差はどれも統計誤差で区別できる（最も小さい 1D の xlc − OpenMC でも ± の 3.7 倍、OpenMC − KENO-VI は ± の 12〜21 倍）
+- xlc − KENO-VI（+204、+198、+196 pcm）のうち、同じ評価済みデータの OpenMC と KENO-VI の間に +100 ± 8（1B）、+181 ± 9（1D）、
+  +94 ± 5 pcm（2B）がある。残りの xlc − OpenMC は +104 ± 4、+17 ± 5、+102 ± 5 pcm
+- VIII.0 の xlc − OpenMC（同じ d6cc90d9 の xlc の k（上の「格子」の表の出どころの `compare-keno-<問題>.json`。1B 1.182648、1D 1.163165、
+  2B 1.184193）から verification.md の「参照解」の OpenMC の k を引いたもの）は +87 ± 6、−4 ± 7、+77 ± 5 pcm。VII.0 の xlc − OpenMC はこれより
+  +17 ± 8、+21 ± 8、+25 ± 7 pcm 大きい（± は 2 つの OpenMC の統計誤差を独立として合わせたもの。同じ乱数のシードで、相関は測っていない）
+- 言い換えると、ライブラリを VIII.0 から VII.0 に替えたときの k の動きは、xlc が +154、+142、+113 pcm、OpenMC が +137 ± 8、+121 ± 8、
+  +88 ± 7 pcm で、xlc と NJOY の VII.0 の処理は 3 問題とも 25 pcm 以内で同じ動きを出す。差の +17〜+25 pcm は ± の 2.2〜3.5 倍で、
+  3 問題とも同じ符号。その原因は確かめていない
+- したがって、VII.0 の xlc − KENO-VI が VIII.0 の xlc − OpenMC より大きい分（1B で 204 − 87 = +117 pcm）は、主に OpenMC（NJOY）と KENO-VI の差
+  （+100 pcm）で、xlc の VII.0 の処理に帰せるのは +17 pcm 程度。OpenMC − KENO-VI の原因（AMPX と NJOY の処理の差、KENO-VI のモデルの解釈、
+  共鳴の散乱の扱い）は分けていない（候補。#0131）。xlc と OpenMC のモデルは同じ解釈（ギャップは真空、Hf を除く）なので、この比較では
+  モデルの解釈と処理の差を分けられない
+- 2B のピン出力は、OpenMC − KENO-VI の RMS が 0.032%（最大 −0.088%）で、xlc − KENO-VI（0.049%、+0.111%。上の「格子」の表）と同じ程度。
+  xlc − OpenMC は RMS 0.080%、最大 +0.197% で、OpenMC のピンごとの統計誤差を含む（その大きさはこの比較では出していない）
+
+### 燃料の温度による変化（1B と 1D）
+
+1B（燃料 600 K）から 1D（1200 K）への差の変化を、核データの版ごとに並べる（[#0083](../../docs/issues/0083-fuel-temperature-slope.md)）。
+上の表と箇条書きの値の差で、± は関係する統計誤差の二乗和の平方根。
+
+- xlc − OpenMC の変化は、VII.0 で −87 ± 6 pcm（+104 → +17）、VIII.0 で −90 ± 9 pcm（+87 → −4）。2 つの版で同じ（差は 4 ± 11 pcm）で、
+  この傾きは核データの版によらず、xlc と OpenMC の手法の差にある
+- 同じ VII.0 での OpenMC − KENO-VI の変化は +81 ± 12 pcm（+100 → +181）、xlc − KENO-VI の変化は −6 ± 10 pcm（+204 → +198）。
+  燃料の温度による k の変化は、xlc と KENO-VI が統計誤差の中で同じで、OpenMC だけが小さい: 1B から 1D の反応度の変化
+  （1/k_1B − 1/k_1D）は、VII.0 で xlc −1422、KENO-VI −1422、OpenMC −1360 pcm、VIII.0 で xlc −1416、OpenMC −1352 pcm
+- どのコードの温度の変化が正しいかは、この比較では決まらない。OpenMC の参照解は、分離共鳴を持つ核種の散乱を 400 kT より下で断面積一定の
+  自由ガスとして扱い、共鳴の上方散乱（DBRC など）を使っていない（ADR-0204 の背景）。KENO-VI がこれを使ったかは入力が公開されておらず
+  確かめていない（候補）。xlc の自己遮蔽の減速計算も断面積一定の自由ガスで、共鳴の形を入れた散乱核は使っていないが、自由ガスにする
+  入射エネルギーの上限が OpenMC の 400 kT でなく、温度によらない 31 eV である（ADR-0243）
+
+### 核種を 1 つずつ VII.0 に替えた xlc の k の動き（1B）
+
+1B の核種だけの VIII.0 のライブラリを、核種ごとのステージの出力（`xs-nuclides/` と `endfb70/xs-nuclides/`）から `xs assemble` で組み、
+核種（または元素）を 1 つだけ VII.0 の出力に替えて 1B を解いた（入力は試行の `trials/0131-nuclide-swap/<場合>/` の `xs.toml`、`nuclides/`、
+`pincell-1B.toml`。コミット 1867c08a。計算は「計算」）。すべて VIII.0 の k は 1.182648、すべて VII.0 は 1.184189 で、上の表の出どころの値と同じ。
+
+- 替えた核種ごとの k の動き: U-238 −267、U-235 +203、O-16 +159、H-1 +91、Zr −42、B +9 pcm。Fe と Cr、Sn、U-234 と U-236 はどれも 1 pcm 未満。
+  和は +153 pcm で、すべてを替えた +154 pcm と 2 pcm 以内で合う（核種ごとの動きはほぼ加法的）
+- 動きは符号の違う 100〜270 pcm の項の和で、版による k の動き（+154 pcm）は 1 つの核種のものではない。OpenMC の側で同じ核種の入れ替えは
+  行っていないので、核種ごとに xlc と NJOY の処理が合うかは確かめていない（全体では上の節のとおり +17 ± 8 pcm の差）
+
 ## 結論
 
 結論は上の表の数値で支えられることだけを書く。
 
 - 止まった核種はない。
-- k: 15 の格子で、ENDF/B-VII.0 の xlc − KENO-VI は +80〜+245 pcm（平均 +137）、3A は +157 pcm、3B は +137 pcm。ENDF/B-VIII.0 では
-  格子が −33〜+159 pcm（平均 +63）、3A が +62 pcm、3B が +165 pcm。VII.0 のほうが小さいのは 2F、2G、2J、3B だけで、1B〜1D、2A〜2D、2I、2Q と 3A では VII.0 のほうが +95〜+172 pcm 大きく、
-  2E、2H、2K は +11〜+27 pcm 大きい。
-- VIII.0 の xlc − OpenMC（同じ核データの手法の差。verification.md の「OpenMC との比較」と「Problem 3 の炉心の計算」）は格子で平均 +12 pcm
-  （−93〜+72）、3A が +38 pcm、3B が +41 pcm。核データの版が揃えば xlc − KENO-VI もこの大きさになると見込んだが、VII.0 の
-  xlc − KENO-VI は平均で約 +125 pcm 大きい。VIII.0 では xlc − KENO-VI（平均 +63.3）が xlc − OpenMC（+11.6）と OpenMC − KENO-VI（+51.7）の
-  和（+63.3）に等しいので、この食い違いは VII.0 のライブラリでの xlc の動きにある。原因は確かめていない
-  （候補は xlc の VII.0 のファイルの扱い、AMPX と NJOY の処理の差、KENO-VI のモデルの解釈。[#0131](../../docs/issues/0131-endfb70-keno-offset.md)）。
-  したがって「VIII.0 での KENO-VI との差の残りは核データの版の差」とは、k については言えない。
-- ピン出力: 吸収体のある集合体（2E〜2H、2J、2K）で、VII.0 のライブラリの xlc − KENO-VI の RMS は VIII.0 の 0.48〜0.61 倍に下がる
+- k: 15 の格子で、ENDF/B-VII.0 の xlc − KENO-VI は +98〜+282 pcm（平均 +176）、3A は +196 pcm、3B は +165 pcm。ENDF/B-VIII.0 では
+  格子が +41〜+199 pcm（平均 +116）、3A が +114 pcm、3B が +205 pcm。VII.0 のほうが小さいのは 2F、2G、2J、3B だけで、1B〜1D、2A〜2D、2I、2Q と 3A では VII.0 のほうが +82〜+154 pcm 大きく、
+  2E、2H、2K は +3〜+17 pcm 大きい。
+- 核データの版を揃えても、xlc − KENO-VI は VIII.0 の xlc − OpenMC（同じ核データの手法の差）の大きさにならない: 1B、1D、2B で、VII.0 の
+  xlc − KENO-VI は +204、+198、+196 pcm、VIII.0 の xlc − OpenMC は +87、−4、+77 pcm。この食い違いは、主に同じ VII.0 の OpenMC（NJOY）と
+  KENO-VI の差（+100 ± 8、+181 ± 9、+94 ± 5 pcm）で、xlc の VII.0 の処理に帰せるのは +17〜+25 pcm（「NJOY で処理した ENDF/B-VII.0 の OpenMC との比較」）。
+  OpenMC − KENO-VI の原因は分けていない（候補は AMPX と NJOY の処理の差、KENO-VI のモデルの解釈、共鳴の散乱の扱い。
+  [#0131](../../docs/issues/0131-endfb70-keno-offset.md)）。測ったのは 1B、1D、2B だけで、吸収体のある集合体（2E〜2K）と 3A、3B の OpenMC（VII.0）は無い。
+  したがって「KENO-VI との差の残りは xlc の手法の差」とは、版を揃えても k については言えない。
+- 燃料の温度による xlc − OpenMC の変化（1B から 1D）は、VII.0 で −87 ± 6 pcm、VIII.0 で −90 ± 9 pcm と版によらず、xlc − KENO-VI の変化は
+  −6 ± 10 pcm（「燃料の温度による変化」）。xlc と KENO-VI の温度の変化が合い、OpenMC が小さい。どれが正しいかは決まっていない
+  （[#0083](../../docs/issues/0083-fuel-temperature-slope.md)）。
+- ピン出力: 吸収体のある集合体（2E〜2H、2J、2K）で、VII.0 のライブラリの xlc − KENO-VI の RMS は VIII.0 の 0.48〜0.60 倍に下がる
   （上の表。3B のピン出力も 0.086% と 0.149%）。2B〜2D、2A、2I、2Q と 3A は両方で同じ程度。軸方向の出力の差の RMS は 3A、3B とも
-  VII.0 のほうがわずかに大きい（3A 0.0032 と 0.0028、3B 0.0023 と 0.0019）。VIII.0 で残っていた吸収体のまわりのピン出力の差が下がる理由は、核データの版（B-10、Si、Ag・In・Cd など）
-  が候補だが、核種を 1 つずつ替えて分けておらず、k の差の原因が未解決（#0131）で xlc の VII.0 の扱いも候補のため、確かめていない。
+  VII.0 のほうがわずかに大きい（3A 0.0033 と 0.0029、3B 0.0023 と 0.0019）。VIII.0 で残っていた吸収体のまわりのピン出力の差が下がる理由は、核データの版（B-10、Si、Ag・In・Cd など）
+  が候補だが、吸収体の核種を 1 つずつ替えて分けておらず、確かめていない。
 
 ## 計算
 
@@ -106,3 +168,15 @@ VIII.0 の 3A、3B（`p3/dvc.yaml`）は 899（`xlc-vera-p3-p6-colorset-split-de
 d6cc90d9 の既定（入力は `ufg-*` を書かない。求積 6 点の ADR-0252 と、自由ガスの核種の絞り込みの ADR-0251 を含む）。ステージの入力と出力の md5 は
 `endfb70/dvc.lock`、`endfb70/p3/dvc.lock`、`dvc.lock`、`p3/dvc.lock`。表の数値は `python3 examples/verification_tables.py examples/vera/verification-endfb70.md` が JSON から描く
 （[ADR-0176](../../docs/adr/0176-generate-verification-tables.md)）。
+
+OpenMC（ENDF/B-VII.0）の 1B、1D、2B は c4991e00（ブランチ fix/0131-endfb70-keno-offset、分岐点は main の 0500a720）、2026-11-19。Slurm 961
+（`openmc-endfb70-1B-1D-2B`。割り込まれうる排他のジョブで、時間は記録に使わない）で、`endfb70/openmc/dvc.yaml` の `openmc-neutron`（U-234、U-235、U-236、U-238、O-16 の
+600 K と 1200 K）、`openmc-index`、`openmc-model`、`openmc-run`、`openmc-extract` を `dvc repro` で実行した。ほかの核種（600 K）と H in H2O の
+ライブラリは 2026-10-21 に lock したもの（`endfb70/openmc/dvc.lock`）。1 世代 100 万粒子、乱数のシード 1、16 スレッドで、1B と 1D は 450 世代
+（最初の 50 世代を捨てる）、2B は 500 世代（最初の 100 世代を捨てる）。比較（`compare-1B`、`compare-1D`、`compare-2B`）は fb3bd439（分岐点は main の bb8f2869）、
+2026-11-20 に手元で実行した。上流の xlc のステージ（`endfb70/dvc.yaml` の `pincell`、`assembly`）は deps（実行ファイルの正規形）だけが changed で、
+出力は `endfb70/dvc.lock` のとおりなので、`dvc repro -s` で lock の出力（上の d6cc90d9 の Slurm 898 のもの）を読んだ（ADR-0184）。
+
+核種を 1 つずつ替えた 1B の試行は 0500a720（main。試行の入力は追跡していない状態で実行し、同じ入力を 1867c08a でコミットした）、2026-11-19 に手元で
+`bin/xs assemble <場合>/xs.toml examples/vera/xs-range.toml <場合>/nuclides` と `bin/lattice <場合>/pincell-1B.toml` を実行した。
+すべて VIII.0 とすべて VII.0 の場合の k は、Slurm 897、898 のライブラリの値（上の表の出どころ）と 6 桁で一致する。入力をコミットした後の再実行はしていない。
