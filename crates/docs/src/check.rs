@@ -121,22 +121,19 @@ impl Docs {
             .collect()
     }
 
-    /// CLAUDE.md と、docs と examples の Markdown の、コードブロックの外にあるコミットの hash らしい語（`hex_words`）
-    /// と、その場所。git で hash が指すものを確かめるのは呼ぶ側（tests/consistency.rs）。
+    /// CLAUDE.md と、docs、examples、.claude の Markdown にあるコミットの hash らしい語（`hex_words`）と、その場所。
+    /// コードブロックの中も読む（`git show <hash>` のような再現の手順こそ、辿れる hash が要る）。git で hash が
+    /// 指すものを確かめるのは呼ぶ側（tests/consistency.rs）。
     pub fn cited_hashes(&self) -> Vec<Citation> {
         let mut cited = Vec::new();
         for (path, text) in &self.texts {
-            if !scanned_markdown(path) {
+            if !scanned_for_hashes(path) {
                 continue;
             }
-            // 閉じていないコードブロックは check の scanned_lines が違反にする
-            let Ok(lines) = markdown_lines(text) else {
-                continue;
-            };
-            for (line, content) in lines {
+            for (i, content) in text.lines().enumerate() {
                 cited.extend(hex_words(content).into_iter().map(|hash| Citation {
                     path: path.clone(),
-                    line,
+                    line: i + 1,
                     hash: hash.to_string(),
                 }));
             }
@@ -175,7 +172,7 @@ impl Docs {
     /// Markdown の相対リンク先があるか。絶対パスと、http、https、mailto 以外のスキームは違反にする。
     fn check_links(&self, lines: &BTreeMap<&str, Vec<(usize, &str)>>, out: &mut Violations) {
         for (path, lines) in lines {
-            if !scanned_markdown(path) {
+            if !scanned_for_links(path) {
                 continue;
             }
             let dir = path.rsplit_once('/').map_or("", |(dir, _)| dir);
@@ -315,8 +312,13 @@ fn scanned_for_refs(path: &str) -> bool {
         || (path.starts_with("crates/") && ["rs", "toml"].contains(&ext))
 }
 
-/// 相対リンクと引くコミットを確かめるファイル: CLAUDE.md と、docs と examples の Markdown。
-fn scanned_markdown(path: &str) -> bool {
+/// 引くコミットを確かめるファイル: CLAUDE.md と、docs、examples、.claude の Markdown。
+fn scanned_for_hashes(path: &str) -> bool {
+    scanned_for_links(path) || (path.starts_with(".claude/") && extension(path) == "md")
+}
+
+/// 相対リンクを確かめるファイル: CLAUDE.md と、docs と examples の Markdown。
+fn scanned_for_links(path: &str) -> bool {
     path == "CLAUDE.md"
         || ((path.starts_with("docs/") || path.starts_with("examples/")) && extension(path) == "md")
 }

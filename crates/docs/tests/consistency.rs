@@ -78,9 +78,10 @@ impl Repo<'_> {
         let mut stdin = child.stdin.take().ok_or("git has no stdin")?;
         let writer = std::thread::spawn(move || stdin.write_all(input.as_bytes()));
         let output = child.wait_with_output()?;
-        writer
+        let written = writer
             .join()
-            .map_err(|_| "the thread writing to git panicked")??;
+            .map_err(|_| "the thread writing to git panicked")?;
+        // git が先に止まると書き込みは broken pipe になるので、git の失敗（標準エラーに原因）を先に示す
         if !output.status.success() {
             return Err(format!(
                 "git {args:?} failed: {}",
@@ -88,6 +89,7 @@ impl Repo<'_> {
             )
             .into());
         }
+        written?;
         Ok(String::from_utf8(output.stdout)?)
     }
 
@@ -138,66 +140,90 @@ fn reachable_commits(repo: &Repo) -> Result<HashSet<String>> {
         .collect())
 }
 
-const UNREACHABLE: &str = "is not reachable from HEAD, a branch or a tag \
-                           (cite the rebased commit, or tag the commit to keep it)";
-
-/// `hash` が `reachable` のコミットを指すか。違えば理由を返す。
-fn commit_problem(repo: &Repo, reachable: &HashSet<String>, hash: &str) -> Result<Option<String>> {
-    let commit = format!("{hash}^{{commit}}");
-    let parsed = repo.git(&["rev-parse", "--quiet", "--verify", &commit])?;
-    if !parsed.status.success() {
-        return Ok(Some(format!("commit {hash} does not exist")));
-    }
-    let full = String::from_utf8(parsed.stdout)?;
-    Ok((!reachable.contains(full.trim())).then(|| format!("commit {hash} {UNREACHABLE}")))
+/// 文書の中の hash が指すもの。
+enum Named {
+    /// コミット（完全な hash）。注釈つきのタグのオブジェクトは、その先のコミット
+    Commit(String),
+    /// 先頭が同じコミットが 2 つ以上ある
+    Ambiguous,
+    /// コミットでない（md5、ほかのリポジトリのコミット、blob、消えたコミット）
+    Other,
 }
 
-/// 文書が引く hash のうち、このリポジトリのコミットを指すが `reachable` に無いものと、どのオブジェクトを指すか
-/// 決まらない（短すぎる）ものの、違反の文。コミットを指さない 16 進（md5、ほかのリポジトリのコミット、blob、
-/// 注釈つきのタグのオブジェクト）は見ない。消えたコミット（git gc の後）も md5 と区別できないので見逃す
-fn cited_commit_problems(
-    repo: &Repo,
-    reachable: &HashSet<String>,
-    cited: &[Citation],
-) -> Result<Vec<String>> {
-    let hashes: Vec<&str> = cited
-        .iter()
-        .map(|c| c.hash.as_str())
-        .collect::<BTreeSet<_>>()
-        .into_iter()
-        .collect();
+/// `hashes` が指すものを、1 つの `git cat-file --batch-check` で引く。`<hash>^{commit}` で引くので、git は
+/// コミットだけで短い hash を決める（blob や tree と先頭が重なっても ambiguous にならない）
+fn name_commits<'a>(repo: &Repo, hashes: &BTreeSet<&'a str>) -> Result<BTreeMap<&'a str, Named>> {
     if hashes.is_empty() {
-        return Ok(Vec::new());
+        return Ok(BTreeMap::new());
     }
-    let objects = repo.stdout_with_input(
+    let input: String = hashes.iter().map(|h| format!("{h}^{{commit}}\n")).collect();
+    let output = repo.stdout_with_input(
         &[
             "cat-file",
             "--batch-check=%(objectname) %(objecttype)",
             "--buffer",
         ],
-        hashes.join("\n") + "\n",
+        input,
     )?;
-    let mut problems = BTreeMap::new();
-    for (hash, object) in hashes.iter().zip(objects.lines()) {
-        let problem = match object.split_once(' ') {
-            Some((full, "commit")) if !reachable.contains(full) => {
-                format!("commit {hash} {UNREACHABLE}")
-            }
-            Some((_, "ambiguous")) => {
-                format!("{hash} names more than one object (write more digits)")
+    let lines: Vec<&str> = output.lines().collect();
+    if lines.len() != hashes.len() {
+        return Err(format!(
+            "git cat-file answered {} lines for {} names",
+            lines.len(),
+            hashes.len()
+        )
+        .into());
+    }
+    Ok(hashes
+        .iter()
+        .zip(lines)
+        .map(|(hash, line)| {
+            let named = match line.split_once(' ') {
+                Some((full, "commit")) => Named::Commit(full.to_string()),
+                Some((_, "ambiguous")) => Named::Ambiguous,
+                _ => Named::Other,
+            };
+            (*hash, named)
+        })
+        .collect())
+}
+
+/// 閉じた issue の `resolution` の hash（パスと hash）がコミットを指すか、文書が引く hash（`cited`）のうち
+/// コミットを指すものが HEAD、ブランチ、タグから辿れるかを確かめ、違反の文を返す。`resolution` の行も
+/// `cited` に入るので、辿れるかは `cited` の側だけで見る（同じ hash を 2 度示さない）。コミットを指さない
+/// 16 進は md5 などと区別できないので、`resolution` のほかでは見ない（git gc の後の消えたコミットも見逃す）
+fn commit_problems(
+    repo: &Repo,
+    resolutions: &[(String, String)],
+    cited: &[Citation],
+) -> Result<Vec<String>> {
+    let hashes: BTreeSet<&str> = resolutions
+        .iter()
+        .map(|(_, h)| h.as_str())
+        .chain(cited.iter().map(|c| c.hash.as_str()))
+        .collect();
+    let named = name_commits(repo, &hashes)?;
+    let reachable = reachable_commits(repo)?;
+    let mut problems: Vec<String> = resolutions
+        .iter()
+        .filter(|(_, hash)| !matches!(named.get(hash.as_str()), Some(Named::Commit(_))))
+        .map(|(path, hash)| format!("{path}: `resolution` names commit {hash} that does not exist"))
+        .collect();
+    for c in cited {
+        let problem = match named.get(c.hash.as_str()) {
+            Some(Named::Commit(full)) if !reachable.contains(full) => format!(
+                "commit {} is not reachable from HEAD, a branch or a tag \
+                 (cite the rebased commit, or tag the commit to keep it)",
+                c.hash
+            ),
+            Some(Named::Ambiguous) => {
+                format!("{} names more than one commit (write more digits)", c.hash)
             }
             _ => continue,
         };
-        problems.insert(*hash, problem);
+        problems.push(format!("{}:{}: {problem}", c.path, c.line));
     }
-    Ok(cited
-        .iter()
-        .filter_map(|c| {
-            problems
-                .get(c.hash.as_str())
-                .map(|p| format!("{}:{}: {p}", c.path, c.line))
-        })
-        .collect())
+    Ok(problems)
 }
 
 /// 今のブランチが main のとき、`trials/` の下で追跡しているファイル。ほかのブランチと detached HEAD では空。
@@ -250,15 +276,9 @@ fn docs_are_consistent() -> Result<()> {
 
     let docs = Docs::new(texts, others);
     let mut violations: Vec<String> = docs.check().iter().map(ToString::to_string).collect();
-    let reachable = reachable_commits(&repo)?;
-    for (path, hash) in docs.resolution_commits() {
-        if let Some(problem) = commit_problem(&repo, &reachable, &hash)? {
-            violations.push(format!("{path}: `resolution` names {problem}"));
-        }
-    }
-    violations.extend(cited_commit_problems(
+    violations.extend(commit_problems(
         &repo,
-        &reachable,
+        &docs.resolution_commits(),
         &docs.cited_hashes(),
     )?);
     assert!(
@@ -385,8 +405,9 @@ impl TempRepo {
         self.run(&["rev-parse", "HEAD"])
     }
 
+    /// 文書が完全な `hash` を引いたときの最初の違反
     fn problem(&self, hash: &str) -> Result<Option<String>> {
-        commit_problem(&self.repo(), &reachable_commits(&self.repo())?, hash)
+        Ok(self.cited(&format!("{hash}\n"))?.into_iter().next())
     }
 
     /// 1 つの文書 `text` が引く hash の違反
@@ -395,11 +416,7 @@ impl TempRepo {
             BTreeMap::from([("docs/a.md".to_string(), text.to_string())]),
             Vec::<String>::new(),
         );
-        cited_commit_problems(
-            &self.repo(),
-            &reachable_commits(&self.repo())?,
-            &docs.cited_hashes(),
-        )
+        commit_problems(&self.repo(), &[], &docs.cited_hashes())
     }
 }
 
@@ -492,6 +509,38 @@ fn cited_commits_must_be_reachable() -> Result<()> {
     assert!(
         problems[0].starts_with("docs/a.md:2: ") && problems[0].contains(&stale[..9]),
         "{problems:?}"
+    );
+    Ok(())
+}
+
+#[test]
+fn resolutions_name_existing_commits_and_report_once() -> Result<()> {
+    // `resolution` の hash は、コミットが無ければ違反。辿れないコミットは、文書の行として 1 度だけ示す
+    let t = TempRepo::new("resolution")?;
+    t.commit("chore: base")?;
+    t.run(&["switch", "-q", "-c", "gone"])?;
+    let stale = t.commit("fix: gone")?;
+    t.run(&["switch", "-q", "main"])?;
+    t.run(&["branch", "-q", "-D", "gone"])?;
+    let path = "docs/issues/0001-a.md".to_string();
+    let text = format!("---\nresolution: コミット {}\n---\n", &stale[..9]);
+    let docs = Docs::new(BTreeMap::from([(path.clone(), text)]), Vec::<String>::new());
+    let problems = commit_problems(
+        &t.repo(),
+        &[(path.clone(), stale[..9].to_string())],
+        &docs.cited_hashes(),
+    )?;
+    assert_eq!(problems.len(), 1, "{problems:?}");
+    assert!(
+        problems[0].starts_with(&format!("{path}:2: commit ")),
+        "{problems:?}"
+    );
+    let missing = "abcdef1234";
+    assert_eq!(
+        commit_problems(&t.repo(), &[(path.clone(), missing.to_string())], &[])?,
+        [format!(
+            "{path}: `resolution` names commit {missing} that does not exist"
+        )]
     );
     Ok(())
 }
