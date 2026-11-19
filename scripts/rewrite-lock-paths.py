@@ -629,9 +629,12 @@ class Tool:
 
     def stale(self, path, local_pairs):
         """動かす前後で同じ path が、動かしたファイルの前の名前か（組で別のパスへ動いたか、動かす前にあり今は無い）"""
-        return self.moved_from(path, local_pairs) or (
-            self.base.exists(path) and not self.cur.exists(path)
-        )
+        if self.moved_from(path, local_pairs):
+            return True
+        if path in self.base.files:
+            # 追跡するファイルは作業ツリーを見る（今のステージの定義が名指しするだけでは、今あるとしない）
+            return not os.path.lexists(self.root / path)
+        return self.base.exists(path) and not self.cur.exists(path)
 
     def same_file(self, old, new, local_pairs):
         """old（動かす前）と new（今）が同じファイルか"""
@@ -959,23 +962,33 @@ class Tool:
         # TOML の中のパスを TOML の置き場から解く。置き場が変われば同じ文字列も別の場所を指し、変わらなくても、指す先を
         # 動かして TOML を直し忘れた文字列がある）。lock の項（正規形の md5 か params の値）が今の中身と違って残る TOML は
         # 除く。ステージはその項で changed のまま残り、最新と示さない（判定の原則の動かしていない項）
-        tomls = [
-            (old, new)
-            for old, item, new, rewritten in deps
-            if rewritten or item.get("md5") == self.cur_md5(new)
-        ] + [
-            (old, new)
-            for old, values, new, rewritten in params
-            if rewritten or values == self.cur.params(new, values)
-        ]
-        for old, new in sorted(tomls):
+        sources = {}  # (動かす前, 今) の元の TOML → 書き換えない項が今の中身と違うか
+        for old, entry_value, new, current, rewritten in [
+            *((o, i.get("md5"), n, self.cur_md5(n), rw) for o, i, n, rw in deps),
+            *((o, v, n, self.cur.params(n, v), rw) for o, v, n, rw in params),
+        ]:
             src_old, src_new = toml_source(old), toml_source(new)
             if src_old is None or src_new is None:
                 continue
+            differs = not rewritten and entry_value != current
+            sources[(src_old, src_new)] = (
+                sources.get((src_old, src_new), False) or differs
+            )
+        tomls = sorted(pair for pair, differs in sources.items() if not differs)
+        for src_old, src_new in tomls:
             if not self.toml_path_only(src_old, src_new, local):
                 raise Unverified(
                     f"{src_new} の中のパスが、動かす前の {src_old} と同じファイルを指すと確かめられない"
                 )
+        # 正規形の deps と outs は、今の TOML から書いたものと同じバイトであること（正規形を書き直さずに動かすと、古い
+        # 正規形の md5 を持ち越して最新と示すため）
+        for _, new in [
+            *((o, n) for o, _, n, _ in deps),
+            *zip(order, s.outs, strict=True),
+        ]:
+            source = toml_source(new)
+            if source not in (None, new) and not self.normal_form_current(new, source):
+                raise Unverified(f"{new} が、今の {source} から書いた正規形と違う")
         base_cmd, cmd_named = self.check_cmd(entry, s, local)
         named = cmd_named + self.toml_named(local)
         new_outs = []
