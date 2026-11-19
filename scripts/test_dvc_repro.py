@@ -199,6 +199,11 @@ class PlanSingleItem(unittest.TestCase):
                 p = planned({**UPSTREAM_DEPS, f"{V}:xs": [change]})
                 self.assertEqual(p.blocked, [(f"{V}:xs", sorted(change))])
 
+    def test_target_is_matched_by_the_stage_key_dvc_lists_not_by_its_spelling(self):
+        own = {LATTICE: [{"changed outs": {"examples/v/p1/lattice-1B.out": "deleted"}}]}
+        p = planned({**UPSTREAM_DEPS, **own}, target="./" + LATTICE)
+        self.assertEqual(p.blocked, [])
+
     def test_stale_normalized_forms_are_run_first_rather_than_blocking(self):
         p = planned(NORMALIZED_STALE)
         self.assertEqual(p.blocked, [])
@@ -263,7 +268,9 @@ class Process(unittest.TestCase):
         self.tmp.cleanup()
 
     def set_shell_check(self, code):
-        self.check.write_text(f"#!/bin/sh\nexit {code}\n")
+        self.check.write_text(
+            f'#!/bin/sh\necho shell >> "{self.d}/checks"\nexit {code}\n'
+        )
         self.check.chmod(0o755)
 
     def run_script(self, status, *args):
@@ -373,6 +380,24 @@ class Process(unittest.TestCase):
             ["repro -s python-ast@examples/v/compare_k.py", f"repro -s {LATTICE}"],
         )
 
+    def test_single_item_keeps_no_run_cache_and_checks_the_shell_once_around_normalized_forms(
+        self,
+    ):
+        (self.d / "dry.txt").write_text(DRY_LATTICE)
+        (self.d / "after.json").write_text(json.dumps({**UPSTREAM_DEPS, **SHELL_ONLY}))
+        r = self.run_script(
+            {**NORMALIZED_STALE, **SHELL_ONLY}, "-s", "--no-run-cache", LATTICE
+        )
+        self.assertEqual(r.returncode, 7)
+        self.assertEqual(
+            self.ran_repro(),
+            [
+                "repro -s --no-run-cache python-ast@examples/v/compare_k.py",
+                f"repro -s --no-run-cache {LATTICE}",
+            ],
+        )
+        self.assertEqual((self.d / "checks").read_text().splitlines(), ["shell"])
+
     def test_single_item_runs_nothing_when_other_upstream_blocks_besides_normalized_forms(
         self,
     ):
@@ -386,6 +411,7 @@ class Process(unittest.TestCase):
         r = self.run_script(UPSTREAM_DEPS, "-s", OPENMC)
         self.assertEqual(r.returncode, 1)
         self.assertIn("not allowed by --allow-reference", r.stderr)
+        self.assertNotIn("BLOCKED", r.stderr)
         self.assertEqual(self.ran_repro(), [])
         r = self.run_script(UPSTREAM_DEPS, "-s", "--allow-reference", OPENMC, OPENMC)
         self.assertEqual(r.returncode, 7)
