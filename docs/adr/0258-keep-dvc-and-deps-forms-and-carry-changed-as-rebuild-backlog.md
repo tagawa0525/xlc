@@ -1,6 +1,6 @@
 ---
 type: ADR
-status: accepted
+status: proposed
 date: 2026-11-20
 requires: [ADR-0122, ADR-0124, ADR-0126, ADR-0130, ADR-0159, ADR-0184, ADR-0193, ADR-0210, ADR-0212, ADR-0222, ADR-0223, ADR-0254, ADR-0255, ADR-0257]
 supersedes: []
@@ -421,7 +421,7 @@ docs/0258-settle-open-points で比べ始め、ADR-0260 に分けた。DVC の�
    項に、検査を通すことと、項目の意味を変えるときに形式の名前を変えることを書く
 
 この ADR を書いたブランチ（docs/0258-keep-dvc-and-automate-relock と、ユーザーの返事で決定を書き直した docs/0258-settle-open-points）は決定だけを書き、
-スキル、CLAUDE.md、script、hook、`dvc.yaml`、`dvc.lock`、ほかの ADR は変えない。一部を変える ADR（ADR-0130、ADR-0184、
+スキル、CLAUDE.md、script、hook、`dvc.yaml`、`dvc.lock`、ほかの ADR は変えない（ADR-0259 がこのブランチのコミットを引く 1 行の、rebase の後の hash の付け替えを除く）。一部を変える ADR（ADR-0130、ADR-0184、
 ADR-0257）は、上の段の実装のブランチで、その ADR の決定と「## 変更」を直す（ADR-0212 は、ADR-0260 のツールのブランチで直す）。ADR-0193 の CPU 時間の記録は変えない。
 
 ### 帰結
