@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-11-19
 requires: [ADR-0159, ADR-0160]
 supersedes: []
@@ -96,14 +96,17 @@ crates の追跡しているすべての .rs の先頭に注釈の行を足す�
   書く。コピーは、Location の行と列、`Metadata` の行、`enabled!` の名前の行の数字を 0 にし、ほかのバイトを変えない
 - 構造体のレイアウトは `repr(Rust)` で保証されないので、値どうしの整合で見つける。Location は「NUL で終わる `.rs` の文字列を
   指す &str の後に、0 でない行と列」。`Metadata` は「名前 `"event <ファイル>"` の &str の直前に Some(行)、名前から決まった
-  距離に同じファイルの &str」で、距離はイベントから決めてスパンにも使う。Location が 1 つも無い、名前の直前が Some でない、
-  距離がイベントごとに違う、のどれかでエラーで止める（ツールチェーンか `tracing` のレイアウトが変わった。黙って消し残すと
+  距離に同じファイルの &str」で、距離はイベントから決めてスパンにも使う。Metadata のファイル名を先に決め、Location はそれ以外から探す。
+  Location が 1 つも無い、名前の直前が Some でない、距離がイベントごとに違う、1 つの &str が Location と Metadata の
+  ファイル名の両方に当たる、のどれかでエラーで止める（ツールチェーンか `tracing` のレイアウトが変わった。黙って消し残すと
   注釈の行でステージが古くなるのに気付けず、別のバイトを消すと計算が変わりうる）。名前を指定しないイベント
   （`"event crates/…:<行>"`）が残っていてもエラーで止める
 - 計算のステージの deps と dvc.yaml は変えない。`bin/` が計算に使う実行ファイルそのもので、`dvc.lock` の md5 もそれを指す
 
 失うもの: ステージのパニックの文の位置が `crates/lattice/src/moc.rs:0:0` の形になる（ファイル名とパニックの文は残る）。行は、
-`target/dvc/release/<名前>`（番号を残した同じビルド）で同じ入力を流すと出る。計算のコードは同じなので、同じ場所で止まる。
+`bin/` を作ったコミットで scripts/build-binaries.sh を流した `target/dvc/release/<名前>`（番号を残した同じビルド）で、同じ
+入力を流すと出る。計算のコードは同じなので、同じ場所で止まる。`bin/` をキャッシュから戻した worktree には `target/dvc` が
+無いか別のコミットのものなので、そのコミットでビルドし直す。
 
 守れる範囲: 注釈と空行の追加と削除、行の中の位置（列）の変化、ファイルの中の関数の並べ替え（1 組で確かめた）。守れないもの:
 コードの変更（別の関数の変更を含む）、ファイルの名前と、関数のファイルの間の移動（Location のファイル名が変わる）、
@@ -112,7 +115,7 @@ lattice の `enabled!` の 12 か所の行の桁の変化（文字列の長さ�
 
 ### 帰結
 
-- `build` の deps に scripts/normalize_binary.py を足す。xlc-log の追加とマクロの置き換えで今の `bin/` は一度変わり、
+- `build` の deps に scripts/normalize_binary.py の正規形（ADR-0210 の python-ast）を足す。xlc-log の追加とマクロの置き換えで今の `bin/` は一度変わり、
   計算のステージは `bin/` の差で changed になる（ADR-0130 のとおり再実行しない）
 - 使わないモジュールで実行ファイルが変わる件（#0117）は、別の原因。xlc-format に #0117 のモジュールを足すと、コピーの後も
   3 つの実行ファイルの大きさが変わる（xs +448、lattice +832、core +2,752 バイト。「確認」の (d)）ので、行の番号ではなく、
@@ -131,9 +134,13 @@ lattice の `enabled!` の 12 か所の行の桁の変化（文字列の長さ�
   1 行と入れ替えで 4 つとも同じ、#0117 のモジュールで 4 つとも違った（xlc-log の前の main の実行ファイルに、イベントの名前の
   数字も 0 にする版の normalize_binary.py を当てた）
 - (c) xlc-log の後、crates の追跡しているすべての .rs と crates/log/src/lib.rs の先頭に注釈の行を 1 つ足してビルドすると、
-  `bin/` の 4 つの md5 が足す前と同じ（xs b5c605b7、lattice 98a772e0、core e6fc72e3、chain 16a674a2）
+  `bin/` の 4 つの md5 が足す前と同じ（xs b5c605b7、lattice 98a772e0、core e6fc72e3、chain 16a674a2）。節の端と
+  Metadata のファイル名を直した normalize_binary.py（549d77a63）を同じビルドに当てても、4 つの md5 は同じ
 - (d) #0117 のモジュールの大きさ: 足す前と後の実行ファイルの大きさは xs 3,072,016 と 3,072,464、lattice 11,234,944 と
   11,235,776、core 7,443,832 と 7,446,584 バイト
 - (e) 計算が変わらないこと: examples/m0 の xs、lattice、core を、main の `bin/`（xs 28e28365、lattice c3b3bba1、core 22e10bb8）と
   (c) の `bin/` で流し、出力の md5 が同じ（wims69.msgpack 313819dc、pincell-fg.msgpack 09abc432、lattice.out 53445db5、
   core.out b14708c7。前の 3 つは examples/m0/dvc.lock のとおり）。ログは時間の値と、核種の並列の順だけが違う
+- (f) テスト: scripts/test_normalize_binary.py（小さな ELF で、0 にするバイトとそれ以外を変えないこと、行をずらした同じ
+  構造から同じコピーになること、節の端の Location と名前、偶然 NUL で終わる Metadata のファイル名、エラーの条件）と、
+  crates/log/src/tests.rs（水準ごとのマクロの名前、target、フィールドと書式の形）
