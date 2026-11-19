@@ -6,7 +6,7 @@ opened: 2026-11-03
 closed: 2026-11-19
 milestone:
 blocked-by: []
-resolution: "コミット dc4acdef8"
+resolution: "コミット 4f2770d5a"
 ---
 
 # 時間の表の規則のレビューで残した指摘

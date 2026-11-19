@@ -6,7 +6,7 @@ opened: 2026-11-06
 closed: 2026-11-19
 milestone:
 blocked-by: []
-resolution: "コミット 526501389"
+resolution: "コミット 9ce23b3b6"
 ---
 
 # 同時の反復のレビューで残した記録と入力の指摘

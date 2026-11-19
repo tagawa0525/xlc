@@ -6,7 +6,7 @@ opened: 2026-11-03
 closed: 2026-11-19
 milestone: M4
 blocked-by: []
-resolution: "コミット 70e0c89cc"
+resolution: "コミット e888ec066"
 ---
 
 # MOX-1 の 0 の点の切り分けの記録の周で残った指摘

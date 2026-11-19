@@ -6,7 +6,7 @@ opened: 2026-11-06
 closed: 2026-11-19
 milestone:
 blocked-by: []
-resolution: "コミット 17e975d60"
+resolution: "コミット 1ee942d01"
 ---
 
 # 比較の JSON が md5 で引く生成物の棚卸しと ADR-0222 の対象の残り
