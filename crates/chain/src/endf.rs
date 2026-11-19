@@ -110,7 +110,8 @@ fn count(value: i64, what: &str, line: usize) -> Result<u32> {
     u32::try_from(value).map_err(|_| anyhow!("line {line}: invalid {what} {value}"))
 }
 
-/// 行の制御欄（MAT、MF、MT）。欄は `Tape::parse` が検査した。非 ASCII の文字は 1 桁に数える（`Tape::parse` と同じ）
+/// 行の制御欄（MAT、MF、MT）。欄は `Tape::parse` が検査した。非 ASCII の文字は 1 桁に数える（`Tape::parse` と同じ）。
+/// `Tape` は行を見せないので読み直す。重なりの検査を `Tape` に移せば消せる（#0304）
 fn control(line: &str) -> (i64, i64, i64) {
     let line: Cow<str> = if line.is_ascii() {
         Cow::Borrowed(line)
