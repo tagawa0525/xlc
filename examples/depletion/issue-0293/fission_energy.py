@@ -2,7 +2,7 @@
 
 2 つの使い方がある:
 
-- `heating <cross_sections.xml> <核種>...`: OpenMC のライブラリ（HDF5）から、0.0253 eV の値を出す。核分裂する核種は、チェーンの Q に
+- `heating <cross_sections.xml> <核種>...`: OpenMC のライブラリ（HDF5）から、0.0253 eV の値を出す（核分裂しない核種はライブラリの温度ごと。核分裂の値は温度に依らない）。核分裂する核種は、チェーンの Q に
   当たる MT18 の QI、`heating-local` の核分裂の反応の分（openmc/data/neutron.py が MT18 の KERMA を置き換える EFR + EGP + EGD + EB）、
   即発中性子の運動エネルギー ENP、MF1 MT458 の ER と、ER / QI − 1、核分裂の分 / QI − 1。核分裂しない核種は heating-local / 捕獲の断面積
   （散乱の反跳と、(n,α) などの捕獲のほかの反応の分も分子に入る）
@@ -54,11 +54,13 @@ def heating(cross_sections: Path, nuclides: list[str]) -> None:
         if name not in paths:
             sys.exit(f"{name} is not in {cross_sections}")
         data = openmc.data.IncidentNeutron.from_hdf5(paths[name])
-        t = data.temperatures[0]
-        local = data[901].xs[t](THERMAL)
         if 18 not in data.reactions:
-            per_capture = local / data[102].xs[t](THERMAL)
-            print(f"{name} {t}: heating-local / capture {per_capture / 1e6:.4f} MeV")
+            # `temperatures` は HDF5 の群の名前の順（"1200K" が "600K" より前）なので、温度の値で並べる
+            for t in sorted(data.temperatures, key=lambda t: float(t.rstrip("K"))):
+                per_capture = data[901].xs[t](THERMAL) / data[102].xs[t](THERMAL)
+                print(
+                    f"{name} {t}: heating-local / capture {per_capture / 1e6:.4f} MeV"
+                )
             continue
         f = data.fission_energy
         if f is None:
@@ -73,7 +75,7 @@ def heating(cross_sections: Path, nuclides: list[str]) -> None:
         )
         row = fission_row(qi, er, part)
         print(
-            f"{name} {t}: QI {qi / 1e6:.4f} MeV, fission heating {part / 1e6:.4f} MeV,"
+            f"{name}: QI {qi / 1e6:.4f} MeV, fission heating {part / 1e6:.4f} MeV,"
             f" ENP {f.prompt_neutrons(THERMAL) / 1e6:.4f} MeV, ER {er / 1e6:.4f} MeV,"
             f" ER / QI - 1 {row['er_over_qi'] * 100:+.4f}%,"
             f" fission heating / QI - 1 {row['local_over_qi'] * 100:+.4f}%"
