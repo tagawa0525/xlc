@@ -21,7 +21,7 @@ docs/ は OKF v0.3 のバンドルで（ADR-0256）、索引（`index.md`）の�
 - ADR に `description` を足すと、`design-records check` が「unexpected front matter key」の違反にする（claude-harness の
   crates/design-records/src/lib.rs の `OPTIONAL_KEYS` は `type`、`amends`、`amended-by` だけ。lock 3d1a4f85）。
   crates/docs の検査も ADR と issue の知らないキーを違反にする
-- 件数は ADR 249 件、issue 292 件（2026-11-19 の main）
+- 件数は ADR 249 件、issue 291 件（2026-11-19 の main 9f1a69e72）
 
 関係する ADR: ADR-0256
 
