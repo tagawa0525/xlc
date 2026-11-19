@@ -68,11 +68,8 @@ class Elf:
         return None
 
 
-def normalize(
-    data: bytes, unnamed_events: bool = False
-) -> tuple[bytes, dict[str, int]]:
-    """番号を 0 にしたコピーと、0 にした数。unnamed_events は、xlc_log の前の実行ファイル（イベントの名前が
-    "event <ファイル>:<行>"）の数字も 0 にする（dvc.lock が記録した古い版の正規形を求めるときだけ使う）"""
+def normalize(data: bytes) -> tuple[bytes, dict[str, int]]:
+    """番号を 0 にしたコピーと、0 にした数"""
     elf = Elf(data)
     if ".data.rel.ro" not in elf.sections:
         raise ValueError(".data.rel.ro が無い（位置の情報の置き場が変わった）")
@@ -126,7 +123,7 @@ def normalize(
                 f"{match.group(0)!r} の直前が Some(行) でない（Metadata のレイアウトが変わった）"
             )
         if digits is not None:
-            if kind == b"event" and path.startswith(b"crates/") and not unnamed_events:
+            if kind == b"event" and path.startswith(b"crates/"):
                 raise ValueError(
                     f"{match.group(0)!r}: tracing のイベントのマクロを名前なしで呼んでいる。xlc_log のマクロを使う"
                 )
@@ -181,18 +178,19 @@ def normalize(
     return bytes(out), counts
 
 
-def form(data: bytes, unnamed_events: bool = False) -> str:
-    """正規形: 番号を 0 にしたコピーの md5 の 16 進"""
-    return hashlib.md5(normalize(data, unnamed_events)[0]).hexdigest()
+def form(data: bytes) -> tuple[str, dict[str, int]]:
+    """正規形（番号を 0 にしたコピーの md5 の 16 進）と、0 にした数"""
+    copy, counts = normalize(data)
+    return hashlib.md5(copy).hexdigest(), counts
 
 
 def main(argv: list[str]) -> None:
     if len(argv) != 2:
         raise SystemExit("usage: python3 scripts/normalize_binary.py <binary> <form>")
     src, dst = Path(argv[0]), Path(argv[1])
-    copy, counts = normalize(src.read_bytes())
+    digest, counts = form(src.read_bytes())
     dst.parent.mkdir(parents=True, exist_ok=True)
-    dst.write_text(hashlib.md5(copy).hexdigest() + "\n", encoding="utf-8")
+    dst.write_text(digest + "\n", encoding="utf-8")
     print(f"{dst}: " + " ".join(f"{k}={v}" for k, v in counts.items()))
 
 

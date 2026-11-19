@@ -227,7 +227,7 @@ def stage_paths(base: Path, spec: dict, field: str, context: dict) -> list[str]:
 
 @functools.cache
 def example_stages() -> list[dict]:
-    """例の dvc.yaml のステージごとの、解決した deps と outs（リポジトリの直下からのパス）
+    """例の dvc.yaml のステージごとの、解決した cmd、deps と outs（deps と outs はリポジトリの直下からのパス）
 
     DVC の Python の API は python-tests の devShell に無いので、foreach と補間を例が使う形だけ解く。foreach の値は
     並び、`${名前}`（vars の並びか辞書）。辞書なら `${key}` と `${item.属性}`、並びなら `${item}` を埋める。
@@ -257,9 +257,13 @@ def example_stages() -> list[dict]:
             for label, spec, extra in expanded:
                 context = {**variables, **extra}
 
+                cmd = spec.get("cmd", "")
                 result.append(
                     {
                         "stage": f"{name}:{label}",
+                        "cmd": resolve(
+                            " ".join(cmd) if isinstance(cmd, list) else cmd, context
+                        ),
                         "deps": stage_paths(base, spec, "deps", context),
                         "outs": stage_paths(base, spec, "outs", context),
                     }

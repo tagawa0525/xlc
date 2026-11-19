@@ -8,6 +8,7 @@ Option<u32>、8 バイト目に名前の &str、名前から 0x50 バイト後�
 """
 
 import hashlib
+import re
 import struct
 import subprocess
 import sys
@@ -283,7 +284,7 @@ class FormTest(unittest.TestCase):
     def test_form_is_the_md5_of_the_copy(self):
         data = stage_image()[0].build()
         self.assertEqual(
-            norm.form(data), hashlib.md5(norm.normalize(data)[0]).hexdigest()
+            norm.form(data)[0], hashlib.md5(norm.normalize(data)[0]).hexdigest()
         )
 
     def test_form_keeps_the_line_numbers_out(self):
@@ -293,13 +294,13 @@ class FormTest(unittest.TestCase):
         shifted.metadata(b"event crates/a/src/x.rs", b"crates/a/src/x.rs", 50)
         shifted.metadata(b"sweep", b"crates/a/src/x.rs", 87)
         shifted.metadata(b"enabled crates/a/src/y.rs:863", b"crates/a/src/y.rs", 863)
-        self.assertEqual(norm.form(first.build()), norm.form(shifted.build()))
+        self.assertEqual(norm.form(first.build())[0], norm.form(shifted.build())[0])
 
     def test_every_other_byte_changes_the_form(self):
         # 行と列の番号の外のバイトを 1 つ変えると、正規形が変わるか、整合が崩れてエラーで止まる（同じとみなさない）
         image, at = stage_image()
         data = image.build()
-        base = norm.form(data)
+        base = norm.form(data)[0]
         masked = {RELRO_OFFSET + at["location"] + i for i in range(16, 24)}
         for kind in ("event", "span", "enabled"):
             masked |= {RELRO_OFFSET + at[kind] + i for i in range(4, 8)}
@@ -316,25 +317,11 @@ class FormTest(unittest.TestCase):
             changed = bytearray(data)
             changed[i] ^= 0x01
             try:
-                if norm.form(bytes(changed)) == base:
+                if norm.form(bytes(changed))[0] == base:
                     same.append(i)
             except ValueError:
                 pass
         self.assertEqual(same, [])
-
-    def test_unnamed_events_of_an_old_binary_have_their_digits_zeroed_on_request(
-        self,
-    ):
-        image, _ = stage_image()
-        image.metadata(b"event crates/a/src/x.rs:12", b"crates/a/src/x.rs", 12)
-        shifted, _ = stage_image()
-        shifted.metadata(b"event crates/a/src/x.rs:13", b"crates/a/src/x.rs", 13)
-        with self.assertRaisesRegex(ValueError, "xlc_log"):
-            norm.form(image.build())
-        self.assertEqual(
-            norm.form(image.build(), unnamed_events=True),
-            norm.form(shifted.build(), unnamed_events=True),
-        )
 
 
 class MainTest(unittest.TestCase):
@@ -349,21 +336,31 @@ class MainTest(unittest.TestCase):
                 check=True,
             )
             self.assertEqual(
-                dst.read_text(encoding="utf-8"), norm.form(src.read_bytes()) + "\n"
+                dst.read_text(encoding="utf-8"), norm.form(src.read_bytes())[0] + "\n"
             )
             self.assertIn("location=1 metadata=3 enabled=1", result.stdout)
 
 
-BINARIES = ("xs", "lattice", "core", "chain")
+def root_stages() -> dict:
+    """リポジトリの直下の dvc.yaml のステージ"""
+    text = (ROOT / "dvc.yaml").read_text(encoding="utf-8")
+    return toml_tests.yaml.safe_load(text)["stages"]
 
 
 def binary_forms_items() -> list[str]:
     """リポジトリの直下の dvc.yaml の binary-forms の foreach の並び"""
-    text = (ROOT / "dvc.yaml").read_text(encoding="utf-8")
-    stages = toml_tests.yaml.safe_load(text)["stages"]
+    stages = root_stages()
     if "binary-forms" not in stages:
         raise AssertionError("dvc.yaml has no binary-forms stage")
     return stages["binary-forms"]["foreach"]
+
+
+def locked_md5(lock: dict, stage: str, field: str, path: str) -> str | None:
+    """リポジトリの直下の dvc.lock の stage の field（deps か outs）が記録した path の md5"""
+    for entry in lock["stages"].get(stage, {}).get(field, []):
+        if entry["path"] == path:
+            return entry["md5"]
+    return None
 
 
 class RepositoryDepsTest(unittest.TestCase):
@@ -377,7 +374,43 @@ class RepositoryDepsTest(unittest.TestCase):
         self.assertEqual(bare, [])
 
     def test_binary_forms_writes_the_form_of_every_built_binary(self):
-        self.assertEqual(sorted(binary_forms_items()), sorted(BINARIES))
+        built = [out.removeprefix("bin/") for out in root_stages()["build"]["outs"]]
+        self.assertEqual(sorted(binary_forms_items()), sorted(built))
+
+    def test_stages_depend_on_the_forms_of_the_binaries_they_run(self):
+        # cmd の bin/<名前> と deps の binary-forms/<名前>.md5 は別の文字列なので、同じ名前の組かを比べる
+        wrong = []
+        for stage in toml_tests.example_stages():
+            run = set(re.findall(r"bin/(xs|lattice|core|chain)\b", stage["cmd"]))
+            forms = {
+                dep.removeprefix("binary-forms/").removesuffix(".md5")
+                for dep in stage["deps"]
+                if dep.startswith("binary-forms/")
+            }
+            if run != forms:
+                wrong.append(
+                    f"{stage['stage']}: runs {sorted(run)}, forms {sorted(forms)}"
+                )
+        self.assertEqual(wrong, [])
+
+    def test_locked_forms_are_of_the_locked_binaries(self):
+        # build を付け直して binary-forms を実行し忘れると、例のステージが新しい bin/ で古い正規形を lock に書く
+        lock = toml_tests.yaml.safe_load(
+            (ROOT / "dvc.lock").read_text(encoding="utf-8")
+        )
+        stale = [
+            item
+            for item in binary_forms_items()
+            if locked_md5(lock, "build", "outs", f"bin/{item}")
+            != locked_md5(lock, f"binary-forms@{item}", "deps", f"bin/{item}")
+            or locked_md5(
+                lock, f"binary-forms@{item}", "outs", f"binary-forms/{item}.md5"
+            )
+            != hashlib.md5(
+                (ROOT / "binary-forms" / f"{item}.md5").read_bytes()
+            ).hexdigest()
+        ]
+        self.assertEqual(stale, [])
 
     def test_every_form_a_stage_depends_on_is_written_by_binary_forms(self):
         written = {f"binary-forms/{item}.md5" for item in binary_forms_items()}

@@ -49,11 +49,12 @@ repos:
         verbose: true
       - id: binary-forms
         name: example stages depend on the binary forms
-        # dvc.yaml だけの変更は .py の差分が無く、run-checks.sh が Python のテストを実行しないので、ここで検査する（ADR-0255）
+        # dvc.yaml、dvc.lock、正規形だけの変更は .py の差分が無く、run-checks.sh が Python のテストを実行しないので、ここで
+        # 検査する（ADR-0255）
         entry: python3 scripts/test_normalize_binary.py RepositoryDepsTest
         language: system
-        files: ^(.*dvc\.yaml|binary-forms/.*|.*\.py)$
-        pass_filenames: false # 渡されたファイルでなく、すべての例の dvc.yaml を見る
+        files: ^(.*dvc\.(yaml|lock)|binary-forms/.*|.*\.py)$
+        pass_filenames: false # 渡されたファイルでなく、すべての例の dvc.yaml と、直下の dvc.lock と正規形を見る
         verbose: true
       - id: references-shell
         name: references-shell.txt matches the references devShell
