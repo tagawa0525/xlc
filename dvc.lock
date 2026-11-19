@@ -26,8 +26,8 @@ stages:
       size: 1108
     - path: flake.nix
       hash: md5
-      md5: 6112009ea26b9100c9f743631ad1a9e3
-      size: 19190
+      md5: d221c90320b021eaf43b27d7d0f157fd
+      size: 19588
     - path: rust-toolchain.toml
       hash: md5
       md5: 87a81bbb3d955b97621800bbd7d234b7
