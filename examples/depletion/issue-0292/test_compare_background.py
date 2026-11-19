@@ -270,6 +270,26 @@ class Step(unittest.TestCase):
         self.assertAlmostEqual(step["parts"]["rest"], step["total_pcm"], places=9)
         self.assertEqual(step["nuclides"]["Ab"]["kind"], "dilute")
 
+    def test_the_flux_ratio_part_of_u238_follows_the_ratio_of_o16(self):
+        # U-238 と O-16 の群 1 の断面積が同じ比で変わる（燃料と格子の中性子束の比だけが変わった形）
+        form = base_nuclides()
+        scale = np.array([1.0, 0.98, 1.0])
+        for n in ("U-238", "O-16"):
+            form[n]["total"] = form[n]["total"] * scale
+            form[n]["scatter"] = form[n]["scatter"] * scale[:, None]
+        step = compare_background.step(case(base_nuclides(), {}), case(form, {}))
+        self.assertAlmostEqual(
+            step["u238_flux_ratio_pcm"], step["parts"]["u238_resonance"], places=9
+        )
+
+    def test_states_split_on_other_ranges_are_an_error(self):
+        a = case(base_nuclides(), {})
+        branch, history, library = build(base_nuclides(), {})
+        library["pointwise_range"] = [10.0, 1e7]
+        b = compare_background.case(branch, history, library, 60.0)
+        with self.assertRaisesRegex(SystemExit, "range"):
+            compare_background.step(a, b)
+
 
 class Case(unittest.TestCase):
     def test_the_dilute_absorption_matches_the_cooling_cross_sections(self):
@@ -297,6 +317,14 @@ class Case(unittest.TestCase):
         with self.assertRaisesRegex(SystemExit, "library groups"):
             compare_background.case(branch, history, library, 60.0)
 
+    def test_a_nuclide_both_transported_and_dilute_is_an_error(self):
+        branch, history, library = build(
+            base_nuclides(), {"Fp": (0.004, FP_ABSORPTION)}
+        )
+        history["dilute_absorbers"] = ["Fp", "U-238"]
+        with self.assertRaisesRegex(SystemExit, "both"):
+            compare_background.case(branch, history, library, 60.0)
+
 
 class Report(unittest.TestCase):
     def test_report_has_a_line_per_step(self):
@@ -307,6 +335,9 @@ class Report(unittest.TestCase):
         summary = compare_background.summarize([("ref", a), ("form", b)])
         lines = compare_background.report({**summary, "inputs": []})
         self.assertTrue(any(line.startswith("ref → form") for line in lines))
+        # 混ぜた状態の履歴の k は組成の履歴のもの
+        self.assertTrue(any("組成の履歴" in line for line in lines))
+        self.assertTrue(any("UFG の範囲の吸収の大きい順" in line for line in lines))
 
 
 if __name__ == "__main__":
