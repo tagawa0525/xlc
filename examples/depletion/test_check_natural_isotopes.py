@@ -18,19 +18,22 @@ def endf_float(x: float) -> str:
     return f"{mantissa}{int(exponent):+d}".rjust(11)
 
 
-def write_endf(path: Path, za: float, awr: float = 1.0) -> None:
-    """TPID と MF1/MT451 の HEAD だけの評価"""
+def write_endf(path: Path, za: float, awr: float = 1.0, liso: int = 0) -> None:
+    """TPID と MF1/MT451 の最初の 2 つの記録（HEAD と、LISO を持つ CONT）だけの評価"""
     head = endf_float(za) + endf_float(awr) + "0".rjust(11) * 4
+    cont = endf_float(0.0) * 2 + "0".rjust(11) + str(liso).rjust(11) + "0".rjust(11) * 2
     path.write_text(
         "a tape identification".ljust(66)
         + "   1 0  0    0\n"
         + head
         + " 125 1451    1\n"
+        + cont
+        + " 125 1451    2\n"
     )
 
 
-def chain_nuclide(name, z, a):
-    return {"name": name, "z": z, "a": a}
+def chain_nuclide(name, z, a, state=0):
+    return {"name": name, "z": z, "a": a, "state": state}
 
 
 class Check(unittest.TestCase):
@@ -41,7 +44,7 @@ class Check(unittest.TestCase):
         self.neutrons.mkdir()
         write_endf(self.neutrons / "n-006_C_000.endf", 6000.0)
         write_endf(self.neutrons / "n-092_U_235.endf", 92235.0)
-        write_endf(self.neutrons / "n-095_Am_242m1.endf", 95242.0)
+        write_endf(self.neutrons / "n-095_Am_242m1.endf", 95242.0, liso=1)
         (root / "chain").mkdir()
         (root / "xs").mkdir()
         self.chain_dir = root / "chain"
@@ -56,7 +59,8 @@ class Check(unittest.TestCase):
                 chain_nuclide("C-12", 6, 12),
                 chain_nuclide("C-13", 6, 13),
                 chain_nuclide("U-235", 92, 235),
-                chain_nuclide("Am-242m", 95, 242),
+                chain_nuclide("Am-242m", 95, 242, state=1),
+                chain_nuclide("Am-242", 95, 242),
             ],
         }
         self.xs_input = {
@@ -110,12 +114,22 @@ class Check(unittest.TestCase):
         self.xs_input["nuclide"]["C-13"] = {"endf": "n-023_V_000.endf"}
         self.assertEqual(len(self.check()["errors"]), 1)
 
+    def test_an_evaluation_of_another_isomeric_state_is_an_error(self):
+        write_endf(self.neutrons / "n-095_Am_242.endf", 95242.0)
+        self.xs_input["nuclide"]["Am-242m"] = {"endf": "n-095_Am_242.endf"}
+        self.assertEqual(len(self.check()["errors"]), 1)
+        self.xs_input["nuclide"]["Am-242m"] = {"endf": "n-095_Am_242m1.endf"}
+        self.xs_input["nuclide"]["Am-242"] = {"endf": "n-095_Am_242m1.endf"}
+        self.assertEqual(len(self.check()["errors"]), 1)
+
     def test_an_isotope_evaluation_of_another_nuclide_is_an_error(self):
         self.xs_input["nuclide"]["Am-242m"] = {"endf": "n-092_U_235.endf"}
         self.assertEqual(len(self.check()["errors"]), 1)
 
     def test_a_library_nuclide_outside_the_chain_is_an_error(self):
-        self.chain["nuclides"] = self.chain["nuclides"][:-1]
+        self.chain["nuclides"] = [
+            n for n in self.chain["nuclides"] if n["name"] != "Am-242m"
+        ]
         self.assertEqual(len(self.check()["errors"]), 1)
 
     def test_different_neutron_directories_are_an_error(self):
