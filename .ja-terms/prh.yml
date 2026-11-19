@@ -1,0 +1,137 @@
+# xlc の語の辞書（claude-harness の ADR-0096 のリポジトリの辞書）。ja-terms がこの規則を先に、共通の辞書の規則のうち
+# 同じ expected の規則がここに無いものを後に当てる。共通の辞書と同じ expected の規則を足すと共通の規則が当たらなく
+# なるので、足す前に expected が共通の辞書に無いことを確かめる。
+#
+# 規則は、共通の辞書から移した xlc でしか使わない語（claude-harness の #316。共通の辞書から消すまで両方にある）。
+version: 1
+rules:
+  - expected: ポイントワイズの断面積
+    pattern: 点断面積
+  # ADR で見つけた語。英語の直訳
+  - expected: 正味の中性子流
+    pattern: 正味の流れ
+    specs:
+      - from: 正味の流れを求める
+        to: 正味の中性子流を求める
+  # run の名詞と動詞。「再実行」の規則は、「走らせる」の規則に「走らせ直す」を取られないよう、語の形が重ならない
+  # 書き方にしてある
+  - expected: 乱数のシード
+    # 「花の種」のような別の語は通す
+    pattern: /乱数の種(?!類)/
+    specs:
+      - from: 乱数の種を固定する
+        to: 乱数のシードを固定する
+      - from: 花の種をまく
+        to: 花の種をまく
+      - from: 乱数の種類を選ぶ
+        to: 乱数の種類を選ぶ
+  - expected: 確率テーブル
+    pattern: /確率表(?![現示])/
+    specs:
+      - from: 確率表を読む
+        to: 確率テーブルを読む
+      - from: 確率表現を確認する
+        to: 確率表現を確認する
+  - expected: 燃焼させる
+    pattern: 燃やす
+    specs:
+      - from: 燃料を燃やす
+        to: 燃料を燃焼させる
+  - expected: 燃焼させた
+    pattern: 燃やした
+    specs:
+      - from: 燃料を燃やした
+        to: 燃料を燃焼させた
+  - expected: 燃焼させて
+    pattern: 燃やして
+    specs:
+      - from: 燃料を燃やして測る
+        to: 燃料を燃焼させて測る
+  - expected: 燃焼させない
+    pattern: 燃やさない
+    specs:
+      - from: 燃料を燃やさない
+        to: 燃料を燃焼させない
+  - expected: 燃焼させられる
+    pattern: 燃やせる
+    specs:
+      - from: 燃料を燃やせる
+        to: 燃料を燃焼させられる
+  - expected: 燃焼させられない
+    pattern: 燃やせない
+    specs:
+      - from: 燃料を燃やせない
+        to: 燃料を燃焼させられない
+  - expected: 燃焼させられ
+    pattern: 燃やされ
+    specs:
+      - from: 燃料が燃やされる
+        to: 燃料が燃焼させられる
+  - expected: 燃焼させ
+    # 連用形（燃やし、測る）。「燃やした」「燃やして」は別の規則、「燃やし尽くす」「燃やしきる」は連用形でない
+    pattern: /燃やし(?!た|て|尽|き)/
+    specs:
+      - from: 燃やし、測る
+        to: 燃焼させ、測る
+      - from: 燃やし尽くす
+        to: 燃やし尽くす
+  # OpenMC の inactive / active batches
+  - expected: 非アクティブバッチ
+    pattern: 捨てる世代
+    specs:
+      - from: 捨てる世代を決める
+        to: 非アクティブバッチを決める
+  - expected: アクティブバッチ
+    pattern: 数える世代
+    specs:
+      - from: 数える世代を決める
+        to: アクティブバッチを決める
+  - expected: 中性子収支
+    pattern: 中性子の釣り合い
+    specs:
+      - from: 中性子の釣り合いを取る
+        to: 中性子収支を取る
+  - expected: 支持格子あり
+    pattern: /(?<![一-龥])枠あり/
+    specs:
+      - from: 枠ありの配置
+        to: 支持格子ありの配置
+  - expected: 支持格子なし
+    pattern: /(?<![一-龥])枠なし/
+    specs:
+      - from: 格子の枠なしを使う
+        to: 格子の支持格子なしを使う
+  - expected: 支持格子のリング
+    pattern: /(?<![一-龥])枠のリング/
+    specs:
+      - from: 枠のリングを足す
+        to: 支持格子のリングを足す
+  - expected: 支持格子の物質
+    pattern: /(?<![一-龥])枠の物質/
+    specs:
+      - from: 枠の物質を指定する
+        to: 支持格子の物質を指定する
+  - expected: 支持格子を入れ
+    pattern: /(?<![一-龥]|Copilot の|量の|予算の|上限の)枠を入れ/
+    specs:
+      - from: 枠を入れる
+        to: 支持格子を入れる
+  - expected: 支持格子による
+    pattern: /(?<![一-龥]|Copilot の|量の|予算の|上限の)枠による/
+    specs:
+      - from: 枠による差を見る
+        to: 支持格子による差を見る
+      - from: 使用量の枠による制限
+        to: 使用量の枠による制限
+  - expected: 支持格子のある
+    pattern: /(?<![一-龥])枠のある/
+    specs:
+      - from: 枠のある配置
+        to: 支持格子のある配置
+  - expected: 支持格子を足す
+    pattern: /(?<![一-龥]|Copilot の|量の|予算の|上限の)枠を足す/
+    specs:
+      - from: 枠を足す
+        to: 支持格子を足す
+      - from: Copilot の枠を足す
+        to: Copilot の枠を足す
