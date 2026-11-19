@@ -5,6 +5,8 @@ PWR の解析コード。xs（ENDF から多群定数）→ lattice（MOC の格
 ## 文書
 
 - 決定と理由: docs/adr/（書き方と運用は docs/adr/README.md）
+- docs/ は OKF v0.3 のバンドル（ADR-0256）。新しい文書には `type` を書き、索引（`index.md`）の行は `design-records new` か
+  `design-records index` で足す
 - ステージの目的・範囲・作業の順序・検証の対象: docs/plans/
 - 未解決の問題とやること: docs/issues/（書き方と運用は docs/issues/README.md。ブランチ名とコミットの `Refs:`、
   ADR との両方向の対応を含む）
