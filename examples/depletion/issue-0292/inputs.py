@@ -11,19 +11,19 @@
   中の Gd のピンから離れる）ので、周りに燃料を置く。Gd と燃料の本数の比 1:8 は、2O の 24:240 より Gd が多い
 
 `python3 inputs.py` は燃料ごとの <燃料>/nominal.toml と <燃料>/density.toml（減速材 0.743 と 0.661 g/cc の燃焼。出力は <燃料>/out/）を
-書き、<燃料>/out/nominal-state.toml（公称の履歴の組成から公称（0.743）の状態への分岐で、履歴の輸送と同じ問題。`micro` は追う 31 核種）
+書き、<燃料>/out/nominal-state.toml（ベース計算の履歴の組成から基準条件（0.743）へのブランチ計算で、履歴の輸送と同じ問題。`micro` は追う 31 核種）
 を書く。nominal-state は冷却計算の 1 群の断面積（ADR-0238）で輸送しない核種の吸収を見る（untransported_absorption.py）。燃焼の後に
 `python3 inputs.py --branches <燃料>` が、2 つの履歴から次を <燃料>/out/ に書く（どれも 0.661 g/cc の 1 状態の
-分岐で、`BRANCH_BURNUP` の燃焼点を解く）:
+ブランチ計算で、`BRANCH_BURNUP` の燃焼点を解く）:
 
-- from-nominal.toml: 公称（0.743）の履歴の組成から（瞬時の分岐。ADR-0187）。`micro` に下の核種のすべてを書き、核種ごとの σᵢ と
+- from-nominal.toml: ベース計算（0.743）の履歴の組成から（瞬時ブランチ。ADR-0187）。`micro` に下の核種のすべてを書き、核種ごとの σᵢ と
   均質化した数密度 N̄ᵢ を持つ
-- history.toml: 0.661 の履歴の組成から（履歴の分岐の組成。k∞ は履歴の k∞ と同じ問題）。同じ `micro`
-- tracked.toml: 公称の組成のうち、ミクロ燃焼で追う 31 核種（`TRACKED`）だけを 0.661 の履歴の値にした組成（hybrid-tracked.msgpack）から
-- only-<核種>.toml: 公称の組成のうち、その核種だけを 0.661 の履歴の値にした組成（hybrid-<核種>.msgpack）から
+- history.toml: 0.661 の履歴の組成から（履歴ブランチの組成。k∞ は履歴の k∞ と同じ問題）。同じ `micro`
+- tracked.toml: ベース計算の組成のうち、ミクロ燃焼で追う 31 核種（`TRACKED`）だけを 0.661 の履歴の値にした組成（hybrid-tracked.msgpack）から
+- only-<核種>.toml: ベース計算の組成のうち、その核種だけを 0.661 の履歴の値にした組成（hybrid-<核種>.msgpack）から
 
 置き換える核種は、輸送する核種（履歴の `transportable`）のうち、2 つの履歴の燃焼の領域の数密度が `BRANCH_BURNUP` のどこかで違うもの。
-燃焼度 0 は from-nominal と history だけが解く（2 つの組成が同じ点で、分岐の設定の違いを見る検査）。
+燃焼度 0 は from-nominal と history だけが解く（2 つの組成が同じ点で、ブランチ計算の設定の違いを見る検査）。
 """
 
 import argparse
@@ -103,7 +103,7 @@ Sn-122 = 2.23417e-05
 Sn-124 = 2.79392e-05
 """
 
-# 燃焼の減速材は 2A と 2A-density の入力の数密度（../issue-0284/lattice-2A.toml、../p2/lattice-2A-density.toml）。分岐は
+# 燃焼の減速材は 2A と 2A-density の入力の数密度（../issue-0284/lattice-2A.toml、../p2/lattice-2A-density.toml）。ブランチ計算は
 # ホウ酸水の式で書く（branches の減速材の軸がホウ酸水の物質を求める）。2 つの書き方の差は数密度の相対 3e-6 以下
 DEPLETION_WATER = {
     NOMINAL_DENSITY: "{ O-16 = 2.48112e-02, H-1 = 4.96224e-02, B-10 = 1.07070e-05, B-11 = 4.30971e-05 }",
@@ -219,10 +219,10 @@ def branch_input(
     micro: list[str] | None,
     density: float = VARIED_DENSITY,
 ) -> str:
-    """減速材 `density` の 1 状態の分岐（out/ に置く。examples/depletion からの深さ 3）"""
+    """減速材 `density` の 1 状態のブランチ計算（out/ に置く。examples/depletion からの深さ 3）"""
     water = f"water = {{ density = {density}, boron = 1300, b10 = 0.199 }}"
     lines = [
-        f"# #0292: {fuel} の {density} g/cc の分岐（{history} の組成から）。inputs.py --branches が書く。手で直さない",
+        f"# #0292: {fuel} の {density} g/cc のブランチ計算（{history} の組成から）。inputs.py --branches が書く。手で直さない",
         f'few-group = {{ output = "{name}.msgpack", bounds = [1e7, 0.625, 1e-5] }}',
     ]
     body = geometry(fuel, 3, water)
