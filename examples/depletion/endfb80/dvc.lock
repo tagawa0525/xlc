@@ -1,0 +1,32 @@
+schema: '2.0'
+stages:
+  natural-isotopes:
+    cmd: python3 ../check_natural_isotopes.py ../chain.toml ../chain.msgpack 
+      ../xs.toml > natural-isotopes.txt
+    deps:
+    - path: ../../../python-ast/examples/depletion/check_natural_isotopes.py.ast
+      hash: md5
+      md5: 28cc9f87c43b7f4fd830b15d9f13d93e
+      size: 3089
+    - path: ../../../references/endf/ENDF-B-VIII.0_neutrons
+      hash: md5
+      md5: dde810c1fe3594b1ab0b8236de7b51dc.dir
+      size: 1212542189
+      nfiles: 561
+    - path: ../../../toml-values/examples/depletion/chain.toml.json
+      hash: md5
+      md5: 7fdf7f8c6f14e0213d7d1fdb8970429a
+      size: 227
+    - path: ../../../toml-values/examples/depletion/xs.toml.json
+      hash: md5
+      md5: f1ac56d6e5ada197098bdeaf2f436119
+      size: 7544
+    - path: ../chain.msgpack
+      hash: md5
+      md5: 1f1de1800363a19f23af2f7b4417c426
+      size: 4613695
+    outs:
+    - path: natural-isotopes.txt
+      hash: md5
+      md5: 1cc13155d6fefcb02cdfff6d14459c8e
+      size: 140

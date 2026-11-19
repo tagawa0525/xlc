@@ -1,0 +1,53 @@
+schema: '2.0'
+stages:
+  natural-isotopes:
+    cmd: python3 ../check_natural_isotopes.py chain.toml chain.msgpack xs.toml >
+      natural-isotopes.txt
+    deps:
+    - path: ../../../python-ast/examples/depletion/check_natural_isotopes.py.ast
+      hash: md5
+      md5: 28cc9f87c43b7f4fd830b15d9f13d93e
+      size: 3089
+    - path: ../../../references/endf/ENDF-B-VIII.1_neutrons
+      hash: md5
+      md5: e62a62fb1f8b3e076cd3f0744ae1c5f3.dir
+      size: 1342498390
+      nfiles: 562
+    - path: ../../../toml-values/examples/depletion/endfb81/chain.toml.json
+      hash: md5
+      md5: 691bde4f5d49048014516a7a21092a93
+      size: 236
+    - path: ../../../toml-values/examples/depletion/endfb81/xs.toml.json
+      hash: md5
+      md5: 6d5d9c56df1eaac963bdda66a352c3f0
+      size: 7550
+    - path: chain.msgpack
+      hash: md5
+      md5: 4b08493286f1d7840d777ac2cbfa9877
+      size: 4613905
+    outs:
+    - path: natural-isotopes.txt
+      hash: md5
+      md5: f2fca9f74a1f90befabcddc6b4c1a7e2
+      size: 134
+  xs-range:
+    cmd: ../../../bin/xs range xs.toml xs-range.toml
+    deps:
+    - path: ../../../binary-forms/xs.md5
+      hash: md5
+      md5: 59918a3e6ef681e76c366648f3bf5376
+      size: 33
+    - path: ../../../references/endf/ENDF-B-VIII.1_neutrons
+      hash: md5
+      md5: e62a62fb1f8b3e076cd3f0744ae1c5f3.dir
+      size: 1342498390
+      nfiles: 562
+    - path: ../../../toml-values/examples/depletion/endfb81/xs.toml.json
+      hash: md5
+      md5: 6d5d9c56df1eaac963bdda66a352c3f0
+      size: 7550
+    outs:
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
