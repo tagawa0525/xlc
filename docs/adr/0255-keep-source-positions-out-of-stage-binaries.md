@@ -106,7 +106,8 @@ crates の追跡しているすべての .rs の先頭に注釈の行を足す�
 失うもの: ステージのパニックの文の位置が `crates/lattice/src/moc.rs:0:0` の形になる（ファイル名とパニックの文は残る）。行は、
 `bin/` を作ったコミットで scripts/build-binaries.sh を流した `target/dvc/release/<名前>`（番号を残した同じビルド）で、同じ
 入力を流すと出る。計算のコードは同じなので、同じ場所で止まる。`bin/` をキャッシュから戻した worktree には `target/dvc` が
-無いか別のコミットのものなので、そのコミットでビルドし直す。
+無いか別のコミットのものなので、`bin/` の md5 を `dvc.lock` の `build` の outs に書いたコミット（`git log -S <md5> -- dvc.lock`）で
+ビルドし直す。
 
 守れる範囲: 注釈と空行の追加と削除、行の中の位置（列）の変化、ファイルの中の関数の並べ替え（1 組で確かめた）。守れないもの:
 コードの変更（別の関数の変更を含む）、ファイルの名前と、関数のファイルの間の移動（Location のファイル名が変わる）、
@@ -142,5 +143,6 @@ lattice の `enabled!` の 12 か所の行の桁の変化（文字列の長さ�
   (c) の `bin/` で流し、出力の md5 が同じ（wims69.msgpack 313819dc、pincell-fg.msgpack 09abc432、lattice.out 53445db5、
   core.out b14708c7。前の 3 つは examples/m0/dvc.lock のとおり）。ログは時間の値と、核種の並列の順だけが違う
 - (f) テスト: scripts/test_normalize_binary.py（小さな ELF で、0 にするバイトとそれ以外を変えないこと、行をずらした同じ
-  構造から同じコピーになること、節の端の Location と名前、偶然 NUL で終わる Metadata のファイル名、エラーの条件）と、
+  構造から同じコピーになること、節の端の Location と名前、偶然 NUL で終わる Metadata のファイル名（今のレイアウトの後ろのフィールドでは Location に当たらないことと、両方に当たると
+  止まること）、エラーの条件）と、
   crates/log/src/tests.rs（水準ごとのマクロの名前、target、フィールドと書式の形）

@@ -206,7 +206,8 @@ class NormalizeTest(unittest.TestCase):
         return image, span, file
 
     def test_metadata_file_followed_by_nul_keeps_the_fields_after_it(self):
-        # 今のレイアウトでは、ファイル名の後ろは水準と種類の u8 で、Location の列に当たる u32 は 0
+        # 今のレイアウトでは、ファイル名の後ろは水準と種類の u8 で、Location の列に当たる u32 は 0。Location には当たらず、
+        # Metadata の行だけを 0 にする
         image, span, file = self.nul_ended_span_file((0x0102, 0))
         data, counts = norm.normalize(image.build())
         self.assertEqual(u32(data, span + 4), 0)
