@@ -5,7 +5,8 @@
 - 時間（秒）: `total` は core の全体（`core seconds=`）。`eigenvalue`（span `nem` のフィールド `seconds` の和）、`interpolation`（span `constants` の和。
   少数群定数の内挿とミクロ燃焼の補正）、`micro`（span `micro depletion` と `micro decay` の和。微視的断面積の内挿、反応率と CRAM）、
   `xenon`（span `xenon balance` と `xenon anderson` の和。微視的断面積の内挿、平衡の Xe と I の値と Anderson の加速）。部分挿入の
-  ノードの定数を反復ごとに作り直す時間は `eigenvalue` に入るは互いに重ならない部分で、`other` は全体からそれらを引いた残り（入力の読み込み、出力など）。`search`（span
+  ノードの定数を反復ごとに作り直す時間は `eigenvalue` に入る。この 4 つは互いに重ならない部分で、`other` は全体からそれらを引いた残り
+  （入力の読み込みと出力のほか、span の外の計算: 炉心の配置、部分挿入のノードの準備、核分裂率、燃焼度の更新、点の記録）。`search`（span
   `search` の和）は臨界ホウ素の探索の全体で、その中の固有値計算と内挿を含む（ほかの部分と重なる）
 - `nem`: 固有値計算の span の数と、外側の反復の回数と時間の最小と最大
 - `solves`: ログの順の燃焼点と中点ごとの EFPD（中点はそのステップの終わり）、ホウ素濃度、固有値計算の回数（平衡 Xe の解き直しを
