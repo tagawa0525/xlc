@@ -28,7 +28,9 @@ description: xlc で計算を流す前に読む。Slurm の投げ方と区分、
 - 仕様書に KENO-VI の参照解がある問題は ENDF/B-VII.0 の検証用ライブラリで KENO と直接比べ、OpenMC の参照解は仕様書に参照のない
   問題（燃焼、ブランチ計算、HFP）と診断だけに作る（ADR-0175）。3D の全炉心と Problem 4 の OpenMC は作らない（ADR-0124、docs/plans/m3-core-hzp.md。ユーザー 2026-10-15）
 - 結果を変えない deps の変更で、重いステージを再実行せず `dvc commit` で付け直してよいのは、ADR が決めた移行
-  （ADR-0159、ADR-0210。ADR-0254 の移行は lock の deps の書き換え）だけ（値の同じ TOML の差は、ADR-0254 の正規形で deps に表れない）。参照のステージ（NJOY、OpenMC）が使わない Python のパッケージは、flake.nix の `pythonPackages` にだけ足す（`references` の
+  （ADR-0159、ADR-0210。ADR-0254 の移行は lock の deps の書き換え）だけ（値の同じ TOML の差は、ADR-0254 の正規形で deps に表れない）。ファイルやディレクトリを動かしただけの変更は、`dvc commit` でなく
+  `scripts/rewrite-lock-paths.py [--base <動かす前のコミット>]`（既定は HEAD。移動をコミットする前に実行する）で lock のパスを書き換え、ADR を書かずに
+  コミットしてよい。`UNVERIFIED:` に出たステージは書き換わらず changed に残り（終了コード 1）、`COMPARISON:` の比較のステージは名前で再実行する（ADR-0260）。参照のステージ（NJOY、OpenMC）が使わない Python のパッケージは、flake.nix の `pythonPackages` にだけ足す（`references` の
   devShell の store のパスが参照解の deps。食い違いは pre-commit の hook `references-shell` が止める。ADR-0212）
 - `examples/<問題>/dvc.yaml` のある例は、`dvc repro examples/<問題>/dvc.yaml`（すべては `dvc repro -P`）でステージを
   実行する。重いときは全体を上の形で Slurm に流し、ジョブのコマンドは `scripts/dvc-repro.py --max-stages <見込む本数>
