@@ -3722,7 +3722,7 @@ fn thermal_depletion_without_temperature_effects_matches_the_depletion_without_f
 
 #[test]
 fn thermal_depletion_points_heat_the_channels_at_their_operating_power() {
-    // 点は、そこから始まるステップの出力の割合で運転している（最後の点は最後のステップ。ADR-0218 の案 P2）: 熱出力
+    // 点は、そこから始まるステップの出力の割合で運転している（最後の点は最後のステップ。ADR-0229 の「燃焼のステップ」）: 熱出力
     // 1.28 MW × 割合を位置の出力の割合で分け、流路（集合体あたり 2.5 kg/s）のノードの中点のエンタルピーの IF97 の温度が減速材の
     // 温度（ADR-0229 の燃焼のステップ）
     let case = thermal_case(&hot_case(

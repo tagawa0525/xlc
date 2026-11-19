@@ -1900,7 +1900,7 @@ fn thermal_hydraulics_need_named_states() {
     );
 }
 
-/// 燃焼のケースの熱水力は未実装（ADR-0229 の「燃焼のステップ」）
+/// 燃焼のケースの熱水力は、入口の温度の状態で解く（ADR-0229 の「燃焼のステップ」）
 #[test]
 fn depletion_takes_thermal_hydraulics_with_inlet_states() {
     // 燃焼のステップの状態は入口の温度を持ち、熱出力にステップの出力の割合を掛ける（ADR-0229 の燃焼のステップ）

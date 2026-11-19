@@ -92,6 +92,9 @@ fn init_logging() -> anyhow::Result<()> {
     reason = "RAYON_NUM_THREADS は並列の数だけを選び、固有値計算の結果は数によらない（ADR-0234）"
 )]
 fn use_threads(given: Option<NonZeroUsize>) -> anyhow::Result<()> {
+    // lattice の `use_allowed_cpus` と xs の `parallel::cores` と同じ規則を複製する。共通のクレートに移すと xs と lattice の実行ファイルの
+    // バイトが変わる（ADR-0232 の案 S2）ので、それらが次に変わる作業で移す（docs/plans/upstream-error-budget.md の「作り直しのときに
+    // 入れる xs と lattice の修正」）
     // rayon に変数を読ませないのは、正の整数でない値と、available_parallelism が求められないときに、黙って既定や 1 にするため
     let variable = match std::env::var("RAYON_NUM_THREADS") {
         Ok(value) => Some(
