@@ -42,16 +42,7 @@ EXEMPTIONS = "scripts/unreadable-outputs.toml"
 # これらを変えたブランチも読む（検査の中身と、通す出力が変わるため）
 CHECK_FILES = ("scripts/check-readable-outputs.py", EXEMPTIONS)
 BINARY_FORMS = "binary-forms/"
-READER = [
-    "cargo",
-    "run",
-    "--quiet",
-    "--locked",
-    "-p",
-    "xlc-outputs",
-    "--bin",
-    "read-outputs",
-]
+PACKAGE = ["--quiet", "--locked", "-p", "xlc-outputs", "--bin", "read-outputs"]
 ISSUE = re.compile(r"^#(\d{4})$")
 MD5 = re.compile(r"^[0-9a-f]{32}(\.dir)?$")
 
@@ -69,6 +60,8 @@ class Output:
     # dvc.lock の `hash: md5`（キャッシュの files/md5 の下）。無ければ DVC 2 の置き場（キャッシュの直下）
     hash: str | None
     writer: str
+    # 書いたのが xlc の実行ファイルを呼ぶステージか
+    by_xlc: bool
 
 
 @dataclass(frozen=True)
@@ -81,6 +74,8 @@ class Target:
     dir_md5: str | None
     writer: str
     file: Path
+    # 読み手に渡す種類。None は xlc の形式でない（読まない）
+    kind: str | None
 
 
 def git(root, *args):
@@ -94,19 +89,43 @@ def join(dir_, path):
 
 
 def load_yaml(root, path):
+    # 766 の .dvc と 23 の lock を読むので、C の読み手にする（Python の読み手の数倍速い）
     with open(root / path, encoding="utf-8") as f:
-        return yaml.safe_load(f) or {}
+        return yaml.load(f, Loader=yaml.CSafeLoader) or {}
 
 
 def tracked(root, pattern):
     return git(root, "ls-files", "-z", "--", pattern).split("\0")[:-1]
 
 
-def example_locks(root):
-    return [p for p in tracked(root, "*dvc.lock") if p != "dvc.lock"]
+@dataclass(frozen=True)
+class Stage:
+    lock: str
+    name: str
+    # deps のパス（リポジトリの直下から）
+    deps: tuple
+    outs: tuple
+
+    @property
+    def by_xlc(self):
+        """xlc の実行ファイルを呼ぶか（deps に実行ファイルの正規形を持つ）"""
+        return any(p.startswith(BINARY_FORMS) for p in self.deps)
 
 
-def locked(out, where, writer, found):
+def stages(root):
+    """例の dvc.lock のステージ（直下の dvc.lock の build と正規形は計算の出力を書かない）"""
+    found = []
+    for lock in tracked(root, "*dvc.lock"):
+        if lock == "dvc.lock":
+            continue
+        d = posixpath.dirname(lock)
+        for name, stage in (load_yaml(root, lock).get("stages") or {}).items():
+            deps = tuple(join(d, dep["path"]) for dep in stage.get("deps") or [])
+            found.append(Stage(lock, name, deps, tuple(stage.get("outs") or [])))
+    return found
+
+
+def locked(out, where, writer, by_xlc, found):
     """md5 のある outs を found に足す"""
     md5 = out.get("md5")
     if md5 is None:
@@ -114,33 +133,29 @@ def locked(out, where, writer, found):
     if not isinstance(md5, str) or not MD5.match(md5):
         raise Stop(f"{where} の {out.get('path')} の md5 を読めない: {md5!r}")
     path = join(posixpath.dirname(where), out["path"])
-    found[path] = Output(path, md5, out.get("hash"), writer)
+    found[path] = Output(path, md5, out.get("hash"), writer, by_xlc)
 
 
-def outputs(root):
+def outputs(root, all_stages):
     """例の dvc.lock と .dvc の、md5 のある outs（パスはリポジトリの直下から）"""
     found = {}
-    for lock in example_locks(root):
-        yaml_path = posixpath.join(posixpath.dirname(lock), "dvc.yaml")
-        for name, stage in (load_yaml(root, lock).get("stages") or {}).items():
-            for out in stage.get("outs") or []:
-                locked(out, lock, f"{yaml_path}:{name}", found)
+    for stage in all_stages:
+        writer = f"{posixpath.dirname(stage.lock) or '.'}/dvc.yaml:{stage.name}"
+        for out in stage.outs:
+            locked(out, stage.lock, writer, stage.by_xlc, found)
     for dvc_file in tracked(root, "*.dvc"):
         for out in load_yaml(root, dvc_file).get("outs") or []:
-            locked(out, dvc_file, dvc_file, found)
+            locked(out, dvc_file, dvc_file, False, found)
     return found
 
 
-def xlc_deps(root):
-    """xlc の実行ファイルを呼ぶステージの deps（パスはリポジトリの直下から）"""
-    deps = set()
-    for lock in example_locks(root):
-        d = posixpath.dirname(lock)
-        for stage in (load_yaml(root, lock).get("stages") or {}).values():
-            paths = [join(d, dep["path"]) for dep in stage.get("deps") or []]
-            if any(p.startswith(BINARY_FORMS) for p in paths):
-                deps.update(paths)
-    return deps
+def kind_of(path, by_xlc):
+    """読み手に渡す種類。xlc の形式は、形式の名前を持つ MessagePack と、xlc が書く TOML（`xs range` の範囲）だけ"""
+    if path.endswith(".msgpack"):
+        return "msgpack"
+    if path.endswith(".toml") and by_xlc:
+        return "xs-range"
+    return None
 
 
 def cache_file(cache, md5, hash_):
@@ -151,9 +166,9 @@ def cache_file(cache, md5, hash_):
 def expand(out, cache, inside, targets, missing):
     """`out` のファイル（ディレクトリなら、その中で `inside` の下にあるもの）を targets に足す"""
     if not out.md5.endswith(".dir"):
-        targets[out.path] = Target(
-            out.path, out.md5, None, out.writer, cache_file(cache, out.md5, out.hash)
-        )
+        file = cache_file(cache, out.md5, out.hash)
+        kind = kind_of(out.path, out.by_xlc)
+        targets[out.path] = Target(out.path, out.md5, None, out.writer, file, kind)
         return
     manifest = cache_file(cache, out.md5, out.hash)
     if not manifest.exists():
@@ -164,14 +179,17 @@ def expand(out, cache, inside, targets, missing):
         if inside is None or relpath == inside or relpath.startswith(inside + "/"):
             path = f"{out.path}/{relpath}"
             file = cache_file(cache, entry["md5"], out.hash)
-            targets[path] = Target(path, entry["md5"], out.md5, out.writer, file)
+            kind = kind_of(path, out.by_xlc)
+            targets[path] = Target(path, entry["md5"], out.md5, out.writer, file, kind)
 
 
 def collect(root, cache):
     """読むファイル（パスごと）と、キャッシュに無いディレクトリの一覧"""
-    found = outputs(root)
+    all_stages = stages(root)
+    found = outputs(root, all_stages)
+    deps = {p for stage in all_stages if stage.by_xlc for p in stage.deps}
     targets, missing = {}, []
-    for dep in sorted(xlc_deps(root)):
+    for dep in sorted(deps):
         if dep in found:
             expand(found[dep], cache, None, targets, missing)
             continue
@@ -214,11 +232,16 @@ def exemptions(root):
         raise Stop(
             f"{EXEMPTIONS} の項目は [[output]] だけ: {sorted(set(data) - {'output'})}"
         )
+    entries = data.get("output", [])
+    if not isinstance(entries, list) or not all(isinstance(e, dict) for e in entries):
+        raise Stop(f"{EXEMPTIONS} の output は [[output]] の表の並び")
     allowed = {}
-    for i, entry in enumerate(data.get("output", []), start=1):
+    for i, entry in enumerate(entries, start=1):
         where = f"{EXEMPTIONS} の {i} 番目の [[output]]"
         if set(entry) != {"md5", "issue", "path"}:
             raise Stop(f"{where} の項目は md5、issue、path: {sorted(entry)}")
+        if not all(isinstance(v, str) for v in entry.values()):
+            raise Stop(f"{where} の md5、issue、path は文字列: {entry}")
         if not MD5.match(entry["md5"]):
             raise Stop(f"{where} の md5 が md5 の形でない: {entry['md5']!r}")
         match = ISSUE.match(entry["issue"])
@@ -240,7 +263,10 @@ def needs_reading(root, base):
     if build is None:
         raise Stop("直下の dvc.yaml に build のステージが無い")
     watched = [*build.get("deps", []), *CHECK_FILES]
-    for path in git(root, "diff", "--name-only", "-z", base).split("\0")[:-1]:
+    # 移動は元と先の両方を見る（crates/ の外へ動かしても実行ファイルは変わる）。追跡していないファイルもビルドに入る
+    changed = git(root, "diff", "--name-only", "--no-renames", "-z", base)
+    untracked = git(root, "ls-files", "--others", "--exclude-standard", "-z")
+    for path in (changed + untracked).split("\0")[:-1]:
         if any(path == w or path.startswith(w.rstrip("/") + "/") for w in watched):
             return path
     return None
@@ -249,8 +275,7 @@ def needs_reading(root, base):
 def read(root, reader, targets):
     """読み手の UNREADABLE の行から、読めなかったファイルと理由"""
     lines = "".join(
-        f"{'xs-range' if t.path.endswith('.toml') else 'msgpack'}\t{t.file}\n"
-        for t in {t.file: t for t in targets}.values()
+        f"{t.kind}\t{t.file}\n" for t in {t.file: t for t in targets}.values()
     )
     result = subprocess.run(
         reader, cwd=root, input=lines, capture_output=True, text=True, check=False
@@ -278,7 +303,7 @@ def main(argv):
         "--cache", type=Path, help="DVC のキャッシュ（既定は dvc cache dir）"
     )
     parser.add_argument(
-        "--reader", help="読み手の実行ファイル（既定は cargo run -p xlc-outputs）"
+        "--reader", help="読み手の実行ファイル（既定は cargo の xlc-outputs）"
     )
     args = parser.parse_args(argv[1:])
     root = Path(git(Path.cwd(), "rev-parse", "--show-toplevel").strip())
@@ -306,16 +331,27 @@ def main(argv):
                 raise Stop(f"dvc cache dir が失敗した: {out.stderr.strip()}")
             cache = Path(out.stdout.strip())
         targets, missing_dirs = collect(root, cache)
-        present = [t for t in targets.values() if t.file.exists()]
+        xlc = [t for t in targets.values() if t.kind is not None]
+        present = [t for t in xlc if t.file.exists()]
         missing = missing_dirs + [
-            (t.path, t.md5, t.file) for t in targets.values() if not t.file.exists()
+            (t.path, t.md5, t.file) for t in xlc if not t.file.exists()
         ]
+        if args.reader:
+            reader = [args.reader]
+        else:
+            # 読む時間にビルドを混ぜないため、先に作る
+            built = subprocess.run(
+                ["cargo", "build", *PACKAGE],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if built.returncode != 0:
+                raise Stop(f"読み手をビルドできない:\n{built.stderr.strip()}")
+            reader = ["cargo", "run", *PACKAGE]
         start = time.monotonic()
-        failed = (
-            read(root, [args.reader] if args.reader else READER, present)
-            if present
-            else {}
-        )
+        failed = read(root, reader, present) if present else {}
         seconds = time.monotonic() - start
     except Stop as e:
         print(f"STOP: {e}")
@@ -338,7 +374,11 @@ def main(argv):
                 f"UNREADABLE: {t.path} (md5 {t.md5}, written by {t.writer}): {reason}"
             )
     files = len({t.file for t in present})
-    print(f"READ: {files} files ({len(present)} outputs) in {seconds:.1f} s")
+    others = len(targets) - len(xlc)
+    print(
+        f"READ: {files} files ({len(present)} outputs) in {seconds:.1f} s. "
+        f"Not read: {others} outputs in no xlc format"
+    )
     return 1 if bad else 0
 
 

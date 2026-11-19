@@ -75,6 +75,10 @@ stages:
       md5: {gen}
   range:
     cmd: ../../bin/xs range xs.toml xs-range.toml
+    deps:
+    - path: ../../binary-forms/xs.md5
+      hash: md5
+      md5: {form}
     outs:
     - path: xs-range.toml
       hash: md5
