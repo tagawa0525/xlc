@@ -221,22 +221,38 @@ class InputComments(unittest.TestCase):
             self.assertIn(f"examples/a/xs.toml:{line}:", found_line)
             self.assertIn("すぐ隣", found_line)
 
-    def test_negations_and_effects_of_removing_are_not_exclusions(self):
+    def test_negations_of_removing_are_not_exclusions(self):
         lines = [
             "# U-235 は外していない",
-            "# 外しても k は変わらない",
-            "# 外すと 3 pcm 変わる",
+            "# U-238 は外していなかった",
+            "# U-234 は外してない",
+            "# U-236 は外しません",
             "# 外さない",
             "x = 1",
         ]
         files = {"examples/a/xs.toml": "\n".join(lines)}
         self.assertEqual(problems(files), [])
 
+    def test_other_forms_of_removing_are_exclusions(self):
+        lines = [
+            "# Pm-147 は外すとした",
+            "# Eu-151 などを外すなど",
+            "# 外しても k は変わらない",
+            "x = 1",
+        ]
+        files = {"examples/a/xs.toml": "\n".join(lines)}
+        self.assertEqual(len(problems(files)), 3)
+
     def test_a_removal_without_an_adjacent_issue_says_where_the_number_goes(self):
-        files = {"examples/a/xs.toml": "# Pm は外す。理由は #0001\n"}
-        found = problems(files)
-        self.assertEqual(len(found), 1)
-        self.assertIn("すぐ隣", found[0])
+        statuses = {**STATUSES, exc.LIST_ISSUE: "open"}
+        files = {
+            "examples/a/xs.toml": "# Pm は外す。理由は #0001\n",
+            "examples/b/xs.toml": f"# 外したまま（#{exc.LIST_ISSUE} の 1。解消は #0001）\n",
+        }
+        found = exc.violations(exc.find_markers(files), statuses)
+        self.assertEqual(len(found), 2)
+        for found_line in found:
+            self.assertIn("すぐ隣", found_line)
 
     def test_every_issue_of_a_list_next_to_a_removal_counts(self):
         statuses = {**STATUSES, exc.LIST_ISSUE: "open"}
@@ -244,6 +260,9 @@ class InputComments(unittest.TestCase):
             "examples/a/xs.toml": f"# Pm は外した（#{exc.LIST_ISSUE}、#0001）\n",
             "examples/b/xs.toml": "# Pm は外す（#0002、#0001）\n",
             "examples/c/xs.toml": "# #0002、#0001 のために外した\n",
+            "examples/d/xs.toml": f"# Pm は外したまま（#{exc.LIST_ISSUE} の 1、#0001）\n",
+            "examples/e/xs.toml": "# #0001 と #0002 で外す\n",
+            "examples/f/xs.toml": "# 外した（#0002 と #0001）\n",
         }
         found = exc.violations(exc.find_markers(files), statuses)
         self.assertEqual(found, [])
