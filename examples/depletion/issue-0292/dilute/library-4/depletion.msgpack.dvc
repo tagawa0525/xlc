@@ -1,0 +1,5 @@
+outs:
+- md5: 53b71010f53dc650fd03a41f639c3a02
+  size: 1513897722
+  hash: md5
+  path: depletion.msgpack
