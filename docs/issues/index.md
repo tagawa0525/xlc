@@ -300,3 +300,4 @@
 * [KENO-VI との k の直接の比較は、処理かモデルの差を約 100〜180 pcm 含み、手法の差の物差しにならない](0302-keno-k-offset-as-method-yardstick.md)
 * [ADR-0258 の移行の段（正規形の hook、-s の経路、付け直しのコマンド、形式の検査）と ADR-0260 のパスのツールを実装する](0298-implement-adr-0258-migration-stages.md)
 * [コードを変えた後に、軽い問題を今のコードで再実行して結果の変化に気付く検査が無い](0299-rerun-light-problems-to-notice-result-changes.md)
+* [ENDF/B-VIII.0 は軽水炉の燃焼で反応度を低く見積もると報告されていて、本番の核データの版を決め直す必要がある](0303-endfb80-depletion-reactivity-bias.md)
