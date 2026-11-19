@@ -6,20 +6,20 @@
 
 記録の表は、この JSON から examples/verification_tables.py が描く。
 
-読むのは、減速材の密度と制御棒の履歴の残りを持つ公称のテーブル（`lattice histories residual-rods.toml` の出力）、格子計算の参照（2A-rods の
+読むのは、減速材の密度と制御棒の履歴の残りを持つベース計算のテーブル（`lattice histories residual-rods.toml` の出力）、格子計算の参照（2A-rods の
 履歴の 20 MWd/kg の点から制御棒を抜いて続けた燃焼の履歴。`switch-rods-history.toml`）、core の 3 つの燃焼の履歴（どれも集合体 1 体、
 ノード 1 つ）:
 
 - 履歴の補正の core（`core-2A-rods-switch.toml`。20 MWd/kg まで制御棒を入れ、その後を抜く。H_r を燃焼度で重みを付けた平均で進める）
-- 補正を切った core（`core-2A-rods-plain-switch.toml`。履歴の残りを持たない公称のテーブルで同じ燃焼）
+- 補正を切った core（`core-2A-rods-plain-switch.toml`。履歴の残りを持たないベース計算のテーブルで同じ燃焼）
 - 一生を制御棒を入れて燃焼させた core（`core-2A-rods-branch.toml`。w = 1）
 
-と、制御棒の履歴の分岐の自分の条件のテーブル（`residual-rods-branch.toml`。値 aic の状態が第 1 項）。
+と、制御棒の履歴ブランチの自分の条件のテーブル（`residual-rods-branch.toml`。値 aic の状態が第 1 項）。
 
 - 切り替え: 参照の燃焼点のうち切り替えの点（参照の履歴の `continued`）から後ごとに、core の k の参照の k∞ からの差（補正あり、
   補正なし）と、追う核種の数密度の相対差（主な核種）。参照の数密度は燃焼の領域の数密度を体積で重みを付けて格子の面積で割った
-  均質化した数密度（lattice の `[history]` の N̄ᵢ と同じ。面積は燃焼度 0 の U-238 で公称のテーブルの N̄ᵢ⁰ に合わせ、U-235 で照らす）
-- 一生: 履歴の分岐の自分の条件のテーブルの値 aic の燃焼度の点ごとに、一生を制御棒を入れた core の k の、その k∞ からの差
+  均質化した数密度（lattice の `[history]` の N̄ᵢ と同じ。面積は燃焼度 0 の U-238 でベース計算のテーブルの N̄ᵢ⁰ に合わせ、U-235 で照らす）
+- 一生: 履歴ブランチの自分の条件のテーブルの値 aic の燃焼度の点ごとに、一生を制御棒を入れた core の k の、その k∞ からの差
 - 分け方（ADR-0228）: 2 つの変数の R の点ごとに、ノードの組成の差が見込み w_m ΔN̄ᵢ^m + w_r ΔN̄ᵢ^r（w_m = w_r = `SPLIT_WEIGHT`）の、公称の
   状態（制御棒の値 out）の定数に線形の補正と w_m U_m + w_r U_r を足した定数に、L を ADR-0228 の a_j（このノードでは a_j = w_j）で
   足した k と、変数ごとに P / P_j で重ねて足した k（ADR-0228 の案 A）の差。U と L は制御棒の値 out の補正
@@ -85,7 +85,7 @@ def at_burnup(rows, burnup, label):
 
 def homogenized(history, nuclides, nominal_first):
     """格子計算の燃焼の履歴の燃焼点ごとの（燃焼度、k∞、追う核種の均質化した数密度）。格子の面積は、燃焼度 0 の U-238 の Σ_r V_r N_r を
-    公称のテーブルの N̄ᵢ⁰（`nominal_first`。追う核種の順）で割ったもので、U-235 が相対 1e-9 で合うこと（初めの燃料は同じ）"""
+    ベース計算のテーブルの N̄ᵢ⁰（`nominal_first`。追う核種の順）で割ったもので、U-235 が相対 1e-9 で合うこと（初めの燃料は同じ）"""
     index = {n: i for i, n in enumerate(history["nuclides"])}
     volumes = [r["volume"] for r in history["regions"]]
 
@@ -117,7 +117,7 @@ def percent(a, b):
 
 
 def state_index(table, burnup, rod):
-    """燃焼度の点 `burnup` の公称の状態（連続の軸は公称、制御棒の値 `rod`）の状態の番号"""
+    """燃焼度の点 `burnup` の基準条件（連続の軸は公称、制御棒の値 `rod`）の状態の番号"""
     point = []
     for a in table["axes"]:
         if a["name"] == "burnup":
@@ -152,7 +152,7 @@ def scaled(r, w):
 
 
 def split_rows(table):
-    """分け方の比べ方（モジュールの説明）。2 つの変数がどちらも R を持つ燃焼度の点のうち、履歴の分岐の数密度が公称と違う点"""
+    """分け方の比べ方（モジュールの説明）。2 つの変数がどちらも R を持つ燃焼度の点のうち、履歴ブランチの数密度が公称と違う点"""
     micro = table["micro"]
     density, rods = entry(table, VARIABLES[0], "out"), entry(table, VARIABLES[1], "out")
     burnups = table["axes"][0]["points"]

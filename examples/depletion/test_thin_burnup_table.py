@@ -61,7 +61,7 @@ class Thin(unittest.TestCase):
             thin_burnup_table.thin(t, [0.0])
 
     def test_points_solved_at_some_burnups_keep_their_burnups(self):
-        # 公称でない状態（ホウ素 1000 ppm）を燃焼度 0 と 20 だけで解いたテーブル（ADR-0200）。燃焼度 10 を除くと、その状態は
+        # ブランチ条件（ホウ素 1000 ppm）を燃焼度 0 と 20 だけで解いたテーブル（ADR-0200）。燃焼度 10 を除くと、その状態は
         # 0 と 20 で残る
         t = table()
         t["points"] = [[0, 0], [0, 1], [1, 1], [2, 0], [2, 1]]

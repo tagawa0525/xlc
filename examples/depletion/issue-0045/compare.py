@@ -149,7 +149,7 @@ def fmt(seconds):
 
 
 def state(path):
-    """少数群定数のファイル（分岐のテーブルの形。1 状態）の状態"""
+    """少数群定数のファイル（ブランチのテーブルの形。1 状態）の状態"""
     return load(path)["states"][0]
 
 

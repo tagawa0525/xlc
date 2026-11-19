@@ -1,7 +1,7 @@
 # 履歴の残り R の分け方（ADR-0215、#0190）: 途中で条件を変えた燃焼の履歴（switch-density-history.toml。20 MWd/kg まで 2A の公称、その後を
 # 条件 j）の追う 31 核種だけを公称の履歴（../p2/lattice-2A.msgpack）に入れた組成（make_hybrid.py の --micro。hybrid-switch.msgpack）の、
 # switch-density-branch.toml と同じ 7 点を、同じ条件 j の 1 状態（ホウ素 1300 ppm、減速材 600 K と 0.661 g/cc、燃料 565 K）で解く。
-# switch-density-branch.toml との差が追わない核種の分、公称のテーブルの条件 j の状態との差から線形の補正を引いたものが線形化の誤差。
+# switch-density-branch.toml との差が追わない核種の分、ベース計算のテーブルの条件 j の状態との差から線形の補正を引いたものが線形化の誤差。
 library = "../p2/depletion.msgpack"
 few-group = { output = "table-hybrid-switch-branch.msgpack", bounds = [1e7, 0.625, 1e-5] }
 ufg-tolerance = 1e-4

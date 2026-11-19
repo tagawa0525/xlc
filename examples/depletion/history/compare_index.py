@@ -8,9 +8,9 @@
 compare_split.py と同じテーブルを読み、同じ式で履歴 X ごとに U_X と L_X を作る（4 本: 一生を条件 j の R(1)、途中で条件を変えた燃焼の
 switch、密度だけの経路の w = 0.5 と 1）。組成の指標は 2 つ:
 
-- E_X（線形の補正の効き）: 公称のテーブルの公称の状態（565 K、0.743 g/cc）の定数に、その履歴の数密度の線形の補正 Σᵢ cᵢ⁰ ΔN̄ᵢ^X を
-  足した定数の ρ − 公称の状態の定数の ρ（pcm）。U と L の効きは、compare_split.py と同じく、その線形の補正を足した定数に足した効き。
-  4 本で同じ定数（公称の状態）から測るので、同じ燃焼度で並べられる
+- E_X（線形の補正の効き）: ベース計算のテーブルの基準条件（565 K、0.743 g/cc）の定数に、その履歴の数密度の線形の補正 Σᵢ cᵢ⁰ ΔN̄ᵢ^X を
+  足した定数の ρ − 基準条件の定数の ρ（pcm）。U と L の効きは、compare_split.py と同じく、その線形の補正を足した定数に足した効き。
+  4 本で同じ定数（基準条件）から測るので、同じ燃焼度で並べられる
 - 主な核種の相対差 ΔN̄ᵢ^X / N̄ᵢ⁰（N̄ᵢ⁰ が 0 の核種は出さない）
 
 燃焼度の点ごとに、L/E（1 次の比）、L/E²（2 次の比）、U/E、U/w と、それぞれの R(1) の同じ燃焼度の値との比を出す（L がその次数で指標に
@@ -27,7 +27,7 @@ switch の参照の点ごとに、R(1) の成分を何倍して足すかで外�
 ΔN̄ᵢ^switch / ΔN̄ᵢ^(1) を出す。
 
 E は燃焼度の前半で符号を変えるので、その近くでは比を指標に使えない。符号を変えない候補として、群ごとの線形の補正の量の指標を 2 つ
-比べる（公称の状態の係数 cᵢ⁰ で、熱群（最後の群）の値。1/cm）:
+比べる（基準条件の係数 cᵢ⁰ で、熱群（最後の群）の値。1/cm）:
 
 - P（熱群の νΣf の補正）: Σᵢ cᵢ⁰_νf,G ΔN̄ᵢ
 - A（熱群の吸収の補正）: Σᵢ (cᵢ⁰_t,G − Σ_g' cᵢ⁰_s,G→g') ΔN̄ᵢ
@@ -62,7 +62,7 @@ def ratio(a, b):
 
 
 def index_effect(nominal, burnup, densities):
-    """指標 E: 公称の状態の定数に数密度 `densities` の線形の補正を足した効き (pcm)"""
+    """指標 E: 基準条件の定数に数密度 `densities` の線形の補正を足した効き (pcm)"""
     _, p = split.nominal_state(nominal, burnup)
     return rho(k_inf(split.base(nominal, burnup, densities))) - rho(
         k_inf(nominal["states"][p])
@@ -70,7 +70,7 @@ def index_effect(nominal, burnup, densities):
 
 
 def group_indices(nominal, burnup, densities):
-    """熱群（最後の群）の線形の補正の量 (P, A)（モジュールの説明）。係数は公称の状態の値"""
+    """熱群（最後の群）の線形の補正の量 (P, A)（モジュールの説明）。係数は基準条件の値"""
     b, p = split.nominal_state(nominal, burnup)
     deltas = [x - y for x, y in zip(densities, nominal["micro"]["densities"][b])]
     factors = coefficients(nominal["micro"]["states"][p])

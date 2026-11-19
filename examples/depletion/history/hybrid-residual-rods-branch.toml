@@ -1,6 +1,6 @@
 # 履歴の残り R の分け方（ADR-0215、#0190）の制御棒の履歴: 2A-rods の燃焼の履歴（../p2/lattice-2A-rods.msgpack）の追う 31 核種だけを公称の履歴
 # （../p2/lattice-2A.msgpack）に入れた組成（make_hybrid.py の --micro。hybrid-residual-rods.msgpack）を、residual-rods-branch.toml と同じ 17 点、
-# 同じ 2 つの制御棒の値の公称の状態で解く。residual-rods-branch.toml との差が追わない核種の分、公称のテーブルの同じ値の状態との差から
+# 同じ 2 つの制御棒の値の基準条件で解く。residual-rods-branch.toml との差が追わない核種の分、ベース計算のテーブルの同じ値の状態との差から
 # 線形の補正を引いたものが線形化の誤差。
 library = "../p2/depletion.msgpack"
 few-group = { output = "table-hybrid-residual-rods-branch.msgpack", bounds = [1e7, 0.625, 1e-5] }

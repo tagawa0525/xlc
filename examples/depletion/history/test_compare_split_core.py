@@ -57,7 +57,7 @@ def switch_summary(core=None):
 
 
 def j_state(t, b):
-    """公称のテーブルの燃焼度の点 `b` の条件 j の状態の番号"""
+    """ベース計算のテーブルの燃焼度の点 `b` の条件 j の状態の番号"""
     return t["points"].index([b, 0, 1, 0])
 
 
@@ -160,7 +160,7 @@ class Gaps(unittest.TestCase):
         )
 
     def test_the_parts_are_set_on_the_nominal_state_with_the_switch_densities(self):
-        # 成分の大きさは compare_split.py の比べ方（公称の状態の定数に参照の数密度の線形の補正を足した定数）
+        # 成分の大きさは compare_split.py の比べ方（基準条件の定数に参照の数密度の線形の補正を足した定数）
         x = parts_at_20()
         t = table()
         p = t["points"].index([2, 0, 0, 0])
@@ -189,7 +189,7 @@ class Gaps(unittest.TestCase):
         )
 
     def test_branch_densities_at_the_nominal_ones_add_no_linearization(self):
-        # core の `production_ratio` は、履歴の分岐の数密度が公称と同じ点で L を足さない（U は w で足す）
+        # core の `production_ratio` は、履歴ブランチの数密度が公称と同じ点で L を足さない（U は w で足す）
         nominal = table()
         rod = nominal["histories"][0]["rods"][0]
         rod["densities"][1] = list(nominal["micro"]["densities"][2])

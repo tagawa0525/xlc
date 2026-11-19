@@ -215,7 +215,7 @@ class Split(unittest.TestCase):
         t = tables()
         last = c.compare(t, summary([0.0, 0.5]))["one"][-1]
         nominal = t["nominal"]
-        # 燃焼度 20 の公称の状態は点 3
+        # 燃焼度 20 の基準条件は点 3
         deltas = [
             a - b
             for a, b in zip(

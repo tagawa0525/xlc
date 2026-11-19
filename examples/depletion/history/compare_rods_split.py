@@ -6,14 +6,14 @@ U の外れと L の外れに分ける（compare_split_core.py の分け方を�
 
 記録の表は、この JSON から examples/verification_tables.py が描く。
 
-読むのは、core が使った 2 つの変数の残りを持つ公称のテーブル（`table-residual-rods-histories.msgpack`。制御棒の変数の値 out の U(1)、L(1)、
-N̄ᵢ^j と、制御棒の値 out の公称の状態の定数と係数）、格子計算の参照の燃焼の履歴（`lattice-switch-rods.msgpack`。参照の k∞）と、その R の点の
-組成を制御棒を抜いた公称の状態で解いた分岐（`table-switch-rods-branch.msgpack`）と、その追う核種だけを公称の履歴に入れたハイブリッド
+読むのは、core が使った 2 つの変数の残りを持つベース計算のテーブル（`table-residual-rods-histories.msgpack`。制御棒の変数の値 out の U(1)、L(1)、
+N̄ᵢ^j と、制御棒の値 out の基準条件の定数と係数）、格子計算の参照の燃焼の履歴（`lattice-switch-rods.msgpack`。参照の k∞）と、その R の点の
+組成を制御棒を抜いた基準条件で解いた分岐（`table-switch-rods-branch.msgpack`）と、その追う核種だけを公称の履歴に入れたハイブリッド
 （`table-hybrid-switch-rods-branch.msgpack`）、履歴の補正の core の燃焼の履歴（`core-2A-rods-switch.msgpack`）と、その比較の要約
 （`rods-switch.json`。md5 と core − 参照を照らす）。
 
 参照の R の点 u のうち切り替えの点より後ごとに、参照の組成の U_switch = f(switch) − f(H_switch) と
-L_switch = f(H_switch) − f(公称、out) − Σᵢ cᵢ ΔN̄ᵢ^switch を作り（cᵢ は公称のテーブルの制御棒の値 out の公称の状態の係数。数密度の微分を
+L_switch = f(H_switch) − f(公称、out) − Σᵢ cᵢ ΔN̄ᵢ^switch を作り（cᵢ はベース計算のテーブルの制御棒の値 out の基準条件の係数。数密度の微分を
 持つ核種は微分）、core が足す量からの外れを
 
 - U の外れ δ_U = w U(1) − U_switch（w = H_r。core の点の履歴の変数）
@@ -25,7 +25,7 @@ L_switch = f(H_switch) − f(公称、out) − Σᵢ cᵢ ΔN̄ᵢ^switch を作
 - U の外れの分、L の外れの分、両方の外れの分
 - 定数の側 = core − 参照 − 数密度の効き、残り = 定数の側 − 両方の外れの分（再構成、k の基準 ρ(f(switch)) − ρ(参照の k∞)、非加法を含む）
 
-成分の大きさは公称の状態の定数に参照の数密度の線形の補正を足した定数に足した効きで、参照に合う重み 効き(U_switch) / 効き(U(1))、
+成分の大きさは基準条件の定数に参照の数密度の線形の補正を足した定数に足した効きで、参照に合う重み 効き(U_switch) / 効き(U(1))、
 効き(L_switch) / 効き(L(1))。
 
 U の重みを指数で忘れる重みにした外れ: 制御棒の履歴を H_τ（compare_forgetting.py）にした重み w_τ = 1 − compare_forgetting.weight(u, B₀, τ) で
@@ -76,7 +76,7 @@ FILES = {
 SUMMARY = "rods-switch.json"
 # rods-switch.json の core − 参照と、ここで作った値の差の上限 (pcm)（同じ入力と式なので丸めの程度）
 SUMMARY_TOLERANCE = 1e-9
-# 分岐のテーブルの N̄ᵢ と、参照の燃焼の履歴を均質化した数密度の相対差の上限（同じ組成を lattice と Python で体積の平均にした丸めの程度）
+# ブランチのテーブルの N̄ᵢ と、参照の燃焼の履歴を均質化した数密度の相対差の上限（同じ組成を lattice と Python で体積の平均にした丸めの程度）
 DENSITY_TOLERANCE = 1e-9
 # 切り替えの点の分岐の U、L とテーブルの値 out の U(1)、L(1) の差の、項目ごとの相対の上限（項目の差の絶対値の最大 / その項目の U(1) か L(1) の
 # 絶対値の最大。項目は単位も大きさも違うので項目ごとに測る）。同じ組成と状態を別の 2 本の格子計算（分岐とハイブリッド、残りのテーブルの分岐と
@@ -92,7 +92,7 @@ DIRECTION_NUCLIDES = ("U-235", "Pu-239", "Pu-240", "Pu-241")
 
 
 def nominal_condition(table):
-    """公称のテーブルの公称の状態の条件（ホウ素、（減速材の温度、密度）、燃料）"""
+    """ベース計算のテーブルの基準条件の値（ホウ素、（減速材の温度、密度）、燃料）"""
     by_name = {a["name"]: a for a in table["axes"]}
     moderator = by_name["moderator"]
     m = moderator["points"].index(moderator["nominal"])
@@ -213,7 +213,7 @@ def check_switch_point(table, row):
 
 
 def directions(table, x, listed):
-    """参照の組成の数密度の差と履歴の分岐の数密度の差の比: 核種ごとの ΔN̄ᵢ / ΔN̄ᵢ^j（`DIRECTION_NUCLIDES`）と、線形の補正の指標の比
+    """参照の組成の数密度の差と履歴ブランチの数密度の差の比: 核種ごとの ΔN̄ᵢ / ΔN̄ᵢ^j（`DIRECTION_NUCLIDES`）と、線形の補正の指標の比
     （熱群と高速群の νΣf、熱群の全断面積、線形の補正の反応度）"""
     b = x["point"]
     nominal = table["micro"]["densities"][b]
@@ -380,7 +380,7 @@ def compare(
         )
         row["directions"] = directions(table, x, direction_nuclides)
         rows.append(row)
-        # (P / P_j)^p は P / P_j が負だと定義できない（L の符号が履歴の分岐と逆の組成）
+        # (P / P_j)^p は P / P_j が負だと定義できない（L の符号が履歴ブランチと逆の組成）
         if index <= 0.0:
             raise SystemExit(
                 f"core: P / P_j at {u} is {index}; its powers are not defined"

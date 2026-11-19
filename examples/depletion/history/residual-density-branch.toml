@@ -1,6 +1,6 @@
-# 履歴の残り R（ADR-0215、#0190）の第 1 項: 減速材の密度の履歴の分岐（residual-density-history.toml の燃焼の履歴）の 17 の燃焼点
-# （公称のテーブル residual-nominal.toml と同じ）を、その分岐の条件の 1 状態（ホウ素 1300 ppm、減速材 600 K と 0.661 g/cc、燃料 565 K）で
-# 解く。追う 31 核種は公称のテーブルと同じ（R の第 3 項の数密度 N̄ᵢ^j）。微分は R に使わないので書かない。
+# 履歴の残り R（ADR-0215、#0190）の第 1 項: 減速材の密度の履歴ブランチ（residual-density-history.toml の燃焼の履歴）の 17 の燃焼点
+# （ベース計算のテーブル residual-nominal.toml と同じ）を、その分岐の条件の 1 状態（ホウ素 1300 ppm、減速材 600 K と 0.661 g/cc、燃料 565 K）で
+# 解く。追う 31 核種はベース計算のテーブルと同じ（R の第 3 項の数密度 N̄ᵢ^j）。微分は R に使わないので書かない。
 library = "../p2/depletion.msgpack"
 few-group = { output = "table-residual-density-branch.msgpack", bounds = [1e7, 0.625, 1e-5] }
 ufg-tolerance = 1e-4

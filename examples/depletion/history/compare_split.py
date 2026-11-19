@@ -17,19 +17,19 @@
 
 効きは次の 2 つ（ρ = 1 − 1/k の差の pcm。k は少数群定数の 2 群の無限媒質の k。compare_residual.py の `k_inf`）:
 
-- 公称の状態の定数での効き: 公称のテーブル（R を書き足した `table-residual-nominal-histories.msgpack`）の公称の状態（565 K、0.743 g/cc）に、その履歴の数密度の
+- 基準条件の定数での効き: ベース計算のテーブル（R を書き足した `table-residual-nominal-histories.msgpack`）の基準条件（565 K、0.743 g/cc）に、その履歴の数密度の
   線形の補正 Σᵢ cᵢ⁰ ΔN̄ᵢ を足した定数に、成分を足した効き（compare_weight.py の比べ方。同じ定数に足すので、成分どうしを比べられる）
 - 条件での効き: ρ(f(X)) − ρ(f(H_X))、ρ(f(H_X)) − ρ(f(公称) + Σᵢ cᵢ ΔN̄ᵢ)、ρ(f(X)) − ρ(f(公称) + Σᵢ cᵢ ΔN̄ᵢ)。和が閉じる
 
 比べるもの:
 
-1. R(1)（一生を条件 j（600 K、0.661 g/cc）で燃焼させた履歴の分岐。`residual-density-history.toml`）の U と L の大きさ
+1. R(1)（一生を条件 j（600 K、0.661 g/cc）で燃焼させた履歴ブランチ。`residual-density-history.toml`）の U と L の大きさ
 2. 途中で条件を変えた燃焼（`switch-density-history.toml`）の参照の点ごとの U と L を、core の w（ω = 1。`switch.json` の `weight`）を R(1) の
    成分に掛けた w U(1)、w L(1) と、その点の履歴の定数で比べ、成分ごとに参照に合う重み w_U = 効き(U_switch) / 効き(U(1))、w_L を出す
 3. core の差（`switch.json` の `difference_pcm`）のうち、成分の比例からの外れで説明できる分: core の定数は参照の定数から
    R_switch − w R(1) を引き、数密度の違いの線形の補正を足したものなので、外れ δ_U = U_switch − w U(1) の分を ρ(参照の定数 − δ_U) − ρ(参照の
    定数) とする（δ_L、両方も同じ）。残り = core の差 − 数密度の効き（`switch.json` の `composition_pcm`）− 両方の外れの分
-4. 減速材の密度だけの経路（565 K のまま、0.702 と 0.661 g/cc）の R(0.5) と R(1)/2 の違いを成分ごとに、w = 0.5 の定数（公称の状態に w = 0.5
+4. 減速材の密度だけの経路（565 K のまま、0.702 と 0.661 g/cc）の R(0.5) と R(1)/2 の違いを成分ごとに、w = 0.5 の定数（基準条件に w = 0.5
    の数密度の線形の補正を足したもの）に足した効きで比べる（compare_weight.py の比べ方）。比 = 効き(X(0.5)) / (2 効き(X(1)/2))（比例なら 1/2）
 """
 
@@ -52,7 +52,7 @@ from compare_residual import (
 from compare_weight import condition_table, effect, largest_difference, scaled
 
 FILES = {
-    # R を書き足した公称のテーブル（定数とミクロ燃焼のデータは R を持たないテーブルと同じ。R(1) を core が足す R と照らす）
+    # R を書き足したベース計算のテーブル（定数とミクロ燃焼のデータは R を持たないテーブルと同じ。R(1) を core が足す R と照らす）
     "nominal": "table-residual-nominal-histories.msgpack",
     "one": "table-residual-density-branch.msgpack",
     "one_hybrid": "table-hybrid-residual-density-branch.msgpack",
@@ -98,7 +98,7 @@ def solved(table, condition):
 
 
 def nominal_state(table, burnup):
-    """公称の状態の、燃焼度 `burnup` の（燃焼度の点の番号、状態の番号）"""
+    """基準条件の、燃焼度 `burnup` の（燃焼度の点の番号、状態の番号）"""
     index = [a["points"].index(a["nominal"]) for a in table["axes"][1:]]
     found = solved(table, values(table, index)).get(burnup)
     if found is None:
@@ -156,7 +156,7 @@ def split(nominal, branch, hybrid, label):
 
 
 def base(nominal, burnup, densities):
-    """公称の状態の定数に、数密度 `densities` の線形の補正を足したもの"""
+    """基準条件の定数に、数密度 `densities` の線形の補正を足したもの"""
     b, p = nominal_state(nominal, burnup)
     deltas = [x - y for x, y in zip(densities, nominal["micro"]["densities"][b])]
     return corrected(
@@ -165,7 +165,7 @@ def base(nominal, burnup, densities):
 
 
 def one_rows(nominal, rows):
-    """1（モジュールの説明）。R(1) は core が足す R（公称のテーブルの `histories`）と同じであること"""
+    """1（モジュールの説明）。R(1) は core が足す R（ベース計算のテーブルの `histories`）と同じであること"""
     rod = Table(nominal).rod
     out = []
     for x in rows:
@@ -266,7 +266,7 @@ def density_rows(nominal, half, full):
 
 
 def check_nominal(nominal, path_nominal, label):
-    """密度だけの経路の公称の組成のテーブルが、公称のテーブルと同じ履歴の組成（ΔN̄ᵢ の基準が同じ）であること"""
+    """密度だけの経路の公称の組成のテーブルが、ベース計算のテーブルと同じ履歴の組成（ΔN̄ᵢ の基準が同じ）であること"""
     _, burnups, _ = condition_table(path_nominal, f"{label} nominal")
     for b, u in enumerate(burnups):
         bn, _ = nominal_state(nominal, u)
@@ -277,7 +277,7 @@ def check_nominal(nominal, path_nominal, label):
 
 
 def history_condition(nominal):
-    """公称のテーブルの公称の状態と、`histories` の条件 j（減速材の軸だけが Hᵇ の格子点の状態）と、H⁰、Hᵇ"""
+    """ベース計算のテーブルの基準条件と、`histories` の条件 j（減速材の軸だけが Hᵇ の格子点の状態）と、H⁰、Hᵇ"""
     t = Table(nominal)
     moderator = nominal["axes"][2]
     index = list(t.nominal)
@@ -309,7 +309,7 @@ def compare(tables, summary):
     full_condition, full = split(
         tables["nominal_full"], tables["full"], tables["full_hybrid"], "w = 1"
     )
-    # 密度だけの経路: 公称の状態と同じホウ素、減速材の温度、燃料で、密度が w = 0.5 と 1 の値（H⁰ + w (Hᵇ − H⁰)）
+    # 密度だけの経路: 基準条件と同じホウ素、減速材の温度、燃料で、密度が w = 0.5 と 1 の値（H⁰ + w (Hᵇ − H⁰)）
     for c, label, weight in (
         (half_condition, "w = 0.5", 0.5),
         (full_condition, "w = 1", 1.0),
@@ -345,7 +345,7 @@ def report(summary):
     lines = [
         (
             f"R(1): 追わない核種の分 U の効き {span([x['untracked_pcm'] for x in one])} pcm、線形化の誤差 L "
-            f"{span([x['linearization_pcm'] for x in one])} pcm、R {span([x['residual_pcm'] for x in one])} pcm（公称の状態の定数）。"
+            f"{span([x['linearization_pcm'] for x in one])} pcm、R {span([x['residual_pcm'] for x in one])} pcm（基準条件の定数）。"
             f"最後の点 {last['burnup']:.4g} MWd/kg で U {last['untracked_pcm']:+.2f}、L {last['linearization_pcm']:+.2f}、"
             f"R {last['residual_pcm']:+.2f} pcm。条件 j での効きは U {last['untracked_condition_pcm']:+.2f}、L "
             f"{last['linearization_condition_pcm']:+.2f}、R {last['residual_condition_pcm']:+.2f} pcm。"
@@ -390,7 +390,7 @@ def report(summary):
 
 
 def check_summary(summary, md5s):
-    """`switch.json` が、今の参照のテーブルと、core が使った R と係数を持つ今の公称のテーブルから作られたこと"""
+    """`switch.json` が、今の参照のテーブルと、core が使った R と係数を持つ今のベース計算のテーブルから作られたこと"""
     for key in ("switch", "nominal"):
         file = FILES[key]
         if summary.get("inputs", {}).get(file) != md5s[file]:

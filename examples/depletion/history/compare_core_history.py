@@ -5,20 +5,20 @@
 
 記録の表は、この JSON から examples/verification_tables.py が描く。
 
-読むのは、R を持つ公称のテーブル（`lattice histories residual.toml` の出力）、R を書き足す前の公称のテーブル、第 1 項のテーブル（履歴の
-分岐の燃焼を条件 j で解いた分岐）、R の比較の要約（`residual.json`。条件 j の R を公称の状態で使った誤差）と、core の 4 つの燃焼の履歴:
+読むのは、R を持つベース計算のテーブル（`lattice histories residual.toml` の出力）、R を書き足す前のベース計算のテーブル、第 1 項のテーブル（履歴の
+分岐の燃焼を条件 j で解いた分岐）、R の比較の要約（`residual.json`。条件 j の R を基準条件で使った誤差）と、core の 4 つの燃焼の履歴:
 
 - 公称（`core-2A-residual-nominal.toml`。R を持つテーブル、565 K で一生。w = 0）と、同じ燃焼の R を持たないテーブル
   （`core-2A-plain-nominal.toml`）。2 つのファイルがバイトで同じか（`identical`）
 - 条件 j（`core-2A-residual-branch.toml`。600 K で一生。w = 1）: R の燃焼度の点ごとに、core の k の第 1 項のテーブルの k∞ からの差と、
-  公称の燃焼の core の k の、公称のテーブルの公称の状態の k∞ からの差（ミクロ燃焼の core と格子計算の組成の違いの目安）。core の
+  ベース計算の core の k の、ベース計算のテーブルの基準条件の k∞ からの差（ミクロ燃焼の core と格子計算の組成の違いの目安）。core の
   追う核種の数密度の、第 1 項のテーブルの N̄ᵢ^j からの相対差の絶対値が最大の核種と、その相対差（N̄ᵢ^j が 0 の核種は除く）
 - 第 1 項のテーブルで燃焼させた core（`core-2A-sigma-branch.toml`。条件 j の燃焼と同じで、テーブルだけが第 1 項）: 同じ点の k の第 1 項の
   k∞ からの差と、数密度の同じ相対差（履歴の補正が目指す水準）
 - 途中で条件を変えた燃焼（`core-2A-residual-switch.toml`。20 MWd/kg まで 565 K、その後 600 K）: 燃焼点ごとに、ノードの減速材の密度の
-  履歴 H、w = (H − H⁰) / (Hᵇ − H⁰)、R の状態への依存の目安 w × max |公称の状態で使った誤差|（R の全体を w で足すと置いた値。core は L を
+  履歴 H、w = (H − H⁰) / (Hᵇ − H⁰)、R の状態への依存の目安 w × max |基準条件で使った誤差|（R の全体を w で足すと置いた値。core は L を
   w でなく P / P_j で足すので、L の分の目安にならない）。R の燃焼度の点では、履歴の補正の効き ρ(f + w U + (P / P_j) L) − ρ(f) と、R の点ごとの
-  目安 w × |公称の状態で使った誤差(u)|
+  目安 w × |基準条件で使った誤差(u)|
 
 f はノードの定数のうち履歴の補正の前まで（テーブルのその状態の格子点の定数 + Σᵢ cᵢ (Nᵢ − N̄ᵢ⁰)。Nᵢ は core の数密度。core と同じ係数）で、
 R の燃焼度の点の、状態が格子点の燃焼点だけで組み立てる。U は w、L は熱群の νΣf の線形の補正の比 P / P_j で足す（`Table.node_k`）。
@@ -96,7 +96,7 @@ def single_node(core, label, nuclides):
 
 
 class Table:
-    """R を持つ公称のテーブルの、格子点の定数の引き方"""
+    """R を持つベース計算のテーブルの、格子点の定数の引き方"""
 
     def __init__(self, table):
         names = [a["name"] for a in table["axes"]]
@@ -143,7 +143,7 @@ class Table:
 
     def node_k(self, node, w, label):
         """ノードの定数（格子点の定数 + Σᵢ cᵢ (Nᵢ − N̄ᵢ⁰)）の 2 群の k と、core と同じく w U + (P / P_j) L を足した 2 群の k（ADR-0215）。
-        P は熱群（最後の群）の νΣf の線形の補正のノードの数密度の差のもの、P_j は同じ係数の履歴の分岐の数密度の差のもの。履歴の分岐の
+        P は熱群（最後の群）の νΣf の線形の補正のノードの数密度の差のもの、P_j は同じ係数の履歴ブランチの数密度の差のもの。履歴ブランチの
         数密度が公称と同じ点は L を足さない（L は定義から 0）"""
         p, b = self.point(node["burnup"], node["moderator"], label)
         micro = self.table["micro"]
@@ -207,7 +207,7 @@ def percent(a, b):
 def composition(t, node, first_densities, first_states):
     """条件 j の燃焼の R の点で、core の数密度と第 1 項のテーブルの数密度 N̄ᵢ^j の違いの効き: 基準は第 1 項を組み立てた定数
     （格子点の定数 + Σᵢ cᵢ (N̄ᵢ^j − N̄ᵢ⁰) + R）で、ρ(基準 + Σᵢ cᵢ (Nᵢ − N̄ᵢ^j)) − ρ(基準) と、核種ごと（その核種だけの差）の効きが大きい `LARGEST` 核種の効き、
-    数密度の相対差と、第 1 項のテーブルの微視的断面積の公称のテーブルの条件 j の値に対する相対差（核分裂と捕獲、群ごと）"""
+    数密度の相対差と、第 1 項のテーブルの微視的断面積のベース計算のテーブルの条件 j の値に対する相対差（核分裂と捕獲、群ごと）"""
     p, b = t.point(node["burnup"], node["moderator"], "branch")
     micro = t.table["micro"]
     coeff = coefficients(micro["states"][p])
@@ -282,7 +282,7 @@ def compare(
         raise SystemExit(
             "the first-term table does not solve the burnups of the residuals"
         )
-    # 条件 j の R を公称の状態で使った誤差の大きさ（R の点ごと）
+    # 条件 j の R を基準条件で使った誤差の大きさ（R の点ごと）
     applied = []
     for u in t.rod["burnup"]:
         found = [
@@ -424,10 +424,10 @@ def report(summary):
         else "どの点も 0"
     )
     return (
-        f"公称の燃焼の R を持つテーブルと持たないテーブルの出力は"
+        f"ベース計算の R を持つテーブルと持たないテーブルの出力は"
         f"{'バイトで同じ' if summary['identical'] else '違う'}。"
         f"\n条件 j の燃焼（w = 1）の core の k と第 1 項のテーブルの k∞ の差は、R の点 {len(branch)} で "
-        f"{span(branch, 'difference_pcm')} pcm（15 MWd/kg 以後 {span(later, 'difference_pcm')} pcm）。公称の燃焼の core と公称の"
+        f"{span(branch, 'difference_pcm')} pcm（15 MWd/kg 以後 {span(later, 'difference_pcm')} pcm）。ベース計算の core と公称の"
         f"テーブルの k∞ の差は {span(branch, 'nominal_difference_pcm')} pcm（15 MWd/kg 以後 "
         f"{span(later, 'nominal_difference_pcm')} pcm）。core の k と、格子点の定数 + 線形の補正 + w U + (P / P_j) L の 2 群の k の差は "
         f"{span(branch, 'reconstruct_pcm', '+.1e')} pcm。"

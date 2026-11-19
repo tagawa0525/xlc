@@ -1,4 +1,4 @@
-"""compare_branch_shielding.py の要約（分岐の自己遮蔽を公称の減速材で解いたテーブルの、状態ごとに解き直したテーブルとの差。
+"""compare_branch_shielding.py の要約（ブランチ条件の自己遮蔽を公称の減速材で解いたテーブルの、状態ごとに解き直したテーブルとの差。
 ADR-0201）。
 
 実行: python3 -m unittest discover -s examples/depletion -p 'test_compare_branch_shielding.py'
@@ -92,7 +92,7 @@ class CompareTest(unittest.TestCase):
             cbs.compare("2A", every, short)
 
     def test_split_tables_are_errors(self):
-        # 部分ノードに分けたテーブルは、分岐の状態ごとに split² の状態を持つ
+        # 部分ノードに分けたテーブルは、ブランチ条件ごとに split² の状態を持つ
         every = table([state(1.0)] * 16)
         every["split"] = 2
         with self.assertRaises(SystemExit):

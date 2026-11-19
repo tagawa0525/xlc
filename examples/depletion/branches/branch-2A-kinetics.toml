@@ -1,7 +1,7 @@
-# 動特性と冷却計算のデータ（ADR-0238）を持つ 2A の分岐のテーブル。VERA Problem 2 の 2A の今の既定の燃焼の履歴（../p2/lattice-2A.msgpack）の
-# 燃焼点から branch-2A-micro.toml と同じ 17 点を選び、組成を固定して分岐を解く（ADR-0187）。分岐は branch-2A-micro.toml と同じ最小の 4 状態
+# 動特性と冷却計算のデータ（ADR-0238）を持つ 2A のブランチのテーブル。VERA Problem 2 の 2A の今の既定の燃焼の履歴（../p2/lattice-2A.msgpack）の
+# 燃焼点から branch-2A-micro.toml と同じ 17 点を選び、組成を固定してブランチ条件を解く（ADR-0187）。分岐は branch-2A-micro.toml と同じ最小の 4 状態
 # （ホウ素 1000、公称の 1300 ppm × 燃料 565、600 K。減速材は公称の 565 K、0.743 g/cc）で、68 回の輸送。格子、離散化、組成、追う核種は
-# branch-2A-micro.toml と同じで、数密度の微分は持たない。状態ごとの動特性のデータと、燃焼度の点ごとの公称の状態の冷却計算の 1 群の
+# branch-2A-micro.toml と同じで、数密度の微分は持たない。状態ごとの動特性のデータと、燃焼度の点ごとの基準条件の冷却計算の 1 群の
 # 微視的断面積（輸送する核種と ../p2/xs.toml の放射化の核種）は、`[history]` の実行がいつも書く
 library = "../p2/depletion.msgpack"
 few-group = { output = "table-2A-kinetics.msgpack", bounds = [1e7, 0.625, 1e-5] }

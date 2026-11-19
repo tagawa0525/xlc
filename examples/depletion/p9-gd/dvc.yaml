@@ -1,10 +1,10 @@
-# Problem 9 の分岐のテーブルの解く状態と燃焼点を減らす案（ADR-0200 の案 B2 と案 H、ADR-0242 の案 F3）が、Gd 燃料の集合体（2O）でも
-# 成り立つかを測る比較のステージ（#0176）。格子計算（公称の状態での 2O の燃焼の履歴 lattice-2O.toml、各軸の両端と公称の点の直積を
+# Problem 9 のブランチのテーブルの解く状態と燃焼点を減らす案（ADR-0200 の案 B2 と案 H、ADR-0242 の案 F3）が、Gd 燃料の集合体（2O）でも
+# 成り立つかを測る比較のステージ（#0176）。格子計算（基準条件での 2O の燃焼の履歴 lattice-2O.toml、各軸の両端と公称の点の直積を
 # 27 燃焼点で解いたテーブル branch-2O.toml、燃料の温度の 7 点を少数の燃焼点で解いたテーブル fuel-2O.toml）は記録に書く試行で、
 # ステージにせず Slurm で直接流し、出力を `dvc add` した（.dvc ファイル）。上流のライブラリ ../p2/depletion.msgpack と燃焼チェーン
 # ../chain.msgpack のステージが bin の変更で deps だけ changed のままで、ステージにすると作り直しが先に走るため。実行するのは default の
 # devShell の `dvc repro`（ADR-0159）
-# 分岐のテーブルの燃焼点を決める比較（compare-2O-all、compare-2P-all）の格子計算（2P の燃焼の履歴 lattice-2P.toml、履歴の 73 点の
+# ブランチのテーブルの燃焼点を決める比較（compare-2O-all、compare-2P-all）の格子計算（2P の燃焼の履歴 lattice-2P.toml、履歴の 73 点の
 # すべてで解いたテーブル branch-2O-all.toml と branch-2P-all.toml、2P の直積 branch-2P.toml、2P の燃料の温度のテーブル fuel-2P.toml）も、
 # 同じ理由でステージにせず Slurm で直接流して `dvc add` する
 stages:
@@ -32,7 +32,7 @@ stages:
       - grid-2O.json:
           cache: false
   compare-2O-all:
-    # 公称の状態の燃焼点と、公称でない状態の燃焼点の間引きと、3 つ同時の項の、73 点を真値にした要約（git で追跡する）
+    # 基準条件の燃焼点と、ブランチ条件の燃焼点の間引きと、3 つ同時の項の、73 点を真値にした要約（git で追跡する）
     cmd: python3 ../compare_branch_cross_terms.py --json compare-2O-all.json compare-2O-all.toml
     deps:
       - ../../../python-ast/examples/depletion/compare_branch_cross_terms.py.ast

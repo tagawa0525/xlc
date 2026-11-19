@@ -17,7 +17,7 @@ from test_compare_residual import NUCLIDES, axes, few, residual
 from test_compare_switch import reference
 
 REACTIONS = [("U-235", "fission"), ("Pu-240", 102)]
-# 公称のテーブルの燃焼度 0 と 20 の N̄ᵢ⁰（test_compare_core_history の table）
+# ベース計算のテーブルの燃焼度 0 と 20 の N̄ᵢ⁰（test_compare_core_history の table）
 N0 = [[7.0e-4, 0.0], [5.0e-4, 2.0e-5]]
 # 密度だけの経路の R(1)（燃焼度 0 と 20）
 R_ONE = [residual(few(1.2), few(1.0)), residual(few(4.9), few(4.5))]
@@ -126,7 +126,7 @@ class Residuals(unittest.TestCase):
     ):
         rows = residual_summary(0.6)["rows"]
         t = residual_table()
-        # 燃焼度 20 の公称の状態は点 3、N̄ᵢ⁰ は燃焼度の点 2
+        # 燃焼度 20 の基準条件は点 3、N̄ᵢ⁰ は燃焼度の点 2
         f0 = t["states"][3]
         deltas = [a - b for a, b in zip([5.1e-4, 2.3e-5], t["micro"]["densities"][2])]
         base = r.corrected(f0, r.coefficients(t["micro"]["states"][3]), deltas)

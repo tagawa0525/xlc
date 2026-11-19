@@ -1,4 +1,4 @@
-"""#0285 の段 1（ADR-0250）の入力を書く: 分岐の状態の自己遮蔽を基準の UFG と等価原理の比で求めたテーブルと、状態ごとに UFG で
+"""#0285 の段 1（ADR-0250）の入力を書く: ブランチ条件の自己遮蔽を基準の UFG と等価原理の比で求めたテーブルと、状態ごとに UFG で
 解いたテーブル（`every-state`）を、燃料の種類と燃焼度を変えて比べる。
 
 燃焼の履歴の入力（`[depletion]` より前）の格子、物質、離散化に、テーブルの出力（ピン出力の形状関数つき）と分岐と `[history]` を
@@ -65,7 +65,7 @@ import tomllib
 HERE = Path(__file__).resolve().parent
 DEPLETION = HERE / ".."
 
-# 種類: （履歴の入力（examples/depletion から）、分岐を解く燃焼点 (MWd/kg)）。Gd の 2O は Gd が残る 10 MWd/kg
+# 種類: （履歴の入力（examples/depletion から）、ブランチ条件を解く燃焼点 (MWd/kg)）。Gd の 2O は Gd が残る 10 MWd/kg
 CASES = {
     "2A": ("p9-product/lattice-2A.toml", [0, 20, 60]),
     "2O": ("p2/lattice-2O.toml", [10]),
@@ -309,7 +309,7 @@ def production(shielding: str) -> str:
         f"\n# 本番の 27 点のうち {PRODUCTION_BURNUP} MWd/kg の 1 点（inputs.py の PRODUCTION）\n"
         f"burnup = [{PRODUCTION_BURNUP}]\n",
     )
-    # 公称でない状態の燃焼点は 1 点の `burnup` の部分集合でなくなるので、その注釈ごと除く（1 点ではすべての状態をその点で解く）
+    # ブランチ条件の燃焼点は 1 点の `burnup` の部分集合でなくなるので、その注釈ごと除く（1 点ではすべての状態をその点で解く）
     body = replaced(body, r"\n(?:#[^\n]*\n)*off-nominal-burnup = \[[^\]]*\]\n", "\n")
     if points:
         body = replaced(

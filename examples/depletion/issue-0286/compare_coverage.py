@@ -121,7 +121,7 @@ def capture_difference(full: list[dict], share: list[dict], where: str) -> float
         sys.exit(f"{where}: {len(share)} shieldings against {len(full)}")
     worst = 0.0
     for a, b in zip(share, full):
-        # 同じピンを 2 度解く自己遮蔽（分岐の状態の中）はないので、セルとリングで組にする
+        # 同じピンを 2 度解く自己遮蔽（ブランチ条件の中）はないので、セルとリングで組にする
         if [c[:2] for c in a["captures"]] != [c[:2] for c in b["captures"]]:
             sys.exit(f"{where}: the ring captures are not of the same pins and rings")
         if a["captures"]:

@@ -20,7 +20,7 @@ import tomllib
 HERE = Path(__file__).resolve().parent
 DEPLETION = HERE / "../.."
 
-# 種類: （履歴の入力（examples/depletion から）、分岐を解く燃焼点 (MWd/kg)）。燃焼点は、Gd が残る 10 MWd/kg と燃焼の進んだ
+# 種類: （履歴の入力（examples/depletion から）、ブランチ条件を解く燃焼点 (MWd/kg)）。燃焼点は、Gd が残る 10 MWd/kg と燃焼の進んだ
 # 40 MWd/kg。IFBA の 2M は自己遮蔽が 2A の約 3 倍なので 20 MWd/kg の 1 点。MOX のピンセルの履歴（../../lattice-mox1-rings1）は、
 # その履歴のライブラリ（../../depletion.msgpack）が今の形式より古く読めず（`delayed` がない）、p2 のライブラリでは履歴の輸送する
 # 核種と 900 K のデータの核種が違って分岐が止まるので、入れていない

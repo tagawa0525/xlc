@@ -12,7 +12,7 @@
   平均で割った値（1e-5）、k∞ は Δρ（pcm）。すべての点の当てはめでは、内側の点の残差から、両隣の点の残差を温度で線形に内挿した値を
   引いた「跳び」も書く（残差が滑らかな曲がりなら、跳びは残差より桁で小さく、格子点の片寄りなら格子点の跳びが残差と同じ桁になる）
 - `predictions`: 格子点だけから方式（../fuel_models.py の `SCHEMES`）で引いた足した点の Δρ（pcm）。本番の間隔の、方式の実測の誤差
-- `product`: 直積のテーブルの公称の状態（ホウ素と減速材の軸の `nominal`）の、その燃焼度の点の、格子点の当てはめの残差（ピンセルの
+- `product`: 直積のテーブルの基準条件（ホウ素と減速材の軸の `nominal`）の、その燃焼度の点の、格子点の当てはめの残差（ピンセルの
   格子点の当てはめと形を比べる）
 
 `--reference` は、名前のピンセルと同じピンセルを格子点だけで、ほかのライブラリで解いたテーブルで、格子点の状態の少数群定数の
@@ -152,8 +152,8 @@ def pin_state(table: dict) -> dict:
 
 
 def summarize_product(loaded: tuple, burnup: float, state: dict) -> dict:
-    """直積のテーブル（`load_product` の結果）の公称の状態の、燃焼度 burnup の点の、格子点の当てはめの残差。並べるピンセルの
-    ホウ素と減速材の点 `state` が公称の状態であること"""
+    """直積のテーブル（`load_product` の結果）の基準条件の、燃焼度 burnup の点の、格子点の当てはめの残差。並べるピンセルの
+    ホウ素と減速材の点 `state` が基準条件であること"""
     points, vectors, like, nominal = loaded
     if state != {name: nominal[name] for name in ("boron", "moderator")}:
         raise SystemExit(f"the pin state {state} is not the product nominal {nominal}")
