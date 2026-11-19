@@ -181,6 +181,10 @@ def pair_runs(
             )
         loaded += [msgpack.unpackb(history.read_bytes()), log.read_text()]
         files += [source, history, log]
+    if files[1].resolve() == files[4].resolve():
+        raise SystemExit(
+            f"{base} and {other} both write {files[1]}; the later run overwrote the history of the earlier"
+        )
     others = differing_keys(*runs, {(item.section, item.key), ("depletion", "history")})
     if others:
         raise SystemExit(

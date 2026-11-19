@@ -30,8 +30,6 @@ POOL = re.compile(r"thread pool threads=(\d+) from=")
 ORDERS = {
     "lexicographic": "直方体の並びの順",
     "red-black": "色の順",
-    # #0236 の前のツールが、スレッドのプールの行の無いログの燃焼に付けた順（trial-0234/compare-threads.json。今のツールは書かない）
-    "before": "ADR-0234 の前の bin/core",
 }
 
 
@@ -71,9 +69,14 @@ def thread_runs(sources: list[Path]) -> tuple[list[tuple[bytes, str]], list[Path
                 f"{source} sets node-order = {got!r}; input {i + 1} must set {want!r}"
             )
         log = log_path.read_text()
-        if "threads" in run and run["threads"] != threads_of(log):
+        ran = threads_of(log)
+        if "threads" in run and run["threads"] != ran:
             raise SystemExit(
-                f"{source} sets threads = {run['threads']}, but {log_path} ran {threads_of(log)}"
+                f"{source} sets threads = {run['threads']}, but {log_path} ran {ran}"
+            )
+        if any(history.resolve() == f.resolve() for f in files[1::3]):
+            raise SystemExit(
+                f"{source} writes {history} like an earlier input; the later run overwrote its history"
             )
         runs.append((history.read_bytes(), log))
         files += [source, history, log_path]
@@ -119,7 +122,7 @@ def report(summary: dict) -> list[str]:
             f"出力の割合の相対差の最大 {power:.2e}"
         )
         for r in c["runs"]:
-            threads = "" if r["threads"] is None else f" {r['threads']} スレッド"
+            threads = f" {r['threads']} スレッド"
             lines.append(
                 f"{name}: {ORDERS[r['order']]}{threads}: 固有値計算 {r['solves']} 回、外側の反復 {r['iterations']:,} 回、"
                 f"固有値計算の時間 {r['eigenvalue_seconds']:.1f} s、全体 {r['seconds']:.1f} s"
