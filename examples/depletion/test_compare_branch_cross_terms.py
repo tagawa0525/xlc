@@ -948,7 +948,7 @@ class NominalBurnupPoints(unittest.TestCase):
             self.assertEqual(entry["selections"][0]["removed"], [1.0, 2.0, 6.0])
             lines = cct.report(summary)
             self.assertTrue(
-                any("基準条件" in line and "3 点" in line for line in lines)
+                any("基準条件を" in line and "3 点" in line for line in lines)
             )
 
 
