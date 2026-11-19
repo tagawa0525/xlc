@@ -11,7 +11,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import compare_core_thermal
-from test_compare_core_guess import core, log
+from test_compare_core_pair import core, log
 
 
 def table():

@@ -5249,7 +5249,7 @@ class DrawCoreTiming(unittest.TestCase):
 
 
 def core_guess_summary():
-    """compare_core_guess.py の要約: 燃焼 1 つ、点 2 つと中点 1 つ"""
+    """compare_core_pair.py の initial-guess の要約: 燃焼 1 つ、点 2 つと中点 1 つ"""
     run = {"solves": 4, "eigenvalue_seconds": 8.0, "seconds": 10.0}
     return {
         "format": "xlc-compare-core-guess",
@@ -5275,7 +5275,7 @@ def core_guess_summary():
 
 
 def core_xenon_boron_summary():
-    """compare_core_xenon_boron.py の要約: 燃焼 1 つ、点 2 つと中点 1 つ"""
+    """compare_core_pair.py の xenon-boron の要約: 燃焼 1 つ、点 2 つと中点 1 つ"""
     s = core_guess_summary()
     s["format"] = "xlc-compare-core-xenon-boron"
     runs = s["cases"]["search"]["runs"]
@@ -5319,7 +5319,7 @@ class DrawCoreXenonBoron(unittest.TestCase):
 
 
 def core_acceleration_summary():
-    """compare_core_acceleration.py の要約: 燃焼 1 つ、点 2 つと中点 1 つ"""
+    """compare_core_pair.py の acceleration の要約: 燃焼 1 つ、点 2 つと中点 1 つ"""
     s = core_guess_summary()
     s["format"] = "xlc-compare-core-acceleration"
     runs = s["cases"]["search"]["runs"]

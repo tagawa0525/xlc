@@ -9155,7 +9155,7 @@ JSON が md5 で引く 5 本の restart の履歴と装荷替えの履歴は `.d
 炉心、テーブル、サイクルの分割 1 で比べる（#0156）。既定（点と中点の解の中の探索の評価と平衡 Xe の解き直しを、同じ解の直前の固有値計算から
 反復し、点と中点の解の最初の固有値計算は平らな初期値から）の燃焼は `branches/core-small-search-1.toml`（Xe を時間で追い、中点でも探す）と
 `core-small-equilibrium-1.toml`（平衡 Xe）、比べる平らな初期値の燃焼は同じケースに `initial-guess = "flat"` を足した `core-small-search-flat-1.toml` と
-`core-small-equilibrium-flat-1.toml`（`small_core_cases.py` が書く）。比べるのは `compare_core_guess.py` で、差は既定 − 平らな初期値、k とホウ素は点と中点
+`core-small-equilibrium-flat-1.toml`（`small_core_cases.py` が書く）。比べるのは `compare_core_pair.py`（項目 `initial-guess`）で、差は既定 − 平らな初期値、k とホウ素は点と中点
 （中点はログの行）の差の絶対値の最大、燃焼度と出力の割合は点のノードの相対差の絶対値の最大。固有値計算の時間は span `nem` のフィールド `seconds` の和、
 全体は `core seconds=`。
 
@@ -9166,7 +9166,7 @@ for c in search-1 search-flat-1 equilibrium-1 equilibrium-flat-1; do
 done
 cd ../../..
 B=examples/depletion/branches
-python3 examples/depletion/compare_core_guess.py --json $B/compare-core-small-guess.json \
+python3 examples/depletion/compare_core_pair.py initial-guess --json $B/compare-core-small-guess.json \
   search=$B/core-small-search-flat-1.msgpack,$B/core-small-search-flat-1.log,$B/core-small-search-1.msgpack,$B/core-small-search-1.log \
   equilibrium=$B/core-small-equilibrium-flat-1.msgpack,$B/core-small-equilibrium-flat-1.log,$B/core-small-equilibrium-1.msgpack,$B/core-small-equilibrium-1.log
 ```
@@ -9223,7 +9223,7 @@ python3 examples/depletion/compare_core_guess.py --json $B/compare-core-small-gu
 `[depletion]` の `xenon-boron`）を、「固有値計算の初期値（小さな炉心）」と同じ炉心、テーブル、サイクルの分割 1 で比べる（#0156）。既定（`joint`。
 最初の解き直しでホウ素を探し、その後は解き直しごとに Xe とホウ素を同じ反復で進める）の燃焼は `branches/core-small-equilibrium-1.toml`、比べる
 解き直すたびに探す形の燃焼は同じケースに `xenon-boron = "nested"` を足した `core-small-equilibrium-nested-1.toml`（`small_core_cases.py` が書く）。
-固有値計算の初期値はどちらも ADR-0231 の既定。比べるのは `compare_core_xenon_boron.py` で、差は同時の反復 − 解き直すたびに探す形、k とホウ素は
+固有値計算の初期値はどちらも ADR-0231 の既定。比べるのは `compare_core_pair.py`（項目 `xenon-boron`）で、差は同時の反復 − 解き直すたびに探す形、k とホウ素は
 点と中点（中点はログの行）の差の絶対値の最大、燃焼度と出力の割合は点のノードの相対差の絶対値の最大。固有値計算の時間は span `nem` のフィールド
 `seconds` の和、全体は `core seconds=`。
 
@@ -9234,7 +9234,7 @@ for c in equilibrium-1 equilibrium-nested-1; do
 done
 cd ../../..
 B=examples/depletion/branches
-python3 examples/depletion/compare_core_xenon_boron.py --json $B/compare-core-small-xenon-boron.json \
+python3 examples/depletion/compare_core_pair.py xenon-boron --json $B/compare-core-small-xenon-boron.json \
   equilibrium=$B/core-small-equilibrium-nested-1.msgpack,$B/core-small-equilibrium-nested-1.log,$B/core-small-equilibrium-1.msgpack,$B/core-small-equilibrium-1.log
 ```
 
@@ -9464,7 +9464,7 @@ md5 80c456c2（ADR-0231 の初期値と ADR-0219 の同時の反復。どちら�
 ## 固有値計算の CMFD（小さな炉心と全炉心）
 
 固有値計算をノードの CMFD で加速した燃焼（[ADR-0232](../../docs/adr/0232-accelerate-nem-with-node-cmfd.md)。ケースの `acceleration` の既定 `cmfd`）を、
-加速しない燃焼（`acceleration = "none"`）と比べる（#0076）。比べるのは `compare_core_acceleration.py` で、差は CMFD − 加速なし、k とホウ素は点と中点
+加速しない燃焼（`acceleration = "none"`）と比べる（#0076）。比べるのは `compare_core_pair.py`（項目 `acceleration`）で、差は CMFD − 加速なし、k とホウ素は点と中点
 （中点はログの行）の差の絶対値の最大、燃焼度と出力の割合は点のノードの相対差の絶対値の最大。固有値計算の時間は span `nem` のフィールド `seconds`、
 全体は `core seconds=`。「1 回の外側の反復」と「1 回の時間」は、固有値計算 1 回の値の最小〜最大。
 
@@ -9483,10 +9483,10 @@ for c in search-1 search-none-1 equilibrium-1 equilibrium-none-1; do
 done
 cd ../../..
 B=examples/depletion/branches
-python3 examples/depletion/compare_core_acceleration.py --json $B/compare-core-small-acceleration.json \
+python3 examples/depletion/compare_core_pair.py acceleration --json $B/compare-core-small-acceleration.json \
   search=$B/core-small-search-none-1.msgpack,$B/core-small-search-none-1.log,$B/core-small-search-1.msgpack,$B/core-small-search-1.log \
   equilibrium=$B/core-small-equilibrium-none-1.msgpack,$B/core-small-equilibrium-none-1.log,$B/core-small-equilibrium-1.msgpack,$B/core-small-equilibrium-1.log
-python3 examples/depletion/compare_core_acceleration.py --json $B/compare-core-small-acceleration-loose-coarse.json \
+python3 examples/depletion/compare_core_pair.py acceleration --json $B/compare-core-small-acceleration-loose-coarse.json \
   search=$B/core-small-search-none-1.msgpack,$B/core-small-search-none-1.log,$B/core-small-search-loose-coarse-1.msgpack,$B/core-small-search-loose-coarse-1.log \
   equilibrium=$B/core-small-equilibrium-none-1.msgpack,$B/core-small-equilibrium-none-1.log,$B/core-small-equilibrium-loose-coarse-1.msgpack,$B/core-small-equilibrium-loose-coarse-1.log
 ```
@@ -9582,9 +9582,9 @@ cd examples/depletion/p9-timing/trial-0244
 python3 ../p9_timing.py core-p9.log > timing-p9.json
 cd ../../../..
 T=examples/depletion/p9-timing
-python3 examples/depletion/compare_core_acceleration.py --json $T/trial-0244/compare-acceleration.json \
+python3 examples/depletion/compare_core_pair.py acceleration --json $T/trial-0244/compare-acceleration.json \
   p9=$T/trial-0156/core-p9.msgpack,$T/trial-0156/core-p9.log,$T/trial-0244/core-p9.msgpack,$T/trial-0244/core-p9.log
-python3 examples/depletion/compare_core_acceleration.py --json $T/trial-0076/compare-acceleration.json \
+python3 examples/depletion/compare_core_pair.py acceleration --json $T/trial-0076/compare-acceleration.json \
   p9=$T/trial-0156/core-p9.msgpack,$T/trial-0156/core-p9.log,$T/trial-0076/core-p9.msgpack,$T/trial-0076/core-p9.log
 ```
 

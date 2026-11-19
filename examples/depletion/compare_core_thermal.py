@@ -5,7 +5,7 @@
 使い方: python3 compare_core_thermal.py --json <要約の出力先> --table <2A のテーブル（msgpack）> <名前>=<熱水力なしの履歴>,<そのログ>,<熱水力の履歴>,<そのログ> ...
         python3 compare_core_thermal.py --report <要約の JSON>
 
-- 履歴とログは compare_core_guess.py と同じ（差は熱水力 − 熱水力なし）。2 つの燃焼は、同じ燃焼点（EFPD と日数）、状態の名前、定格の出力
+- 履歴とログは compare_core_pair.py と同じ（差は熱水力 − 熱水力なし）。2 つの燃焼は、同じ燃焼点（EFPD と日数）、状態の名前、定格の出力
   密度、軸方向のメッシュ、集合体を持ち、熱水力なしの状態の減速材と燃料の温度は、熱水力の状態の入口の温度と同じこと
 - 熱水力の効き `effect` (ppm): 点のホウ素の差から、k の差の反応度 (1 − 1/k) を k∞ のホウ素の係数でホウ素に直した分を引いた値（探索した点は
   k が同じでホウ素の差、ホウ素を与えた点は k の差）
@@ -13,9 +13,9 @@
   燃焼度の点の間は線形）に、点のノードの温度の入口の温度からの上がりの、出力の割合の 2 乗の重みの平均（燃料は √T。テーブルの燃料の軸の
   内挿の変数）を掛け、ホウ素の係数（熱水力なしの点のホウ素を挟む格子点の割線）で割った値の負。2 乗の重みは、随伴の中性子束を中性子束に
   比例とみた 1 次の摂動の重み（近似。確かめていない）
-- `--json`: 名前ごとに `points`（compare_core_guess.py の項目に、熱水力なしと熱水力の固有値計算の回数 `solves`、ノードの減速材と燃料の温度の
+- `--json`: 名前ごとに `points`（compare_core_pair.py の項目に、熱水力なしと熱水力の固有値計算の回数 `solves`、ノードの減速材と燃料の温度の
   最大、重みの平均の上がり `moderator_rise`、`fuel_rise`（K）、`effect`、`estimate` の燃料と減速材と和）、`midpoints`、`runs` の `isothermal` と
-  `thermal`（compare_core_guess.py の `run_of`）、`thermal`（ログの熱水力の行の数、繰り返しの回数の [最小, 最大]、出口の温度と燃料の温度の
+  `thermal`（compare_core_pair.py の `run_of`）、`thermal`（ログの熱水力の行の数、繰り返しの回数の [最小, 最大]、出口の温度と燃料の温度の
   最大）。`inputs` は読んだファイルのパスと md5
 - `--report`: 要約の JSON を文章で描く（記録の本文の数値はここからコピーする。ADR-0176）
 """
@@ -27,7 +27,7 @@ import re
 import sys
 from pathlib import Path
 
-import compare_core_guess
+import compare_core_pair
 import msgpack
 
 THERMAL = re.compile(
@@ -164,13 +164,13 @@ def compare(
                 "state": q["state"],
                 "k": p["k"] - q["k"],
                 "boron": p["boron"] - q["boron"],
-                "burnup": compare_core_guess.largest_relative(
-                    compare_core_guess.flat(p["burnups"]),
-                    compare_core_guess.flat(q["burnups"]),
+                "burnup": compare_core_pair.largest_relative(
+                    compare_core_pair.flat(p["burnups"]),
+                    compare_core_pair.flat(q["burnups"]),
                 ),
-                "power": compare_core_guess.largest_relative(
-                    compare_core_guess.flat(p["powers"]),
-                    compare_core_guess.flat(q["powers"]),
+                "power": compare_core_pair.largest_relative(
+                    compare_core_pair.flat(p["powers"]),
+                    compare_core_pair.flat(q["powers"]),
                 ),
                 "isothermal_boron": q["boron"],
                 "solves": [q["solves"], p["solves"]],
@@ -184,8 +184,8 @@ def compare(
                 "estimate": estimate,
             }
         )
-    mids = compare_core_guess.MIDPOINT.findall(th_log)
-    iso_mids = compare_core_guess.MIDPOINT.findall(iso_log)
+    mids = compare_core_pair.MIDPOINT.findall(th_log)
+    iso_mids = compare_core_pair.MIDPOINT.findall(iso_log)
     if len(mids) != len(iso_mids):
         raise SystemExit(f"{len(mids)} and {len(iso_mids)} midpoints")
     midpoints = [
@@ -202,8 +202,8 @@ def compare(
         "points": points,
         "midpoints": midpoints,
         "runs": {
-            "isothermal": compare_core_guess.run_of(iso_core, iso_log),
-            "thermal": compare_core_guess.run_of(th_core, th_log),
+            "isothermal": compare_core_pair.run_of(iso_core, iso_log),
+            "thermal": compare_core_pair.run_of(th_core, th_log),
         },
         "thermal": {
             "solves": len(lines),

@@ -1319,7 +1319,7 @@ def core_guess_summary(sources: list[dict]) -> dict:
 
 
 def core_guess_runs(sources: list[dict]) -> str:
-    """固有値計算の初期値（ADR-0231）ごとの、固有値計算の数、外側の反復の回数の和、固有値計算の時間の和、全体の時間（compare_core_guess.py）"""
+    """固有値計算の初期値（ADR-0231）ごとの、固有値計算の数、外側の反復の回数の和、固有値計算の時間の和、全体の時間（compare_core_pair.py）"""
     s = core_guess_summary(sources)
     rows = []
     for name, c in s["cases"].items():
@@ -1360,13 +1360,13 @@ def core_guess_runs(sources: list[dict]) -> str:
 
 
 def core_guess_differences(sources: list[dict]) -> str:
-    """固有値計算の初期値（ADR-0231）の既定 − 平らな初期値の差の最大（compare_core_guess.py）: 点と中点の k とホウ素の差の絶対値、点の
+    """固有値計算の初期値（ADR-0231）の既定 − 平らな初期値の差の最大（compare_core_pair.py）: 点と中点の k とホウ素の差の絶対値、点の
     ノードの燃焼度と出力の割合の相対差の絶対値"""
     return core_pair_differences(core_guess_summary(sources))
 
 
 def core_pair_differences(s: dict) -> str:
-    """同じ core の燃焼を 1 つの項目だけ変えて比べた要約（compare_core_guess.py、compare_core_xenon_boron.py）の、燃焼ごとの差の最大:
+    """同じ core の燃焼を 1 つの項目だけ変えて比べた要約（compare_core_pair.py）の、燃焼ごとの差の最大:
     点と中点の k とホウ素の差の絶対値、点のノードの燃焼度と出力の割合の相対差の絶対値"""
     rows = []
     for name, c in s["cases"].items():
@@ -1453,7 +1453,7 @@ def core_acceleration_summary(sources: list[dict]) -> dict:
 
 def core_acceleration_runs(sources: list[dict], label: str = "CMFD（ADR-0232）") -> str:
     """固有値計算の加速（ADR-0232）ごとの、固有値計算の数、外側の反復の回数の和と 1 回の範囲、固有値計算の時間の和と 1 回の範囲、全体の
-    時間と、CMFD / 加速なしの比（compare_core_acceleration.py）。`label` は CMFD の行の版の名前"""
+    時間と、CMFD / 加速なしの比（compare_core_pair.py）。`label` は CMFD の行の版の名前"""
     s = core_acceleration_summary(sources)
     rows = []
     for name, c in s["cases"].items():
@@ -1564,7 +1564,7 @@ def core_threads_differences(sources: list[dict]) -> str:
 
 
 def core_acceleration_differences(sources: list[dict]) -> str:
-    """固有値計算の CMFD − 加速なしの差の最大（compare_core_acceleration.py）: 点と中点の k とホウ素の差の絶対値、点のノードの燃焼度と
+    """固有値計算の CMFD − 加速なしの差の最大（compare_core_pair.py）: 点と中点の k とホウ素の差の絶対値、点のノードの燃焼度と
     出力の割合の相対差の絶対値"""
     return core_pair_differences(core_acceleration_summary(sources))
 
@@ -1688,7 +1688,7 @@ def core_xenon_boron_summary(sources: list[dict]) -> dict:
 
 def core_xenon_boron_runs(sources: list[dict]) -> str:
     """平衡 Xe と臨界ホウ素の収束のさせ方（ADR-0219）ごとの、固有値計算の数、外側の反復の回数の和、固有値計算の時間の和、全体の時間と、
-    同時の反復 / 解き直すたびに探す形の比（compare_core_xenon_boron.py）"""
+    同時の反復 / 解き直すたびに探す形の比（compare_core_pair.py）"""
     s = core_xenon_boron_summary(sources)
     rows = []
     for name, c in s["cases"].items():
@@ -1732,7 +1732,7 @@ def core_xenon_boron_runs(sources: list[dict]) -> str:
 
 
 def core_xenon_boron_differences(sources: list[dict]) -> str:
-    """平衡 Xe と臨界ホウ素の同時の反復 − 解き直すたびに探す形の差の最大（compare_core_xenon_boron.py）: 点と中点の k とホウ素の差の
+    """平衡 Xe と臨界ホウ素の同時の反復 − 解き直すたびに探す形の差の最大（compare_core_pair.py）: 点と中点の k とホウ素の差の
     絶対値、点のノードの燃焼度と出力の割合の相対差の絶対値"""
     return core_pair_differences(core_xenon_boron_summary(sources))
 

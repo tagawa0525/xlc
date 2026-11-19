@@ -4,10 +4,10 @@
 使い方: python3 compare_core_threads.py --json <要約の出力先> <名前>=<直方体の並びの順の履歴>,<そのログ>,<色の順の履歴>,<そのログ>[,<色の順の履歴>,<そのログ>...]
         python3 compare_core_threads.py --report <要約の JSON>
 
-- 履歴とログ、差の取り方は compare_core_guess.py と同じ（差は最初の色の順の燃焼 − 直方体の並びの順の燃焼）。スレッドの数はログの
+- 履歴とログ、差の取り方は compare_core_pair.py と同じ（差は最初の色の順の燃焼 − 直方体の並びの順の燃焼）。スレッドの数はログの
   `thread pool threads=` の行から読む。最初の燃焼のログにその行が無ければ、ADR-0234 の前の bin/core（固有値計算は 1 スレッドの
   直方体の並びの順）の燃焼とし、順を `before`、スレッドの数を null にする
-- `--json`: 名前ごとに `points`、`midpoints`（compare_core_guess.py と同じ形）と、`runs` の燃焼ごとの順（`lexicographic` か `red-black`）、
+- `--json`: 名前ごとに `points`、`midpoints`（compare_core_pair.py と同じ形）と、`runs` の燃焼ごとの順（`lexicographic` か `red-black`）、
   スレッドの数、最初の色の順の履歴とバイトで同じか（`same_bytes`。直方体の並びの順と最初の色の順は null）、固有値計算（span `nem`）の数、外側の反復の
   回数の和、固有値計算の時間の和（フィールド `seconds`）、core の全体の時間（`core seconds=`）、`per_solve` の固有値計算 1 回の外側の
   反復の回数と時間の [最小, 最大]。`inputs` は読んだファイルのパスと md5
@@ -20,8 +20,7 @@ import re
 import sys
 from pathlib import Path
 
-import compare_core_acceleration
-import compare_core_guess
+import compare_core_pair
 import msgpack
 
 POOL = re.compile(r"thread pool threads=(\d+) from=")
@@ -54,8 +53,8 @@ def run_of(order: str, history: bytes, log: str, first: bytes | None) -> dict:
         "order": order,
         "threads": threads,
         "same_bytes": None if first is None else history == first,
-        **compare_core_guess.run_of(core, log),
-        "per_solve": compare_core_acceleration.per_solve(log),
+        **compare_core_pair.run_of(core, log),
+        "per_solve": compare_core_pair.per_solve(log),
     }
 
 
@@ -67,13 +66,12 @@ def compare(
         raise SystemExit("give at least one red-black run")
     base_history, base_log = lexicographic
     first_history, first_log = red_black[0]
-    c = compare_core_guess.compare(
+    c = compare_core_pair.differences(
         msgpack.unpackb(base_history),
         base_log,
         msgpack.unpackb(first_history),
         first_log,
     )
-    c.pop("runs")
     runs = [run_of("lexicographic", base_history, base_log, None)]
     # 最初の色の順の燃焼は比べる基準なので、バイトの一致を書かない
     runs.append(run_of("red-black", first_history, first_log, None))
