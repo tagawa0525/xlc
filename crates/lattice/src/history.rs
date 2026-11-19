@@ -177,6 +177,8 @@ pub struct HistoryBranches {
     nuclides: Vec<String>,
     /// 輸送する核種（履歴の核種の番号）
     transported: Vec<usize>,
+    /// 履歴が無限希釈の吸収体として数えた核種（履歴の核種の番号。ADR-0261）。数えない履歴は空
+    dilute: Vec<usize>,
     /// 輸送する核種（`transported` の順）の、チェーンの核分裂の Q 値 (eV)。核分裂を持たない核種は `None`
     fission_q: Vec<Option<f64>>,
     /// ブランチ計算の状態ごとの、燃焼させない物質と、燃焼の領域ごとの温度 (K)
@@ -364,6 +366,36 @@ pub fn history_branches(
             expected.len(),
             history.transportable.len()
         );
+    }
+    // 無限希釈の吸収体（ADR-0261）も、入力のライブラリと基準条件の温度で求め直した集合が履歴と同じこと
+    let dilute = history
+        .dilute_absorbers
+        .iter()
+        .map(|name| {
+            index.get(name.as_str()).copied().ok_or_else(|| {
+                anyhow!("the dilute absorber {name} is not a nuclide of the history")
+            })
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?;
+    if !dilute.is_empty() {
+        let expected: Vec<&String> = history
+            .nuclides
+            .iter()
+            .filter(|n| {
+                !history.transportable.contains(n)
+                    && nominal
+                        .iter()
+                        .all(|&t| crate::dilute::has_data_at(library, n, t))
+            })
+            .collect();
+        if expected.iter().copied().ne(history.dilute_absorbers.iter()) {
+            bail!(
+                "the library has activation data at {nominal:?} K for {} untransported chain nuclides, the history \
+                 counted {} dilute absorbers; give the library and the depletion temperature of the history (ADR-0261)",
+                expected.len(),
+                history.dilute_absorbers.len()
+            );
+        }
     }
     let points = selection
         .burnup
@@ -639,6 +671,7 @@ pub fn history_branches(
             .collect(),
         nuclides: history.nuclides.clone(),
         transported,
+        dilute,
         fission_q,
         branch,
         reference_of: (0..branches.states().len())
@@ -698,6 +731,54 @@ impl HistoryBranches {
     pub fn state(&self, index: usize) -> Vec<MaterialInput> {
         let (point, b) = (index / self.branch.len(), index % self.branch.len());
         self.materials(point, &self.branch[b])
+    }
+
+    /// 履歴が無限希釈の吸収体を数えたか（ADR-0261）
+    pub fn has_dilute_absorbers(&self) -> bool {
+        !self.dilute.is_empty()
+    }
+
+    /// 状態 `index`（軸の直積の順）を制御棒の値 `rod` の形状で自己遮蔽した物質と [領域] の番号の組 `(materials, region_material)` に、
+    /// 履歴が数えた無限希釈の吸収体の吸収を重ねた物質と番号（ADR-0261）。吸収体の数密度は状態の燃焼度の点の履歴のもの、断面積は
+    /// 状態の燃焼の領域の温度のもので、`shielding` の SPH 因子を掛ける。参照から作り直した状態と摂動の組成の物質にも、同じ状態の
+    /// 番号で重ねる（摂動は輸送する核種の数密度だけを変える）。履歴が数えていなければ `None`
+    pub fn with_dilute_absorbers(
+        &self,
+        rod: usize,
+        index: usize,
+        library: &Library,
+        shielding: &FuelShielding,
+        lattice: &Lattice,
+        (materials, region_material): (&[Material], &[usize]),
+    ) -> anyhow::Result<Option<(Vec<Material>, Vec<usize>)>> {
+        if self.dilute.is_empty() {
+            return Ok(None);
+        }
+        let (point, b) = (index / self.branch.len(), index % self.branch.len());
+        let temperatures = &self.branch[b].1;
+        let absorption = self.densities[point]
+            .iter()
+            .zip(temperatures)
+            .map(|(n, &temperature)| {
+                crate::dilute::absorption(
+                    library,
+                    self.dilute
+                        .iter()
+                        .map(|&i| (self.nuclides[i].as_str(), n[i].max(0.0))),
+                    temperature,
+                )
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        let ones = vec![vec![1.0; library.groups.len()]; lattice.regions()];
+        let sph = shielding.physical_flux(lattice, &ones)?;
+        crate::dilute::overlay(
+            materials,
+            region_material,
+            self.regions(rod),
+            &absorption,
+            &sph,
+        )
+        .map(Some)
     }
 
     /// 制御棒の値の数（棒のない値を含む）

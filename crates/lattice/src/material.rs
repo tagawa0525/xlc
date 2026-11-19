@@ -68,6 +68,8 @@ pub enum MaterialError {
         "fission term {term} has nu-fission values that sum to zero; its adjoint (nu-fission over the sum) is undefined"
     )]
     ZeroSumFission { term: usize },
+    #[error("an added absorption must not be negative and must be finite, got {0}")]
+    Absorption(f64),
     #[error("an added material must have the same groups and scattering moments")]
     AddedShape,
     #[error("{nuclide} has scattering moments up to P{order}, the others up to P{expected}")]
@@ -309,6 +311,22 @@ impl Material {
             .zip(&self.scatter)
             .map(|(t, row)| t - row.iter().sum::<f64>())
             .collect()
+    }
+
+    /// 全断面積に、群ごとの吸収 `absorption` (1/cm) を足した物質（散乱と核分裂は変えない。無限希釈の吸収体。ADR-0261）。群の数が
+    /// 違うか、負か有限でない吸収はエラー
+    pub fn absorbing(&self, absorption: &[f64]) -> Result<Self, MaterialError> {
+        if absorption.len() != self.groups() {
+            return Err(MaterialError::Groups(self.groups()));
+        }
+        if let Some(&value) = absorption.iter().find(|a| !(**a >= 0.0 && a.is_finite())) {
+            return Err(MaterialError::Absorption(value));
+        }
+        let mut material = self.clone();
+        for (total, a) in material.total.iter_mut().zip(absorption) {
+            *total += a;
+        }
+        Ok(material)
     }
 
     /// 物質 `other` の `c` 倍を足した物質（核種の数密度を変えた物質。`other` は核種の数密度 1 の群定数）。核分裂の項は、χ の同じ

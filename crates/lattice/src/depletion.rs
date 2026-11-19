@@ -33,6 +33,7 @@ use xlc_format::library::{GroupReaction, Library, Shielded};
 use xlc_format::msgpack;
 use xlc_format::table::Table;
 
+use crate::dilute;
 use crate::fewgroup::{homogenize, pin_shapes};
 use crate::geometry::Lattice;
 use crate::input::{LatticeInput, MaterialInput};
@@ -65,6 +66,8 @@ pub struct DepletionInput {
     pub sectors: Option<usize>,
     /// 燃焼を続ける履歴の燃焼点。`None` なら燃焼度 0 の入力の組成から
     pub continue_from: Option<ContinueFrom>,
+    /// 輸送しない核種のうちライブラリの放射化の断面積を持つものを、無限希釈の吸収体として数える（ADR-0261）
+    pub dilute_absorbers: bool,
 }
 
 /// 燃焼を続ける燃焼の履歴の燃焼点
@@ -246,22 +249,25 @@ impl ReactionSource for LibraryReactions<'_> {
             .iter()
             .find(|r| r.mt == mt)
             .ok_or_else(|| format!("{nuclide}: the library has no chain reaction MT{mt}"))?;
-        // 経路の並びと状態はチェーンと同じ（ADR-0172）
-        let same = group.channels.len() == reaction.channels.len()
-            && group.channels.iter().zip(&reaction.channels).all(|(g, c)| {
-                match (g.final_state, c.final_state) {
-                    (None, None) => true,
-                    (Some(g), Some(c)) => g.mf == c.mf && g.lfs == c.lfs,
-                    _ => false,
-                }
-            });
-        if !same {
+        if !same_channels(group, reaction) {
             return Err(format!(
                 "{nuclide}: the channels of MT{mt} in the library differ from the chain"
             ));
         }
         channel_cross_sections(nuclide, group, shielded)
     }
+}
+
+/// ライブラリの反応 `group` の経路の並びと状態が、チェーンの反応 `reaction` と同じか（ADR-0172）
+pub(crate) fn same_channels(group: &GroupReaction, reaction: &Reaction) -> bool {
+    group.channels.len() == reaction.channels.len()
+        && group.channels.iter().zip(&reaction.channels).all(|(g, c)| {
+            match (g.final_state, c.final_state) {
+                (None, None) => true,
+                (Some(g), Some(c)) => g.mf == c.mf && g.lfs == c.lfs,
+                _ => false,
+            }
+        })
 }
 
 /// ライブラリのチェーンの反応 `group` の経路ごとの群の断面積 (barn)。捕獲（MT102）は自己遮蔽した捕獲 `shielded.capture` を経路の
@@ -932,6 +938,8 @@ pub struct History {
     pub regions: Vec<DepletionRegion>,
     /// 輸送できるチェーンの核種（ライブラリがすべての燃焼の領域の温度で持つもの。チェーンの順。ADR-0173）
     pub transportable: Vec<String>,
+    /// 無限希釈の吸収体として数えたチェーンの核種（チェーンの順。ADR-0261）。数えない燃焼は空
+    pub dilute_absorbers: Vec<String>,
     pub points: Vec<HistoryPoint>,
     pub transport: TransportTimes,
     pub depletion: DepletionTimes,
@@ -951,6 +959,9 @@ struct HistoryFile<'a> {
     nuclides: &'a [String],
     regions: &'a [DepletionRegion],
     transportable: &'a [String],
+    /// 無限希釈の吸収体を数えない燃焼の履歴はキーを書かない
+    #[serde(skip_serializing_if = "<[String]>::is_empty")]
+    dilute_absorbers: &'a [String],
     points: Vec<PointFile<'a>>,
     seconds: SecondsFile,
     solves: usize,
@@ -989,6 +1000,9 @@ struct HistoryFileIn {
     nuclides: Vec<String>,
     regions: Vec<DepletionRegion>,
     transportable: Vec<String>,
+    /// キーが無ければ無限希釈の吸収体を数えない燃焼の履歴
+    #[serde(default)]
+    dilute_absorbers: Vec<String>,
     points: Vec<PointFileIn>,
     seconds: SecondsFileIn,
     solves: usize,
@@ -1035,6 +1049,7 @@ impl History {
             bail!("expected format {FORMAT}, found {}", file.format);
         }
         let (nuclides, regions, transportable) = (file.nuclides, file.regions, file.transportable);
+        let dilute_absorbers = file.dilute_absorbers;
         // 燃焼の輸送は燃焼の領域のない格子で止まる（`run`）ので、領域のない履歴は書かれない
         if regions.is_empty() {
             bail!("the history has no depletion regions");
@@ -1057,6 +1072,21 @@ impl History {
         }
         if let Some(name) = transportable.iter().find(|n| !nuclides.contains(n)) {
             bail!("the transportable {name} is not a nuclide of the history");
+        }
+        // 無限希釈の吸収体は、輸送しないチェーンの核種で、チェーンの順
+        let positions: Vec<usize> = dilute_absorbers
+            .iter()
+            .map(|name| {
+                if transportable.contains(name) {
+                    bail!("the dilute absorber {name} is transportable");
+                }
+                nuclides.iter().position(|n| n == name).ok_or_else(|| {
+                    anyhow!("the dilute absorber {name} is not a nuclide of the history")
+                })
+            })
+            .collect::<anyhow::Result<_>>()?;
+        if !positions.windows(2).all(|w| w[0] < w[1]) {
+            bail!("the dilute absorbers must follow the order of the nuclides without repeats");
         }
         let burnups: Vec<f64> = file.points.iter().map(|p| p.burnup).collect();
         if burnups.first() != Some(&0.0) || !burnups.windows(2).all(|w| w[0] < w[1]) {
@@ -1105,6 +1135,7 @@ impl History {
             nuclides,
             regions,
             transportable,
+            dilute_absorbers,
             points,
             transport: TransportTimes {
                 shielding: seconds("shielding", s.shielding)?,
@@ -1122,7 +1153,8 @@ impl History {
     }
     /// フィールド名付きの map 形式の MessagePack: `{format: "xlc-depletion-history", nuclides, regions: [{material, cell,
     /// cells, regions, volume}], transportable, points: [{time, burnup, k_inf, densities, pin_powers, few_group}], seconds: {shielding, moc, rates,
-    /// matrix, cram}（時間の内訳 (s)）, solves, shieldings, continued: {file, burnup}（続けた燃焼だけ）}`
+    /// matrix, cram}（時間の内訳 (s)）, solves, shieldings, continued: {file, burnup}（続けた燃焼だけ）,
+    /// dilute_absorbers（無限希釈の吸収体を数えた燃焼だけ。ADR-0261）}`
     pub fn to_msgpack(&self) -> anyhow::Result<Vec<u8>> {
         let points = self
             .points
@@ -1151,6 +1183,7 @@ impl History {
             nuclides: &self.nuclides,
             regions: &self.regions,
             transportable: &self.transportable,
+            dilute_absorbers: &self.dilute_absorbers,
             points,
             seconds: SecondsFile {
                 shielding: self.transport.shielding.as_secs_f64(),
@@ -1343,14 +1376,16 @@ pub fn run(
 }
 
 /// 燃焼を続ける履歴 `from` の、続ける点 `at` より前の点と、続ける点の組成と時間。履歴の燃焼の領域（物質、組の代表のセル、扇形の組の番号、組のセルの位置、体積、MOC の領域の数。ADR-0226、ADR-0244）、チェーンの核種、輸送する
-/// 核種、燃焼度 0 の数密度（燃焼させる物質の入力の組成 `initial`。燃焼度と出力の基準の初めの重金属の質量を決める）、点ごとの
+/// 核種、無限希釈の吸収体（ADR-0261）、燃焼度 0 の数密度（燃焼させる物質の入力の組成 `initial`。燃焼度と出力の基準の初めの重金属の質量を決める）、点ごとの
 /// 少数群定数の有無と群境界が、この燃焼と同じこと。`from` は続けた履歴でないこと
+#[allow(clippy::too_many_arguments)]
 fn continued_start(
     from: &History,
     at: &ContinueFrom,
     regions: &[DepletionRegion],
     nuclides: &[String],
     transportable: &[String],
+    dilute_absorbers: &[String],
     initial: &[Vec<f64>],
     few_group: Option<&DepletionFewGroup>,
 ) -> anyhow::Result<(Vec<HistoryPoint>, Beginning)> {
@@ -1380,6 +1415,14 @@ fn continued_start(
              give the library and the temperatures of the depleted materials of the history (ADR-0240)",
             transportable.len(),
             from.transportable.len()
+        );
+    }
+    if from.dilute_absorbers != dilute_absorbers {
+        bail!(
+            "this depletion counts {} dilute absorbers, the history {file} counted {}; give the `dilute-absorbers` and \
+             the library of the history (ADR-0261)",
+            dilute_absorbers.len(),
+            from.dilute_absorbers.len()
         );
     }
     let first = from
@@ -1521,6 +1564,25 @@ pub(crate) fn run_with_moc(
                     .all(|&t| has_data_at(library, &n.name, t))
         })
         .collect();
+    // 無限希釈の吸収体（ADR-0261）: 輸送しないチェーンの核種のうち、ライブラリの放射化の断面積をすべての燃焼の領域の温度で持つもの
+    let dilute: Vec<usize> = if depletion.dilute_absorbers {
+        (0..chain.nuclides.len())
+            .filter(|&i| {
+                !transportable[i]
+                    && temperatures
+                        .iter()
+                        .all(|&t| dilute::has_data_at(library, &chain.nuclides[i].name, t))
+            })
+            .collect()
+    } else {
+        Vec::new()
+    };
+    if depletion.dilute_absorbers && dilute.is_empty() {
+        bail!(
+            "`dilute-absorbers`: the library has no activation data of a chain nuclide at the depletion temperatures \
+             {temperatures:?} K (ADR-0261)"
+        );
+    }
     // 初めの重金属の質量 (g、高さ 1 cm あたり)。燃焼を続けるなら、続ける履歴の燃焼度 0 の数密度が `initial` と同じことを
     // 確かめる（`continued_start`）ので、履歴の燃焼の質量と同じ
     let mass = heavy_metal_mass(&regions, &initial, |i| {
@@ -1614,7 +1676,7 @@ pub(crate) fn run_with_moc(
             );
         }
         let absent: Vec<usize> = (0..chain.nuclides.len())
-            .filter(|&i| !in_library[i] && present(i))
+            .filter(|&i| !in_library[i] && !dilute.contains(&i) && present(i))
             .collect();
         xlc_log::info!(
             nuclides = absent.len(),
@@ -1714,13 +1776,43 @@ pub(crate) fn run_with_moc(
                 }
             }
         };
+        // 無限希釈の吸収体の吸収を、燃焼の領域の物質に重ねる（自己遮蔽の結果は変えない。ADR-0261）
+        let overlaid = if dilute.is_empty() {
+            None
+        } else {
+            let ones = vec![vec![1.0; groups.len()]; lattice.regions()];
+            let sph = shielded.physical_flux(lattice, &ones)?;
+            let absorption = regions
+                .iter()
+                .zip(n)
+                .map(|(d, n)| {
+                    dilute::absorption(
+                        library,
+                        dilute
+                            .iter()
+                            .map(|&i| (chain.nuclides[i].name.as_str(), n[i].max(0.0))),
+                        base(&d.material)?.temperature,
+                    )
+                })
+                .collect::<anyhow::Result<Vec<_>>>()?;
+            Some(dilute::overlay(
+                &shielded.materials,
+                &shielded.region_material,
+                &regions,
+                &absorption,
+                &sph,
+            )?)
+        };
         transport.shielding += start.elapsed();
         let start = Instant::now();
-        let region_materials: Vec<&Material> = shielded
-            .region_material
-            .iter()
-            .map(|&i| &shielded.materials[i])
-            .collect();
+        let (unique, region_index) = match &overlaid {
+            Some((unique, index)) => (unique.as_slice(), index.as_slice()),
+            None => (
+                shielded.materials.as_slice(),
+                shielded.region_material.as_slice(),
+            ),
+        };
+        let region_materials: Vec<&Material> = region_index.iter().map(|&i| &unique[i]).collect();
         let options = Options {
             scattering_order: input
                 .scattering_order
@@ -1765,13 +1857,23 @@ pub(crate) fn run_with_moc(
                     cross_sections,
                 });
             }
-            let region = region_rates(
+            let mut region = region_rates(
                 chain,
                 &composition,
                 temperature,
                 &members,
                 groups.bounds(),
                 reactions,
+            )?;
+            let fluxes: Vec<(f64, &[f64])> = members.iter().map(|m| (m.volume, m.flux)).collect();
+            dilute::add_rates(
+                chain,
+                &dilute,
+                library,
+                temperature,
+                &fluxes,
+                groups.bounds(),
+                &mut region,
             )?;
             for (i, r) in region.iter().enumerate() {
                 if let Some(f) = &chain.nuclides[i].fission {
@@ -1832,6 +1934,7 @@ pub(crate) fn run_with_moc(
             k = solution.k,
             iterations = solution.iterations,
             nuclides = composition.len(),
+            dilute = dilute.len(),
             "depletion transport"
         );
         Ok(Evaluation {
@@ -1856,6 +1959,10 @@ pub(crate) fn run_with_moc(
         .filter(|(_, t)| **t)
         .map(|(n, _)| n.name.clone())
         .collect();
+    let dilute_absorbers: Vec<String> = dilute
+        .iter()
+        .map(|&i| chain.nuclides[i].name.clone())
+        .collect();
     // 燃焼を続けるなら、続ける点より前の履歴の点と、続ける点の組成と時間。履歴の点は続ける点より前の点、続いて続ける点と
     // 入力の燃焼度の点で、ステップは続ける点から（それより前のステップの長さは使わない）
     let started = match (&depletion.continue_from, from) {
@@ -1866,6 +1973,7 @@ pub(crate) fn run_with_moc(
             &regions,
             &nuclides,
             &transportable,
+            &dilute_absorbers,
             &initial,
             depletion.few_group.as_ref(),
         )?),
@@ -1895,6 +2003,7 @@ pub(crate) fn run_with_moc(
             if history.nuclides != nuclides
                 || history.regions != regions
                 || history.transportable != transportable
+                || history.dilute_absorbers != dilute_absorbers
                 || history.continued != depletion.continue_from
                 || next.len() != regions.len()
                 || next.iter().any(|n| n.len() != nuclides.len())
@@ -1946,6 +2055,7 @@ pub(crate) fn run_with_moc(
                 nuclides,
                 regions: regions.clone(),
                 transportable,
+                dilute_absorbers,
                 points,
                 transport: TransportTimes::default(),
                 depletion: DepletionTimes::default(),

@@ -2454,3 +2454,84 @@ fn split_sector_materials_take_their_densities_at_the_pooled_cross_sections() {
         assert!((a - 1.125 * b).abs() <= 1e-14 * a, "{a} vs 9/8 x {b}");
     }
 }
+
+/// テストのライブラリに、輸送しない Cs-135（Xe-135 の崩壊でできる。チェーンでは反応を持たない）の放射化の捕獲を足したもの
+fn library_with_activation() -> Library {
+    use xlc_format::library::{ActivationData, ActivationTemperature};
+    let mut library = library();
+    library.activation.push(ActivationData {
+        name: "Cs-135".into(),
+        za: 55135.0,
+        awr: 133.7,
+        temperatures: vec![ActivationTemperature {
+            temperature: T,
+            fission: vec![0.0, 0.0],
+            reactions: vec![GroupReaction {
+                mt: 102,
+                channels: vec![GroupChannel {
+                    final_state: None,
+                    cross_section: vec![0.5, 8.7],
+                }],
+            }],
+        }],
+    });
+    library
+}
+
+const DILUTE: &str = "dilute-absorbers = true\n";
+
+#[test]
+fn histories_keep_their_dilute_absorbers() {
+    let library = library_with_activation();
+    let history = deplete_with(&format!("{PIN}{DILUTE}"), &library);
+    assert_eq!(history.dilute_absorbers, ["Cs-135"]);
+    let read = History::from_msgpack(&history.to_msgpack().unwrap()).unwrap();
+    assert_eq!(read.dilute_absorbers, history.dilute_absorbers);
+    // 数えない燃焼の履歴は空で、同じライブラリでも輸送する核種は変わらない
+    let plain = deplete_with(PIN, &library);
+    assert!(plain.dilute_absorbers.is_empty());
+    assert_eq!(plain.transportable, history.transportable);
+    let read = History::from_msgpack(&plain.to_msgpack().unwrap()).unwrap();
+    assert!(read.dilute_absorbers.is_empty());
+    // 吸収体は、輸送しない履歴の核種で、核種の順
+    for (names, message) in [
+        (vec!["Kr-83"], "not a nuclide"),
+        (vec!["U-235"], "transportable"),
+        (vec!["Cs-135", "Cs-135"], "order"),
+        (vec!["Ba-140", "Cs-135"], "order"),
+    ] {
+        let mut other = history.clone();
+        other.dilute_absorbers = names.into_iter().map(String::from).collect();
+        let err = History::from_msgpack(&other.to_msgpack().unwrap()).unwrap_err();
+        assert!(format!("{err:#}").contains(message), "{err:#}");
+    }
+}
+
+#[test]
+fn continuing_needs_the_dilute_absorbers_of_the_history() {
+    let library = library_with_activation();
+    let text = continued("0.5", "[1.0]", "4.9e-2");
+    let plain = deplete_with(PIN, &library);
+    let err = continue_simply(&format!("{text}{DILUTE}"), &library, &plain).unwrap_err();
+    assert!(format!("{err:#}").contains("dilute absorbers"), "{err:#}");
+    let dilute = deplete_with(&format!("{PIN}{DILUTE}"), &library);
+    let err = continue_simply(&text, &library, &dilute).unwrap_err();
+    assert!(format!("{err:#}").contains("dilute absorbers"), "{err:#}");
+    assert!(continue_simply(&format!("{text}{DILUTE}"), &library, &dilute).is_ok());
+}
+
+#[test]
+fn dilute_absorbers_need_activation_data_at_every_depletion_temperature() {
+    // 放射化の核種がチェーンにないか、燃焼の領域の温度のデータがなければ、黙って今の経路に戻らない
+    let mut library = library_with_activation();
+    library.activation[0].temperatures[0].temperature = 900.0;
+    let err = deplete_from(
+        &format!("{PIN}{DILUTE}"),
+        &library,
+        &Options::default(),
+        None,
+        &mut |_, _, _| Ok(()),
+    )
+    .unwrap_err();
+    assert!(format!("{err:#}").contains("dilute-absorbers"), "{err:#}");
+}

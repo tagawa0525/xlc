@@ -686,75 +686,105 @@ fn run(path: &Path) -> anyhow::Result<()> {
             }
             _ => None,
         };
-        // 自己遮蔽した状態は、その自己遮蔽の物質と番号をそのまま使う
-        let (unique, region_index): (Cow<'_, [Material]>, Cow<'_, [usize]>) = match (&held, &source)
-        {
-            (Some(shielded), _) => (
-                Cow::Borrowed(shielded.materials()),
-                Cow::Borrowed(shielded.region_material()),
-            ),
-            (None, Source::Library(library)) => {
-                let mut named = state_materials
-                    .iter()
-                    .map(|m| {
-                        Material::mix(library, &m.composition, m.temperature)
-                            .map(|mixed| (m.name.clone(), mixed))
-                            .map_err(|e| anyhow!("material `{}`: {e}", m.name))
-                    })
-                    .collect::<anyhow::Result<Vec<_>>>()
-                    .with_context(context)?;
-                // 混ぜた物質は、この状態の成分から作る（真空の成分は核種を持たない。ADR-0128）
-                for mixture in &input.mixtures {
-                    let parts: Vec<(&_, f64)> = mixture
-                        .parts
-                        .iter()
-                        .filter(|(part, _)| part != VOID)
-                        .map(|(part, f)| {
-                            state_materials
-                                .iter()
-                                .find(|m| &m.name == part)
-                                .map(|m| (m, *f))
-                                .ok_or_else(|| {
-                                    anyhow!(
-                                        "material `{}`: component `{part}` is not in the state",
-                                        mixture.name
-                                    )
-                                })
-                        })
-                        .collect::<anyhow::Result<_>>()
-                        .with_context(context)?;
-                    let mixed = Material::mixture(library, &parts)
-                        .map_err(|e| anyhow!("material `{}`: {e}", mixture.name))
-                        .with_context(context)?;
-                    named.push((mixture.name.clone(), mixed));
+        // 履歴が数えた無限希釈の吸収体の吸収を、自己遮蔽した燃焼の領域の物質に重ねる（ADR-0261）
+        let overlaid = match (&history_branches, &source) {
+            (Some(h), Source::Library(library)) if h.has_dilute_absorbers() => {
+                // 一般化摂動と k の感度は、物質を自己遮蔽から作り直す経路を持ち、重ねた物質で確かめていない
+                if h.generalized().is_some() || input.sensitivity.is_some() {
+                    return Err(anyhow!(
+                        "a history with dilute absorbers takes neither generalized derivatives nor [sensitivity] \
+                         (ADR-0261)"
+                    ))
+                    .with_context(context);
                 }
-                // 媒質はブランチ計算の状態と同じ番号の状態（軸が同じことは確かめてある）
-                for (m, medium) in input.media.iter().zip(&media) {
-                    let from = medium
-                        .states
-                        .get(state)
-                        .ok_or_else(|| anyhow!("material `{}`: no state {state}", m.name))
-                        .and_then(|s| {
-                            Material::from_medium(s)
+                let Some(shielded) = &held else {
+                    return Err(anyhow!(
+                        "a history with dilute absorbers needs the self-shielding (ADR-0261)"
+                    ))
+                    .with_context(context);
+                };
+                h.with_dilute_absorbers(
+                    rod,
+                    state,
+                    library,
+                    shielded.fuel(),
+                    &geometry.lattice,
+                    (shielded.materials(), shielded.region_material()),
+                )
+                .with_context(|| format!("{}: dilute absorbers", context()))?
+            }
+            _ => None,
+        };
+        // 自己遮蔽した状態は、その自己遮蔽の物質と番号をそのまま使う
+        let (unique, region_index): (Cow<'_, [Material]>, Cow<'_, [usize]>) =
+            match (overlaid, &held, &source) {
+                (Some((materials, index)), _, _) => (Cow::Owned(materials), Cow::Owned(index)),
+                (None, Some(shielded), _) => (
+                    Cow::Borrowed(shielded.materials()),
+                    Cow::Borrowed(shielded.region_material()),
+                ),
+                (None, None, Source::Library(library)) => {
+                    let mut named = state_materials
+                        .iter()
+                        .map(|m| {
+                            Material::mix(library, &m.composition, m.temperature)
+                                .map(|mixed| (m.name.clone(), mixed))
                                 .map_err(|e| anyhow!("material `{}`: {e}", m.name))
                         })
+                        .collect::<anyhow::Result<Vec<_>>>()
                         .with_context(context)?;
-                    named.push((m.name.clone(), from));
+                    // 混ぜた物質は、この状態の成分から作る（真空の成分は核種を持たない。ADR-0128）
+                    for mixture in &input.mixtures {
+                        let parts: Vec<(&_, f64)> = mixture
+                            .parts
+                            .iter()
+                            .filter(|(part, _)| part != VOID)
+                            .map(|(part, f)| {
+                                state_materials
+                                    .iter()
+                                    .find(|m| &m.name == part)
+                                    .map(|m| (m, *f))
+                                    .ok_or_else(|| {
+                                        anyhow!(
+                                            "material `{}`: component `{part}` is not in the state",
+                                            mixture.name
+                                        )
+                                    })
+                            })
+                            .collect::<anyhow::Result<_>>()
+                            .with_context(context)?;
+                        let mixed = Material::mixture(library, &parts)
+                            .map_err(|e| anyhow!("material `{}`: {e}", mixture.name))
+                            .with_context(context)?;
+                        named.push((mixture.name.clone(), mixed));
+                    }
+                    // 媒質はブランチ計算の状態と同じ番号の状態（軸が同じことは確かめてある）
+                    for (m, medium) in input.media.iter().zip(&media) {
+                        let from = medium
+                            .states
+                            .get(state)
+                            .ok_or_else(|| anyhow!("material `{}`: no state {state}", m.name))
+                            .and_then(|s| {
+                                Material::from_medium(s)
+                                    .map_err(|e| anyhow!("material `{}`: {e}", m.name))
+                            })
+                            .with_context(context)?;
+                        named.push((m.name.clone(), from));
+                    }
+                    check_orders(&named, &medium_names)
+                        .map_err(|e| anyhow!(e))
+                        .with_context(context)?;
+                    let (materials, region_index) =
+                        by_name(named, library.groups.len(), &geometry.region_materials)?;
+                    (Cow::Owned(materials), Cow::Owned(region_index))
                 }
-                check_orders(&named, &medium_names)
-                    .map_err(|e| anyhow!(e))
-                    .with_context(context)?;
-                let (materials, region_index) =
-                    by_name(named, library.groups.len(), &geometry.region_materials)?;
-                (Cow::Owned(materials), Cow::Owned(region_index))
-            }
-            (None, Source::Macroscopic(named)) => {
-                let groups = named.first().map_or(0, |(_, m)| m.groups());
-                let (materials, region_index) =
-                    by_name(named.clone(), groups, &geometry.region_materials)?;
-                (Cow::Owned(materials), Cow::Owned(region_index))
-            }
-        };
+                (None, None, Source::Macroscopic(named)) => {
+                    let groups = named.first().map_or(0, |(_, m)| m.groups());
+                    let (materials, region_index) =
+                        by_name(named.clone(), groups, &geometry.region_materials)?;
+                    (Cow::Owned(materials), Cow::Owned(region_index))
+                }
+            };
         let fuel = held.as_ref().map(|h| h.fuel());
         let materials: Vec<&Material> = region_index.iter().map(|&i| &unique[i]).collect();
         // 媒質（ADR-0128）の領域。領域がすべて1つの核分裂のある媒質のノードの拡散係数は、その媒質の B1 の D（ADR-0141）
@@ -1046,8 +1076,19 @@ fn run(path: &Path) -> anyhow::Result<()> {
                     let boundaries = geometry.tracking.boundaries();
                     // 摂動の組成を自己遮蔽した物質の、格子全体の少数群定数と追う核種の微視的断面積（直接の摂動）
                     let solve_direct = |shielded: &StateShielding| -> anyhow::Result<(FewGroup, Vec<MicroNuclide>, usize)> {
-                        let (unique, region_index) =
-                            (shielded.materials(), shielded.region_material());
+                        // 摂動の組成の物質にも、状態と同じ無限希釈の吸収体を重ねる（ADR-0261）
+                        let overlaid = h.with_dilute_absorbers(
+                            rod,
+                            state,
+                            library,
+                            shielded.fuel(),
+                            &geometry.lattice,
+                            (shielded.materials(), shielded.region_material()),
+                        )?;
+                        let (unique, region_index) = match &overlaid {
+                            Some((materials, index)) => (materials.as_slice(), index.as_slice()),
+                            None => (shielded.materials(), shielded.region_material()),
+                        };
                         let materials: Vec<&Material> =
                             region_index.iter().map(|&i| &unique[i]).collect();
                         let options = Options {

@@ -112,6 +112,10 @@
 //! # 点より前の点を履歴から引き継いだ、燃焼度 0 からの 1 本の履歴になる。続ける点は、履歴の組成と時間をこの入力の条件で解き
 //! # 直す（core の燃焼点が、そこから始まるステップの状態で解くのと同じ。ADR-0218）。燃焼度と出力の基準の初めの重金属の質量は、燃焼度 0 の組成（入力と同じ）のもの
 //! # continue = { file = "nominal.msgpack", burnup = 20 }
+//! # 輸送しない核種のうち、ライブラリの放射化の断面積を燃焼の領域の温度で持つものを、無限希釈の吸収体として輸送（捕獲、(n,p)、
+//! # (n,α)）と燃焼の反応率に数える（ADR-0261。省略すると輸送しない核種は崩壊だけ）。続ける燃焼では履歴と同じにする。履歴からの
+//! # ブランチ計算は、履歴が数えた核種を同じ形で数える
+//! # dilute-absorbers = true
 //!
 //! [history]                       # 燃焼の履歴の燃焼点からのブランチ計算（ADR-0187。[branches] とファイルの few-group と組む）
 //! file = "history.msgpack"        # 燃焼の履歴（`[depletion]` の output）
@@ -894,6 +898,8 @@ struct DepletionEntry {
     /// 省略すると燃焼度 0 の入力の組成から燃焼させる
     #[serde(rename = "continue")]
     continue_from: Option<ContinueEntry>,
+    /// 省略すると輸送しない核種は崩壊だけで追う（ADR-0261）
+    dilute_absorbers: Option<bool>,
 }
 
 /// 燃焼を続ける履歴の燃焼点
@@ -1835,6 +1841,7 @@ impl LatticeInput {
                         file: c.file,
                         burnup: c.burnup,
                     }),
+                    dilute_absorbers: d.dilute_absorbers.unwrap_or(false),
                 })
             })
             .transpose()

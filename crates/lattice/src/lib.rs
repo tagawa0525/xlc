@@ -11,6 +11,7 @@ pub mod checkpoint;
 pub mod cmfd;
 pub mod cp;
 pub mod depletion;
+pub mod dilute;
 pub mod equivalent;
 pub mod fewgroup;
 pub mod geometry;
