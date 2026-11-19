@@ -2,12 +2,20 @@
  "format": "xlc-compare-core-acceleration",
  "inputs": [
   {
+   "path": "examples/depletion/branches/core-small-search-none-1.toml",
+   "md5": "e1ca256e7ae2ed0dd0f0e11d1f066216"
+  },
+  {
    "path": "examples/depletion/branches/core-small-search-none-1.msgpack",
    "md5": "adc9e50d82abbf24ca1b1656a1bf7de0"
   },
   {
    "path": "examples/depletion/branches/core-small-search-none-1.log",
    "md5": "adf8d507d7480801ced1ade75841b5ec"
+  },
+  {
+   "path": "examples/depletion/branches/core-small-search-1.toml",
+   "md5": "54c601ca84f18793cfc3e5ed7fc60dd7"
   },
   {
    "path": "examples/depletion/branches/core-small-search-1.msgpack",
@@ -18,12 +26,20 @@
    "md5": "d640096e0ec612da03050adfe1c7ab4c"
   },
   {
+   "path": "examples/depletion/branches/core-small-equilibrium-none-1.toml",
+   "md5": "045dcb6d5dcdc014fc7db94c69e18eed"
+  },
+  {
    "path": "examples/depletion/branches/core-small-equilibrium-none-1.msgpack",
    "md5": "7620f11e639e7b9b715ab56158dd4af4"
   },
   {
    "path": "examples/depletion/branches/core-small-equilibrium-none-1.log",
    "md5": "ce5ceca42e8af4fb9adb79ac313d941c"
+  },
+  {
+   "path": "examples/depletion/branches/core-small-equilibrium-1.toml",
+   "md5": "4c1744f0bb212a7c4eb19481115ec35a"
   },
   {
    "path": "examples/depletion/branches/core-small-equilibrium-1.msgpack",

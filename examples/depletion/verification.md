@@ -9167,9 +9167,12 @@ done
 cd ../../..
 B=examples/depletion/branches
 python3 examples/depletion/compare_core_pair.py initial-guess --json $B/compare-core-small-guess.json \
-  search=$B/core-small-search-flat-1.msgpack,$B/core-small-search-flat-1.log,$B/core-small-search-1.msgpack,$B/core-small-search-1.log \
-  equilibrium=$B/core-small-equilibrium-flat-1.msgpack,$B/core-small-equilibrium-flat-1.log,$B/core-small-equilibrium-1.msgpack,$B/core-small-equilibrium-1.log
+  search=$B/core-small-search-flat-1.toml,$B/core-small-search-1.toml \
+  equilibrium=$B/core-small-equilibrium-flat-1.toml,$B/core-small-equilibrium-1.toml
 ```
+
+比較のツールは、入力が名前を書く履歴とその `.log` を読み、入力の項目の値で 2 本を見分ける（#0236）。JSON は #0236 の前の、履歴とログを
+引数の順で受けるツール（`compare_core_guess.py`）が書いたもので、入力の md5 を持たない。
 
 「ステップの大きさの誤差と中点の臨界ホウ素（小さな炉心）」と同じ理由でステージにしていない。比較の JSON（`branches/compare-core-small-guess.json`）は git で
 追跡する。CMFD（ADR-0232）の後の `bin/core` では、`core-small-search-1` と
@@ -9235,8 +9238,10 @@ done
 cd ../../..
 B=examples/depletion/branches
 python3 examples/depletion/compare_core_pair.py xenon-boron --json $B/compare-core-small-xenon-boron.json \
-  equilibrium=$B/core-small-equilibrium-nested-1.msgpack,$B/core-small-equilibrium-nested-1.log,$B/core-small-equilibrium-1.msgpack,$B/core-small-equilibrium-1.log
+  equilibrium=$B/core-small-equilibrium-nested-1.toml,$B/core-small-equilibrium-1.toml
 ```
+
+JSON は #0236 の前の、履歴とログを引数の順で受けるツール（`compare_core_xenon_boron.py`）が書いたもので、入力の md5 を持たない。
 
 「ステップの大きさの誤差と中点の臨界ホウ素（小さな炉心）」と同じ理由でステージにしていない。比較の JSON（`branches/compare-core-small-xenon-boron.json`）は
 git で追跡する。
@@ -9484,12 +9489,13 @@ done
 cd ../../..
 B=examples/depletion/branches
 python3 examples/depletion/compare_core_pair.py acceleration --json $B/compare-core-small-acceleration.json \
-  search=$B/core-small-search-none-1.msgpack,$B/core-small-search-none-1.log,$B/core-small-search-1.msgpack,$B/core-small-search-1.log \
-  equilibrium=$B/core-small-equilibrium-none-1.msgpack,$B/core-small-equilibrium-none-1.log,$B/core-small-equilibrium-1.msgpack,$B/core-small-equilibrium-1.log
-python3 examples/depletion/compare_core_pair.py acceleration --json $B/compare-core-small-acceleration-loose-coarse.json \
-  search=$B/core-small-search-none-1.msgpack,$B/core-small-search-none-1.log,$B/core-small-search-loose-coarse-1.msgpack,$B/core-small-search-loose-coarse-1.log \
-  equilibrium=$B/core-small-equilibrium-none-1.msgpack,$B/core-small-equilibrium-none-1.log,$B/core-small-equilibrium-loose-coarse-1.msgpack,$B/core-small-equilibrium-loose-coarse-1.log
+  search=$B/core-small-search-none-1.toml,$B/core-small-search-1.toml \
+  equilibrium=$B/core-small-equilibrium-none-1.toml,$B/core-small-equilibrium-1.toml
 ```
+
+`compare-core-small-acceleration-loose-coarse.json` は、同じ入力を 2 つの版の `bin/core` で解いた燃焼の比較で、#0236 の前の、履歴とログを引数の
+順で受けるツール（`compare_core_acceleration.py`）が書いた。今のツールは入力の項目の値で 2 本を見分けるので、項目の値の同じ燃焼は比べない
+（`compare_core_pair.py` の注）。
 
 「ステップの大きさの誤差と中点の臨界ホウ素（小さな炉心）」と同じ理由でステージにしていない。比較の JSON（`branches/compare-core-small-acceleration.json` と
 `compare-core-small-acceleration-loose-coarse.json`）は git で追跡し、履歴とログは `.dvc` で追う。
@@ -9580,13 +9586,11 @@ python3 examples/depletion/compare_core_pair.py acceleration --json $B/compare-c
 cd examples/depletion/p9-timing/trial-0244
 ../../../../bin/core core-p9.toml > core-p9.out 2> core-p9.log
 python3 ../p9_timing.py core-p9.log > timing-p9.json
-cd ../../../..
-T=examples/depletion/p9-timing
-python3 examples/depletion/compare_core_pair.py acceleration --json $T/trial-0244/compare-acceleration.json \
-  p9=$T/trial-0156/core-p9.msgpack,$T/trial-0156/core-p9.log,$T/trial-0244/core-p9.msgpack,$T/trial-0244/core-p9.log
-python3 examples/depletion/compare_core_pair.py acceleration --json $T/trial-0076/compare-acceleration.json \
-  p9=$T/trial-0156/core-p9.msgpack,$T/trial-0156/core-p9.log,$T/trial-0076/core-p9.msgpack,$T/trial-0076/core-p9.log
 ```
+
+比較の JSON（`trial-0244/compare-acceleration.json`、`trial-0076/compare-acceleration.json`）は、加速なしの `bin/core` で解いた `trial-0156` と、
+同じ形の入力を CMFD の `bin/core` で解いた燃焼の比較で、#0236 の前の、履歴とログを引数の順で受けるツール（`compare_core_acceleration.py`。基準が
+`trial-0156`）が書いた。今のツールは入力の項目の値で 2 本を見分けるので、項目の値の同じ燃焼は比べない（`compare_core_pair.py` の注）。
 
 #### 計算
 
@@ -9701,7 +9705,7 @@ for b in search equilibrium; do
 done
 cd ../../..
 B=examples/depletion/branches
-r() { echo $B/core-small-$1-$2-1.msgpack,$B/core-small-$1-$2-1.log; }
+r() { echo $B/core-small-$1-$2-1.toml; }
 python3 examples/depletion/compare_core_threads.py --json $B/compare-core-small-threads.json \
   search=$(r search lexicographic),$(r search threads-1),$(r search threads-4),$(r search threads-16) \
   equilibrium=$(r equilibrium lexicographic),$(r equilibrium threads-1),$(r equilibrium threads-4),$(r equilibrium threads-16)
@@ -9763,11 +9767,11 @@ git で追跡し、履歴とログは `.dvc` で追う。
 cd examples/depletion/p9-timing/trial-0234
 ../../../../bin/core core-p9.toml > core-p9.out 2> core-p9.log
 python3 ../p9_timing.py core-p9.log > timing-p9.json
-cd ../../../..
-T=examples/depletion/p9-timing
-python3 examples/depletion/compare_core_threads.py --json $T/trial-0234/compare-threads.json \
-  p9=$T/trial-0244/core-p9.msgpack,$T/trial-0244/core-p9.log,$T/trial-0234/core-p9.msgpack,$T/trial-0234/core-p9.log
 ```
+
+比較の JSON（`trial-0234/compare-threads.json`）は、ADR-0234 の前の `bin/core` で解いた `trial-0244` と、同じ形の入力を色の順の `bin/core` で
+解いた燃焼の比較で、#0236 の前の、履歴とログを引数の位置で受けるツール（`compare_core_threads.py`。スレッドのプールの行の無いログを ADR-0234 の
+前の `bin/core` とした）が書いた。今のツールは燃焼の順を入力の `node-order` で決めるので、同じ入力を別の版の `bin/core` で解いた燃焼は比べない。
 
 #### 計算
 
