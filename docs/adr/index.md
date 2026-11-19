@@ -249,6 +249,6 @@
 * [ADR-0252: UFG の等価なセルの衝突確率の求積を、小区間あたり 6 点にする](0252-use-six-quadrature-points-in-ufg-cells.md)
 * [ADR-0253: Gd 燃料の集合体のブランチのテーブルは、基準条件を 35 燃焼点、ブランチ条件を 19 燃焼点で解く](0253-solve-gd-assemblies-at-35-and-19-burnup-points.md)
 * [ADR-0254: DVC のステージは、入力の TOML を tomllib で読んだ値の正規形で deps にする](0254-depend-stages-on-toml-values.md)
+* [ADR-0255: 計算のステージは、ソースの行と列の番号を除いた実行ファイルの正規形を deps にする](0255-keep-source-positions-out-of-stage-binaries.md)
 * [ADR-0256: docs/ を OKF v0.3 のバンドルにし、design-records check で type と索引を検査する](0256-make-docs-an-okf-bundle.md)
 * [ADR（設計判断の記録）](README.md) - ADR（設計判断の記録）の書式と運用。
-* [ADR-0255: 計算のステージは、ソースの行と列の番号を除いた実行ファイルの正規形を deps にする](0255-keep-source-positions-out-of-stage-binaries.md)
