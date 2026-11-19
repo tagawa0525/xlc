@@ -275,6 +275,10 @@ def differing_nuclides(nominal: dict, varied: dict, burnup: list[float]) -> list
         raise SystemExit("the histories list different nuclides")
     if nominal["transportable"] != varied["transportable"]:
         raise SystemExit("the histories transport different nuclides")
+    if [p["burnup"] for p in nominal["points"]] != [
+        p["burnup"] for p in varied["points"]
+    ]:
+        raise SystemExit("the histories have different burnup points")
     points = {p["burnup"]: (p, q) for p, q in zip(nominal["points"], varied["points"])}
     missing = [b for b in burnup if b not in points]
     if missing:

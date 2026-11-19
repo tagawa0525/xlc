@@ -25,14 +25,8 @@ import math
 from pathlib import Path
 
 import msgpack
+from inputs import TRACKED
 
-# ADR-0035 の元素の輸送する核種 26 と、その輸送する先行核 5（ADR-0216。inputs.py の TRACKED と同じ）
-TRACKED = [
-    "U-234", "U-235", "U-236", "U-238", "Np-237", "Np-239", "Pu-238", "Pu-239", "Pu-240", "Pu-241", "Pu-242",
-    "Am-241", "Am-243", "Xe-135", "Sm-147", "Sm-149", "Sm-150", "Sm-151", "Sm-152",
-    "Gd-152", "Gd-154", "Gd-155", "Gd-156", "Gd-157", "Gd-158", "Gd-160",
-    "Cm-242", "Cm-244", "Eu-153", "I-135", "Pm-148m",
-]  # fmt: skip
 # チェーンの反応の、出ていく中性子の数 − 1 の符号を変えたもの（吸収に数える重み）
 LOSS = {102: 1.0, 103: 1.0, 107: 1.0, 16: -1.0, 17: -2.0, 37: -3.0}
 VOLUME_TOLERANCE = 1e-9
@@ -40,9 +34,9 @@ VOLUME_TOLERANCE = 1e-9
 TOP = 15
 # 順位の累積で、足す核種の数を数える残りの閾値 (pcm)
 THRESHOLDS_PCM = (50.0, 5.0)
-# xs が輸送する核種として処理しない核種（examples/depletion/p2/xs.toml の説明。#0127）。放射化の断面積は持つので一覧に出る
 # JSON から外す核種の最大の目安の床 (pcm)。外した核種の数と目安の和は JSON に残す
 PRUNE_PCM = 0.01
+# xs が輸送する核種として処理しない核種（examples/depletion/p2/xs.toml の説明。#0127）。放射化の断面積は持つので一覧に出る
 XS_EXCLUDED = ("Pm-147", "Pm-148", "Pm-149", "Am-242m", "Eu-151")
 
 
@@ -58,6 +52,12 @@ def absorption(nuclide):
             raise SystemExit(f"no neutron balance for MT {r['mt']}")
         total += LOSS[r["mt"]] * sum(r["channels"])
     return total
+
+
+def destruction(nuclide):
+    """1 群の微視的断面積の、その核種の原子を減らす分 (barn): チェーンの反応と核分裂はどれも 1 原子を減らす（中性子の収支の
+    `absorption` と違い、(n,2n) なども 1 倍で足す）"""
+    return nuclide["fission"] + sum(sum(r["channels"]) for r in nuclide["reactions"])
 
 
 def solve2(matrix, vector):
@@ -113,10 +113,7 @@ def lattice_volume(history, table, point, burnup):
     hp = history_point(history, burnup)
 
     def summed(name):
-        return sum(
-            r["volume"] * max(n[index[name]], 0.0)
-            for r, n in zip(history["regions"], hp["densities"])
-        )
+        return region_sum(history, hp, index[name])
 
     if "U-238" not in names:
         raise SystemExit("the table must track U-238 to fix the lattice volume")
@@ -164,8 +161,8 @@ def captured_ratios(history, burnups, sigmas, names, half_lives):
     """輸送しない核種が自分の吸収でも減るとしたときの数密度の、崩壊だけの数密度（履歴の値）への比を、テーブルの燃焼度の点ごとに。
 
     履歴の燃焼点の区間ごとに、崩壊だけの数密度 N_d の変化から一定の生成率 P を求め（dN_d/dt = P − λ N_d）、同じ P で
-    dN/dt = P − (λ + σₐ φ̄) N を解く。σₐ φ̄ は 1 群の吸収断面積（区間の中点の燃焼度でテーブルの点の値を線形に内挿）と、U-235 の
-    数密度の減り方から求めた φ̄ = −d ln N_U235 / dt / σₐ,U235（U-234 の捕獲による U-235 の生成を無視する）の積。ほかの核種の
+    dN/dt = P − (λ + σ_d φ̄) N を解く。σ_d φ̄ は 1 群の原子を減らす断面積（`destruction`）（区間の中点の燃焼度でテーブルの点の値を線形に内挿）と、U-235 の
+    数密度の減り方から求めた φ̄ = −d ln N_U235 / dt / σ_d,U235（U-234 の捕獲による U-235 の生成を無視する）の積。ほかの核種の
     吸収で生まれる分（Eu-154 の捕獲で増える Eu-155 など）は足さないので、捕獲で生まれる核種の比は低めに出る
     """
     index = {n: i for i, n in enumerate(history["nuclides"])}
@@ -224,7 +221,7 @@ def summarize(history, table, half_lives):
         n for n in cooling["nuclides"] if category(n, transportable) == "untransported"
     ]
     sigmas = {
-        name: [absorption(point[j]) for point in cooling["points"]]
+        name: [destruction(point[j]) for point in cooling["points"]]
         for j, name in enumerate(cooling["nuclides"])
         if name in untransported or name == "U-235"
     }
@@ -240,13 +237,7 @@ def summarize(history, table, half_lives):
         hp = history_point(history, burnup)
         shares = {}
         for name, sigma in zip(cooling["nuclides"], cooling["points"][k]):
-            density = (
-                sum(
-                    r["volume"] * max(n[index[name]], 0.0)
-                    for r, n in zip(history["regions"], hp["densities"])
-                )
-                / volume
-            )
+            density = region_sum(history, hp, index[name]) / volume
             shares[name] = density * absorption(sigma) * sum(flux) / lattice_absorption
         totals = {c: 0.0 for c in ("tracked", "transported", "untransported")}
         for name, f in shares.items():
@@ -320,8 +311,11 @@ def prune(points, ranked, floor):
 
 def ranking(points):
     """ADR-0165 の案 S3 の形の順位: 核種ごとに、自分の吸収で減らした割合の燃焼度の点を通じた最大と、その反応度の目安 1e5 f / k∞ の
-    最大。最大の大きい順に並べ、上から足したときの残りの核種の目安の和（核種ごとの最大の和で、保守的な側）を添える"""
+    最大（絶対値）。その点の割合を添えて最大の大きい順に並べ、上から足したときの残りの核種の目安の絶対値の和（核種ごとの最大の和で、
+    保守的な側）を添える。閾値ごとの数は、残りの和が閾値以下になるまでに足す核種の数（全体の和が閾値以下なら 0）"""
     names = list(points[0]["untransported_all"])
+    if not names:
+        raise SystemExit("no untransported nuclides to rank")
     best = {}
     for name in names:
         values = [
@@ -336,17 +330,14 @@ def ranking(points):
             )
             for p in points
         ]
-        pcm, _, burnup = max(values)
-        best[name] = {
-            "pcm": pcm,
-            "fraction": max(v[1] for v in values),
-            "burnup": burnup,
-        }
-    order = sorted(names, key=lambda n: -best[n]["pcm"])
-    rest = sum(best[n]["pcm"] for n in order)
+        pcm, fraction, burnup = max(values, key=lambda v: abs(v[0]))
+        best[name] = {"pcm": pcm, "fraction": fraction, "burnup": burnup}
+    order = sorted(names, key=lambda n: -abs(best[n]["pcm"]))
+    total = sum(abs(best[n]["pcm"]) for n in order)
+    rest = total
     rows = []
     for name in order:
-        rest -= best[name]["pcm"]
+        rest -= abs(best[name]["pcm"])
         rows.append(
             {
                 "nuclide": name,
@@ -358,7 +349,9 @@ def ranking(points):
             }
         )
     counts = {
-        str(t): next(i + 1 for i, r in enumerate(rows) if r["rest_pcm"] <= t)
+        str(t): 0
+        if total <= t
+        else next(i + 1 for i, r in enumerate(rows) if r["rest_pcm"] <= t)
         for t in THRESHOLDS_PCM
     }
     return {"ranking": rows, "counts": counts}

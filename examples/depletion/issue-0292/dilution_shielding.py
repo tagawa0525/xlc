@@ -23,7 +23,12 @@ import math
 from pathlib import Path
 
 import msgpack
-from untransported_absorption import absorption, nominal_states, two_group_flux
+from untransported_absorption import (
+    absorption,
+    nominal_states,
+    region_sum,
+    two_group_flux,
+)
 
 # 熱群と高速群の境界 (eV)。テーブルの 2 群の境界と同じ
 THERMAL = 0.625
@@ -75,6 +80,37 @@ def interpolate(sigma0, table, value):
     return table[-1]
 
 
+def share(point, name, pruned):
+    """吸収の割合の JSON の点の、核種の割合と数密度の比。JSON から外した核種（最大の目安が床以下。untransported_absorption.py の
+    PRUNE_PCM）は 0。どちらでもない名前はエラー（足す核種の一覧と JSON の燃料の取り違え）"""
+    if name in point["untransported_all"]:
+        return point["untransported_all"][name]
+    if name in pruned:
+        return {"fraction": 0.0, "captured_ratio": 1.0}
+    raise SystemExit(f"{name} is not an untransported nuclide of the absorption JSON")
+
+
+def check_grid(reference, other, name):
+    """xs のファイルの σ0 の点と群の境界が、最初のファイルと同じこと（違えば表の行と σ0 の対応がずれる）"""
+    if (
+        other["sigma0"] != reference["sigma0"]
+        or other["group_bounds"] != reference["group_bounds"]
+    ):
+        raise SystemExit(
+            f"{name}: the xs file has another sigma0 grid or group structure"
+        )
+
+
+def directory_md5(directory, names):
+    """置き場の核種の xs のファイルの md5 を名前の順につないだものの md5"""
+    digest = hashlib.md5()
+    for name in sorted(names):
+        digest.update(
+            hashlib.md5((Path(directory) / f"{name}.msgpack").read_bytes()).digest()
+        )
+    return digest.hexdigest()
+
+
 def absorption_groups(shielded_entry):
     return [c + f for c, f in zip(shielded_entry["capture"], shielded_entry["fission"])]
 
@@ -98,16 +134,18 @@ def summarize(history, table, shares, transported_dir, added_dir, names, tempera
     volume = sum(r["volume"] for r in history["regions"])
     points = {p["burnup"]: p for p in history["points"]}
     cache = {}
+    first = read(Path(added_dir) / f"{names[0]}.msgpack")
 
     def nuclide(directory, name):
         key = (directory, name)
         if key not in cache:
             cache[key] = read(Path(directory) / f"{name}.msgpack")
+            check_grid(first, cache[key], name)
         return cache[key]
 
     burnups, states = nominal_states(table)
     cooling = table["cooling"]
-    first = nuclide(added_dir, names[0])
+    pruned = set(shares.get("pruned", {}).get("nuclides", []))
     bounds, sigma0 = first["group_bounds"], first["sigma0"]
     rows = {n: [] for n in names}
     for p in shares["points"]:
@@ -117,13 +155,7 @@ def summarize(history, table, shares, transported_dir, added_dir, names, tempera
             raise SystemExit(f"burnup {b} is not a point of the history")
 
         def mean(name, hp=hp):
-            return (
-                sum(
-                    r["volume"] * max(d[index[name]], 0.0)
-                    for r, d in zip(history["regions"], hp["densities"])
-                )
-                / volume
-            )
+            return region_sum(history, hp, index[name]) / volume
 
         k = burnups.index(b)
         fast, thermal = two_group_flux(table["states"][states[k]])
@@ -142,10 +174,7 @@ def summarize(history, table, shares, transported_dir, added_dir, names, tempera
             n = mean(name)
             r, one = ratio(nuclide(added_dir, name), total, n, sigma0, w, temperature)
             cooled = absorption(cooling["points"][k][cooling["nuclides"].index(name)])
-            # JSON から外した核種（最大の目安が床以下。untransported_absorption.py の PRUNE_PCM）は目安が 0
-            share = p["untransported_all"].get(
-                name, {"fraction": 0.0, "captured_ratio": 1.0}
-            )
+            entry = share(p, name, pruned)
             rows[name].append(
                 {
                     "burnup": b,
@@ -154,8 +183,8 @@ def summarize(history, table, shares, transported_dir, added_dir, names, tempera
                     "infinite_one_group": one,
                     "weight_check": one / cooled,
                     "shielding_pcm": 1e5
-                    * share["fraction"]
-                    * share["captured_ratio"]
+                    * entry["fraction"]
+                    * entry["captured_ratio"]
                     * (1.0 - r)
                     / p["k_inf"],
                 }
@@ -211,6 +240,13 @@ def main():
             {"path": f, "md5": hashlib.md5(Path(f).read_bytes()).hexdigest()}
             for f in (history_path, table_path, shares_path, list_path)
         ],
+        # 比を決める xs のファイルの置き場ごとの md5（足す核種と、履歴の輸送する核種）
+        "xs_files": {
+            "added": directory_md5(added_dir, names),
+            "transported": directory_md5(
+                transported_dir, read(history_path)["transportable"]
+            ),
+        },
         "temperature": args.temperature,
         "nuclides": summarize(
             read(history_path),
