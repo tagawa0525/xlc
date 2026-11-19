@@ -161,7 +161,14 @@ fn survey(path: &Path, names: &Names) -> Survey {
         Ok(t) => t,
         Err(e) => return failed(file, "tape", e),
     };
-    let material = match read_material(&tape) {
+    // xs の読み込み（`read_evaluation`）は物質を 1 つだけ持つテープを読む
+    let material = match tape.materials()[..] {
+        [mat] => read_material(&tape, mat),
+        ref other => Err(anyhow::anyhow!(
+            "the tape must hold one material, found {other:?}"
+        )),
+    };
+    let material = match material {
         Ok(m) => m,
         Err(e) => return failed(file, "MF1 MT451", e.to_string()),
     };

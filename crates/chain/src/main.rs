@@ -6,7 +6,7 @@
 //!
 //! ```toml
 //! output = "chain.msgpack"                                         # 書くチェーン（xlc_depletion::chain の形式）
-//! decay-directory = "../../references/endf/ENDF-B-VIII.0_decay"    # decay の評価（*.endf をすべて読む）
+//! decay-directory = "../../references/endf/ENDF-B-VIII.0_decay"    # decay の評価（*.endf をすべて読む。1 つのファイルに複数の物質があってよい）
 //! nfy-directory = "../../references/endf/ENDF-B-VIII.0_nfy"        # 中性子の核分裂の収率
 //! neutron-directory = "../../references/endf/ENDF-B-VIII.0_neutrons"  # 中性子の反応
 //! ```
@@ -97,16 +97,20 @@ fn endf_files(directory: &Path) -> Result<Vec<PathBuf>> {
     Ok(files)
 }
 
-/// ファイルをすべて並列に読み、`read` で評価にする
-fn read_all<T: Send>(directory: &Path, read: impl Fn(&str) -> Result<T> + Sync) -> Result<Vec<T>> {
-    endf_files(directory)?
+/// ファイルをすべて並列に読み、`read` で評価にする（1 つのファイルが複数の物質の評価を持ちうる）
+fn read_all<T: Send>(
+    directory: &Path,
+    read: impl Fn(&str) -> Result<Vec<T>> + Sync,
+) -> Result<Vec<T>> {
+    let per_file: Vec<Vec<T>> = endf_files(directory)?
         .par_iter()
         .map(|path| {
             let text =
                 std::fs::read_to_string(path).with_context(|| format!("{}", path.display()))?;
             read(&text).with_context(|| format!("{}", path.display()))
         })
-        .collect()
+        .collect::<Result<_>>()?;
+    Ok(per_file.into_iter().flatten().collect())
 }
 
 fn run(path: &Path) -> Result<()> {

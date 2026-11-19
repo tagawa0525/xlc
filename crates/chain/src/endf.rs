@@ -2,7 +2,7 @@
 //!
 //! 行とレコードは xlc-xs の `endf::Tape` で読む（ADR-0166）。
 
-use anyhow::{Result, anyhow, bail};
+use anyhow::{Context, Result, anyhow, bail};
 use xlc_xs::endf::{Tape, final_states};
 
 /// 評価の対象（MF1/MT451）。
@@ -107,12 +107,40 @@ fn count(value: i64, what: &str, line: usize) -> Result<u32> {
     u32::try_from(value).map_err(|_| anyhow!("line {line}: invalid {what} {value}"))
 }
 
-/// MF1/MT451 から評価の対象を読む。テープは物質を 1 つだけ持つ。
-pub fn read_material(tape: &Tape) -> Result<Material> {
-    let mat = match tape.materials()[..] {
-        [mat] => mat,
-        ref other => bail!("the tape must hold one material, found {other:?}"),
-    };
+/// テープの物質をテープ上の順に返す（ENDF/B-VII.0 の decay は全核種を 1 つのテープに並べる）。セクションは MAT で引くので、
+/// 同じ MAT が別の物質を挟んで再び現れるテープ（MF1/MT451 が 2 つ）は止める
+fn materials(tape: &Tape) -> Result<Vec<i32>> {
+    let materials = tape.materials();
+    if materials.is_empty() {
+        bail!("the tape holds no material");
+    }
+    for &mat in &materials {
+        let headers = tape
+            .sections(mat, 1)
+            .iter()
+            .filter(|(mt, _)| *mt == 451)
+            .count();
+        if headers != 1 {
+            bail!("MAT {mat} has {headers} MF1/MT451 sections; each material needs its own MAT");
+        }
+    }
+    Ok(materials)
+}
+
+/// テープの物質ごとに `read` で評価を読む。エラーには物質の MAT を添える
+fn each_material<T>(text: &str, read: impl Fn(&Tape, Material) -> Result<T>) -> Result<Vec<T>> {
+    let tape = Tape::parse(text)?;
+    materials(&tape)?
+        .into_iter()
+        .map(|mat| {
+            let material = read_material(&tape, mat)?;
+            read(&tape, material).with_context(|| format!("MAT {mat}"))
+        })
+        .collect()
+}
+
+/// MF1/MT451 から物質 `mat` の評価の対象を読む。
+pub fn read_material(tape: &Tape, mat: i32) -> Result<Material> {
     let section = tape
         .section(mat, 1, 451)
         .ok_or_else(|| anyhow!("MAT {mat} has no MF1/MT451"))?;
@@ -159,10 +187,12 @@ fn steps(rtyp: f64, line: usize) -> Result<Vec<Step>> {
         .collect()
 }
 
-/// decay の評価のテープを読む。
-pub fn read_decay(text: &str) -> Result<DecayEvaluation> {
-    let tape = Tape::parse(text)?;
-    let material = read_material(&tape)?;
+/// decay の評価のテープを読む（物質ごとに 1 評価、テープ上の順）。
+pub fn read_decay(text: &str) -> Result<Vec<DecayEvaluation>> {
+    each_material(text, decay_of)
+}
+
+fn decay_of(tape: &Tape, material: Material) -> Result<DecayEvaluation> {
     let mat = material.mat;
     let section = tape
         .section(mat, 8, 457)
@@ -217,10 +247,14 @@ pub fn read_decay(text: &str) -> Result<DecayEvaluation> {
     })
 }
 
-/// 中性子の評価のテープを読む。`reaction_mts` の MF8 だけ生成物の状態を読む。
-pub fn read_neutron(text: &str, reaction_mts: &[u32]) -> Result<NeutronEvaluation> {
-    let tape = Tape::parse(text)?;
-    let material = read_material(&tape)?;
+/// 中性子の評価のテープを読む（物質ごとに 1 評価、テープ上の順）。`reaction_mts` の MF8 だけ生成物の状態を読む。
+pub fn read_neutron(text: &str, reaction_mts: &[u32]) -> Result<Vec<NeutronEvaluation>> {
+    each_material(text, |tape, material| {
+        neutron_of(tape, material, reaction_mts)
+    })
+}
+
+fn neutron_of(tape: &Tape, material: Material, reaction_mts: &[u32]) -> Result<NeutronEvaluation> {
     let mat = material.mat;
     let mut mts = tape.mts(mat, 3);
     mts.sort_unstable();
@@ -237,7 +271,7 @@ pub fn read_neutron(text: &str, reaction_mts: &[u32]) -> Result<NeutronEvaluatio
     let mut wanted = reaction_mts.to_vec();
     wanted.sort_unstable();
     for mt in wanted {
-        if let Some(entries) = final_states(&tape, mat, mt)? {
+        if let Some(entries) = final_states(tape, mat, mt)? {
             final_states_of.push((mt, entries));
         }
     }
@@ -249,10 +283,12 @@ pub fn read_neutron(text: &str, reaction_mts: &[u32]) -> Result<NeutronEvaluatio
     })
 }
 
-/// nfy の評価のテープを読む。
-pub fn read_yields(text: &str) -> Result<YieldEvaluation> {
-    let tape = Tape::parse(text)?;
-    let material = read_material(&tape)?;
+/// nfy の評価のテープを読む（物質ごとに 1 評価、テープ上の順）。
+pub fn read_yields(text: &str) -> Result<Vec<YieldEvaluation>> {
+    each_material(text, yields_of)
+}
+
+fn yields_of(tape: &Tape, material: Material) -> Result<YieldEvaluation> {
     let mat = material.mat;
     let section = tape
         .section(mat, 8, 454)
