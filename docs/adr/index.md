@@ -252,3 +252,4 @@
 * [ADR-0255: 計算のステージは、ソースの行と列の番号を除いた実行ファイルの正規形を deps にする](0255-keep-source-positions-out-of-stage-binaries.md)
 * [ADR-0256: docs/ を OKF v0.3 のバンドルにし、design-records check で type と索引を検査する](0256-make-docs-an-okf-bundle.md)
 * [ADR（設計判断の記録）](README.md) - ADR（設計判断の記録）の書式と運用。
+* [ADR-0257: Slurm に投げる dvc repro は、走りうるステージを数えて上限と参照解の許可を確かめるラッパーを通し、生の dvc repro を hook で止める](0257-count-stages-before-slurm-dvc-repro.md)
