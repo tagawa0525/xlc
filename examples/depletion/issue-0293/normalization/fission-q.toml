@@ -1,0 +1,16 @@
+# #0293 の項目 3: 出力の規格化だけを変えた、VERA Problem 1C のピンセル（燃料 1 リング）の OpenMC の燃焼（../../openmc_depletion.py）。
+# fission-q.toml と energy-deposition.toml は normalization のほかは同じ。燃焼度の点は 40 MWd/kg までの 14 点（CE/CM で輸送 29 回）、
+# 粒子は 1 世代 5 万・130 世代（最初の 30 を捨てる）で、k の統計誤差は 40〜60 pcm の見込み（../../openmc-1C-rings1.toml の 20 万粒子で
+# 19〜20 pcm）。出力密度は ../../openmc-1C-rings1.toml と同じ 38.41 W/g
+problem = "1C"
+rings = 1
+cross-sections = "../../openmc-library/cross_sections.xml"
+chain = "../../openmc-chain.xml"
+power = 38.41
+burnup = [0.1, 0.5, 1.0, 2.0, 3.0, 5.0, 7.5, 10.0, 15.0, 20.0, 25.0, 30.0, 35.0, 40.0]
+particles = 50000
+batches = 130
+inactive = 30
+seed = 1
+threads = 16
+normalization = "fission-q"
