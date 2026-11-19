@@ -441,6 +441,14 @@ class Replace(unittest.TestCase):
         )
         self.assertEqual(vt.locked_md5(self.root, "t/a.json"), md5)
 
+    def test_a_wrapped_long_path_has_its_locked_md5(self):
+        """DVC は長いパスを `- path:` の次の行に折り返して書く"""
+        md5 = hashlib.md5((self.root / "t/a.json").read_bytes()).hexdigest()
+        (self.root / "t/dvc.lock").write_text(
+            f"schema: '2.0'\nstages:\n  s:\n    outs:\n    - path: \n        a.json\n      hash: md5\n      md5: {md5}\n"
+        )
+        self.assertEqual(vt.locked_md5(self.root, "t/a.json"), md5)
+
     def test_a_json_only_in_the_deps_has_no_locked_md5(self):
         """JSON を出力するステージが無ければ、deps の md5 で照合を通さない"""
         (self.root / "t/dvc.lock").write_text(
