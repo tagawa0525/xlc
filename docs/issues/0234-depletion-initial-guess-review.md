@@ -6,7 +6,7 @@ opened: 2026-11-06
 closed: 2026-11-19
 milestone: M4
 blocked-by: []
-resolution: "コミット 4b13f9ddc"
+resolution: "wontfix: レビューで直さなかった指摘を集めた issue は作らない決定（nixfiles の ADR-0066）に合わせ、点ごとに確かめた。1 は docs/plans/upstream-error-budget.md の warm start の行に寄せ、注釈のパスの誤りだけを直した"
 ---
 
 # 燃焼の固有値計算の初期値（ADR-0231）のレビューで直さなかった指摘
@@ -61,4 +61,4 @@ non-blocking）。
 - 2026-11-06: 2 周目（HEAD 37d6062c）の指摘から 8〜14 を足した。記録の「全炉心の燃焼の時間の内訳（Problem 9 の形）」を書き直したので、#0076、#0156、
   ADR-0231 の背景がその節から引く平らな初期値の値は今の節に無い、という指摘は前提が誤り: どれも 35e6eead の版（Slurm 697）を出典に書いている
 - 2026-11-19: issue の棚卸しで、済んだ指摘を消した（8 の `dvc add`。上の 2026-11-06 の項）
-- 2026-11-19: 点ごとに確かめて閉じた（扱いは閉じるコミットの本文）。1 の真の誤差の確かめは docs/plans/upstream-error-budget.md の炉心計算の warm start の行に寄せ、10 は 4b13f9ddc で直した
+- 2026-11-19: 点ごとに確かめて閉じた（扱いは閉じるコミットの本文）。1 の真の誤差の確かめは docs/plans/upstream-error-budget.md の炉心計算の warm start の行に寄せ、10 はこのブランチで直した
