@@ -195,19 +195,28 @@ class NormalizeTest(unittest.TestCase):
         self.assertEqual(u32(data, span + 4), 0)
         self.assertEqual(counts["metadata"], 4)
 
-    def test_metadata_file_followed_by_nul_keeps_the_fields_after_it(self):
+    def nul_ended_span_file(self, after: tuple[int, int]) -> tuple[Image, int, int]:
+        """スパンだけのファイル。file!() の文字列の後ろが偶然 NUL で、ファイル名の後ろの 8 バイトが after"""
         image, _ = stage_image()
-        # スパンだけのファイル。file!() の文字列の後ろが偶然 NUL で、後ろのフィールドが 0 でない
         span = image.metadata(b"homogenize", b"crates/a/src/only_spans.rs", 12)
         ptr, length = image.string(b"crates/a/src/only_spans.rs", nul=True)
         file = span + 8 + FILE_DISTANCE
         image.relro[file : file + 16] = struct.pack("<QQ", ptr, length)
-        image.relro[file + 16 : file + 24] = struct.pack("<II", 3, 4)
-        before = image.build()
-        data, counts = norm.normalize(before)
+        image.relro[file + 16 : file + 24] = struct.pack("<II", *after)
+        return image, span, file
+
+    def test_metadata_file_followed_by_nul_keeps_the_fields_after_it(self):
+        # 今のレイアウトでは、ファイル名の後ろは水準と種類の u8 で、Location の列に当たる u32 は 0
+        image, span, file = self.nul_ended_span_file((0x0102, 0))
+        data, counts = norm.normalize(image.build())
         self.assertEqual(u32(data, span + 4), 0)
-        self.assertEqual((u32(data, file + 16), u32(data, file + 20)), (3, 4))
+        self.assertEqual((u32(data, file + 16), u32(data, file + 20)), (0x0102, 0))
         self.assertEqual(counts["location"], 1)
+
+    def test_metadata_file_that_also_reads_as_a_location_is_an_error(self):
+        image, _, _ = self.nul_ended_span_file((3, 4))
+        with self.assertRaisesRegex(ValueError, "Location にも Metadata"):
+            norm.normalize(image.build())
 
     def test_stage_event_named_by_line_is_an_error(self):
         image, _ = stage_image()

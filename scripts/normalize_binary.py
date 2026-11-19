@@ -12,7 +12,8 @@
 この 3 か所の番号を 0 にしたコピーを書く。ほかのバイトは変えない。構造体のレイアウトは `repr(Rust)` で保証されないので、
 値どうしの整合で見つける: Location は「NUL で終わる `.rs` の文字列を指す &str の後に 0 でない行と列」、Metadata は
 「名前 `"event <ファイル>"` の &str の直前に Some(行)、後ろの決まった距離に同じファイルの &str」。距離はイベントから
-決め、スパンにも使う。整合が崩れたとき（Location か Metadata が見つからない、距離がイベントごとに違う）は、
+決め、スパンにも使う。整合が崩れたとき（Location か Metadata が見つからない、距離がイベントごとに違う、1 つの &str が
+Location と Metadata のファイル名の両方に当たる）は、
 コンパイラか `tracing` のレイアウトが変わったとみなしてエラーで止める。黙って消し残すと、注釈の行でステージが
 古くなるのに気付けず、黙って別のバイトを消すと計算が変わりうる。
 crates/ のイベントの名前が行を含む（`tracing` のイベントのマクロを直接呼んだ）ときもエラーで止める。
@@ -75,20 +76,31 @@ def normalize(data: bytes) -> tuple[bytes, dict[str, int]]:
     out = bytearray(data)
 
     def text(slot: int) -> tuple[bytes, int] | None:
-        """slot の 16 バイトを &str（ptr、長さ）とみたときの中身と、中身のファイルの位置。後ろの 1 バイトも読めること。"""
+        """slot の 16 バイトを &str（ptr、長さ）とみたときの中身と、中身のファイルの位置。"""
         ptr, length = struct.unpack_from("<QQ", data, slot)
         if not 0 < length <= MAX_TEXT:
             return None
-        at = elf.file_offset(ptr, length + 1)
+        at = elf.file_offset(ptr, length)
         if at is None:
             return None
         return data[at : at + length], at
 
+    def location(slot: int) -> bool:
+        """slot が Location か: ファイル名が NUL で終わり（file_as_c_str のため）、行と列が 1 から数えた値。"""
+        if slot + 24 > end:
+            return False
+        ptr, length = struct.unpack_from("<QQ", data, slot)
+        at = elf.file_offset(ptr, length + 1)
+        line, column = struct.unpack_from("<II", data, slot + 16)
+        return at is not None and data[at + length] == 0 and line > 0 and column > 0
+
     counts = {"location": 0, "metadata": 0, "enabled": 0}
+    end = relro + relro_size
+    first = relro + (-relro) % 8
+    # .rs で終わる &str（Location か Metadata のファイル名）と、Metadata の名前
     files = {}
     names = []
-    first = relro + (-relro) % 8
-    for slot in range(first, relro + relro_size - 24, 8):
+    for slot in range(first, end - 15, 8):
         found = text(slot)
         if found is None:
             continue
@@ -98,15 +110,8 @@ def normalize(data: bytes) -> tuple[bytes, dict[str, int]]:
         if match is not None:
             if slot - 8 >= first:
                 names.append((slot, match, at))
-            continue
-        if body.endswith(b".rs"):
-            line, column = struct.unpack_from("<II", data, slot + 16)
-            # Location のファイル名は file_as_c_str のために NUL で終わる。行と列は 1 から数える
-            if data[at + len(body)] == 0 and line > 0 and column > 0:
-                struct.pack_into("<II", out, slot + 16, 0, 0)
-                counts["location"] += 1
-            else:
-                files[slot] = body
+        elif body.endswith(b".rs"):
+            files[slot] = body
 
     distances = set()
     for slot, match, at in names:
@@ -125,8 +130,8 @@ def normalize(data: bytes) -> tuple[bytes, dict[str, int]]:
                 raise ValueError(
                     f"{match.group(0)!r} の行と Metadata の line {line} が違う"
                 )
-            start, end = match.span(3)
-            out[at + start : at + end] = b"0" * (end - start)
+            start, stop = match.span(3)
+            out[at + start : at + stop] = b"0" * (stop - start)
             if kind == b"enabled":
                 counts["enabled"] += 1
         # 同じファイルの次の Metadata のファイルも後ろにあるので、最も近いものをとる
@@ -146,14 +151,26 @@ def normalize(data: bytes) -> tuple[bytes, dict[str, int]]:
         )
     (distance,) = distances
 
+    # Metadata のファイル名を先に決める。file!() の文字列の後ろが偶然 NUL だと、ファイル名の後ろのフィールドが
+    # Location の行と列に見えるので、Location はそれ以外から探す
     for slot in files:
         name = slot - distance
         if name - 8 < first or text(name) is None:
             continue
         tag, line = struct.unpack_from("<II", data, name - 8)
-        if tag == 1 and line > 0:
-            struct.pack_into("<I", out, name - 4, 0)
-            counts["metadata"] += 1
+        if tag != 1 or line == 0:
+            continue
+        if location(slot):
+            raise ValueError(
+                f"0x{slot:x} の &str が Location にも Metadata のファイル名にも当たる（レイアウトが変わったか、偶然の一致）"
+            )
+        struct.pack_into("<I", out, name - 4, 0)
+        counts["metadata"] += 1
+        files[slot] = None
+    for slot, body in files.items():
+        if body is not None and location(slot):
+            struct.pack_into("<II", out, slot + 16, 0, 0)
+            counts["location"] += 1
 
     if counts["location"] == 0:
         raise ValueError("Location が見つからない（Location のレイアウトが変わった）")
