@@ -5,7 +5,7 @@ date: 2026-10-14
 requires: [ADR-0032, ADR-0034, ADR-0164]
 supersedes: []
 superseded-by:
-issues: ["#0116"]
+issues: ["#0116", "#0292"]
 ---
 
 # ADR-0165: 輸送に使うチェーンは寄与で核種を選び、外した短寿命の核種を崩壊の先に畳み込んで縮約する
