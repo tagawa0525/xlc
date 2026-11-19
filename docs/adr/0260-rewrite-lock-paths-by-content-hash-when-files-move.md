@@ -333,7 +333,10 @@ lock の deps の項と今の `dvc.yaml` の deps を、1 対 1 に対応させ�
   無ければ確かめられないものとして扱う。`inputs` は、パスと md5 の並びか、パスから md5 への辞書として読み、パスは動かす前の
   `dvc.yaml` の置き場から解く（`examples/record_provenance.py` の `input_problems` と同じ。TOML は正規形の deps に照らす）。
   その入力の deps を動かして `dvc.yaml` の置き場からの相対パスが変わるか、中のパスを書き換えた入力なら、比較のステージとする
-- ディレクトリの outs の中の JSON は見ない（例の比較のツールが `inputs` をディレクトリの出力に書くかは確かめていない）
+- ディレクトリの outs の中の JSON は見ない。ディレクトリの outs を持つ例のステージ（45。main 5e67e41e7、2026-11-20）の cmd が
+  呼ぶのは、OpenMC の参照解のスクリプト（各例の `openmc_model.py`、`examples/depletion/openmc_depletion.py` と
+  `openmc_depletion_mox.py`、`examples/vera/openmc_core_2d.py`）と `bin/lattice` だけで、どれも `inputs` を書かない
+  （`git grep '"inputs"'` がこれらのスクリプトと `*.rs` に当たらない）。`inputs` を書く比較のツールは、どれもファイルの outs に書く
 - ほかのステージの出力の中に入力のパスが入っていても、書き換える（パスは結果に関わらない。出力の中のパスは動かす前のまま残る）
 
 ### 凍結したステージ
