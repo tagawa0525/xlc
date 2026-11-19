@@ -6,7 +6,7 @@ opened: 2026-10-29
 closed: 2026-11-19
 milestone: M4
 blocked-by: []
-resolution: コミット 767f93a56
+resolution: コミット ed17bf20f
 ---
 
 # サイクルのステップ（ADR-0218）のレビューの残り

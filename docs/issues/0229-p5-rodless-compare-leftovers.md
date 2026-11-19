@@ -6,7 +6,7 @@ opened: 2026-11-05
 closed: 2026-11-19
 milestone: M3
 blocked-by: []
-resolution: コミット 767f93a56
+resolution: コミット ed17bf20f
 ---
 
 # p5 の棒のない状態の照合のレビューの残り（棒のない格子の常設の費用、比較のツールの重複と入力の端）

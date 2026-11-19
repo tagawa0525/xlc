@@ -6,7 +6,7 @@ opened: 2026-11-06
 closed: 2026-11-19
 milestone: M4
 blocked-by: []
-resolution: コミット b6c9d2c4e
+resolution: コミット 0a8e22ebe
 ---
 
 # 熱水力のフィードバックのレビューの残り（効率、重複、将来のエラーの形）

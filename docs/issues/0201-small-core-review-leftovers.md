@@ -6,7 +6,7 @@ opened: 2026-10-29
 closed: 2026-11-19
 milestone: M4
 blocked-by: []
-resolution: コミット 767f93a56
+resolution: コミット ed17bf20f
 ---
 
 # 小さな炉心の燃焼のブランチのレビューの残り
