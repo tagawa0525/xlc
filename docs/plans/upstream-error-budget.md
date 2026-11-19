@@ -128,6 +128,6 @@ xs と lattice の実行ファイルを変えると、それを呼ぶ重いス�
   書くが、コードは ADR-0226 の `region_mismatch`（組のセルの位置と MOC の領域の数も比べる）を使う。`nominal_state` の前に足した関数が
   `derivative_nuclides` の説明の行を `nominal_state` の説明の先頭に残し、`derivative_nuclides` に説明が無い。解く燃焼点のコメントの「間引いたかに
   よらず」は前の挙動と比べた書き方。値の燃焼点（`rod-burnup`）だけが燃焼点を間引いて基準条件が無いときのエラーの文が `off-nominal-burnup` を名指しする
-- スレッドの数の規則（`RAYON_NUM_THREADS` の読み取りと、物理コアの数を許された論理 CPU の数で抑えた既定）が、lattice の `use_allowed_cpus`、xs の
-  `parallel::cores`、core の `use_threads` に分かれている。共通のクレートに移す（`xlc-numeric` に足すと使わない実行ファイルのバイトも変わった。ADR-0232
-  の案 S2、#0241）
+- スレッドの数の既定（物理コアの数を許された論理 CPU の数で抑えたもの）が、xs の `parallel::cores` と core の `use_threads` に複製され、`RAYON_NUM_THREADS`
+  の読み取りが lattice の `use_allowed_cpus` と core に複製されている（lattice の既定は SMT を含む論理 CPU の数で、規則が違う。ADR-0214）。共通の
+  クレートに移す（`xlc-numeric` に足すと使わない実行ファイルのバイトも変わった。ADR-0232 の案 S2、#0241）。lattice の既定は変えない
