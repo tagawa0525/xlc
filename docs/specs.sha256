@@ -1,4 +1,4 @@
-# 再配布できない仕様書の PDF の sha256（ADR-0124）。各行の前のコメントが取ってくる URL。
+# 再配布できない仕様書と、記録が引く文献の PDF の sha256（ADR-0124）。各行の前のコメントが取ってくる URL。
 # リポジトリの直下で `sha256sum -c docs/specs.sha256` と照らす。
 
 # https://corephysics.com/docs/CASL-U-2012-0131-004.pdf
@@ -9,7 +9,7 @@ cb3c7b5ac0bae5be28c778269ba49cb83f4b220009700140ff5d406ac9a46699  references/ver
 6139996dff7584d45ce91bc33523cd1bba9e9726a88ec1b1d283de1effb5156b  references/mox/spec.pdf
 # https://www.oecd-nea.org/science/docs/pubs/pin_cell.pdf
 7cd76941e565e82ced93309c3f938068f9aa59cd92db230861d2e4765cd23df2  references/mox/pin_cell.pdf
-# 以下は文献（#0303）。再配布の可否を確かめていないので、URL と sha256 だけを書く
+# 以下は ADR-0264 が引く文献。再配布の可否を確かめていないので、URL と sha256 だけを書く
 # https://www.osti.gov/servlets/purl/1822049
 06c02899a545af19d448311869d1eddc587cc30ff01d0cedd5f6065dbefa455b  references/papers/kim-wieselquist-2021-endfb80-vs-71-lwr.pdf
 # https://arxiv.org/pdf/2511.03564
