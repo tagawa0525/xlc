@@ -303,3 +303,5 @@
 * [ENDF/B-VIII.0 が軽水炉の燃焼で反応度を低く見積もるという報告を確かめ、本番の核データの版を決める](0303-endfb80-depletion-reactivity-bias.md)
 * [ENDF のテープの読み込み（Tape）が、離れた場所に再び現れるセクションを止める](0304-tape-refuses-split-sections.md)
 * [xs が分離共鳴の SLBW（LRF=1）を読めず、ENDF/B-VII.0 と VII.1 の燃焼のライブラリを作れない](0305-xs-slbw-resolved.md)
+* [非分離共鳴の LRF=1、LFW=1 の断面積を、xs は lin-lin、NJOY RECONR は log-log で補間し、差を warn も記録もしていない](0306-warn-unresolved-lrf1-interpolation.md)
+* [xs が MF5 の LF=12（Madland-Nix）と MF1 の LNU=1（多項式の ν）を読めず、ENDF/B-VII.0 と VII.1 の燃焼のライブラリを作れない](0307-read-vii-madland-nix-and-polynomial-nubar.md)
