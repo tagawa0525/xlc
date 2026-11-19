@@ -2009,8 +2009,8 @@ stages:
     deps:
     - path: examples/colorset/case-nodf.toml
       hash: md5
-      md5: de6b1fb221197956a8814947c41a4b9b
-      size: 321
+      md5: 4589266c2ebae0da011868bcd6b8dbef
+      size: 318
     - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
       md5: 82d3738ce2567f06e06af65bb8f664f7
@@ -2235,8 +2235,8 @@ stages:
     deps:
     - path: examples/colorset/cycle-nodf.toml
       hash: md5
-      md5: 704182ecfd5bbd3913d1f70fa68250a8
-      size: 169
+      md5: 945d8b367e06f0cd3fd946d1027ae56c
+      size: 166
     - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
       md5: 82d3738ce2567f06e06af65bb8f664f7
@@ -2721,8 +2721,8 @@ stages:
     deps:
     - path: examples/colorset/assemblies-nodf.toml
       hash: md5
-      md5: 68a11e09cc84697e661fb3055d128ec6
-      size: 367
+      md5: 88ad439b91e2eab393061483355cedd2
+      size: 370
     - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
       md5: 82d3738ce2567f06e06af65bb8f664f7
@@ -4718,8 +4718,8 @@ stages:
     deps:
     - path: examples/depletion/p2/xs.toml
       hash: md5
-      md5: 3ce6b204bd4a4ca4195400fad86586dd
-      size: 80285
+      md5: 98cefd7efbca8e20d08f63b3bfa51c67
+      size: 80273
     - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
       md5: 82d3738ce2567f06e06af65bb8f664f7

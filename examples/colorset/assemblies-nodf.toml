@@ -1,4 +1,4 @@
-# assemblies.toml の定数から不連続因子（ADF と CDF）を外したもの（without_df.py で作る）。
+# assemblies.toml の定数で、不連続因子（ADF と CDF）を持たないもの（without_df.py で作る）。
 [design.31]
 bounds = [0.0, 21.5]
 layers = ["fg-31-nodf.msgpack"]

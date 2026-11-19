@@ -12,12 +12,15 @@
   `skipif`）と、テストの本文の中の skip は集めない
 - provisional: 例の入力（examples の TOML と YAML）の注釈（値の後ろの注釈を含む）の「確かめていない」「暫定」「仮の」
   「仮に」「仮置き」「未確認」。同じ行が指す issue を見る（前後の行の issue は、別の話のことがある）
-- excluded: 例の入力の注釈で、除外の語（外す、除いた、省く など）のすぐ前後に issue の番号があるもの。その番号を見る
+- excluded: 例の入力の注釈で、「外す」の形と「外れた」「外れて」を含むもの（issue の番号の有無によらない。否定と、以外、
+  除外の中は除く。形は REMOVING の注釈）と、
+  ほかの除外の語（除いた、省く など）のすぐ前後に issue の番号があるもの。語のすぐ前後（同じ文の NEAR 文字の中）の番号を
+  見る（同じ行の離れた番号と、次の行の番号は数えない）
 
 印は、開いている issue（追跡している docs/issues/NNNN-*.md の `status: open`）を 1 つ以上指す。rust-ignore と
-python-skip は ADR（決めた除外）でもよい。excluded は issue を引く除外だけを集めるので、止めるのは、引いた issue が
-どれも閉じている行（理由が消えたのに外したまま）。issue を引かない除外の語は、一般の語（不連続因子を外した定数）
-なので集めない。`.textlintignore` が issue のファイルそのものを、その issue の番号で外す項目は、閉じた後も通す
+python-skip は ADR（決めた除外）でもよい。前提を並べる一覧の issue（フロントマターの labels に list）は、項目ごとの解消の条件を持たないので
+理由に数えない。「除く」「省く」は形の説明（Hf は除き、1 点ずつ除く）に多く使うので、issue を引く行だけを集める。
+`.textlintignore` が issue のファイルそのものを、その issue の番号で外す項目は、閉じた後も通す
 （語の調査の表のように、ファイルが残るかぎり外す）。docs/issues/ に無い番号（ほかのリポジトリの issue、色の符号）は
 理由に数えず、ほかに理由が無いときに知らせる。
 
@@ -46,12 +49,19 @@ PYTHON_SKIP = re.compile(
     r"^\s*@((unittest|pytest\.mark|mark)\.)?(skip|xfail|expectedFailure)\b"
 )
 PROVISIONAL = re.compile(r"確かめていない|暫定|仮の|仮に|仮置き|未確認")
-# 除外の語と issue の番号が、文をまたがずに 16 文字以内で並ぶもの。離れた issue は、同じ行の別の話のことがある
-# （「H-1 を除く全核種に…履歴（#NNNN）の温度」）
-DROPPING = r"(?:外[すし]|除[くいき]|省[くいき]|除外)"
-EXCLUDED_BEFORE = re.compile(rf"#(\d{{4}})(?!\w)[^。#]{{0,16}}{DROPPING}")
-EXCLUDED_AFTER = re.compile(rf"{DROPPING}[^。#]{{0,16}}#(\d{{4}})(?!\w)")
+# 番号の有無によらず集める除外の語（外す、外した、外して、外しても、外れた、外れて など）。ほかの語の中（以外すべて、
+# 除外する）と、否定（外さない、外して（は）いない、外してない、外しません、外しておらず）は含めない。ほかの言い方の否定は、
+# 文を替えるか issue を引く（否定の言い回しを網羅しない）
+REMOVING = re.compile(
+    r"(?<![以除])外(?:す|し(?!て(?:は?い)?な(?:い|かっ)|ませ|ておらず)|れ[たてる])"
+)
+DROPPING = re.compile(rf"{REMOVING.pattern}|除[くいき]|省[くいき]|除外")
+# 除外の語の前後で、文をまたがずにこの文字数の中にある issue を、その除外の理由とする（16 文字の間と番号の 5 文字）。
+# 離れた issue は、同じ行の別の話のことがある（「H-1 を除く全核種に…履歴（#NNNN）の温度」）
+NEAR = 21
 REVIEW_LEFTOVER = re.compile(r"review|leftover")
+# 前提を並べる一覧の issue の label。項目を指すだけでは、その項目を解消する条件にならない
+LIST_LABEL = "list"
 # 開いている issue のほかに、ADR を理由にできる印（決めた除外。参照の出力が要るテストなど）
 ADR_ALLOWED = {"rust-ignore", "python-skip"}
 
@@ -123,12 +133,19 @@ def input_markers(path, text):
             yield Marker(
                 path, number, "provisional", line.strip(), *references(comment)
             )
-        # 語の前と後ろを別々に探す（1 つの式では、前の番号の一致が語を使い、後ろの番号を拾えない）
-        adjacent = tuple(
-            EXCLUDED_BEFORE.findall(comment) + EXCLUDED_AFTER.findall(comment)
-        )
-        if adjacent:
+        adjacent = issues_near_dropping(comment)
+        if adjacent or REMOVING.search(comment):
             yield Marker(path, number, "excluded", line.strip(), adjacent, ())
+
+
+def issues_near_dropping(comment):
+    """除外の語ごとに、前後 NEAR 文字の同じ文の中の issue を集める（「#0293 の 1、#0292」のような並びを含む）。"""
+    issues = []
+    for word in DROPPING.finditer(comment):
+        before = comment[max(0, word.start() - NEAR) : word.start()].split("。")[-1]
+        after = comment[word.end() : word.end() + NEAR].split("。")[0]
+        issues += ISSUE.findall(before) + ISSUE.findall(after)
+    return tuple(dict.fromkeys(issues))
 
 
 def find_markers(files):
@@ -156,11 +173,24 @@ def excludes_its_own_issue(marker):
     return match is not None and match.group(1) in marker.issues
 
 
-def violations(markers, statuses):
-    """印ごとに、開いている issue（種類によっては ADR）を指さないものを、修正方法つきの文で返す。"""
+# 印の種類ごとに、検査が理由の issue を読む場所（修正方法の文に使う）
+PLACES = {
+    "textlintignore": "項目の前の注釈",
+    "rust-ignore": "同じ行",
+    "python-skip": "デコレータの括弧の中",
+    "provisional": "同じ行",
+    "excluded": f"除外の語のすぐ隣（同じ文の {NEAR - len('#0000')} 文字以内）",
+}
+
+
+def violations(markers, statuses, lists):
+    """印ごとに、開いている issue（種類によっては ADR）を指さないものを、修正方法つきの文で返す。
+    lists は前提を並べる一覧の issue の番号で、理由に数えない。"""
     found = []
     for marker in markers:
-        known = [issue for issue in marker.issues if issue in statuses]
+        known = [
+            issue for issue in marker.issues if issue in statuses and issue not in lists
+        ]
         if any(statuses[issue] == "open" for issue in known):
             continue
         if marker.kind in ADR_ALLOWED and marker.adrs:
@@ -168,6 +198,10 @@ def violations(markers, statuses):
         if excludes_its_own_issue(marker):
             continue
         where = f"{marker.path}:{marker.line}: [{marker.kind}] {marker.text}"
+        place = PLACES[marker.kind]
+        cited_lists = "、".join(
+            f"#{issue}" for issue in marker.issues if issue in lists
+        )
         unknown = "、".join(
             f"#{issue}" for issue in marker.issues if issue not in statuses
         )
@@ -175,16 +209,21 @@ def violations(markers, statuses):
             closed = "、".join(f"#{issue}" for issue in known)
             found.append(
                 f"{where}\n  指している issue（{closed}）は閉じています。理由が消えたなら外したものを戻し、"
-                "別の理由で残すなら、その理由の開いている issue を同じ行に書いてください"
+                f"別の理由で残すなら、その理由の開いている issue を{place}に書いてください"
             )
         elif unknown:
             found.append(
                 f"{where}\n  指している番号（{unknown}）の issue が、追跡している docs/issues/ にありません。"
                 "番号を確かめるか、issue のファイルを git add してください"
             )
+        elif cited_lists:
+            found.append(
+                f"{where}\n  {cited_lists} は前提を並べる一覧（labels に {LIST_LABEL}）で、項目を解消する条件を持たないので理由に数えません。"
+                f"その項目を解消する開いている issue を{place}に書いてください"
+            )
         else:
             found.append(
-                f"{where}\n  開いている issue の番号（#NNNN）が同じ行にありません。原因を直すのが既定です。"
+                f"{where}\n  開いている issue の番号（#NNNN）が{place}にありません。原因を直すのが既定です。"
                 "残すなら、解消の条件を書いた issue を起こして番号を書いてください"
             )
     return found
@@ -209,9 +248,11 @@ def count_open_issues(statuses, names):
 
 
 def issue_statuses(files):
-    """パスから中身への dict のうち issue のファイルから、番号から状態への dict と、番号からファイル名への dict を返す。"""
+    """パスから中身への dict のうち issue のファイルから、番号から状態への dict、番号からファイル名への dict、
+    labels に list を持つ issue の番号の集合を返す。"""
     statuses = {}
     names = {}
+    lists = set()
     for path in sorted(files):
         match = ISSUE_FILE.match(path)
         if not match:
@@ -229,7 +270,19 @@ def issue_statuses(files):
             raise ValueError(f"{path}: フロントマターに status の値がありません")
         statuses[number] = status.group(1)
         names[number] = path.rsplit("/", 1)[-1]
-    return statuses, names
+        labels = re.search(r"^labels:(.*)$", front_matter.group(1), re.MULTILINE)
+        if labels:
+            # 一覧の印を読み落とすと、一覧の issue が理由に数えられてしまうので、読めない形は止める
+            flow = re.fullmatch(r"[ \t]*\[(.*)\][ \t]*", labels.group(1))
+            if not flow:
+                raise ValueError(
+                    f"{path}: labels は 1 行の [a, b] の形で書いてください（{labels.group(0).strip()}）"
+                )
+            if LIST_LABEL in (
+                label.strip().strip("\"'") for label in flow.group(1).split(",")
+            ):
+                lists.add(number)
+    return statuses, names, lists
 
 
 def tracked_files(root):
@@ -263,7 +316,7 @@ def main(arguments):
     files = tracked_files(root)
     markers = find_markers(files)
     try:
-        statuses, names = issue_statuses(files)
+        statuses, names, lists = issue_statuses(files)
     except ValueError as error:
         print(f"check-exclusions.py: {error}", file=sys.stderr)
         return 1
@@ -278,7 +331,7 @@ def main(arguments):
         for kind, count in sorted(counts.items()):
             print(f"COUNT: {kind} {count}")
         return 0
-    found = violations(markers, statuses)
+    found = violations(markers, statuses, lists)
     for problem in found:
         print(problem, file=sys.stderr)
     if found:

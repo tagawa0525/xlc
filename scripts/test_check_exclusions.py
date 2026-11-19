@@ -13,7 +13,9 @@ SPEC = importlib.util.spec_from_file_location(
 exc = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(exc)
 
-STATUSES = {"0001": "open", "0002": "closed"}
+STATUSES = {"0001": "open", "0002": "closed", "0003": "open"}
+# 前提を並べる一覧の issue（labels に list）
+LISTS = {"0003"}
 
 # 検査は行頭の skip のデコレータを拾うので、このファイルが当たらないように組み立てる
 SKIP = "@" + "unittest.skip"
@@ -21,7 +23,7 @@ IGNORE = "#" + "[ignore"
 
 
 def problems(files):
-    return exc.violations(exc.find_markers(files), STATUSES)
+    return exc.violations(exc.find_markers(files), STATUSES, LISTS)
 
 
 class TextlintIgnore(unittest.TestCase):
@@ -198,12 +200,119 @@ class InputComments(unittest.TestCase):
     def test_an_exclusion_that_cites_only_closed_issues_is_reported(self):
         files = {
             "examples/a/xs.toml": "# 表を作る（#0001）\n# Pm-147 は NaN になるので外す（#0002）\nx = 1\n",
-            "examples/b/xs.toml": "# 不連続因子を外した定数\n# 時間のために外した（#0001、#0002 の後）\nx = 1\n",
+            "examples/b/xs.toml": "# 時間のために外した（#0001、#0002 の後）\nx = 1\n",
         }
         found = problems(files)
         self.assertEqual(len(found), 1)
         self.assertIn("examples/a/xs.toml:2", found[0])
         self.assertIn("#0002", found[0])
+
+    def test_removing_without_an_issue_next_to_it_is_reported(self):
+        lines = [
+            "# Pm-147 は輸送する核種から外す",
+            "# Eu-151 は外した（理由は下の行）",
+            "# （#0001）",
+            "# 外して測る。温度の点はずっと後の段落で決める #0001",
+            "# Hf は除き、ギャップは真空",
+            "x = 1",
+        ]
+        files = {"examples/a/xs.toml": "\n".join(lines)}
+        found = problems(files)
+        self.assertEqual(len(found), 3)
+        for found_line, line in zip(found, (1, 2, 4)):
+            self.assertIn(f"examples/a/xs.toml:{line}:", found_line)
+            self.assertIn("すぐ隣", found_line)
+
+    def test_negations_of_removing_are_not_exclusions(self):
+        lines = [
+            "# U-233 は外してはいない",
+            "# U-232 は外しておらず",
+            "# U-235 は外していない",
+            "# U-238 は外していなかった",
+            "# U-234 は外してない",
+            "# U-236 は外しません",
+            "# 外さない",
+            "x = 1",
+        ]
+        files = {"examples/a/xs.toml": "\n".join(lines)}
+        self.assertEqual(problems(files), [])
+
+    def test_removing_inside_another_word_is_not_collected(self):
+        lines = [
+            "# U-235 以外すべての核種に温度の軸",
+            "# H-1 以外しか輸送しない",
+            "# 除外する核種は無い",
+            "x = 1",
+        ]
+        files = {"examples/a/xs.toml": "\n".join(lines)}
+        self.assertEqual(problems(files), [])
+
+    def test_the_message_names_where_each_kind_reads_its_issue(self):
+        files = {
+            ".textlintignore": "# 一覧の項目（#0003）\na.toml\n",
+            "examples/test_a.py": SKIP + '("一覧の項目（#0003）")\n',
+        }
+        found = problems(files)
+        self.assertEqual(len(found), 2)
+        self.assertIn("項目の前の注釈", found[0])
+        self.assertIn("デコレータの括弧の中", found[1])
+
+    def test_other_forms_of_removing_are_exclusions(self):
+        lines = [
+            "# Pm-147 は外すとした",
+            "# Eu-151 などを外すなど",
+            "# 外しても k は変わらない",
+            "# Pm-147 を外しながら測る",
+            "# 外してなお k は変わる",
+            "# Pm-147 は外れたまま",
+            "x = 1",
+        ]
+        files = {"examples/a/xs.toml": "\n".join(lines)}
+        self.assertEqual(len(problems(files)), 6)
+
+    def test_a_removal_without_an_adjacent_issue_says_where_the_number_goes(self):
+        files = {
+            "examples/a/xs.toml": "# Pm は外す。理由は #0001\n",
+            "examples/b/xs.toml": "# 外したまま（#0003 の 1。解消は #0001）\n",
+        }
+        found = problems(files)
+        self.assertEqual(len(found), 2)
+        for found_line in found:
+            self.assertIn("すぐ隣", found_line)
+
+    def test_every_issue_of_a_list_next_to_a_removal_counts(self):
+        files = {
+            "examples/a/xs.toml": "# Pm は外した（#0003、#0001）\n",
+            "examples/b/xs.toml": "# Pm は外す（#0002、#0001）\n",
+            "examples/c/xs.toml": "# #0002、#0001 のために外した\n",
+            "examples/d/xs.toml": "# Pm は外したまま（#0003 の 1、#0001）\n",
+            "examples/e/xs.toml": "# #0001 と #0002 で外す\n",
+            "examples/f/xs.toml": "# 外した（#0002 と #0001）\n",
+        }
+        found = problems(files)
+        self.assertEqual(found, [])
+
+    def test_an_unknown_number_is_named_even_next_to_the_list_issue(self):
+        files = {"examples/a/xs.toml": "# 外した（#0003、#0999 で直す）\n"}
+        found = problems(files)
+        self.assertEqual(len(found), 1)
+        self.assertIn(
+            "番号（#0999）の issue が、追跡している docs/issues/ にありません", found[0]
+        )
+
+    def test_a_list_issue_alone_is_not_a_reason(self):
+        lines = [
+            "# Pm-147 は外したまま（#0003 の 1）",
+            "# Pm-148 は外したまま（#0001。#0003 の 1）",
+            "# 核種の組は確かめていない（#0003）",
+            "x = 1",
+        ]
+        files = {"examples/a/xs.toml": "\n".join(lines)}
+        found = problems(files)
+        self.assertEqual(len(found), 2)
+        for found_line, line in zip(found, (1, 3)):
+            self.assertIn(f"examples/a/xs.toml:{line}:", found_line)
+            self.assertIn("一覧", found_line)
 
     def test_trial_inputs_of_an_issue_are_not_checked_but_their_tests_are(self):
         files = {
@@ -241,17 +350,30 @@ class Statuses(unittest.TestCase):
             with self.assertRaises(ValueError):
                 exc.issue_statuses(issues)
 
+    def test_a_quoted_list_label_counts_and_an_unreadable_labels_line_stops(self):
+        quoted = {"docs/issues/0001-a.md": '---\nstatus: open\nlabels: ["list"]\n---\n'}
+        self.assertEqual(exc.issue_statuses(quoted)[2], {"0001"})
+        block = {"docs/issues/0001-a.md": "---\nstatus: open\nlabels:\n  - list\n---\n"}
+        with self.assertRaises(ValueError):
+            exc.issue_statuses(block)
+
     def test_statuses_come_from_the_given_issue_files_only(self):
         issues = {
-            "docs/issues/0001-a.md": "---\nstatus: open\n---\n",
+            "docs/issues/0001-a.md": "---\nstatus: open\nlabels: [core]\n---\n",
             "docs/issues/0002-b-review-leftovers.md": "---\nstatus: closed\n---\n",
+            "docs/issues/0003-c.md": "---\nstatus: open\nlabels: [depletion, list]\n---\n",
             "docs/issues/README.md": "# issues\n",
         }
         self.assertEqual(
             exc.issue_statuses(issues),
             (
-                {"0001": "open", "0002": "closed"},
-                {"0001": "0001-a.md", "0002": "0002-b-review-leftovers.md"},
+                {"0001": "open", "0002": "closed", "0003": "open"},
+                {
+                    "0001": "0001-a.md",
+                    "0002": "0002-b-review-leftovers.md",
+                    "0003": "0003-c.md",
+                },
+                {"0003"},
             ),
         )
 

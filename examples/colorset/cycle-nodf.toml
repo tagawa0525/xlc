@@ -1,4 +1,4 @@
-# 不連続因子を外した定数で、cycle.toml と同じ並び。
+# 不連続因子の無い定数で、cycle.toml と同じ並び。
 plant = "plant.toml"
 inventory = "assemblies-nodf.toml"
 loading = [
