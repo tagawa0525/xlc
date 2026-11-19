@@ -118,9 +118,10 @@ worktree にだけあり、/git-merge の後片付け（`git worktree remove`）
   dvc.lock の outs、`references/` のどれにも当たらないものは 74 組。2 組は名前を変えた `.dvc`（`trials/ufg-free-gas-assemblies/` の
   2 件。上の追う生成物）、2 組は dvc.lock の前の版のステージの出力でキャッシュにあり（`lattice-2O-3d006d36.msgpack` と
   issue-0133/ufg-free-gas-assemblies の `compare-2O-static.json` の `lattice-2O.msgpack`）、追う生成物は残っていない。`path` は JSON
-  ごとに基準の置き場が違うので、JSON の置き場からリポジトリの直下までの各階層で解いた
-- 失われたもの（比較の JSON が md5 で引くもの。上の棚卸しで、main の作業ツリーにも DVC のキャッシュにも無い 70 組）: examples/depletion/branches/
-  の比較の JSON 14 本（`compare-burnup-interpolation`、`compare-core-2A-{boron,cycle-decay,cycle-power,cycle-rods,micro,micro-macro,partial-rods}`、
+  ごとに基準の置き場が違うので、JSON の置き場からリポジトリの直下までの各階層で解いた。名前で当たる 253 組のうち 9 組は、同じ名前の
+  `.dvc` が別の版を指し、引く版の md5 が DVC のキャッシュに無い
+- 失われたもの（比較の JSON が md5 で引くもの。上の棚卸しで、main の作業ツリーにも DVC のキャッシュにも無い 70 組と、別の版を指す
+  `.dvc` の 9 組）: examples/depletion/branches/ の比較の JSON 16 本（`compare-burnup-interpolation`、`compare-core-2A`、`compare-core-2A-coarse`、`compare-core-2A-{boron,cycle-decay,cycle-power,cycle-rods,micro,micro-macro,partial-rods}`、
   `compare-core-2O-guide`、`compare-core-small-{guess,restart,steps}`、`compare-shielding`、`compare-shielding-boron`）が引く core の履歴とログ、
   格子の履歴、テーブル。上の「失われたもの」と同じく、それを読む作業のときに再実行する
 
