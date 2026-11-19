@@ -1,0 +1,56 @@
+{
+ "format": "xlc-compare-openmc-keno",
+ "problem": "2B",
+ "inputs": [
+  {
+   "path": "../../../../references/vera/spec.txt",
+   "md5": "de9def92d813fd95954b01ec5512fff4"
+  },
+  {
+   "path": "../compare-2B.json",
+   "md5": "9cfbef5ab1a0ed32abf40806a760aff9"
+  },
+  {
+   "path": "openmc-2B-results/k.json",
+   "md5": "bb117b291dea047f6412ff17aebb4a73"
+  },
+  {
+   "path": "openmc-2B-results/pins.msgpack",
+   "md5": "ee20cdc7a2942465c1b063e277abf4a2"
+  },
+  {
+   "path": "../p2/pins-2B.msgpack",
+   "md5": "e0f8ad3a7a2dba69a94f7cb45d58523c"
+  }
+ ],
+ "k": {
+  "xlc": 1.185321,
+  "openmc": 1.1843002410028005,
+  "openmc_std": 4.812745743943179e-05,
+  "keno": 1.18336,
+  "keno_std": 2.4e-05,
+  "diff_xlc_openmc_pcm": 102.07589971995557,
+  "diff_xlc_openmc_std_pcm": 4.812745743943179,
+  "diff_openmc_keno_pcm": 94.0241002800546,
+  "diff_openmc_keno_std_pcm": 5.37796630668538,
+  "diff_xlc_keno_pcm": 196.10000000001014
+ },
+ "pins_openmc_vs_keno": {
+  "positions": 39,
+  "rms": 0.00031966429025964666,
+  "max": -0.0008785278191969503,
+  "at": [
+   8,
+   7
+  ]
+ },
+ "pins_xlc_vs_openmc": {
+  "positions": 264,
+  "rms": 0.0007989894187229703,
+  "max": 0.001969000225152895,
+  "at": [
+   8,
+   1
+  ]
+ }
+}

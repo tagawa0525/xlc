@@ -1074,8 +1074,8 @@ stages:
     deps:
     - path: examples/vera/endfb70/openmc/openmc-library.toml
       hash: md5
-      md5: 73134ca2484ebaaec9b1e424e4c65ac4
-      size: 4339
+      md5: 9c1542e9930f0b9e48bbc11f47a5446f
+      size: 4441
     - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
       md5: 82d3738ce2567f06e06af65bb8f664f7
@@ -1083,8 +1083,8 @@ stages:
     outs:
     - path: toml-values/examples/vera/endfb70/openmc/openmc-library.toml.json
       hash: md5
-      md5: 4e4605c779c235e4e941dab6d8cebf1b
-      size: 4386
+      md5: 7a72ffd518f0fc4de8fe0d35281ed2cf
+      size: 4436
   toml-values@examples/vera/p6/core-6-low-power.toml:
     cmd: python3 scripts/normalize_toml.py 
       examples/vera/p6/core-6-low-power.toml 
@@ -8475,3 +8475,21 @@ stages:
       hash: md5
       md5: a1c965c511edfc2fc6f7682a1bd0e375
       size: 33
+  toml-values@examples/vera/endfb70/openmc/openmc-1D.toml:
+    cmd: python3 scripts/normalize_toml.py 
+      examples/vera/endfb70/openmc/openmc-1D.toml 
+      toml-values/examples/vera/endfb70/openmc/openmc-1D.toml.json
+    deps:
+    - path: examples/vera/endfb70/openmc/openmc-1D.toml
+      hash: md5
+      md5: 962671663e09411c5ca0d1c95524461b
+      size: 532
+    - path: python-ast/scripts/normalize_toml.py.ast
+      hash: md5
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
+    outs:
+    - path: toml-values/examples/vera/endfb70/openmc/openmc-1D.toml.json
+      hash: md5
+      md5: 8c99fb98ef79a011ec315d7319afb0a1
+      size: 162

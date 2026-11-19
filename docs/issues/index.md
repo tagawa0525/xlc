@@ -296,3 +296,5 @@
 * [issue の status の値が OKF の status と意味の違う同じキーにある](0297-okf-status-of-issues.md)
 * [ミクロ燃焼で追う核種と格子計算が輸送する核種の範囲を、燃料の種類ごとに中性子の吸収と履歴の効きで確かめる](0292-micro-nuclide-scope.md)
 * [ユーザーの発言の記録が無いまま決まった計算と DVC の規則を見直す](0300-review-session-made-compute-rules.md)
+* [スキル openmc-reference の見積もりの表が、標準のタリーを入れる前の時間のままで、参照解の見積もりが 1/4〜1/3 になる](0301-openmc-estimates-predate-standard-tallies.md)
+* [KENO-VI との k の直接の比較は、処理かモデルの差を約 100〜180 pcm 含み、手法の差の物差しにならない](0302-keno-k-offset-as-method-yardstick.md)

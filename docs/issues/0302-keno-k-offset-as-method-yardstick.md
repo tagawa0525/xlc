@@ -1,0 +1,39 @@
+---
+type: Issue
+status: open
+labels: [verification, vera]
+opened: 2026-11-20
+closed:
+milestone:
+blocked-by: []
+resolution:
+---
+
+# KENO-VI との k の直接の比較は、処理かモデルの差を約 100〜180 pcm 含み、手法の差の物差しにならない
+
+## 問題
+
+出典は examples/vera/verification-endfb70.md の「NJOY で処理した ENDF/B-VII.0 の OpenMC との比較（1B、1D、2B）」（2026-11-20）。
+
+- ADR-0175 は、仕様書に KENO-VI の値がある問題を ENDF/B-VII.0 の検証用ライブラリで KENO-VI と直接比べ、OpenMC の参照解は仕様書に
+  参照のない問題と診断だけに作ると決めた（CLAUDE.md の「計算」とスキル compute に同じ規則がある）。前提は、版を揃えれば
+  xlc − KENO-VI の残りが手法の差になることだった
+- 同じ VII.0 を NJOY で処理した OpenMC と KENO-VI の k の差は、1B +100 ± 8、1D +181 ± 9、2B +94 ± 5 pcm で、問題と燃料の温度で変わる。
+  xlc − KENO-VI の k からは、xlc の手法の差をこの大きさより細かく読めない（ADR-0175 の「帰結」の最後の項）。ピン出力は
+  OpenMC − KENO-VI の RMS が 0.032%（2B）で、同じことは言えない
+- 測ったのは 1B、1D、2B だけで、吸収体のある集合体、565 K、3A、3B でこの差がどうなるかは分からない。差の原因（AMPX と NJOY の処理、
+  KENO-VI のモデルの解釈、共鳴の散乱の扱い）は #0131 に残る
+- 決まっていないのは、k の手法の差を何で見るか: KENO-VI との比較を続けて約 100〜180 pcm の不確かさを受け入れるか、KENO-VI の値がある
+  問題でも k は同じ評価済みデータの OpenMC と比べるか（参照解を作る計算が増える。VII.0 の 1B、1D、2B の 3 本で 6 時間 11 分。#0301）、
+  本番の核データの版（今は VIII.0）の OpenMC とだけ比べるか
+
+関係する ADR: ADR-0175
+
+## 完了の条件
+
+- [ ] k の手法の差を見る参照を決め、ADR-0175 の「## 変更」か新しい ADR に書いて、CLAUDE.md の「計算」とスキル compute の規則を合わせる
+
+## 経緯
+
+- 2026-11-20: #0131 の診断（VII.0 の OpenMC）で、ADR-0175 の前提が k については成り立たないと分かった。レビューが、ADR-0175 の「帰結」に
+  新しい項を足すだけでは決定が見直されないと指摘し、起こした

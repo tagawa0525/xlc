@@ -1,0 +1,32 @@
+{
+ "format": "xlc-compare-openmc-keno",
+ "problem": "1B",
+ "inputs": [
+  {
+   "path": "../../../../references/vera/spec.txt",
+   "md5": "de9def92d813fd95954b01ec5512fff4"
+  },
+  {
+   "path": "../compare-1B.json",
+   "md5": "b1b6d081ab3557cd74723cde1b7b73ef"
+  },
+  {
+   "path": "openmc-1B-results/k.json",
+   "md5": "0434acb62be9b2f34455e7d2142ef14d"
+  }
+ ],
+ "k": {
+  "xlc": 1.184189,
+  "openmc": 1.1831512413783594,
+  "openmc_std": 4.472367125519471e-05,
+  "keno": 1.182149,
+  "keno_std": 6.8e-05,
+  "diff_xlc_openmc_pcm": 103.7758621640572,
+  "diff_xlc_openmc_std_pcm": 4.4723671255194715,
+  "diff_openmc_keno_pcm": 100.22413783594698,
+  "diff_openmc_keno_std_pcm": 8.138923006481097,
+  "diff_xlc_keno_pcm": 204.00000000000418
+ },
+ "pins_openmc_vs_keno": null,
+ "pins_xlc_vs_openmc": null
+}

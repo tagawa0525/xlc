@@ -1,10 +1,11 @@
-# 診断用（#0131）: ENDF/B-VII.0 から NJOY で作った OpenMC のライブラリで VERA の 1B と 2B を解くステージ。xlc の VII.0 のライブラリ
+# 診断用（#0131、#0083）: ENDF/B-VII.0 から NJOY で作った OpenMC のライブラリで VERA の 1B、1D と 2B を解くステージ。xlc の VII.0 のライブラリ
 # （../dvc.yaml）の処理の問題か、KENO-VI（AMPX）との処理の差かを分ける（ADR-0175）。ステージの形は ../../dvc.yaml の openmc-* と同じ
 # （ADR-0130、ADR-0136）。実行するのは default の devShell の `dvc repro`（ADR-0159）。
 vars:
   - openmc-library.toml
   - problems:
       - 1B
+      - 1D
       - 2B
 stages:
   references-shell:
@@ -105,9 +106,21 @@ stages:
       - ../../../../python-ast/examples/vera/compare_p3.py.ast
       - ../../../../references/vera/spec.txt
       - ../compare-1B.json
-      - openmc-1B-results
+      - openmc-1B-results/k.json
     outs:
       - compare-1B.json:
+          cache: false
+  compare-1D:
+    cmd: python3 ../../compare_openmc_keno.py --json compare-1D.json ../../../../references/vera/spec.txt 1D ../compare-1D.json openmc-1D-results
+    deps:
+      - ../../../../python-ast/examples/vera/compare_openmc_keno.py.ast
+      - ../../../../python-ast/examples/vera/compare_keno.py.ast
+      - ../../../../python-ast/examples/vera/compare_p3.py.ast
+      - ../../../../references/vera/spec.txt
+      - ../compare-1D.json
+      - openmc-1D-results/k.json
+    outs:
+      - compare-1D.json:
           cache: false
   compare-2B:
     cmd: python3 ../../compare_openmc_keno.py --json compare-2B.json ../../../../references/vera/spec.txt 2B ../compare-2B.json openmc-2B-results ../p2/pins-2B.msgpack
@@ -117,7 +130,8 @@ stages:
       - ../../../../python-ast/examples/vera/compare_p3.py.ast
       - ../../../../references/vera/spec.txt
       - ../compare-2B.json
-      - openmc-2B-results
+      - openmc-2B-results/k.json
+      - openmc-2B-results/pins.msgpack
       - ../p2/pins-2B.msgpack
     outs:
       - compare-2B.json:

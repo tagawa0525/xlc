@@ -273,6 +273,7 @@ stages:
       - examples/split/cycle-2.toml
       - examples/split/plant.toml
       - examples/vera/endfb70/openmc/openmc-1B.toml
+      - examples/vera/endfb70/openmc/openmc-1D.toml
       - examples/vera/endfb70/openmc/openmc-2B.toml
       - examples/vera/endfb70/openmc/openmc-library.toml
       - examples/vera/endfb70/p3/axial-3A.toml

@@ -5,7 +5,7 @@ date: 2026-11-11
 requires: [ADR-0204, ADR-0209]
 supersedes: []
 superseded-by:
-issues: ["#0274", "#0179"]
+issues: ["#0274", "#0179", "#0083"]
 ---
 
 # ADR-0243: UFG の減速計算で、分離共鳴を持つ核種の自由ガスの上限を、温度によらない 31 eV にする

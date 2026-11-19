@@ -1,7 +1,8 @@
 # 診断用（#0131）: ENDF/B-VII.0 から手元の NJOY で作る OpenMC の連続エネルギーのライブラリの入力（openmc_library.py。
-# ../../openmc_library.py と同じ形）。VERA の 1B と 2B（燃料、被覆管、冷却材が 600 K）に要る核種だけを、600 K で作る。
-# 温度を 1 つしか持たない核種ばかりなので、OpenMC は最も近い温度のモードで解く（1B と 2B は 600 K で、内挿は要らない）。
-# 名前は OpenMC の名前。パスはこのファイルからの相対。ENDF/B-VII.0 の C はこの 2 問題に要らない。
+# ../../openmc_library.py と同じ形）。VERA の 1B、1D と 2B（被覆管と冷却材は 600 K、燃料は 1B と 2B が 600 K、1D が 1200 K）に
+# 要る核種だけを作る。燃料の核種（U と O）は 600 K と 1200 K、ほかは 600 K。OpenMC は最も近い温度のモードで解き、
+# どの物質の温度もライブラリにあるので、内挿は要らない。
+# 名前は OpenMC の名前。パスはこのファイルからの相対。ENDF/B-VII.0 の C はこの 3 問題に要らない。
 
 [neutron.B10]
 endf = "../../../../references/endf/ENDF-B-VII.0_neutrons/n-005_B_010.endf"
@@ -49,7 +50,7 @@ temperatures = [600]
 
 [neutron.O16]
 endf = "../../../../references/endf/ENDF-B-VII.0_neutrons/n-008_O_016.endf"
-temperatures = [600]
+temperatures = [600, 1200]
 
 [neutron.Sn112]
 endf = "../../../../references/endf/ENDF-B-VII.0_neutrons/n-050_Sn_112.endf"
@@ -93,19 +94,19 @@ temperatures = [600]
 
 [neutron.U234]
 endf = "../../../../references/endf/ENDF-B-VII.0_neutrons/n-092_U_234.endf"
-temperatures = [600]
+temperatures = [600, 1200]
 
 [neutron.U235]
 endf = "../../../../references/endf/ENDF-B-VII.0_neutrons/n-092_U_235.endf"
-temperatures = [600]
+temperatures = [600, 1200]
 
 [neutron.U236]
 endf = "../../../../references/endf/ENDF-B-VII.0_neutrons/n-092_U_236.endf"
-temperatures = [600]
+temperatures = [600, 1200]
 
 [neutron.U238]
 endf = "../../../../references/endf/ENDF-B-VII.0_neutrons/n-092_U_238.endf"
-temperatures = [600]
+temperatures = [600, 1200]
 
 [neutron.Zr90]
 endf = "../../../../references/endf/ENDF-B-VII.0_neutrons/n-040_Zr_090.endf"
