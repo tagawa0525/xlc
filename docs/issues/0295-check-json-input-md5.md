@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [dvc, checks]
 opened: 2026-11-19
-closed:
+closed: 2026-11-19
 milestone:
 blocked-by: []
-resolution:
+resolution: ADR-0254
 ---
 
 # 追跡している比較の JSON の入力の md5 が、今の入力と合うかを機械で確かめる
@@ -32,3 +32,8 @@ compare-6（p6）の 4 本を落とした（レビューで見つかり、後の
 - 2026-11-19: #0291 のレビューで、比較の 4 本の再実行の落としが見つかったので起こした
 - 2026-11-19: 入力の TOML を正規形で deps にする作業（#0145、ADR-0212 の案 B5）で一緒に片付ける（親の判断）。正規形なら
   コメントだけの直しでステージも JSON の md5 も変わらない
+- 2026-11-19: ADR-0254 で決めて実装した。JSON の `inputs` の TOML は値の正規形の md5 にし（コメントだけの修正で古くならない）、
+  `scripts/test_normalize_toml.py` の `JsonInputsTest` が、追跡している比較の JSON の `inputs` と、それを書いたステージの dvc.lock の
+  deps（TOML は正規形）の md5 を照らす（pre-commit の hook `toml-values`）。今のファイルとの比較（この issue の書いた形）は採らない:
+  上流の値を変えて再実行するまでの間（ADR-0130 で changed のまま残してよい）も止まり、JSON と lock が一致すれば、今のファイルとの
+  食い違いはステージの changed として `dvc status` に出る。JSON の md5 を変えた 11 本を再実行した（565aec357）
