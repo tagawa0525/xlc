@@ -19,7 +19,7 @@ import msgpack
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from inputs import NOMINAL_DENSITY, branch_input
+from inputs import NOMINAL_DENSITY, branch_input, read
 
 BURNUP = 60.0
 # 燃料ごとの状態: (名前, 組成の履歴, 扱いの履歴, ライブラリ)。履歴は issue-0292/<置き場>/nominal.msgpack、ライブラリは
@@ -41,10 +41,6 @@ CASES = {
         ("own-13", "dilute/t13/mox", "dilute/t13/mox", "dilute/library-13"),
     ],
 }
-
-
-def read(path: Path) -> dict:
-    return msgpack.unpackb(path.read_bytes(), strict_map_key=False)
 
 
 def with_lists(composition: dict, lists: dict) -> dict:
