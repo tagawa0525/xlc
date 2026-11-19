@@ -114,8 +114,8 @@ worktree にだけあり、/git-merge の後片付け（`git worktree remove`）
 - 規則の 1 行は CLAUDE.md の「計算」にある。新しい生成物を追うのは記録を書く担当の 1 手に頼り、記録の md5 と `.dvc` を
   突き合わせる検査は無い（#0209）
 - 比較の JSON だけが md5 で引く生成物（2026-11-06 に対象に足した。「## 変更」）の棚卸し（2026-11-19、main 0500a720e。#0238）:
-  git で追跡する `.json`（`references/` の下を除く）の `path` と `md5` の組 449 のうち、git、`.dvc`（ディレクトリの `.dvc` を含む）、
-  dvc.lock の outs、`references/` のどれにも当たらないものは 74 組。2 組は名前を変えた `.dvc`（`trials/ufg-free-gas-assemblies/` の
+  git で追跡する `.json` の `path` と `md5` の組のうち、`path` が `references/` の下でない 449 組で、git、`.dvc`（ディレクトリの `.dvc` を含む）、
+  dvc.lock の outs のどれにも当たらないものは 74 組。2 組は名前を変えた `.dvc`（`trials/ufg-free-gas-assemblies/` の
   2 件。上の追う生成物）、2 組は dvc.lock の前の版のステージの出力でキャッシュにあり（`lattice-2O-3d006d36.msgpack` と
   issue-0133/ufg-free-gas-assemblies の `compare-2O-static.json` の `lattice-2O.msgpack`）、追う生成物は残っていない。`path` は JSON
   ごとに基準の置き場が違うので、JSON の置き場からリポジトリの直下までの各階層で解いた。名前で当たる 253 組のうち 9 組は、同じ名前の
