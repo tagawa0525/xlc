@@ -298,6 +298,22 @@ class MovingOnlyRewritesPaths(Base):
             r.lock("a/dvc.lock")["stages"]["make"], self.before["stages"]["make"]
         )
 
+    def test_cmd_naming_a_moved_dep_whose_old_path_holds_another_file_is_not_rewritten(
+        self,
+    ):
+        r = self.r
+        r.write("a/w.txt", "w\n")
+        r.commit()
+        r.mv("a/twin.txt", "a/twin3.txt")
+        r.mv("a/w.txt", "a/twin.txt")
+        # deps だけを直し、cmd の twin.txt は、今は w.txt の中身を指す
+        r.write("a/dvc.yaml", r.read("a/dvc.yaml").replace("- twin.txt", "- twin3.txt"))
+
+        result = r.tool()
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("UNVERIFIED: a/dvc.yaml:make", result.stdout)
+
     def test_duplicating_a_stage_does_not_make_a_lock_entry_for_the_copy(self):
         r = self.r
         text = r.read("a/dvc.yaml")
@@ -394,6 +410,52 @@ class OutsNamedByTheProgram(Base):
 
         self.assertEqual(result.returncode, 1)
         self.assertIn("UNVERIFIED: a/dvc.yaml:make", result.stdout)
+
+    def test_a_directory_named_the_same_from_both_sides_does_not_name_the_outs(self):
+        r = self.r
+        r.write(
+            "a/dvc.yaml",
+            r.read("a/dvc.yaml").replace("python3 make.py", "python3 make.py --root=."),
+        )
+        r.repro("a/dvc.yaml")
+        r.commit()
+        r.remove_outputs("a/x.txt", "a/y.txt")
+        r.mv("a/dvc.yaml", "a/deep/dvc.yaml")
+        r.mv("a/dvc.lock", "a/deep/dvc.lock")
+        r.mv("a/make.py", "a/deep/make.py")
+        # outs は a/ に残す。make.py は cwd（a/deep）に書くが、--root=.. は動かす前と同じ a を指す
+        r.write(
+            "a/deep/dvc.yaml",
+            r.read("a/deep/dvc.yaml")
+            .replace("--root=.", "--root=..")
+            .replace("[x.txt, y.txt]", "[../x.txt, ../y.txt]"),
+        )
+
+        result = r.tool()
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("UNVERIFIED: a/deep/dvc.yaml:make", result.stdout)
+
+    def test_a_glob_whose_matches_moved_is_not_rewritten(self):
+        r = self.r
+        r.write("a/in/p.txt", "p\n")
+        r.write("a/in/q.txt", "q\n")
+        r.write(
+            "a/dvc.yaml",
+            r.read("a/dvc.yaml") + "  cat:\n"
+            "    cmd: cat in/*.txt > cat.out\n"
+            "    deps: [in/p.txt, in/q.txt]\n"
+            "    outs: [cat.out]\n",
+        )
+        r.repro("a/dvc.yaml")
+        r.commit()
+        r.mv("a/in/q.txt", "a/other/q.txt")
+        r.write("a/dvc.yaml", r.read("a/dvc.yaml").replace("in/q.txt", "other/q.txt"))
+
+        result = r.tool()
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("UNVERIFIED: a/dvc.yaml:cat", result.stdout)
 
     def test_moving_them_with_the_dvc_yaml_is_rewritten(self):
         r = self.r
@@ -737,6 +799,20 @@ class TomlPaths(Base):
         # library は直し、output = "o.txt" は残す（a/deep/o.txt を指し、outs の a/o.txt と違う）
         self.move_case_deeper(
             'library = "../../lib/lib.txt"\noutput = "o.txt"\nthreads = 1\n'
+        )
+
+        result = r.tool()
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("UNVERIFIED: a/dvc.yaml:run", result.stdout)
+
+    def test_toml_left_in_place_still_naming_a_moved_file_is_not_rewritten(self):
+        r = self.r
+        r.mv("lib/lib.txt", "lib2/lib.txt")
+        # deps と cmd は直し、case.toml の library = "../lib/lib.txt" は直し忘れる
+        r.write(
+            "a/dvc.yaml",
+            r.read("a/dvc.yaml").replace("../lib/lib.txt", "../lib2/lib.txt"),
         )
 
         result = r.tool()
