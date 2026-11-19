@@ -1,0 +1,137 @@
+# #0131 の試行: VERA の 1B の核種だけの ENDF/B-VIII.0 のライブラリ（../../../examples/vera/xs.toml の核種の節）のうち、
+# Sn-112, Sn-114, Sn-115, Sn-116, Sn-117, Sn-118, Sn-119, Sn-120, Sn-122, Sn-124を ENDF/B-VII.0（../../../examples/vera/endfb70/xs.toml）の核種の節と核種ごとの出力に入れ替えたもの。
+# nuclides/ は各版の核種ごとの出力（xs-nuclides）への symlink。assemble は ENDF を読まない。
+output = "vera.msgpack"
+endf-directory = "../../../references/endf/ENDF-B-VIII.0_neutrons"
+thermal-directory = "../../../references/endf/ENDF-B-VIII.0_thermal_scatt"
+sigma0 = [1e10, 1e5, 1e4, 1e3, 300, 100, 30, 10, 1]
+scattering-order = 3
+
+[nuclide.B-10]
+endf = "n-005_B_010.endf"
+temperatures = [560, 565, 570, 580, 590, 600, 610]
+
+[nuclide.B-11]
+endf = "n-005_B_011.endf"
+temperatures = [560, 565, 570, 580, 590, 600, 610]
+
+[nuclide.Cr-50]
+endf = "n-024_Cr_050.endf"
+temperatures = [560, 565, 570, 580, 590, 600, 610]
+
+[nuclide.Cr-52]
+endf = "n-024_Cr_052.endf"
+temperatures = [560, 565, 570, 580, 590, 600, 610]
+
+[nuclide.Cr-53]
+endf = "n-024_Cr_053.endf"
+temperatures = [560, 565, 570, 580, 590, 600, 610]
+
+[nuclide.Cr-54]
+endf = "n-024_Cr_054.endf"
+temperatures = [560, 565, 570, 580, 590, 600, 610]
+
+[nuclide.Fe-54]
+endf = "n-026_Fe_054.endf"
+temperatures = [560, 565, 570, 580, 590, 600, 610]
+
+[nuclide.Fe-56]
+endf = "n-026_Fe_056.endf"
+temperatures = [560, 565, 570, 580, 590, 600, 610]
+
+[nuclide.Fe-57]
+endf = "n-026_Fe_057.endf"
+temperatures = [560, 565, 570, 580, 590, 600, 610]
+
+[nuclide.Fe-58]
+endf = "n-026_Fe_058.endf"
+temperatures = [560, 565, 570, 580, 590, 600, 610]
+
+[nuclide.H-1]
+endf = "n-001_H_001.endf"
+temperatures = [550, 573.6, 600, 623.6]
+thermal = "tsl-HinH2O.endf"
+# S(α,β) は評価済みデータの上限まで、表の外は THERMR と同じ短時間衝突近似、その上 9118 eV まで自由ガス（ADR-0133）
+sab-upper = "evaluated"
+sab-outside = "sct"
+free-gas-upper = 9118
+
+[nuclide.O-16]
+endf = "n-008_O_016.endf"
+temperatures = [560, 565, 570, 580, 590, 600, 610, 750, 900, 1050, 1200]
+
+[nuclide.Sn-112]
+endf = "n-050_Sn_112.endf"
+temperatures = [560, 565, 570, 600]
+
+[nuclide.Sn-114]
+endf = "n-050_Sn_114.endf"
+temperatures = [560, 565, 570, 600]
+
+[nuclide.Sn-115]
+endf = "n-050_Sn_115.endf"
+temperatures = [560, 565, 570, 600]
+
+[nuclide.Sn-116]
+endf = "n-050_Sn_116.endf"
+temperatures = [560, 565, 570, 600]
+
+[nuclide.Sn-117]
+endf = "n-050_Sn_117.endf"
+temperatures = [560, 565, 570, 600]
+
+[nuclide.Sn-118]
+endf = "n-050_Sn_118.endf"
+temperatures = [560, 565, 570, 600]
+
+[nuclide.Sn-119]
+endf = "n-050_Sn_119.endf"
+temperatures = [560, 565, 570, 600]
+
+[nuclide.Sn-120]
+endf = "n-050_Sn_120.endf"
+temperatures = [560, 565, 570, 600]
+
+[nuclide.Sn-122]
+endf = "n-050_Sn_122.endf"
+temperatures = [560, 565, 570, 600]
+
+[nuclide.Sn-124]
+endf = "n-050_Sn_124.endf"
+temperatures = [560, 565, 570, 600]
+
+[nuclide.U-234]
+endf = "n-092_U_234.endf"
+temperatures = [560, 565, 570, 600, 750, 900, 1050, 1200]
+
+[nuclide.U-235]
+endf = "n-092_U_235.endf"
+temperatures = [560, 565, 570, 600, 750, 900, 1050, 1200]
+
+[nuclide.U-236]
+endf = "n-092_U_236.endf"
+temperatures = [560, 565, 570, 600, 750, 900, 1050, 1200]
+
+[nuclide.U-238]
+endf = "n-092_U_238.endf"
+temperatures = [560, 565, 570, 600, 750, 900, 1050, 1200]
+
+[nuclide.Zr-90]
+endf = "n-040_Zr_090.endf"
+temperatures = [560, 565, 570, 580, 590, 600, 610]
+
+[nuclide.Zr-91]
+endf = "n-040_Zr_091.endf"
+temperatures = [560, 565, 570, 580, 590, 600, 610]
+
+[nuclide.Zr-92]
+endf = "n-040_Zr_092.endf"
+temperatures = [560, 565, 570, 580, 590, 600, 610]
+
+[nuclide.Zr-94]
+endf = "n-040_Zr_094.endf"
+temperatures = [560, 565, 570, 580, 590, 600, 610]
+
+[nuclide.Zr-96]
+endf = "n-040_Zr_096.endf"
+temperatures = [560, 565, 570, 580, 590, 600, 610]
