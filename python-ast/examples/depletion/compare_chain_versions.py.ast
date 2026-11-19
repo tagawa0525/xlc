@@ -116,7 +116,7 @@ def summarize(a: dict, b: dict) -> dict:
     quantities = {}
     for q in QUANTITIES:
         diff = sorted((i for i in items[q] if differs(i)), key=order)
-        quantities[q] = {'compared': len(items[q]), 'differ': len(diff), 'above': {f'{t:g}': sum((1 for i in diff if i['relative'] is None or i['relative'] > t)) for t in THRESHOLDS}, 'largest': diff[:LARGEST]}
+        quantities[q] = {'compared': len(items[q]), 'differ': len(diff), 'one_sided': sum((1 for i in diff if i['a'] is None or i['b'] is None)), 'above': {f'{t:g}': sum((1 for i in diff if i['relative'] is None or i['relative'] > t)) for t in THRESHOLDS}, 'largest': diff[:LARGEST]}
     by_table = {}
     for i in items['fission_yields']:
         by_table.setdefault((i['nuclide'], i['energy']), []).append(i)
@@ -164,11 +164,11 @@ def report(summary: dict) -> list[str]:
         if n[side]:
             lines.append(f"  {side}: {' '.join(n[side])}")
     lines.append('')
-    lines.append('| 量 | 比べた項目 | 違う項目 | ' + ' | '.join((f'相対差 > {t:g}' for t in THRESHOLDS)) + ' |')
-    lines.append('| --- | --- | --- | ' + ' | '.join(('---' for _ in THRESHOLDS)) + ' |')
+    lines.append('| 量 | 比べた項目 | 違う項目 | 片方だけ | ' + ' | '.join((f'相対差 > {t:g}' for t in THRESHOLDS)) + ' |')
+    lines.append('| --- | --- | --- | --- | ' + ' | '.join(('---' for _ in THRESHOLDS)) + ' |')
     for q, s in summary['quantities'].items():
         above = ' | '.join((str(s['above'][f'{t:g}']) for t in THRESHOLDS))
-        lines.append(f"| {q} | {s['compared']} | {s['differ']} | {above} |")
+        lines.append(f"| {q} | {s['compared']} | {s['differ']} | {s['one_sided']} | {above} |")
     for q, s in summary['quantities'].items():
         if not s['largest']:
             continue
@@ -188,6 +188,9 @@ def report(summary: dict) -> list[str]:
             lines.append(f"- {w['nuclide']}: 片方に無い")
             continue
         h = w['half_life']
+        if h['a'] is None and h['b'] is None:
+            lines.append(f"- {w['nuclide']}: 両方で安定")
+            continue
         lines.append(f"- {w['nuclide']} 半減期: a {value(h['a'])} s、b {value(h['b'])} s（相対差 {value(relative(h['a'], h['b']))}）")
         lines.extend((f"  - 分岐 {describe('decay_modes', m)}" for m in w['modes']))
     for y in summary['watched']['yields']:

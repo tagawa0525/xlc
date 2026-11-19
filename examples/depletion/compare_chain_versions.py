@@ -6,7 +6,7 @@
 xlc のチェーンと OpenMC のチェーンを比べるのは compare_chain.py で、こちらは同じ形式の 2 つのチェーンを比べる。
 
 - `--json`: 核種を名前で対応させ、量ごとに比べた項目の数、違う項目の数、相対差がしきい値を超える項目の数、相対差の大きい順の
-  先頭 `LARGEST` 件を書く。量は次のとおりで、項目は両方のチェーンにある核種のもの:
+  先頭 `LARGEST` 件を書き、違う項目のうち片方だけが値を持つもの（`one_sided`）を別に数える。量は次のとおりで、項目は両方のチェーンにある核種のもの:
   - `excitation`: 核種の励起エネルギー
   - `half_life`: 半減期。片方だけが安定なら、安定の側を null にして相対差を null（いちばん先に並べる）
   - `decay_energy`: 崩壊の平均のエネルギーの 3 成分（両方で不安定な核種）
@@ -241,6 +241,8 @@ def summarize(a: dict, b: dict) -> dict:
         quantities[q] = {
             "compared": len(items[q]),
             "differ": len(diff),
+            # 片方だけが値を持つ項目（片方だけの反応、片方だけ安定な核種）
+            "one_sided": sum(1 for i in diff if i["a"] is None or i["b"] is None),
             "above": {
                 f"{t:g}": sum(
                     1 for i in diff if i["relative"] is None or i["relative"] > t
@@ -348,14 +350,18 @@ def report(summary: dict) -> list[str]:
             lines.append(f"  {side}: {' '.join(n[side])}")
     lines.append("")
     lines.append(
-        "| 量 | 比べた項目 | 違う項目 | "
+        "| 量 | 比べた項目 | 違う項目 | 片方だけ | "
         + " | ".join(f"相対差 > {t:g}" for t in THRESHOLDS)
         + " |"
     )
-    lines.append("| --- | --- | --- | " + " | ".join("---" for _ in THRESHOLDS) + " |")
+    lines.append(
+        "| --- | --- | --- | --- | " + " | ".join("---" for _ in THRESHOLDS) + " |"
+    )
     for q, s in summary["quantities"].items():
         above = " | ".join(str(s["above"][f"{t:g}"]) for t in THRESHOLDS)
-        lines.append(f"| {q} | {s['compared']} | {s['differ']} | {above} |")
+        lines.append(
+            f"| {q} | {s['compared']} | {s['differ']} | {s['one_sided']} | {above} |"
+        )
     for q, s in summary["quantities"].items():
         if not s["largest"]:
             continue
@@ -382,6 +388,9 @@ def report(summary: dict) -> list[str]:
             lines.append(f"- {w['nuclide']}: 片方に無い")
             continue
         h = w["half_life"]
+        if h["a"] is None and h["b"] is None:
+            lines.append(f"- {w['nuclide']}: 両方で安定")
+            continue
         lines.append(
             f"- {w['nuclide']} 半減期: a {value(h['a'])} s、b {value(h['b'])} s（相対差 {value(relative(h['a'], h['b']))}）"
         )
