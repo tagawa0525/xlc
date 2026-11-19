@@ -77,8 +77,9 @@ rebase を終える（手で行を選んで混ぜない。1 のコマンドが�
    - `changed outs` だけのステージ: 出力が手元で変わっている。実行せず、何が変えたかを調べる
    - `references-shell.txt` の食い違い: 出力の文言の修正方法に従う（ADR-0212 の (a)）
    - `dvc status` の失敗: dvc の文（`dvc.lock` が読めない、キャッシュの参照が切れた、など）から原因を調べる
-   - 読めない lock: 手で書き換えた箇所を探し、dvc が書いた版に戻す。戻したら、その lock を入れたコミットを
-     `git commit --fixup` で直して `git rebase -i --autosquash` でまとめ、4 の付け替えのコミットは rebase のあとに積み直す
+   - 読めない lock（始めの確認。作業ツリーは書き換えていない）: 手で書き換えた箇所を探し、dvc が書いた版に戻す。戻したら、その
+     lock を入れたコミットを `git commit --fixup` で直して `GIT_SEQUENCE_EDITOR=true git rebase -i --autosquash main` でまとめ、4 の
+     付け替えのコミットは rebase のあとに積み直す。終わりの確認で止まったら、dvc が書いた lock なので、コミットせずに原因を調べる
    - `--run` のステージ: `scripts/dvc-repro.py -s` の `BLOCKED:` と `STOP:` の行に従う。前に挙げたステージは `RAN:` のとおり実行済み
 
 3. `COMMIT:` のファイルだけをコミットする（rebase の hook が付け替えた記録は足さない。4 で別のコミットにする）。
