@@ -414,7 +414,7 @@ MaxRSS 38.8 GB（`ufg-hold-memory = 32`）。輸送と自己遮蔽 81 回。燃�
 内側 6.14e−4、その外 4.59e−4、外周 3.51e−4。ログの警告は燃料にできる H-1（2.3e−10 以下）の 900 K のデータが無いことだけで、p9-product の
 2A の履歴にも同じ警告がある（2.5e−10 以下）。
 
-ブランチ条件を解く入力の作り方: examples/depletion/issue-0286/inputs.py の `mox_burned`（mox-history.toml から pin-mox-40 を書く関数）と同じ形で、
+ブランチ計算を行う入力の作り方: examples/depletion/issue-0286/inputs.py の `mox_burned`（mox-history.toml から pin-mox-40 を書く関数）と同じ形で、
 この入力の `[depletion]` より前に、集合体のテーブルの出力（`few-group = { output = "{table}", bounds = [1e7, 0.625, 1e-5] }`。
 `variant` がこの形を見て `pins = true` を足す。`mox_burned` の `{pin-table}` はピンセルの形で、ピン出力を書かない）を足し、履歴と同じ 1 状態の分岐（`boron = { ppm = [650], materials = ["water"] }`、
 `moderator = { temperature = [580], density = [0.711901], materials = ["water", "zircaloy"] }`、

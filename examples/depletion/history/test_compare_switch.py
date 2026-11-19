@@ -206,7 +206,7 @@ class Compare(unittest.TestCase):
             r.rho(k_reference) - r.rho(history()["points"][2]["k_inf"]),
             places=9,
         )
-        # 一生を条件 j で燃焼させた core とベース計算の core の差を同じ点に並べる
+        # 一生を条件 j で燃焼させた core と公称の燃焼の core の差を同じ点に並べる
         self.assertEqual(last["branch_difference_pcm"], -2.0)
         self.assertEqual(last["nominal_difference_pcm"], -1.5)
 

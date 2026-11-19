@@ -13,14 +13,14 @@ issues: ["#0176"]
 
 燃焼度の軸を持つブランチのテーブルは、基準条件を基準条件の燃焼点（[ADR-0192](0192-interpolate-burnup-by-cubic-hermite.md) の指針の点。[ADR-0199](0199-add-a-burnup-point-at-14.md) で 27 点）のすべてで、
 ブランチ条件をその一部（`[history]` の `off-nominal-burnup`）で解き、core は基準条件を公称の点から、ブランチ条件の公称の
-状態との差を公称でない点から、どちらも ADR-0192 の 3 次 Hermite で内挿して足す（[ADR-0200](0200-tabulate-burnup-branches-by-cut-hdmr.md) の「ブランチ条件を解く燃焼点」と
+状態との差を公称でない点から、どちらも ADR-0192 の 3 次 Hermite で内挿して足す（[ADR-0200](0200-tabulate-burnup-branches-by-cut-hdmr.md) の「ブランチ計算を行う燃焼点」と
 「core の内挿」）。ADR-0192 は、指針の点を曲がりの強い燃料（Gd の 2O）で決めてすべての集合体の種類に同じ点を当てるとし、ADR-0200 は、
 ブランチ条件の燃焼点を間引いた点の誤差を測ってから入力で決め、Gd と Pyrex の集合体で測るまではすべての燃焼点で解くとした。
 毒物のない 2A の本番の入力の `off-nominal-burnup` は 15 点にした（ADR-0200 の帰結。ユーザー 2026-11-17）。
 
 Gd 燃料の集合体 2O（Gd 燃料 12 本）と 2P（24 本）で、履歴の 73 点（燃焼度 0 と 72 の燃焼点）のすべてで基準条件と 7 つの公称でない
 状態（各軸の公称の点と片側の端の点の直積）を解いたテーブルを真値にして、公称の点と公称でない点の組を測った（examples/depletion/verification.md の
-「Problem 9 のブランチ条件と燃焼点を減らす案の Gd 燃料の集合体（2O）での確認」。#0176）。2A の 15 点は Gd の燃え尽きの付近で外れ、
+「Problem 9 のブランチ計算の状態と燃焼点を減らす案の Gd 燃料の集合体（2O）での確認」。#0176）。2A の 15 点は Gd の燃え尽きの付近で外れ、
 ADR-0199 の 27 点も基準条件だけで 2P が ADR-0192 の ±10 pcm に入らなかった。
 
 ### 判断の軸と目安
@@ -101,7 +101,7 @@ ADR-0192 の ±10 pcm にも入る。合わせた誤差の目安そのものは�
 
 ### 確認
 
-examples/depletion/verification.md の「Problem 9 のブランチ条件と燃焼点を減らす案の Gd 燃料の集合体（2O）での確認」の表
+examples/depletion/verification.md の「Problem 9 のブランチ計算の状態と燃焼点を減らす案の Gd 燃料の集合体（2O）での確認」の表
 `depletion-p9-gd-combined-points`（`compare_branch_cross_terms.py` の `[[combined]]`、ステージ `compare-2O-all`、`compare-2P-all`、
 xlc de05a598、分岐点は main の 24a60bbd、2026-11-18。テストは examples/depletion/test_compare_branch_cross_terms.py の `CombinedBurnupPoints`）。基準条件だけの
 35 点の誤差は 2O 3.61、2P 4.84 pcm（同じ表の「基準条件」）、ブランチ条件の 19 点の間引きだけは 2O 4.13、2P 4.57 pcm（表

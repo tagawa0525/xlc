@@ -30,7 +30,7 @@ core の数密度と参照の均質化した数密度 N̄ᵢ の差の線形の�
 解ごとの組成（予測子は点、修正子は中点）で作るので、点の組成の比は目安。
 続ける点の参照の k∞ は公称の組成を条件 j で解いたもので、ベース計算のテーブルの条件 j の状態の k∞ との差（`check_pcm`）は、同じ組成と
 状態の 2 つの分岐の解の差なので、MOC の収束の程度で 0 のはず。参照の分岐の k∞ と格子計算の履歴の点の k∞ の差も並べる。目安として、一生を条件 j で燃焼させた
-core と第 1 項のテーブルの差、ベース計算の core とベース計算のテーブルの差（`core-history.json`）を同じ点に並べる。
+core と第 1 項のテーブルの差、公称の燃焼の core とベース計算のテーブルの差（`core-history.json`）を同じ点に並べる。
 ρ = 1 − 1/k で、差は pcm。
 """
 
@@ -423,7 +423,7 @@ def report(summary):
             f"{x['nuclide']} {x['pcm']:+.2f}" for x in last["composition_nuclides"]
         )
         + " pcm。"
-        f"同じ点の目安: 一生を条件 j で燃焼させた core − 第 1 項 {span('branch_difference_pcm')} pcm、ベース計算の core − 公称の"
+        f"同じ点の目安: 一生を条件 j で燃焼させた core − 第 1 項 {span('branch_difference_pcm')} pcm、公称の燃焼の core − 公称の"
         f"テーブル {span('nominal_difference_pcm')} pcm。"
         f"\n数密度の効きの核種ごとと残り: "
         + "；".join(

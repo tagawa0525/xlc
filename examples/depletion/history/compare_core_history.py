@@ -11,7 +11,7 @@
 - 公称（`core-2A-residual-nominal.toml`。R を持つテーブル、565 K で一生。w = 0）と、同じ燃焼の R を持たないテーブル
   （`core-2A-plain-nominal.toml`）。2 つのファイルがバイトで同じか（`identical`）
 - 条件 j（`core-2A-residual-branch.toml`。600 K で一生。w = 1）: R の燃焼度の点ごとに、core の k の第 1 項のテーブルの k∞ からの差と、
-  ベース計算の core の k の、ベース計算のテーブルの基準条件の k∞ からの差（ミクロ燃焼の core と格子計算の組成の違いの目安）。core の
+  公称の燃焼の core の k の、ベース計算のテーブルの基準条件の k∞ からの差（ミクロ燃焼の core と格子計算の組成の違いの目安）。core の
   追う核種の数密度の、第 1 項のテーブルの N̄ᵢ^j からの相対差の絶対値が最大の核種と、その相対差（N̄ᵢ^j が 0 の核種は除く）
 - 第 1 項のテーブルで燃焼させた core（`core-2A-sigma-branch.toml`。条件 j の燃焼と同じで、テーブルだけが第 1 項）: 同じ点の k の第 1 項の
   k∞ からの差と、数密度の同じ相対差（履歴の補正が目指す水準）
@@ -427,7 +427,7 @@ def report(summary):
         f"ベース計算の R を持つテーブルと持たないテーブルの出力は"
         f"{'バイトで同じ' if summary['identical'] else '違う'}。"
         f"\n条件 j の燃焼（w = 1）の core の k と第 1 項のテーブルの k∞ の差は、R の点 {len(branch)} で "
-        f"{span(branch, 'difference_pcm')} pcm（15 MWd/kg 以後 {span(later, 'difference_pcm')} pcm）。ベース計算の core と公称の"
+        f"{span(branch, 'difference_pcm')} pcm（15 MWd/kg 以後 {span(later, 'difference_pcm')} pcm）。公称の燃焼の core と公称の"
         f"テーブルの k∞ の差は {span(branch, 'nominal_difference_pcm')} pcm（15 MWd/kg 以後 "
         f"{span(later, 'nominal_difference_pcm')} pcm）。core の k と、格子点の定数 + 線形の補正 + w U + (P / P_j) L の 2 群の k の差は "
         f"{span(branch, 'reconstruct_pcm', '+.1e')} pcm。"

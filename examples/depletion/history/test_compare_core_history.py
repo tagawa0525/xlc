@@ -241,7 +241,7 @@ class Compare(unittest.TestCase):
             r.rho(branch["points"][2]["k"]) - r.rho(k_table),
             places=9,
         )
-        # ベース計算の core と、ベース計算のテーブルの基準条件の k∞
+        # 公称の燃焼の core と、ベース計算のテーブルの基準条件の k∞
         self.assertAlmostEqual(
             last["nominal_difference_pcm"],
             r.rho(0.9) - r.rho(t["states"][3]["k_inf"]),

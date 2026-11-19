@@ -473,7 +473,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
             .join(", ")
     };
 
-    // ブランチ条件ごとに格子計算を解き、出力ごとの少数群定数を状態の順に集める（ADR-0097）
+    // ブランチ計算の状態ごとに格子計算を解き、出力ごとの少数群定数を状態の順に集める（ADR-0097）
     let plain = input.branch_states();
     let count = history_branches.as_ref().map_or(plain.len(), |h| h.len());
     // 値ごとの解く状態（軸の直積の順の番号）: 部分格子の状態と、ブランチ条件を解く燃焼点（ADR-0200）。履歴からの分岐の制御棒の
@@ -503,7 +503,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
         .enumerate()
         .flat_map(|(rod, states)| states.iter().map(move |&state| rod * count + state))
         .collect();
-    // ブランチ条件は `[branches]` の `shielding` の解き方で自己遮蔽する（ADR-0201）。燃料でない物質が直前の状態と同じなら、燃料の
+    // ブランチ計算の状態は `[branches]` の `shielding` の解き方で自己遮蔽する（ADR-0201）。燃料でない物質が直前の状態と同じなら、燃料の
     // ピンの Dancoff 係数を持ち越す（ADR-0194）
     // 自己遮蔽の組成（shielding-file か shielding-burnup）があれば、燃焼の領域の物質も参照の自己遮蔽から状態の組成で作り直す
     // （`HistoryBranches::shield_with`、`HistoryBranches::shield_at`）
@@ -530,7 +530,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
     let mut finished_derivative_shieldings = 0;
     let mut finished_ratios = 0;
     // 比で求める参照（ADR-0250）の基準。摂動の組成を解き直す微分（摂動の参照の組成は比の基準と組まない）と、自己遮蔽の組成で燃焼の
-    // 領域を作り直す分岐（参照の番号がブランチ条件に続く）は、比で求めない
+    // 領域を作り直す分岐（参照の番号がブランチ計算の状態に続く）は、比で求めない
     let anchors = input.branches.as_ref().and_then(|b| b.anchors());
     if anchors.is_some()
         && history_branches
@@ -633,7 +633,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
         });
         // 状態と、その参照と摂動の組成の自己遮蔽は、自己遮蔽を持つ燃焼度の点のもの（自由ガスの核の表が格子点を捨てる単位。
         // ADR-0248）。shielding-burnup の間の点は自己遮蔽を解かないので、その前の自己遮蔽の点に数え、表を捨てない。
-        // 履歴からの分岐でないブランチ条件は、すべて 1 つの組成の点
+        // 履歴からの分岐でないブランチ計算の状態は、すべて 1 つの組成の点
         reuse.at_point(
             history_branches
                 .as_ref()
@@ -728,7 +728,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
                         .with_context(context)?;
                     named.push((mixture.name.clone(), mixed));
                 }
-                // 媒質はブランチ条件と同じ番号の状態（軸が同じことは確かめてある）
+                // 媒質はブランチ計算の状態と同じ番号の状態（軸が同じことは確かめてある）
                 for (m, medium) in input.media.iter().zip(&media) {
                     let from = medium
                         .states

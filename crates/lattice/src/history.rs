@@ -1,7 +1,7 @@
 //! 燃焼の履歴の燃焼点からの分岐（ADR-0187）。
 //!
 //! 入力の `[history]` が挙げた燃焼点ごとに、燃焼の履歴（ADR-0173）の燃焼の領域の数密度を固定し、`[branches]` の状態
-//! （ADR-0097）で輸送する。ブランチ条件では燃焼させない。燃焼の領域は燃焼の輸送と同じ `<物質>@<セル>` の物質として解き、
+//! （ADR-0097）で輸送する。ブランチ計算の状態では燃焼させない。燃焼の領域は燃焼の輸送と同じ `<物質>@<セル>` の物質として解き、
 //! 輸送する核種は履歴の `transportable`（数密度が 0 の核種も含め、負の値は 0 にする）。状態は燃焼度がいちばん遅く変わり、
 //! 各燃焼度の点の中は分岐の軸の直積の順。解くのは、基準条件（`[branches]` の公称）をすべての燃焼点で、ほかの部分格子の状態を
 //! `off-nominal-burnup` の燃焼点で（ADR-0200）。
@@ -17,7 +17,7 @@
 //! [history]
 //! file = "history.msgpack"   # 燃焼の履歴（入力のファイルのあるディレクトリから）
 //! chain = "chain.msgpack"    # 履歴を作った燃焼チェーン（κΣf の Q 値。核種の名前と順が履歴と同じこと）
-//! burnup = [0, 10, 20, 40]   # ブランチ条件を解く燃焼点 (MWd/kg)。履歴の燃焼度から選ぶ。基準条件はすべての点で解く
+//! burnup = [0, 10, 20, 40]   # ブランチ計算を行う燃焼点 (MWd/kg)。履歴の燃焼度から選ぶ。基準条件はすべての点で解く
 //! off-nominal-burnup = [0, 20, 40]   # ブランチ条件を解く燃焼点（burnup から選ぶ。省略すると burnup のすべて。ADR-0200）
 //! rod-burnup = { aic = [0, 40] }       # 制御棒の値ごとの、その値の状態を解く燃焼点（省略した値は off-nominal-burnup。ADR-0225）
 //! shielding-file = "other.msgpack"    # 燃焼の領域を自己遮蔽する組成の履歴（省略すると状態の組成。#0191）
@@ -81,7 +81,7 @@ pub struct HistoryInput {
     pub file: PathBuf,
     /// 履歴を作った燃焼チェーンのファイル（入力のファイルのあるディレクトリから。κΣf の Q 値。ADR-0190）
     pub chain: PathBuf,
-    /// ブランチ条件を解く燃焼点 (MWd/kg)。0 以上で増え、どれも履歴の燃焼度のどれかと等しい
+    /// ブランチ計算を行う燃焼点 (MWd/kg)。0 以上で増え、どれも履歴の燃焼度のどれかと等しい
     pub burnup: Vec<f64>,
     /// ブランチ条件を解く燃焼点 (MWd/kg)。`burnup` から選び、増える（ADR-0200）
     pub off_nominal: Vec<f64>,
@@ -162,7 +162,7 @@ struct ValueShape {
     burnups: Vec<bool>,
 }
 
-/// 履歴の燃焼点からのブランチ条件。状態ごとの物質は `state` で作る。
+/// 履歴の燃焼点からのブランチ計算の状態。状態ごとの物質は `state` で作る。
 #[derive(Debug, Clone, PartialEq)]
 pub struct HistoryBranches {
     /// 連続の軸（燃焼度、続いて分岐の軸）。テーブルは制御棒の値があれば制御棒の軸を最後に足す（ADR-0224）
@@ -179,13 +179,13 @@ pub struct HistoryBranches {
     transported: Vec<usize>,
     /// 輸送する核種（`transported` の順）の、チェーンの核分裂の Q 値 (eV)。核分裂を持たない核種は `None`
     fission_q: Vec<Option<f64>>,
-    /// ブランチ条件ごとの、燃焼させない物質と、燃焼の領域ごとの温度 (K)
+    /// ブランチ計算の状態ごとの、燃焼させない物質と、燃焼の領域ごとの温度 (K)
     branch: Vec<(Vec<MaterialInput>, Vec<f64>)>,
-    /// ブランチ条件ごとの参照の番号（`Branches::reference`。ADR-0201）
+    /// ブランチ計算の状態ごとの参照の番号（`Branches::reference`。ADR-0201）
     reference_of: Vec<Option<usize>>,
     /// 参照の状態（ホウ素が公称。`Branches::references` の順）の、燃焼させない物質と、燃焼の領域ごとの温度 (K)
     references: Vec<(Vec<MaterialInput>, Vec<f64>)>,
-    /// ブランチ条件ごとに、解くか（`Branches::solved`）
+    /// ブランチ計算の状態ごとに、解くか（`Branches::solved`）
     solved: Vec<bool>,
     /// 状態のうちの基準条件の番号（`Branches::nominal_state`）
     nominal: Option<usize>,
@@ -214,7 +214,7 @@ pub struct HistoryBranches {
     remixed: Vec<String>,
 }
 
-/// 入力 `input` の `[history]` と `[branches]` から、履歴 `history` の燃焼点ごとのブランチ条件を作る。`geometries` は制御棒の値
+/// 入力 `input` の `[history]` と `[branches]` から、履歴 `history` の燃焼点ごとのブランチ計算の状態を作る。`geometries` は制御棒の値
 /// （`LatticeInput::rod_values` の順。0 は基準の形状）ごとの形状。どの値の形状の燃焼の領域（物質、組の代表のセル、体積）も履歴の
 /// ものと同じでなければエラー。燃焼させない物質のセル（案内管の中身など）は履歴の格子と違ってよく、MOC の領域の番号は値ごとの
 /// 形状のもの。`chain` は履歴を作ったチェーンで、核種の名前と順が履歴と違えばエラー（κΣf の Q 値。ADR-0190）
@@ -455,7 +455,7 @@ pub fn history_branches(
             "not transported: not in the library"
         );
     }
-    // ブランチ条件（と参照の状態）ごとの、燃焼させない物質と、燃焼の領域の温度。輸送する核種がその温度のデータを持つこと（近い
+    // ブランチ計算の状態（と参照の状態）ごとの、燃焼させない物質と、燃焼の領域の温度。輸送する核種がその温度のデータを持つこと（近い
     // 温度で代用しない。ADR-0173 の案 N2）。温度は物質ごとなので、物質ごとに確かめる
     let split = |state: &[MaterialInput]| -> anyhow::Result<(Vec<MaterialInput>, Vec<f64>)> {
         let mut by_material: Vec<(&str, f64)> = Vec::with_capacity(depleted.len());
@@ -668,7 +668,7 @@ pub fn history_branches(
 }
 
 impl HistoryBranches {
-    /// 状態の数（燃焼度の点の数 × ブランチ条件の数）
+    /// 状態の数（燃焼度の点の数 × ブランチ計算の状態の数）
     pub fn len(&self) -> usize {
         self.densities.len() * self.branch.len()
     }
@@ -812,7 +812,7 @@ impl HistoryBranches {
 
     /// 状態 `index` の自己遮蔽を参照の状態から作るなら、その燃焼度の点（`shield_at` の間の点は、自己遮蔽を解く点）と参照の
     /// 番号（ADR-0201）。自己遮蔽の組成（`shield_with` か `shield_at`）があれば、どの状態も
-    /// 参照から作り、ホウ素の軸の参照のない状態は、`references` の後にブランチ条件の番号を続けた番号
+    /// 参照から作り、ホウ素の軸の参照のない状態は、`references` の後にブランチ計算の状態の番号を続けた番号
     pub fn reference(&self, index: usize) -> Option<(usize, usize)> {
         let (point, b) = (index / self.branch.len(), index % self.branch.len());
         let point = self.shielding_points[point];

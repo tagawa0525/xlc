@@ -1241,7 +1241,7 @@ pub(super) struct FreeGasWork {
     /// 自己遮蔽の間で同じ格子点がどれだけ重なるかを数えるデバッグのログ（[`super::ShareCellCache::census`]）のためで、[`Thermal::new`] の `census` のときだけ書く
     pub(super) points: Vec<(u64, u64, u64, u64)>,
     /// `points` の格子点の、区間のある自由ガスの核種ごとの（核種, レサジーのビット, エネルギーのビット, 区間の数）。核種ごとの核
-    /// （[`Thermal::nuclide_keys`]）で、ブランチ条件の間で同じ核と格子点がどれだけ重なるかを数える（`points` と同じく `census` のときだけ書く）
+    /// （[`Thermal::nuclide_keys`]）で、ブランチ計算の状態の間で同じ核と格子点がどれだけ重なるかを数える（`points` と同じく `census` のときだけ書く）
     pub(super) nuclide_points: Vec<(u32, u64, u64, u32)>,
     /// 上限なしで持つ区間の数（最初のスイープで区間を作った格子点の区間と、核種の区間の始まりと位置の表を 1 区間の大きさで数えた
     /// もの）

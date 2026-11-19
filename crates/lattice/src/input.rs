@@ -116,7 +116,7 @@
 //! [history]                       # 燃焼の履歴の燃焼点からの分岐（ADR-0187。[branches] とファイルの few-group と組む）
 //! file = "history.msgpack"        # 燃焼の履歴（`[depletion]` の output）
 //! chain = "chain.msgpack"         # 履歴を作った燃焼チェーン（`[depletion]` の chain。テーブルの κΣf の Q 値。ADR-0190）
-//! burnup = [0, 10, 20]            # ブランチ条件を解く燃焼点 (MWd/kg)。履歴の燃焼度から選ぶ
+//! burnup = [0, 10, 20]            # ブランチ計算を行う燃焼点 (MWd/kg)。履歴の燃焼度から選ぶ
 //! off-nominal-burnup = [0, 20]    # ブランチ条件を解く燃焼点（省略すると burnup のすべて。ADR-0200）
 //! rod-burnup = { aic = [0, 20] }  # 制御棒の値ごとの、その値のすべての状態を解く燃焼点（省略した値は off-nominal-burnup。ADR-0225）
 //! micro = ["U-235", "Xe-135"]     # ミクロ燃焼で追う核種（テーブルに微視的断面積を書く。省略すると書かない。ADR-0216）
@@ -2444,7 +2444,7 @@ impl LatticeInput {
 }
 
 impl LatticeInput {
-    /// ブランチ条件ごとの物質の組（軸の直積の順）。分岐がなければ、書いたままの物質の1つの組
+    /// ブランチ計算の状態ごとの物質の組（軸の直積の順）。分岐がなければ、書いたままの物質の1つの組
     pub fn branch_states(&self) -> Cow<'_, [Vec<MaterialInput>]> {
         match &self.branches {
             Some(branches) => Cow::Borrowed(branches.states()),

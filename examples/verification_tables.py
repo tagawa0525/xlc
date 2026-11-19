@@ -2277,7 +2277,7 @@ def combined_summaries(sources: list[dict]) -> list[dict]:
 
 def combined_burnup_points(sources: list[dict]) -> str:
     """基準条件とブランチ条件の燃焼点の組ごとの、テーブルごとの時間の見込みと、除いた点の |Δρ| の最大（Hermite。pcm。燃焼度と、
-    最大の状態の種類（基準条件は「公称」）を添える）と、基準条件の |Δρ| の最大"""
+    最大の状態の種類を添える）と、基準条件の |Δρ| の最大"""
     tables = combined_summaries(sources)
     rows = []
     for n, pair in enumerate(tables[0]["pairs"]):
@@ -2287,7 +2287,7 @@ def combined_burnup_points(sources: list[dict]) -> str:
             hermite = p["results"]["hermite"]
             nominal = hermite["nominal"]
             # 最大の状態の種類: 基準条件、状態の種類の順に、最大と同じ値を持つ最初のもの
-            kinds = [("公称", nominal["max_abs_pcm"])] + [
+            kinds = [("基準条件", nominal["max_abs_pcm"])] + [
                 (kind_letters(k), r["max_abs_pcm"]) for k, r in hermite["kinds"].items()
             ]
             kind = next(k for k, e in kinds if e == hermite["max_abs_pcm"])
@@ -2306,9 +2306,9 @@ def combined_burnup_points(sources: list[dict]) -> str:
         )
     return markdown_table(
         [
-            "組（公称 / 公称でない）",
-            "公称の点",
-            "公称でない点",
+            "組（基準条件 / ブランチ条件）",
+            "基準条件の点",
+            "ブランチ条件の点",
             *(
                 label
                 for t in tables
@@ -2348,7 +2348,7 @@ def combined_burnup_micro(sources: list[dict]) -> str:
         rows.append([pair["name"], *cells])
     return markdown_table(
         [
-            "組（公称 / 公称でない）",
+            "組（基準条件 / ブランチ条件）",
             *(
                 f"{t['name']}、{item} (%)"
                 for t in tables
@@ -3819,7 +3819,7 @@ def branch_shielding_groups(s: dict) -> dict:
 
 
 def branch_shielding_k(sources: list[dict]) -> str:
-    """ブランチ条件の自己遮蔽を公称の減速材で解いたテーブルの、状態ごとに解き直したテーブルとの k∞ の差（pcm。ADR-0201）。行はホウ素、
+    """ブランチ計算の自己遮蔽を公称の減速材で解いたテーブルの、状態ごとに解き直したテーブルとの k∞ の差（pcm。ADR-0201）。行はホウ素、
     列は減速材の温度と密度"""
     s = branch_shielding_summary(sources)
     groups = branch_shielding_groups(s)
@@ -3864,7 +3864,7 @@ def branch_shielding_k(sources: list[dict]) -> str:
 
 
 def branch_shielding_constants(sources: list[dict]) -> str:
-    """ブランチ条件の自己遮蔽を公称の減速材で解いたテーブルの、燃焼度の点ごとの状態の Δk∞ の絶対値の最大（pcm）と、少数群定数の項目ごとの
+    """ブランチ計算の自己遮蔽を公称の減速材で解いたテーブルの、燃焼度の点ごとの状態の Δk∞ の絶対値の最大（pcm）と、少数群定数の項目ごとの
     相対差の最大（ADR-0201）"""
     s = branch_shielding_summary(sources)
     rows = []

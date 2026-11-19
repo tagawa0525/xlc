@@ -14,7 +14,7 @@ use crate::table::{Axis, AxisFile, validate_axes};
 /// χ の和と 1 の差の許容値（生成率で重みづけして和で割った値なので、丸めの程度）
 const CHI_TOLERANCE: f64 = 1.0e-12;
 
-/// ブランチ条件ごとの、細かい群の均質な媒質。
+/// ブランチ計算の状態ごとの、細かい群の均質な媒質。
 #[derive(Debug, Clone, PartialEq)]
 pub struct Medium {
     /// 群境界 (eV)、降順

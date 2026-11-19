@@ -2116,7 +2116,7 @@ fn history_shielding_burnup_points_are_increasing_points_of_burnup_from_its_firs
 
 #[test]
 fn branches_shield_at_the_nominal_boron_unless_told_to_shield_every_state() {
-    // ブランチ条件の自己遮蔽（ADR-0201）。書かなければ、ホウ素だけを変えた状態は基準ホウ素濃度の自己遮蔽を使う。履歴のない分岐も同じ
+    // ブランチ計算の自己遮蔽（ADR-0201）。書かなければ、ホウ素だけを変えた状態は基準ホウ素濃度の自己遮蔽を使う。履歴のない分岐も同じ
     let with = |value: &str| {
         history_branches(HISTORY).replace(
             "[history]\n",

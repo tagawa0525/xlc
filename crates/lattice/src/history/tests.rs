@@ -128,7 +128,7 @@ fn branches_of(
     history_branches(&input, history, &chain(), library, &geometries)
 }
 
-/// ブランチ条件の物質を、自己遮蔽と MOC（`moc` の打ち切り条件と加速）で解いた k
+/// ブランチ計算の状態の物質を、自己遮蔽と MOC（`moc` の打ち切り条件と加速）で解いた k
 fn k_of(
     text: &str,
     library: &Library,
@@ -332,7 +332,7 @@ fn the_branch_lattice_must_be_the_lattice_of_the_history() {
 
 #[test]
 fn histories_depleted_by_sector_are_not_branched() {
-    // 扇形の組ごとの物質をブランチ条件で作り直す経路は無いので、扇形に分けた履歴は分岐の前に止める（ADR-0244）
+    // 扇形の組ごとの物質をブランチ計算の状態で作り直す経路は無いので、扇形に分けた履歴は分岐の前に止める（ADR-0244）
     let library = library_with_boron();
     let sectored = borated(PIN).replace("rings = 1 }]\n", "rings = 1 }]\nsectors = 8\n");
     let history = deplete_with(&format!("{sectored}sectors = 8\n"), &library);
@@ -509,7 +509,7 @@ fn two_moderators(burnup: &str) -> String {
 /// 状態の物質の一覧と、領域ごとのその番号
 type Shielding = (Vec<Material>, Vec<usize>);
 
-/// 入力 `text` の履歴からのブランチ条件を順に `BranchShielder` で自己遮蔽した物質と、自己遮蔽を解いた回数
+/// 入力 `text` の履歴からのブランチ計算の状態を順に `BranchShielder` で自己遮蔽した物質と、自己遮蔽を解いた回数
 fn shield_states(
     text: &str,
     history: &History,
@@ -554,7 +554,7 @@ fn shield_states(
     (branches, shielded, solved)
 }
 
-/// ブランチ条件の自己遮蔽の物質の一覧と [領域] のその番号
+/// ブランチ計算の自己遮蔽の物質の一覧と [領域] のその番号
 fn owned(state: crate::branches::StateShielding) -> Shielding {
     (state.materials().to_vec(), state.region_material().to_vec())
 }
@@ -1037,7 +1037,7 @@ fn pair_subgrid_states_shield_like_the_product_states() {
     assert_eq!(all_solves, 2 * 4);
 }
 
-/// ブランチ条件 `index` を自己遮蔽と MOC（`tight`）で解いた、自己遮蔽の結果と MOC の解
+/// ブランチ計算の状態 `index` を自己遮蔽と MOC（`tight`）で解いた、自己遮蔽の結果と MOC の解
 fn solved(
     text: &str,
     library: &Library,
@@ -1209,7 +1209,7 @@ fn micro_cross_sections_close_the_homogenized_rates_of_the_depleted_materials() 
 
 #[test]
 fn micro_cross_sections_take_the_fuel_shielding_of_the_branch_shielder() {
-    // ブランチ条件の自己遮蔽（ADR-0201）が返す燃料の自己遮蔽は、状態ごとに解いたもの（every-state）でも、ホウ素の軸の物質だけを作り直す
+    // ブランチ計算の自己遮蔽（ADR-0201）が返す燃料の自己遮蔽は、状態ごとに解いたもの（every-state）でも、ホウ素の軸の物質だけを作り直す
     // 参照のもの（nominal-boron）でも、返した物質の燃料と同じ実効断面積と SPH 因子を持つ
     let (history, library) = history();
     for text in [
@@ -1546,7 +1546,7 @@ fn a_shielding_history_shields_the_depletion_regions_at_its_densities() {
     }
 }
 
-/// 入力 `text` の履歴 `history` からのブランチ条件 `index` の物質
+/// 入力 `text` の履歴 `history` からのブランチ計算の状態 `index` の物質
 fn at_previous_state(
     text: &str,
     history: &History,
@@ -1786,7 +1786,7 @@ fn shifted_micro(
     out
 }
 
-/// ブランチ条件 `index` を `BranchShielder` と MOC（`tight`）で解いた、格子全体の少数群定数と追う核種の微視的断面積
+/// ブランチ計算の状態 `index` を `BranchShielder` と MOC（`tight`）で解いた、格子全体の少数群定数と追う核種の微視的断面積
 fn solve_state<'a>(
     s: &Setup,
     library: &Library,
@@ -2566,7 +2566,7 @@ fn chain_with_fissile_u238(q: f64) -> xlc_depletion::chain::Chain {
     chain
 }
 
-/// ブランチ条件 `index` を解いて、κΣf と、輸送するすべての核種の微視的断面積を求める
+/// ブランチ計算の状態 `index` を解いて、κΣf と、輸送するすべての核種の微視的断面積を求める
 fn kappa_and_micro(
     text: &str,
     library: &Library,
@@ -3025,7 +3025,7 @@ fn generalized_input(perturbation: f64, shielded: &[&str], derivative: &[&str]) 
     )
 }
 
-/// 入力 `text` のブランチ条件 `index` を解き、追う核種の微視的断面積に一般化摂動の微分（ADR-0247）を入れたもの。摂動の組成は核種ごとの
+/// 入力 `text` のブランチ計算の状態 `index` を解き、追う核種の微視的断面積に一般化摂動の微分（ADR-0247）を入れたもの。摂動の組成は核種ごとの
 /// `BranchShielder` で自己遮蔽し、直接の摂動を解く核種は MOC（`tight`）も解く。`calls` に（摂動の核種、直接の摂動を解いたか）を足す
 fn generalized_derivatives(
     text: &str,

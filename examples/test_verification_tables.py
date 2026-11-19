@@ -6267,9 +6267,9 @@ class DrawCombinedBurnupPoints(unittest.TestCase):
             self.cells(table),
             [
                 [
-                    "組（公称 / 公称でない）",
-                    "公称の点",
-                    "公称でない点",
+                    "組（基準条件 / ブランチ条件）",
+                    "基準条件の点",
+                    "ブランチ条件の点",
                     "2O、時間の見込み (h)",
                     "2O、Hermite (pcm、燃焼度、状態)",
                     "2O、基準条件 (pcm、燃焼度)",
@@ -6293,10 +6293,10 @@ class DrawCombinedBurnupPoints(unittest.TestCase):
                     "35",
                     "19",
                     "7.71",
-                    "4.84（10.5、公称）",
+                    "4.84（10.5、基準条件）",
                     "4.84（10.5）",
                     "7.71",
-                    "4.84（10.5、公称）",
+                    "4.84（10.5、基準条件）",
                     "4.84（10.5）",
                 ],
             ],
@@ -6307,7 +6307,7 @@ class DrawCombinedBurnupPoints(unittest.TestCase):
         self.assertEqual(
             self.cells(table)[0],
             [
-                "組（公称 / 公称でない）",
+                "組（基準条件 / ブランチ条件）",
                 "2O、total (%)",
                 "2O、reactions (%)",
                 "2P、total (%)",
