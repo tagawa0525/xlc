@@ -237,8 +237,8 @@ stages:
     deps:
     - path: examples/depletion/openmc_depletion.py
       hash: md5
-      md5: 6674fdef98e36f947756a6c08616b6cb
-      size: 14111
+      md5: a76854a423b1e6622981562862eabf83
+      size: 14343
     - path: scripts/normalize_python.py
       hash: md5
       md5: fd9af7824aa61cfbfdf49a801a2b4ab4
@@ -246,8 +246,8 @@ stages:
     outs:
     - path: python-ast/examples/depletion/openmc_depletion.py.ast
       hash: md5
-      md5: 26df91fafabfd15ef1316505cc76f98f
-      size: 8685
+      md5: 57b4cbadc2d5210c139370b715c4070d
+      size: 8791
   python-ast@examples/depletion/openmc_depletion_mox.py:
     cmd: python3 scripts/normalize_python.py 
       examples/depletion/openmc_depletion_mox.py 
@@ -255,8 +255,8 @@ stages:
     deps:
     - path: examples/depletion/openmc_depletion_mox.py
       hash: md5
-      md5: eed4c6a213197b7a046f430542d8a213
-      size: 10042
+      md5: 5d859767b85f444b814b2f9540a970a9
+      size: 10339
     - path: scripts/normalize_python.py
       hash: md5
       md5: fd9af7824aa61cfbfdf49a801a2b4ab4

@@ -7,17 +7,20 @@
   `capture_over_fission` に当たる）。fission-q の同じ比は 1 で、外れれば止める（バランス）
 - `mean_delta`、`burnup_shift`: δ の燃焼度 0 からの台形の平均 δ̄ と、燃焼度の軸のずれ B δ̄
 - `predicted_pcm`: estimates.py の `add_burnup_shift` と同じ 1 次の見込み −(dk/dB) B δ̄ / k を、fission-q の履歴の k と、
-  この δ で出したもの（dk/dB は 1 つ前の点との差分）
-- `measured_pcm`、`measured_std_pcm`: (k_ed − k_fq) / k_fq と、2 本の k の標準誤差の二乗和の平方根 / k_fq
+  この δ で出したもの（dk/dB は 1 つ前の点との差分）。初めの数点の dk/dB は Xe と Sm の立ち上がり（出力と時間で決まり、2 本で同じ）を
+  含むので、見込みは燃焼度のずれの効きを大きく見積もる
+- `measured_pcm`、`measured_std_pcm`: (k_ed − k_fq) / k_fq と、2 本の k の標準誤差の二乗和の平方根 / k_fq。2 本は同じシードで
+  輸送の相関が正（燃焼度 0 は組成も同じで k が一致する）なので、差の標準誤差の上限
 - `densities`: 主な核種の、リングの体積で平均した数密度の相対差（energy-deposition / fission-q − 1）
 
-2 本が規格化のほかの前提を共有しないもの（燃焼度の点、輸送する核種、決めた出力）は止める。
+2 本がそれぞれの規格化でないもの（extract が書く `normalization`）と、規格化のほかの前提を共有しないもの（燃焼度の点、輸送する
+核種、決めた出力、チェーンの核分裂の Q）は止める。
 
-`--kappa`（normalization/casl-kappa.toml）と `--chain`（OpenMC のチェーンの XML）を渡すと、VERA の燃焼のベンチマークの仕様書の
-核種ごとの Kappa / Kappa0 − 1 を、fission-q の履歴の核種ごとの核分裂の出力（率 × チェーンの Q）で重み付けた割合（`kappa_delta`）と、
+`--kappa`（normalization/casl-kappa.toml）を渡すと、VERA の燃焼のベンチマークの仕様書の
+核種ごとの Kappa / Kappa0 − 1 を、fission-q の履歴の核種ごとの核分裂の出力（率 × extract が書いたチェーンの Q）で重み付けた割合（`kappa_delta`）と、
 表に無い核種の核分裂の出力の割合（`kappa_uncovered`）も書く。核種ごとの定数で規格化したときに足す割合で、`delta` と並べる。
 
-使い方: python3 compare_normalization.py <fission-q の msgpack> <energy-deposition の msgpack> [--kappa <toml> --chain <xml>] [--json <出力>]
+使い方: python3 compare_normalization.py <fission-q の msgpack> <energy-deposition の msgpack> [--kappa <toml>] [--json <出力>]
 """
 
 import argparse
@@ -44,7 +47,10 @@ def averaged(run: dict, nuclide: str, i: int) -> float:
 
 
 def compare(fission_q: dict, deposition: dict) -> list[dict]:
-    for key in ("burnup", "transportable", "power"):
+    for run, mode in ((fission_q, "fission-q"), (deposition, "energy-deposition")):
+        if run["normalization"] != mode:
+            sys.exit(f"expected a {mode} run, got {run['normalization']}")
+    for key in ("burnup", "transportable", "power", "fission-q-values"):
         if fission_q[key] != deposition[key]:
             sys.exit(f"the two runs differ in {key}")
     power = fission_q["power"]
@@ -90,15 +96,14 @@ def compare(fission_q: dict, deposition: dict) -> list[dict]:
     return rows
 
 
-def kappa_delta(run: dict, kappa: dict, q: dict[str, float]) -> list[dict]:
-    """燃焼点ごとの、核分裂の出力（率 × `q`）で重み付けた Kappa / Kappa0 − 1 と、`kappa` に無い核種の出力の割合。"""
+def kappa_delta(run: dict, kappa: dict) -> list[dict]:
+    """燃焼点ごとの、核分裂の出力（率 × チェーンの Q）で重み付けた Kappa / Kappa0 − 1 と、`kappa` に無い核種の出力の割合。"""
     rates = run["fission-rates"]
+    q = run["fission-q-values"]
     rows = []
     for i in range(len(run["burnup"])):
         total = covered = extra = 0.0
         for name, rate in rates.items():
-            if name not in q:
-                sys.exit(f"{name} fissions but has no fission Q in the chain")
             power = rate[i] * q[name]
             total += power
             if name in kappa:
@@ -108,33 +113,18 @@ def kappa_delta(run: dict, kappa: dict, q: dict[str, float]) -> list[dict]:
     return rows
 
 
-def chain_q(chain: Path) -> dict[str, float]:
-    """OpenMC のチェーンの XML の核種ごとの核分裂の Q (eV)。"""
-    import xml.etree.ElementTree as ET
-
-    q = {}
-    for nuclide in ET.parse(chain).getroot().iter("nuclide"):
-        for reaction in nuclide.iter("reaction"):
-            if reaction.get("type") == "fission":
-                q[nuclide.get("name")] = float(reaction.get("Q"))
-    return q
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("fission_q", type=Path)
     parser.add_argument("deposition", type=Path)
     parser.add_argument("--kappa", type=Path)
-    parser.add_argument("--chain", type=Path)
     parser.add_argument("--json", type=Path)
     args = parser.parse_args()
-    if (args.kappa is None) != (args.chain is None):
-        sys.exit("--kappa and --chain go together")
     fission_q = read(args.fission_q)
     rows = compare(fission_q, read(args.deposition))
     if args.kappa is not None:
         kappa = tomllib.loads(args.kappa.read_text())
-        for r, k in zip(rows, kappa_delta(fission_q, kappa, chain_q(args.chain))):
+        for r, k in zip(rows, kappa_delta(fission_q, kappa)):
             r["kappa_delta"] = k["delta"]
             r["kappa_uncovered"] = k["uncovered"]
     for r in rows:

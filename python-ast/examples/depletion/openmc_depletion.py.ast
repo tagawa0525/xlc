@@ -160,7 +160,7 @@ def extract(source: Path, work: Path, output: Path) -> None:
     rates = {}
     for name in results[0].rates[0].index_nuc:
         rates[name] = np.sum([results.get_reaction_rate(str(f.id), name, 'fission')[1] for f in fuels], axis=0).tolist()
-    output.write_bytes(msgpack.packb({'format': 'openmc-depletion', 'burnup': [0.0, *run['burnup']], 'time': np.asarray(times).tolist(), 'k': k[:, 0].tolist(), 'k-std': k[:, 1].tolist(), 'rings': rings, 'transport-seconds': seconds['transport'], 'total-seconds': seconds['total'], 'cram-seconds': [float(r.proc_time) for r in results], 'transportable': seconds['transportable'], 'power': run['power'] * sum((f.fissionable_mass for f in fuels)), 'fission-power': fission_power(rates, q), 'fission-rates': {n: r for n, r in rates.items() if any(r)}}))
+    output.write_bytes(msgpack.packb({'format': 'openmc-depletion', 'burnup': [0.0, *run['burnup']], 'time': np.asarray(times).tolist(), 'k': k[:, 0].tolist(), 'k-std': k[:, 1].tolist(), 'rings': rings, 'transport-seconds': seconds['transport'], 'total-seconds': seconds['total'], 'cram-seconds': [float(r.proc_time) for r in results], 'transportable': seconds['transportable'], 'power': run['power'] * sum((f.fissionable_mass for f in fuels)), 'fission-power': fission_power(rates, q), 'fission-rates': {n: r for n, r in rates.items() if any(r)}, 'fission-q-values': {n: q[n] for n, r in rates.items() if any(r)}, 'normalization': run['normalization']}))
     for b, kk in zip([0.0, *run['burnup']], k):
         print(f'burnup {b} k {kk[0]:.6f} +- {kk[1]:.6f}')
 if __name__ == '__main__':

@@ -20,7 +20,7 @@ MWd/kg、0 より大きく増える列）、1 世代の粒子数（`particles`�
 run は作業ディレクトリに depletion_results.h5 を書き、輸送（`CoupledOperator.__call__`）と CRAM の時間を表示する。extract は
 燃焼点ごとの k と統計誤差、リングごとの全核種の数密度 (1/(barn cm))、ステップごとの輸送と CRAM の時間、決めた出力（`power`、W）と
 燃焼点ごとの核分裂の率とチェーンの核分裂の Q の積の和（`fission-power`、W。"fission-q" では `power` に等しい）、核分裂する核種ごとの
-燃料の核分裂の率（`fission-rates`、1/s）を msgpack に書く
+燃料の核分裂の率（`fission-rates`、1/s）とチェーンの核分裂の Q（`fission-q-values`、eV）、規格化（`normalization`）を msgpack に書く
 （compare_depletion.py が読む）。
 """
 
@@ -308,6 +308,8 @@ def extract(source: Path, work: Path, output: Path) -> None:
                 "power": run["power"] * sum(f.fissionable_mass for f in fuels),
                 "fission-power": fission_power(rates, q),
                 "fission-rates": {n: r for n, r in rates.items() if any(r)},
+                "fission-q-values": {n: q[n] for n, r in rates.items() if any(r)},
+                "normalization": run["normalization"],
             }
         )
     )
