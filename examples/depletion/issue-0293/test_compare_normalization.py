@@ -11,7 +11,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import compare_normalization
 
 
-def result(k, fission_power, u235, power=100.0, burnup=(0.0, 10.0, 20.0)):
+def result(
+    k,
+    fission_power,
+    u235,
+    power=100.0,
+    burnup=(0.0, 10.0, 20.0),
+    normalization="energy-deposition",
+):
     """openmc_depletion.py の extract の形（リング 2 つ、体積 1 と 3。U235 のほかの核種は 1）。"""
     others = {
         n: [1.0] * len(burnup) for n in ["Pu239", "Pu240", "Pu241", "Xe135", "Sm149"]
@@ -36,10 +43,15 @@ def result(k, fission_power, u235, power=100.0, burnup=(0.0, 10.0, 20.0)):
         "power": power,
         "fission-power": list(fission_power),
         "fission-rates": {"U235": [1.0] * len(burnup), "Pu239": [0.0, 0.5, 1.0]},
+        "fission-q-values": {"U235": 2.0e8, "Pu239": 2.0e8},
+        "normalization": normalization,
     }
 
 
-FISSION_Q = result([1.2, 1.1, 1.0], [100.0, 100.0, 100.0], [1.0, 0.8, 0.6])
+FISSION_Q = result(
+    [1.2, 1.1, 1.0], [100.0, 100.0, 100.0], [1.0, 0.8, 0.6], normalization="fission-q"
+)
+DEPOSITION = result([1.2, 1.11, 1.01], [100 / 1.02] * 3, [1.0, 0.81, 0.62])
 
 
 class Compare(unittest.TestCase):
@@ -78,9 +90,20 @@ class Compare(unittest.TestCase):
         self.assertAlmostEqual(rows[1]["densities"]["Pu239"], 0.0)
 
     def test_a_fission_q_run_off_its_set_power_is_an_error(self):
-        broken = result([1.2, 1.1, 1.0], [100.0, 99.0, 100.0], [1.0, 0.8, 0.6])
+        broken = result(
+            [1.2, 1.1, 1.0],
+            [100.0, 99.0, 100.0],
+            [1.0, 0.8, 0.6],
+            normalization="fission-q",
+        )
         with self.assertRaises(SystemExit):
-            compare_normalization.compare(broken, FISSION_Q)
+            compare_normalization.compare(broken, DEPOSITION)
+
+    def test_runs_not_normalized_as_named_are_an_error(self):
+        with self.assertRaises(SystemExit):
+            compare_normalization.compare(FISSION_Q, FISSION_Q)
+        with self.assertRaises(SystemExit):
+            compare_normalization.compare(DEPOSITION, DEPOSITION)
 
     def test_runs_on_different_burnup_points_are_an_error(self):
         other = result(
@@ -97,15 +120,14 @@ class Compare(unittest.TestCase):
 
 
 class Kappa(unittest.TestCase):
-    """仕様書の核種ごとの定数 Kappa / Kappa0 を、fission-q の履歴の核分裂の率とチェーンの Q で重み付けた割合。"""
+    """仕様書の核種ごとの定数 Kappa / Kappa0 を、fission-q の履歴の核分裂の率と、extract が書いたチェーンの Q で重み付けた割合。"""
 
     def test_the_kappa_ratio_is_weighted_by_the_chain_q_fission_power(self):
         kappa = {
             "U235": {"kappa": 1.04, "kappa0": 1.0},
             "Pu239": {"kappa": 1.08, "kappa0": 1.0},
         }
-        q = {"U235": 2.0e8, "Pu239": 2.0e8}
-        rows = compare_normalization.kappa_delta(FISSION_Q, kappa, q)
+        rows = compare_normalization.kappa_delta(FISSION_Q, kappa)
         self.assertAlmostEqual(rows[0]["delta"], 0.04)
         # 点 2 は U235 と Pu239 が 1 : 1
         self.assertAlmostEqual(rows[2]["delta"], 0.06)
@@ -113,8 +135,7 @@ class Kappa(unittest.TestCase):
 
     def test_fission_without_a_kappa_is_counted_as_uncovered(self):
         kappa = {"U235": {"kappa": 1.04, "kappa0": 1.0}}
-        q = {"U235": 2.0e8, "Pu239": 2.0e8}
-        rows = compare_normalization.kappa_delta(FISSION_Q, kappa, q)
+        rows = compare_normalization.kappa_delta(FISSION_Q, kappa)
         self.assertAlmostEqual(rows[2]["delta"], 0.04)
         self.assertAlmostEqual(rows[2]["uncovered"], 0.5)
 
