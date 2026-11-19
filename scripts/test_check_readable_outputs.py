@@ -83,6 +83,16 @@ stages:
     - path: xs-range.toml
       hash: md5
       md5: {range}
+  nominal:
+    cmd: ../../bin/lattice nominal.toml
+    deps:
+    - path: ../../binary-forms/lattice.md5
+      hash: md5
+      md5: {form}
+    outs:
+    - path: nominal-state.toml
+      hash: md5
+      md5: {gen}
   part@U235:
     cmd: ../../bin/xs nuclide
     outs:
@@ -159,6 +169,9 @@ stages:
     - path: axial/t2.msgpack
       hash: md5
       md5: {t2}
+    - path: nominal-state.toml
+      hash: md5
+      md5: {gen}
     - path: ../../binary-forms/core.md5
       hash: md5
       md5: {form}
@@ -393,7 +406,8 @@ class CheckReadableOutputs(unittest.TestCase):
         result = self.run_check("--all")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertNotIn(str(self.cache_path(MD5["gen"])), "\n".join(self.read_lines()))
-        self.assertIn("2 outputs in no xlc format", result.stdout)
+        # Python のステージが書く TOML と JSON、xlc のステージが書く範囲でない TOML
+        self.assertIn("3 outputs in no xlc format", result.stdout)
 
     def test_an_output_tied_to_an_open_issue_passes_and_others_still_stop(self):
         self.write_cache(MD5["lib"], b"bad")
@@ -451,6 +465,13 @@ class CheckReadableOutputs(unittest.TestCase):
                 self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
                 self.assertIn("STOP:", result.stdout)
                 self.assertNotIn("Traceback", result.stderr)
+
+    def test_two_entries_with_the_same_md5_stop(self):
+        entry = '[[output]]\nmd5 = "{lib}"\nissue = "#0001"\npath = "p"\n'.format(**MD5)
+        self.exempt(entry + entry)
+        result = self.run_check()
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("STOP:", result.stdout)
 
     def test_an_output_missing_from_the_cache_stops(self):
         self.cache_path(MD5["t2"]).unlink()
