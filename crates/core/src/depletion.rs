@@ -42,7 +42,8 @@ use crate::rods::mix_micro;
 use crate::state::moderator_density;
 use crate::thermal::{Channels, NodeTemperatures, fissile, water};
 
-const FORMAT: &str = "xlc-core-history";
+/// 形式の名前。`from_msgpack` が確かめ、読むだけの検査（xlc-outputs）がこれで読み手を選ぶ
+pub const FORMAT: &str = "xlc-core-history";
 
 /// 炉心の燃焼の履歴（ADR-0190）。ノードの値は [集合体][軸方向のノード（下から）]
 #[derive(Debug, Clone, PartialEq, Serialize)]

@@ -943,7 +943,8 @@ pub struct History {
     pub continued: Option<ContinueFrom>,
 }
 
-const FORMAT: &str = "xlc-depletion-history";
+/// 形式の名前。`from_msgpack` が確かめ、読むだけの検査（xlc-outputs）がこれで読み手を選ぶ
+pub const FORMAT: &str = "xlc-depletion-history";
 
 #[derive(Serialize)]
 struct HistoryFile<'a> {
