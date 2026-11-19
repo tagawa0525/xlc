@@ -33,7 +33,8 @@ MeV の群で共鳴を持ち R_g がずれうるので、無限希釈で数え�
 核種の種類: 両方で輸送する（transported）、A で輸送し B で数える（to_dilute）、その逆（to_transported）、両方で数える（dilute）。
 `parts` は差を次の和に分ける（和は差に一致する）:
 
-- u238_resonance: 両方で輸送する U-238 の ufg の吸収。同じ組成では、U-238 の実効断面積の差（共鳴の自己遮蔽の背景の差）
+- u238_resonance: 両方で輸送する U-238 の ufg の吸収。同じ組成では U-238 の実効断面積の差で、UFG の減速計算の差（共鳴の自己遮蔽の
+  背景の差）と、MOC の中の燃料と格子の中性子束の比の変化を含む
 - resonance_other: 両方で輸送するほかの核種の ufg の吸収
 - absorption_other_ranges: 両方で輸送する核種の fast と thermal の吸収
 - transported_scattering_production: 両方で輸送する核種の散乱と生成
@@ -41,6 +42,10 @@ MeV の群で共鳴を持ち R_g がずれうるので、無限希釈で数え�
 - moved_scattering_fast、moved_scattering_below: 同じ核種の散乱の、fast と、ufg と thermal
 - moved_production: 同じ核種の生成
 - rest: 両方で数える核種、残り、χ の差
+
+`u238_flux_ratio_pcm` は、u238_resonance のうち燃料と格子の中性子束の比の変化による分の見積もり: A の U-238 の吸収に、燃料の O-16 の
+実効断面積の比（R_g,B / R_g,A − 1）を掛けた差の項。燃料の中の中性子束の分布の変化が O-16（燃料に一様）と U-238（共鳴の吸収はペレットの
+外側に寄る）で同じとみなす（確かめていない）。U-238 の均質化した数密度が A と B で違う段では書かない（null）
 """
 
 import argparse
@@ -59,6 +64,8 @@ ABSORPTION = (102, 103, 107)
 # MOX のピンでは −8.1e-4〜−3.8e-4（examples/depletion/verification.md の「無限希釈で数える核種の残る差の分け方」）
 DILUTE_TOLERANCE = 1e-3
 RANGES = ("fast", "ufg", "thermal")
+# 扱いを変えた核種の種類（`kind`）
+MOVED = ("to_dilute", "to_transported")
 EFFECTS = ("absorption", "scattering", "production")
 PARTS = (
     "u238_resonance",
@@ -184,6 +191,7 @@ def case(branch, history, library, burnup):
         "groups": (list(library["group_bounds"]), list(library["pointwise_range"])),
         "masks": range_masks(library["group_bounds"], library["pointwise_range"]),
         "flux_ratio": flux_ratio,
+        "densities": densities,
         "total": total,
         "scatter": scatter,
         "chi": chi,
@@ -267,7 +275,7 @@ def step(a, b):
             for r in ranges
         )
 
-    moved = ("to_dilute", "to_transported")
+    moved = MOVED
     parts = {
         "u238_resonance": summed(
             "absorption", ["ufg"], lambda n, k: k == "transported" and n == "U-238"
@@ -300,10 +308,14 @@ def step(a, b):
         "absorption_other_ranges",
         "transported_scattering_production",
     )
-    # U-238 の ufg の吸収の項のうち、燃料と格子の中性子束の比 R_g の変化（O-16 の比で見る）による分の見積もり: A の吸収に
-    # R_g,B / R_g,A − 1 を掛けた差の項。同じ組成の段で、残りが自己遮蔽の背景（UFG の減速計算）の差
+    # U-238 の ufg の吸収の項のうち、燃料と格子の中性子束の比 R_g の変化（O-16 の比で見る）による分の見積もり（docstring）。A の
+    # 数密度を使うので、数密度の違う段では書かない
     ratio = None
-    if "U-238" in a["transported"] and "U-238" in b["transported"]:
+    if (
+        "U-238" in a["transported"]
+        and "U-238" in b["transported"]
+        and a["densities"]["U-238"] == b["densities"]["U-238"]
+    ):
         t, sc, _ = a["contributions"]["U-238"]
         ratio = term(
             (t - sc.sum(axis=1))
@@ -394,7 +406,7 @@ def report(summary):
             (
                 (v["absorption"]["ufg"], n)
                 for n, v in s["nuclides"].items()
-                if v["kind"] in ("to_dilute", "to_transported")
+                if v["kind"] in MOVED
             ),
             key=lambda x: -abs(x[0]),
         )[:5]
