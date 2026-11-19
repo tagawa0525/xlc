@@ -5538,6 +5538,22 @@ TABLES = {
 GIT_TRACKED_NOTE = "GIT_TRACKED in examples/verification_tables.py holds only the exceptions its comment names"
 
 
+def lock_outs(text: str) -> list[str]:
+    """dvc.lock の各ステージの outs の節。deps も出力と同じ `- path:` の 3 行の形で書くので、outs の節だけを返す"""
+    sections: list[str] = []
+    inside = False
+    for line in text.splitlines(keepends=True):
+        key = re.match(r"( *)[^\s#-][^:]*:", line)
+        # 字下げが 4 以下の鍵の行（stages、ステージの名前、ステージの下の cmd、deps、outs、params）で節が変わる
+        if key and len(key.group(1)) <= 4:
+            inside = line == "    outs:\n"
+            if inside:
+                sections.append("")
+        elif inside:
+            sections[-1] += line
+    return sections
+
+
 def locked_md5(root: Path, source: str) -> str:
     """JSON の出力の md5 を、同じ場所の dvc.lock から読む"""
     path = root / source
@@ -5549,7 +5565,7 @@ def locked_md5(root: Path, source: str) -> str:
         )
     found = re.findall(
         rf"- path: {re.escape(path.name)}\n\s+hash: md5\n\s+md5: ([0-9a-f]{{32}})",
-        lock.read_text(),
+        "".join(lock_outs(lock.read_text())),
     )
     if len(found) != 1:
         raise TableError(
