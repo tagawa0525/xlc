@@ -9493,9 +9493,16 @@ python3 examples/depletion/compare_core_pair.py acceleration --json $B/compare-c
   equilibrium=$B/core-small-equilibrium-none-1.toml,$B/core-small-equilibrium-1.toml
 ```
 
-`compare-core-small-acceleration-loose-coarse.json` は、同じ入力を 2 つの版の `bin/core` で解いた燃焼の比較で、#0236 の前の、履歴とログを引数の
-順で受けるツール（`compare_core_acceleration.py`）が書いた。今のツールは入力の項目の値で 2 本を見分けるので、項目の値の同じ燃焼は比べない
-（`compare_core_pair.py` の注）。
+`compare-core-small-acceleration-loose-coarse.json` は、加速なしの燃焼と、CMFD の入力を #0244 の前の `bin/core` で解いて出力の名前を
+`loose-coarse` に付け替えた燃焼の比較で、#0236 の前の、履歴とログを引数の順で受けるツール（main の d17396374 の `compare_core_acceleration.py`）が
+次のコマンドで書いた。`loose-coarse` の履歴の名前を書く入力が無いので、入力を受ける今のツールでは描けない（`compare_core_pair.py` の注）。
+
+```sh
+# main の d17396374 で
+python3 examples/depletion/compare_core_acceleration.py --json $B/compare-core-small-acceleration-loose-coarse.json \
+  search=$B/core-small-search-none-1.msgpack,$B/core-small-search-none-1.log,$B/core-small-search-loose-coarse-1.msgpack,$B/core-small-search-loose-coarse-1.log \
+  equilibrium=$B/core-small-equilibrium-none-1.msgpack,$B/core-small-equilibrium-none-1.log,$B/core-small-equilibrium-loose-coarse-1.msgpack,$B/core-small-equilibrium-loose-coarse-1.log
+```
 
 「ステップの大きさの誤差と中点の臨界ホウ素（小さな炉心）」と同じ理由でステージにしていない。比較の JSON（`branches/compare-core-small-acceleration.json` と
 `compare-core-small-acceleration-loose-coarse.json`）は git で追跡し、履歴とログは `.dvc` で追う。
@@ -9589,8 +9596,17 @@ python3 ../p9_timing.py core-p9.log > timing-p9.json
 ```
 
 比較の JSON（`trial-0244/compare-acceleration.json`、`trial-0076/compare-acceleration.json`）は、加速なしの `bin/core` で解いた `trial-0156` と、
-同じ形の入力を CMFD の `bin/core` で解いた燃焼の比較で、#0236 の前の、履歴とログを引数の順で受けるツール（`compare_core_acceleration.py`。基準が
-`trial-0156`）が書いた。今のツールは入力の項目の値で 2 本を見分けるので、項目の値の同じ燃焼は比べない（`compare_core_pair.py` の注）。
+同じ形の入力を CMFD の `bin/core` で解いた燃焼の比較で、#0236 の前の、履歴とログを引数の順で受けるツール（main の d17396374 の
+`compare_core_acceleration.py`）が次のコマンドで書いた。3 つの入力はどれも `acceleration` を書かないので、入力を受ける今のツールでは描けない（`compare_core_pair.py` の注）。
+
+```sh
+# main の d17396374 で
+T=examples/depletion/p9-timing
+python3 examples/depletion/compare_core_acceleration.py --json $T/trial-0244/compare-acceleration.json \
+  p9=$T/trial-0156/core-p9.msgpack,$T/trial-0156/core-p9.log,$T/trial-0244/core-p9.msgpack,$T/trial-0244/core-p9.log
+python3 examples/depletion/compare_core_acceleration.py --json $T/trial-0076/compare-acceleration.json \
+  p9=$T/trial-0156/core-p9.msgpack,$T/trial-0156/core-p9.log,$T/trial-0076/core-p9.msgpack,$T/trial-0076/core-p9.log
+```
 
 #### 計算
 
@@ -9770,8 +9786,16 @@ python3 ../p9_timing.py core-p9.log > timing-p9.json
 ```
 
 比較の JSON（`trial-0234/compare-threads.json`）は、ADR-0234 の前の `bin/core` で解いた `trial-0244` と、同じ形の入力を色の順の `bin/core` で
-解いた燃焼の比較で、#0236 の前の、履歴とログを引数の位置で受けるツール（`compare_core_threads.py`。スレッドのプールの行の無いログを ADR-0234 の
-前の `bin/core` とした）が書いた。今のツールは燃焼の順を入力の `node-order` で決めるので、同じ入力を別の版の `bin/core` で解いた燃焼は比べない。
+解いた燃焼の比較で、#0236 の前の、履歴とログを引数の位置で受けるツール（main の d17396374 の `compare_core_threads.py`。スレッドのプールの
+行の無いログを ADR-0234 の前の `bin/core` とした）が次のコマンドで書いた。今のツールは燃焼の順を入力の `node-order` で決めるので、同じ入力を
+別の版の `bin/core` で解いた燃焼は比べない（`--report` は今のツールでも描ける）。
+
+```sh
+# main の d17396374 で
+T=examples/depletion/p9-timing
+python3 examples/depletion/compare_core_threads.py --json $T/trial-0234/compare-threads.json \
+  p9=$T/trial-0244/core-p9.msgpack,$T/trial-0244/core-p9.log,$T/trial-0234/core-p9.msgpack,$T/trial-0234/core-p9.log
+```
 
 #### 計算
 
