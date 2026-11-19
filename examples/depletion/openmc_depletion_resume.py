@@ -129,7 +129,7 @@ def backend_of(source: Path) -> Backend:
                 model,
                 chain_file=run["chain"],
                 prev_results=prev,
-                normalization_mode="fission-q",
+                normalization_mode=run["normalization"],
                 fission_yield_mode="cutoff",
                 fission_yield_opts={"cutoff": pin.YIELD_CUTOFF},
                 reaction_rate_mode="direct",

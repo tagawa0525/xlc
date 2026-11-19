@@ -237,8 +237,8 @@ stages:
     deps:
     - path: examples/depletion/openmc_depletion.py
       hash: md5
-      md5: 4e5fc825b421e5ac5ee69ff74dddb545
-      size: 11791
+      md5: f378ad7a2431dc4c5b46c4817dc5162f
+      size: 12435
     - path: scripts/normalize_python.py
       hash: md5
       md5: fd9af7824aa61cfbfdf49a801a2b4ab4
@@ -246,8 +246,8 @@ stages:
     outs:
     - path: python-ast/examples/depletion/openmc_depletion.py.ast
       hash: md5
-      md5: b98b611a4c9b98ae08db96eac383ffad
-      size: 7461
+      md5: 7537710f03aff18fce1c74d68f6c5e22
+      size: 7698
   python-ast@examples/depletion/openmc_depletion_mox.py:
     cmd: python3 scripts/normalize_python.py 
       examples/depletion/openmc_depletion_mox.py 
@@ -6689,8 +6689,8 @@ stages:
     deps:
     - path: examples/depletion/openmc-1C-rings4.toml
       hash: md5
-      md5: 4d1d56853b1330f6d674965f10ac35ae
-      size: 1027
+      md5: c3cb99c843a87146fdc4255bfdbfaf33
+      size: 1055
     - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
       md5: 82d3738ce2567f06e06af65bb8f664f7
@@ -6698,8 +6698,8 @@ stages:
     outs:
     - path: toml-values/examples/depletion/openmc-1C-rings4.toml.json
       hash: md5
-      md5: f6e1c5088aedc0cf9cba9507c1429a89
-      size: 279
+      md5: 63b00fc9cf604b0f2769c9c8af0e8c0c
+      size: 310
   toml-values@examples/vera/endfb70/p3/lattice-3A-fuel.toml:
     cmd: python3 scripts/normalize_toml.py 
       examples/vera/endfb70/p3/lattice-3A-fuel.toml 
@@ -7164,8 +7164,8 @@ stages:
     deps:
     - path: examples/depletion/openmc-1C-rings1.toml
       hash: md5
-      md5: 2b236a748ca0caea8f755abb62fcb4bd
-      size: 1027
+      md5: e1ed2c1d695c399e1baf3dba8ce6f839
+      size: 1055
     - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
       md5: 82d3738ce2567f06e06af65bb8f664f7
@@ -7173,8 +7173,8 @@ stages:
     outs:
     - path: toml-values/examples/depletion/openmc-1C-rings1.toml.json
       hash: md5
-      md5: ab42305fa1cf4420e32a845c17713ddc
-      size: 279
+      md5: 522ace445ada0f32bac36858bbe44191
+      size: 310
   toml-values@examples/vera/p5/hzp/26-p24-plug-igrid.toml:
     cmd: python3 scripts/normalize_toml.py 
       examples/vera/p5/hzp/26-p24-plug-igrid.toml 

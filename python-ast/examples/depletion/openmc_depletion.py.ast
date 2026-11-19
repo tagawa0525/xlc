@@ -16,8 +16,9 @@ sys.path.insert(0, str(HERE.parent / 'vera'))
 from openmc_common import eigenvalue_settings, material
 from openmc_input import input_path, read_input
 from openmc_model import CLAD_INNER, CLAD_OUTER, FUEL, FUEL_TEMPERATURE, MODERATOR_OF, MODERATOR_TEMPERATURE, PELLET, PITCH, ZIRCALOY, temperature_settings
-KEYS = {'problem', 'rings', 'cross-sections', 'chain', 'power', 'burnup', 'particles', 'batches', 'inactive', 'seed', 'threads'}
+KEYS = {'problem', 'rings', 'cross-sections', 'chain', 'power', 'burnup', 'particles', 'batches', 'inactive', 'seed', 'threads', 'normalization'}
 PROBLEMS = ['1B', '1C', '1D']
+NORMALIZATIONS = ['fission-q', 'energy-deposition']
 YIELD_CUTOFF = math.sqrt(0.0253 * 500000.0)
 TRANSPORT_SECONDS: list[float] = []
 
@@ -25,6 +26,8 @@ def read(source: Path) -> dict:
     run = read_input(source, KEYS, set())
     if run['problem'] not in PROBLEMS:
         raise SystemExit(f"unknown problem {run['problem']}; expected one of {PROBLEMS}")
+    if run['normalization'] not in NORMALIZATIONS:
+        raise SystemExit(f"unknown normalization {run['normalization']}; expected one of {NORMALIZATIONS}")
     if not (isinstance(run['rings'], int) and run['rings'] > 0):
         raise SystemExit(f"rings must be a positive integer, got {run['rings']}")
     burnup = run['burnup']
@@ -118,7 +121,7 @@ def solve(source: Path, work: Path) -> None:
     openmc.config['cross_sections'] = run['cross-sections']
     model, _ = build(run)
     TimedOperator.fuel_temperature = FUEL_TEMPERATURE[run['problem']]
-    operator = TimedOperator(model, chain_file=run['chain'], normalization_mode='fission-q', fission_yield_mode='cutoff', fission_yield_opts={'cutoff': YIELD_CUTOFF}, reaction_rate_mode='direct')
+    operator = TimedOperator(model, chain_file=run['chain'], normalization_mode=run['normalization'], fission_yield_mode='cutoff', fission_yield_opts={'cutoff': YIELD_CUTOFF}, reaction_rate_mode='direct')
     burnup = run['burnup']
     steps = [b - a for a, b in itertools.pairwise([0.0, *burnup])]
     integrator = openmc.deplete.CECMIntegrator(operator, steps, power_density=run['power'], timestep_units='MWd/kg', solver='cram48')
