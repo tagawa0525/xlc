@@ -6,7 +6,7 @@ opened: 2026-10-14
 closed: 2026-11-19
 milestone:
 blocked-by: []
-resolution: コミット 750612ddd
+resolution: コミット 15635702f
 ---
 
 # build-binaries.sh の環境変数の確認が、pipefail の下の grep -q で素通りしうる

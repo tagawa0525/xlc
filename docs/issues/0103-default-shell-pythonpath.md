@@ -6,7 +6,7 @@ opened: 2026-10-13
 closed: 2026-11-19
 milestone:
 blocked-by: []
-resolution: コミット 028297319
+resolution: コミット 86e3d4689
 ---
 
 # default の devShell が外の shell の PYTHONPATH を外さない
