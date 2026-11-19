@@ -35,12 +35,9 @@ AFTER_LATTICE = {
     f"{V}:xs": [{"changed deps": {"binary-forms/xs.md5": "modified"}}],
     COMPARE: [{"changed deps": {"examples/v/p1/lattice-1B.out": "modified"}}],
 }
-FORMS = [
-    "build",
-    "dvc.yaml:python-ast",
-    "dvc.yaml:binary-forms",
-    "dvc.yaml:toml-values",
-]
+FORMS_CALL = (
+    "dvc repro -s build dvc.yaml:python-ast dvc.yaml:binary-forms dvc.yaml:toml-values"
+)
 
 # repro -s <直下のステージ> は呼ばれたことを書き、python-ast は追跡している正規形を書き直す。status は status.json を出す
 FAKE_DVC = """\
@@ -50,7 +47,7 @@ case "$1" in
   repro)
     echo "Stage '$3' didn't change, skipping"
     [ "$3" = "$(cat "{d}/fail-repro" 2>/dev/null)" ] && echo "dvc failed on $3" >&2 && exit 5
-    [ "$3" = dvc.yaml:python-ast ] && echo rewritten > python-ast/a.py.ast
+    case "$*" in *dvc.yaml:python-ast*) echo rewritten > python-ast/a.py.ast;; esac
     exit 0;;
   status) [ -f "{d}/status-fails" ] && exit 3; cat "{d}/status.json";;
   *) exit 99;;
@@ -181,7 +178,7 @@ class Process(unittest.TestCase):
     def test_without_named_stages_only_the_build_and_normalized_forms_run(self):
         r = self.run_script(DEPS)
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertEqual(self.ran("dvc repro"), [f"dvc repro -s {s}" for s in FORMS])
+        self.assertEqual(self.ran("dvc repro"), [FORMS_CALL])
         self.assertEqual(self.ran("dvc-repro.py"), [])
         self.assertIn("RAN: none", r.stdout)
         self.assertIn(f"CHANGED: {LATTICE}: changed deps", r.stdout)
@@ -190,6 +187,11 @@ class Process(unittest.TestCase):
             "references-shell",
             "\n".join(x for x in r.stdout.splitlines() if x.startswith("CHANGED:")),
         )
+
+    def test_the_build_and_normalized_forms_run_in_one_dvc_repro(self):
+        # dvc は目標を DAG の順に並べる（binary-forms は build の下流）
+        self.run_script(DEPS)
+        self.assertEqual(self.ran("dvc repro"), [FORMS_CALL])
 
     def test_parts_run_in_the_order_of_the_relock(self):
         self.run_script(DEPS)
@@ -200,8 +202,10 @@ class Process(unittest.TestCase):
         self.assertEqual(
             order,
             [
+                # 読めない lock は、作業ツリーを書き換える前に止める（直すコミットの fixup と rebase が汚れた作業ツリーで止まる）
+                "check-dvc-lock.sh",
                 "dvc-checkout.py",
-                *["dvc repro"] * 4,
+                "dvc repro",
                 "dvc status",
                 "check-references-shell.sh",
                 "check-dvc-lock.sh",
@@ -216,7 +220,7 @@ class Process(unittest.TestCase):
             self.ran("dvc-repro.py"),
             [f"dvc-repro.py -s {LATTICE}", f"dvc-repro.py -s {COMPARE}"],
         )
-        self.assertEqual(self.ran("dvc repro"), [f"dvc repro -s {s}" for s in FORMS])
+        self.assertEqual(self.ran("dvc repro"), [FORMS_CALL])
         self.assertIn(f"RAN: {LATTICE}", r.stdout)
         self.assertIn(f"RAN: {COMPARE}", r.stdout)
         # 実行した後の dvc status で、残した changed を出す
@@ -255,14 +259,16 @@ class Process(unittest.TestCase):
         self.exit_with("dvc-checkout.py")
         r = self.run_script(DEPS, "--run", LATTICE)
         self.assertEqual(r.returncode, 1)
-        self.assertEqual(self.calls(), ["dvc-checkout.py "])
+        self.assertEqual(
+            self.calls(), ["check-dvc-lock.sh examples/v/dvc.lock", "dvc-checkout.py "]
+        )
         self.assertIn("STOP:", r.stderr)
 
     def test_a_failing_build_or_normalized_form_stops(self):
         (self.d / "fail-repro").write_text("build")
         r = self.run_script(DEPS, "--run", LATTICE)
         self.assertEqual(r.returncode, 1)
-        self.assertEqual(self.ran("dvc repro"), ["dvc repro -s build"])
+        self.assertEqual(self.ran("dvc repro"), [FORMS_CALL])
         self.assertEqual(self.ran("dvc-repro.py"), [])
         self.assertIn("Stage 'build' didn't change", r.stdout + r.stderr)
         self.assertIn("dvc failed on build", r.stdout + r.stderr)
@@ -297,18 +303,20 @@ class Process(unittest.TestCase):
         self.assertEqual(self.ran("dvc-repro.py"), [])
         self.assertIn("STOP:", r.stderr)
 
-    def test_unreadable_lock_stops(self):
+    def test_unreadable_lock_stops_before_the_worktree_is_rewritten(self):
         self.exit_with("check-dvc-lock.sh")
-        r = self.run_script(DEPS)
+        r = self.run_script(DEPS, "--run", LATTICE)
         self.assertEqual(r.returncode, 1)
+        self.assertEqual(self.calls(), ["check-dvc-lock.sh examples/v/dvc.lock"])
         self.assertIn("STOP:", r.stderr)
 
     def test_locks_changed_since_the_fork_point_are_checked(self):
         # examples/v/dvc.lock はブランチのコミットで変わった（rebase の pick は pre-commit の hook を通らない）
         r = self.run_script(DEPS)
         self.assertEqual(r.returncode, 0, r.stderr)
+        # 始めと、dvc が lock を書き換えた後の 2 度
         self.assertEqual(
-            self.ran("check-dvc-lock.sh"), ["check-dvc-lock.sh examples/v/dvc.lock"]
+            self.ran("check-dvc-lock.sh"), ["check-dvc-lock.sh examples/v/dvc.lock"] * 2
         )
 
     def test_files_to_commit_are_those_the_relock_wrote(self):
@@ -318,6 +326,41 @@ class Process(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         commit = [x for x in r.stdout.splitlines() if x.startswith("COMMIT:")]
         self.assertEqual(commit, ["COMMIT: python-ast/a.py.ast"])
+
+    def test_a_rerun_after_a_stop_still_lists_the_forms_and_locks_to_commit(self):
+        # 前の実行が書き直した正規形は、この実行では中身が変わらないが、まだコミットしていない
+        (self.repo / "python-ast" / "a.py.ast").write_text("rewritten\n")
+        (self.repo / "examples" / "v" / "verification.md").write_text("remapped\n")
+        r = self.run_script(DEPS)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        commit = [x for x in r.stdout.splitlines() if x.startswith("COMMIT:")]
+        self.assertEqual(commit, ["COMMIT: python-ast/a.py.ast"])
+
+    def test_a_stop_after_the_forms_still_lists_what_ran_and_what_to_commit(self):
+        (self.d / "after.json").write_text(json.dumps(AFTER_LATTICE))
+        (self.d / "dvc-repro.py.code").write_text("0\n")
+        # 2 つ目のステージで止める: 偽の dvc-repro.py は 1 度目の後に終了コードを 1 にする
+        part = self.repo / "scripts" / "dvc-repro.py"
+        part.write_text(
+            part.read_text().replace(
+                'exit "$code"', f'echo 1 > "{self.d}/dvc-repro.py.code"; exit "$code"'
+            )
+        )
+        r = self.run_script(DEPS, "--run", LATTICE, "--run", COMPARE)
+        self.assertEqual(r.returncode, 1)
+        self.assertIn(f"RAN: {LATTICE}", r.stdout)
+        self.assertNotIn(f"RAN: {COMPARE}", r.stdout)
+        self.assertIn("COMMIT: python-ast/a.py.ast", r.stdout)
+
+    def test_a_stage_left_with_only_changed_outs_after_the_runs_stops(self):
+        after = {
+            **AFTER_LATTICE,
+            f"{V}:xs": [{"changed outs": {"examples/v/vera.msgpack": "modified"}}],
+        }
+        (self.d / "after.json").write_text(json.dumps(after))
+        r = self.run_script(DEPS, "--run", LATTICE)
+        self.assertEqual(r.returncode, 1)
+        self.assertIn(f"{V}:xs", r.stderr)
 
     def test_status_is_scoped_to_the_given_dvc_yaml(self):
         r = self.run_script(DEPS, V)
