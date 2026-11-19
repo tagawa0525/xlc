@@ -734,7 +734,20 @@ fn slbw_contributions(
     tol: f64,
 ) -> Result<Vec<(u32, Tab1)>, String> {
     let (el, eh) = (range.el, range.eh);
-    let background_at = |e: f64| background.and_then(|t| t.eval(e)).unwrap_or(0.0);
+    // 和の表は、MF3 の段差の左右の両方の値を持つ（`add`）。範囲の下端では右、上端では左の値だけが和に入り、範囲の中の段差では
+    // 両側で負にならないよう小さい方に対して切る
+    let background_at = |e: f64| {
+        background.map_or(0.0, |t| {
+            let (left, right) = (left_limit(t, e), right_limit(t, e));
+            if e <= el {
+                right
+            } else if e >= eh {
+                left
+            } else {
+                left.min(right)
+            }
+        })
+    };
     let peaks = bw
         .l_values
         .iter()
