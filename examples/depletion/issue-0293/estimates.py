@@ -202,8 +202,10 @@ def main() -> None:
     # 1 つの点だけを使う核種は、下と上に同じ点を置く（収率を熱の点に置き換えても変わらない）
     cumulative = {}
     for i, name in enumerate(names):
-        if micro["states"][0][i]["thermal_fission"] is None:
+        if all(state[i]["thermal_fission"] is None for state in micro["states"]):
             continue
+        if name not in chain_index:
+            sys.exit(f"{name}: fissions in micro but is not in the chain")
         fission = chain["nuclides"][chain_index[name]].get("fission")
         if not fission:
             sys.exit(
