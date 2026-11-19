@@ -1136,6 +1136,21 @@ class DrawAssemblySummary(unittest.TestCase):
         )
         self.assertIs(draw, vt.depletion_assembly_summary)
 
+    def test_the_count_past_the_tolerance_agrees_with_the_printed_differences(self):
+        # +150.4 は「+150」と描くので、±150 pcm を超える点に数えない
+        rows = self.cells(
+            vt.depletion_assembly_summary(
+                [self.summary("2A", [150.4, -150.6], [0.001, 0.001])]
+            )
+        )
+        self.assertEqual(rows[2][6], "1")
+
+    def test_a_summary_without_pin_comparisons_is_a_table_error(self):
+        s = self.summary("2A", [1.0], [0.001])
+        del s["pins"]
+        with self.assertRaises(vt.TableError):
+            vt.depletion_assembly_summary([s])
+
     def test_points_without_pins_are_a_table_error(self):
         s = self.summary("2A", [1.0, 2.0], [0.001])
         with self.assertRaises(vt.TableError):
