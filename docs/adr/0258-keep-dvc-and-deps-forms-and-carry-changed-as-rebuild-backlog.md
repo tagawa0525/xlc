@@ -527,7 +527,7 @@ ADR-0257）は、上の段の実装のブランチで、その ADR の決定と�
     `--run` のステージを足すこと。止まったとき（部品を起動できないときを含む）も `RAN:` と `COMMIT:` を出し、再実行が通ってから
     コミットするよう示すこと。`COMMIT:` に、始める前から変わっていた記録を出さず、コマンドが書き換えたファイルと、コミットしていない lock と正規形
     （止まった前の実行が書き換えたもの）を出すこと
-  - 実際の例（コマンドは xlc 6eb0c233d、読めない lock の例だけ b14ab23d2。main 5e67e41e7 から分岐して examples/vera/compare_k.py に
+  - 実際の例（コマンドは xlc b8241ad8d、読めない lock の例だけ e015badc6。main 5e67e41e7 から分岐して examples/vera/compare_k.py に
     注釈を 1 行足したコミットを、その上に rebase した使い捨てのブランチ。手元、区分は試行、2026-11-20）:
     `scripts/dvc-relock.py --run examples/vera/dvc.yaml:lattice-1B examples/vera/dvc.yaml` は終了コード 0 で 36 秒。python-ast が
     直下の `dvc.lock` の compare_k.py の md5 を書き直し（注釈だけなので正規形は変わらない）、lattice-1B は `-s` の経路で run cache
