@@ -21,6 +21,10 @@ examples/depletion/compare_core_xenon_boron.py（ADR-0219 の `xenon-boron` の 
 燃焼の履歴は `xenon-boron` と `initial-guess` を書かない（ADR-0231 と同じく、どちらも同じ収束の判定を満たす解で履歴の形を変えない）ので、比較の
 ツールは引数の順だけで 2 本を見分ける。joint と nested を入れ替えて渡すと、`SHARED` の項目の確認を通り、差の符号と固有値計算の比が逆の要約になる。
 
+examples/depletion の比較のツールの `rho_pcm`（compare_core_cycle.py、compare_core_micro.py、compare_core_partial_rods.py、compare_core_b10.py、
+compare_core_restart.py）と、燃焼度の一致の許容 `BURNUP_TOLERANCE`（compare_core_depletion.py、compare_depletion.py、compare_depletion_assembly.py、
+compare_core_micro.py、compare_core_partial_rods.py）と `same_burnup` は、3 つを超える複製で、examples/depletion/core_history.py にまとめられる。
+
 関係する ADR: なし
 
 ## 完了の条件
