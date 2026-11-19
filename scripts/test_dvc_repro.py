@@ -1,4 +1,4 @@
-"""dvc-repro.py の検査（ADR-0257）。数えは dvc の出力の文字列を受け、プロセスの検査は PATH の偽の dvc で実行する。
+"""dvc-repro.py の検査（ADR-0257、`-s` の経路は ADR-0258）。数えは dvc の出力の文字列を受け、プロセスの検査は PATH の偽の dvc で実行する。
 
 実行: python3 -m unittest discover -s scripts -p 'test_dvc_repro.py'
 """
@@ -71,6 +71,37 @@ XS_CHANGED = {
 OPENMC_CHANGED = {
     **SHELL_ONLY,
     f"{V}:openmc-1B": [{"changed outs": {"examples/v/p1/openmc-1B": "deleted"}}],
+}
+
+
+LATTICE = f"{V}:lattice-1B"
+# `dvc repro --dry -f -s <目標>` は目標のステージだけを並べる（foreach の組なら組の全部）
+DRY_LATTICE = f"""\
+Running stage '{LATTICE}':
+> ../../bin/lattice p1/pincell-1B.toml > p1/lattice-1B.out
+Use `dvc push` to send your updates to remote storage.
+"""
+OPENMC = f"{V}:openmc-1B"
+DRY_OPENMC = f"""\
+Running stage '{OPENMC}':
+> nix develop ../..#references -c python3 openmc_model.py run p1/openmc-1B.toml p1/openmc-1B-model p1/openmc-1B
+Use `dvc push` to send your updates to remote storage.
+"""
+# 上流の changed が deps だけ（outs は dvc.lock のとおり）
+UPSTREAM_DEPS = {
+    "build": [{"changed deps": {"crates": "modified"}}],
+    f"{V}:xs": [{"changed deps": {"binary-forms/xs.md5": "modified"}}],
+    LATTICE: [{"changed deps": {"binary-forms/lattice.md5": "modified"}}],
+}
+UPSTREAM_OUTS = {
+    **UPSTREAM_DEPS,
+    f"{V}:xs": [{"changed outs": {"examples/v/vera.msgpack": "deleted"}}],
+}
+NORMALIZED_STALE = {
+    **UPSTREAM_DEPS,
+    "python-ast@examples/v/compare_k.py": [
+        {"changed deps": {"examples/v/compare_k.py": "modified"}}
+    ],
 }
 
 
@@ -147,11 +178,56 @@ class CountStages(unittest.TestCase):
         self.assertNotIn("examples/v/x.msgpack.dvc", c.runs)
 
 
+def planned(status, dry=DRY_LATTICE, target=LATTICE, allow=()):
+    return rep.plan_single(status, rep.parse_dry_run(dry), target, list(allow))
+
+
+class PlanSingleItem(unittest.TestCase):
+    def test_upstream_with_only_changed_deps_runs_the_target_alone(self):
+        p = planned(UPSTREAM_DEPS)
+        self.assertEqual(
+            (p.runs, p.blocked, p.run_first, p.refused), ([LATTICE], [], [], [])
+        )
+
+    def test_upstream_with_changed_outs_command_or_checksum_blocks(self):
+        for change in (
+            {"changed outs": {"examples/v/vera.msgpack": "modified"}},
+            {"changed command": {}},
+            {"changed checksum": {}},
+        ):
+            with self.subTest(change=change):
+                p = planned({**UPSTREAM_DEPS, f"{V}:xs": [change]})
+                self.assertEqual(p.blocked, [(f"{V}:xs", sorted(change))])
+
+    def test_stale_normalized_forms_are_run_first_rather_than_blocking(self):
+        p = planned(NORMALIZED_STALE)
+        self.assertEqual(p.blocked, [])
+        self.assertEqual(p.run_first, ["python-ast@examples/v/compare_k.py"])
+
+    def test_reference_target_is_refused_unless_allowed(self):
+        self.assertEqual(planned(UPSTREAM_DEPS, DRY_OPENMC, OPENMC).refused, [OPENMC])
+        allowed = planned(UPSTREAM_DEPS, DRY_OPENMC, OPENMC, allow=[OPENMC])
+        self.assertEqual((allowed.references, allowed.refused), ([OPENMC], []))
+
+    def test_allowing_a_stage_that_is_not_the_target_is_an_error(self):
+        with self.assertRaises(rep.ReproError):
+            planned(UPSTREAM_DEPS, allow=[OPENMC])
+
+    def test_references_shell_upstream_is_reported_for_the_shell_check(self):
+        p = planned({**UPSTREAM_DEPS, **SHELL_ONLY})
+        self.assertEqual(p.blocked, [])
+        self.assertTrue(p.needs_shell_check)
+        self.assertFalse(planned(UPSTREAM_DEPS).needs_shell_check)
+
+
 FAKE_DVC = """\
 #!/bin/sh
 echo "$*" >> "{d}/calls"
 case "$1" in
-  repro) case "$2" in --dry) cat "{d}/dry.txt";; *) echo ran; exit 7;; esac;;
+  repro) case "$2" in
+    --dry) cat "{d}/dry.txt";;
+    *) if [ -f "{d}/after.json" ]; then mv "{d}/after.json" "{d}/status.json"; exit 0; fi; echo ran; exit 7;;
+  esac;;
   dag) cat "{d}/dag.dot";;
   status) cat "{d}/status.json";;
   *) exit 99;;
@@ -170,6 +246,7 @@ class Process(unittest.TestCase):
         subprocess.run(["git", "init", "-q", str(repo)], check=True)
         self.script = repo / "scripts" / SCRIPT.name
         shutil.copy(SCRIPT, self.script)
+        shutil.copy(SCRIPT.parent / "check-skip-upstream.py", repo / "scripts")
         self.check = repo / "scripts" / "check-references-shell.sh"
         self.set_shell_check(0)
         bindir = self.d / "bin"
@@ -261,11 +338,85 @@ class Process(unittest.TestCase):
         self.assertIn("matches the references devShell: no", r.stdout)
         self.assertEqual(self.ran_repro(), [])
 
-    def test_single_item_is_refused_before_calling_dvc(self):
-        r = self.run_script(XS_CHANGED, "--max-stages", "4", "-s", V)
-        self.assertEqual(r.returncode, 2)
-        self.assertIn("locally", r.stderr)
-        self.assertFalse((self.d / "calls").exists())
+    def test_single_item_runs_the_target_alone_when_upstream_outs_match_the_lock(self):
+        (self.d / "dry.txt").write_text(DRY_LATTICE)
+        r = self.run_script(UPSTREAM_DEPS, "-s", "--no-run-cache", LATTICE)
+        self.assertEqual(r.returncode, 7)  # 偽の dvc repro の終了コード
+        self.assertEqual(self.ran_repro(), [f"repro -s --no-run-cache {LATTICE}"])
+        self.assertIn(f"RUN: {LATTICE}", r.stdout)
+
+    def test_single_item_stops_without_running_on_upstream_changes_other_than_deps(
+        self,
+    ):
+        (self.d / "dry.txt").write_text(DRY_LATTICE)
+        for change in (
+            {"changed outs": {"examples/v/vera.msgpack": "deleted"}},
+            {"changed command": {}},
+            {"changed checksum": {}},
+        ):
+            with self.subTest(change=change):
+                (self.d / "calls").unlink(missing_ok=True)
+                r = self.run_script(
+                    {**UPSTREAM_DEPS, f"{V}:xs": [change]}, "-s", LATTICE
+                )
+                self.assertEqual(r.returncode, 1)
+                self.assertIn(f"BLOCKED: {V}:xs: {next(iter(change))}", r.stdout)
+                self.assertEqual(self.ran_repro(), [])
+
+    def test_single_item_runs_stale_normalized_forms_before_the_target(self):
+        (self.d / "dry.txt").write_text(DRY_LATTICE)
+        (self.d / "after.json").write_text(json.dumps(UPSTREAM_DEPS))
+        r = self.run_script(NORMALIZED_STALE, "-s", LATTICE)
+        self.assertEqual(r.returncode, 7)
+        self.assertEqual(
+            self.ran_repro(),
+            ["repro -s python-ast@examples/v/compare_k.py", f"repro -s {LATTICE}"],
+        )
+
+    def test_single_item_runs_nothing_when_other_upstream_blocks_besides_normalized_forms(
+        self,
+    ):
+        (self.d / "dry.txt").write_text(DRY_LATTICE)
+        r = self.run_script({**NORMALIZED_STALE, **UPSTREAM_OUTS}, "-s", LATTICE)
+        self.assertEqual(r.returncode, 1)
+        self.assertEqual(self.ran_repro(), [])
+
+    def test_single_item_reference_target_needs_allow_reference(self):
+        (self.d / "dry.txt").write_text(DRY_OPENMC)
+        r = self.run_script(UPSTREAM_DEPS, "-s", OPENMC)
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("not allowed by --allow-reference", r.stderr)
+        self.assertEqual(self.ran_repro(), [])
+        r = self.run_script(UPSTREAM_DEPS, "-s", "--allow-reference", OPENMC, OPENMC)
+        self.assertEqual(r.returncode, 7)
+        self.assertEqual(self.ran_repro(), [f"repro -s {OPENMC}"])
+
+    def test_single_item_stops_when_the_references_shell_is_stale(self):
+        (self.d / "dry.txt").write_text(DRY_LATTICE)
+        self.set_shell_check(1)
+        r = self.run_script({**UPSTREAM_DEPS, **SHELL_ONLY}, "-s", LATTICE)
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("matches the references devShell: no", r.stdout)
+        self.assertEqual(self.ran_repro(), [])
+
+    def test_single_item_count_only_checks_without_running(self):
+        (self.d / "dry.txt").write_text(DRY_LATTICE)
+        r = self.run_script(NORMALIZED_STALE, "-s", "--count-only", LATTICE)
+        self.assertEqual(r.returncode, 0)
+        self.assertIn("RUN-FIRST: python-ast@examples/v/compare_k.py", r.stdout)
+        self.assertEqual(self.ran_repro(), [])
+
+    def test_single_item_takes_one_stage_target_and_no_stage_count(self):
+        for args in (
+            ["-s", "--max-stages", "1", LATTICE],
+            ["-s", LATTICE, OPENMC],
+            ["-s", V],
+            ["-s", "-P"],
+        ):
+            with self.subTest(args=args):
+                r = self.run_script(UPSTREAM_DEPS, *args)
+                self.assertEqual(r.returncode, 2)
+                self.assertFalse((self.d / "calls").exists())
 
     def test_running_outside_the_repository_root_is_refused(self):
         # dvc の目標は cwd からの相対で、ステージの key はリポジトリの直下からのパス
