@@ -448,3 +448,30 @@ fn rejects_a_mat_that_appears_again_after_another_material() {
 fn rejects_a_tape_without_materials() {
     assert!(read_decay(TAPE_ID).is_err());
 }
+
+#[test]
+fn rejects_a_mat_that_comes_back_without_its_own_header() {
+    // 戻ってきた MAT 3580 の MF8 は、MAT で引くと最初の物質の MF8 に隠れる
+    let mf8_only: String = am242m_as("3580")
+        .lines()
+        .filter(|line| &line[70..72] == " 8")
+        .map(|line| format!("{line}\n"))
+        .collect();
+    let text = am242m_decay() + &am242m_as("3581") + &mf8_only;
+    let error = read_decay(&text).unwrap_err();
+    assert!(format!("{error:#}").contains("MAT 3580"), "{error:#}");
+}
+
+#[test]
+fn names_the_mat_of_a_material_without_mf1() {
+    let without_header: String = am242m_as("3581")
+        .lines()
+        .filter(|line| &line[70..72] != " 1")
+        .map(|line| format!("{line}\n"))
+        .collect();
+    let error = read_decay(&(am242m_decay() + &without_header)).unwrap_err();
+    assert!(
+        format!("{error:#}").contains("MAT 3581 has no MF1/MT451"),
+        "{error:#}"
+    );
+}
