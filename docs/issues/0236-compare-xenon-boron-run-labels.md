@@ -37,8 +37,9 @@ core が、比べる項目（または入力の md5）をログか履歴に書�
 - 2026-11-19: 3 つのツールを compare_core_pair.py（項目を最初の引数で受け、要約の `format` と `runs` の鍵を表に持つ）にまとめ、
   verification_tables.py の 3 つの表も `core_pair_runs` にまとめた。`rho_pcm`、`BURNUP_TOLERANCE`、`same_burnup` は core の比較のツールの分を
   core_history.py にまとめた（history/compare_core_history.py と compare_core_energy.py の分も）。compare_depletion.py と compare_depletion_assembly.py は格子計算と OpenMC の燃焼を比べるツールで、core の
-  履歴を読まないので、自分の許容のまま残した。取り違えは、ツールが燃焼ごとに core の入力を受け、入力が名前を書く履歴と入力の名前の `.log` を読み、2 つの入力が項目（と `history`、`threads`）のほかで違えば止まり、
+  履歴を読まないので、自分の許容のまま残した。取り違えは、ツールが燃焼ごとに core の入力を受け、入力が名前を書く履歴と入力の名前の `.log` を読み、2 つの入力が項目と `history`（compare_core_threads.py は `threads` も）のほかで違うか、同じ履歴に書けば止まり、
   項目（`initial-guess`、`xenon-boron`、`acceleration`、`node-order`）の値で 2 本の役を確かめる形で止めた（compare_core_threads.py は入力の
   `threads` とログのスレッドの数も比べる）。同じ入力を 2 つの版の bin/core で解いた燃焼は入力で見分けられないので、比べる形をやめた
   （compare_core_threads.py の ADR-0234 の前の bin/core の扱いを含む）。その形で書いた要約（小さな炉心の #0244 の前の CMFD、Problem 9 の
   形の試行）は、書いたツールの名前を記録に書いて残した
+- 2026-11-19: 同じブランチのレビューの 2 周目で、役を実行に使った項目でなく今の入力で決めることが残ると分かり、その点だけで開いたままにした
