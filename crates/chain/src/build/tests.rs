@@ -101,7 +101,7 @@ fn orders_nuclides_by_z_a_and_state_and_names_them() {
         stable(95, 242),
         neutron_itself,
     ]);
-    let built = build(&decays, &[], &[], &[]).unwrap();
+    let built = build(&decays, &[], &[], &Supplements::default()).unwrap();
     let names: Vec<_> = built
         .chain
         .nuclides
@@ -142,7 +142,7 @@ fn applies_each_decay_step_and_emits_light_nuclides() {
         stable(53, 138),
         stable(53, 136),
     ]);
-    let built = build(&decays, &[], &[], &[]).unwrap();
+    let built = build(&decays, &[], &[], &Supplements::default()).unwrap();
     let modes = &find(&built, "Cs-140").decay.as_ref().unwrap().modes;
     let products: Vec<_> = modes.iter().map(|m| m.products.clone()).collect();
     assert_eq!(products[0], vec![one(&built, "Ba-140")]);
@@ -188,7 +188,7 @@ fn removes_the_parent_without_products_by_spontaneous_fission() {
         ),
         stable(96, 248),
     ]);
-    let built = build(&decays, &[], &[], &[]).unwrap();
+    let built = build(&decays, &[], &[], &Supplements::default()).unwrap();
     let modes = &find(&built, "Cf-252").decay.as_ref().unwrap().modes;
     assert_eq!(modes[1].mode, "sf");
     assert!(modes[1].products.is_empty());
@@ -209,7 +209,7 @@ fn rescales_decay_ratios_that_sum_close_to_one() {
         ),
         stable(90, 234),
     ]);
-    let built = build(&decays, &[], &[], &[]).unwrap();
+    let built = build(&decays, &[], &[], &Supplements::default()).unwrap();
     let modes = &find(&built, "U-238").decay.as_ref().unwrap().modes;
     let sum = 1.0 + 5.46e-7;
     assert_eq!(modes[0].ratio, 1.0 / sum);
@@ -222,7 +222,7 @@ fn rejects_decay_ratios_far_from_one() {
         unstable(92, 238, 0, 1.4e17, vec![mode(&[Step::Alpha], 0, 0.9)]),
         stable(90, 234),
     ]);
-    assert!(build(&decays, &[], &[], &[]).is_err());
+    assert!(build(&decays, &[], &[], &Supplements::default()).is_err());
 }
 
 #[test]
@@ -241,7 +241,7 @@ fn drops_modes_with_zero_ratio() {
         stable(54, 135),
         stable(51, 131),
     ]);
-    let built = build(&decays, &[], &[], &[]).unwrap();
+    let built = build(&decays, &[], &[], &Supplements::default()).unwrap();
     assert_eq!(find(&built, "I-135").decay.as_ref().unwrap().modes.len(), 1);
 }
 
@@ -257,7 +257,7 @@ fn treats_an_unstable_nuclide_without_half_life_as_stable() {
         ),
         stable(56, 136),
     ]);
-    let built = build(&decays, &[], &[], &[]).unwrap();
+    let built = build(&decays, &[], &[], &Supplements::default()).unwrap();
     assert!(find(&built, "Xe-136").decay.is_none());
     assert!(
         built.warnings.iter().any(|w| w.contains("Xe-136")),
@@ -275,7 +275,7 @@ fn keeps_the_loss_but_no_product_for_a_missing_daughter() {
         1e-3,
         vec![mode(&[Step::EcBetaPlus], 0, 1.0)],
     )]);
-    let built = build(&decays, &[], &[], &[]).unwrap();
+    let built = build(&decays, &[], &[], &Supplements::default()).unwrap();
     let modes = &find(&built, "Ni-48").decay.as_ref().unwrap().modes;
     assert!(modes[0].products.is_empty());
     assert!(
@@ -287,7 +287,7 @@ fn keeps_the_loss_but_no_product_for_a_missing_daughter() {
 
 #[test]
 fn requires_h1_and_he4() {
-    assert!(build(&[stable(2, 4)], &[], &[], &[]).is_err());
+    assert!(build(&[stable(2, 4)], &[], &[], &Supplements::default()).is_err());
 }
 
 #[test]
@@ -303,7 +303,7 @@ fn maps_mf3_reactions_to_ground_state_products() {
     ]);
     // (n,2n) は 875〜891 の部分だけ、(n,p) は 600〜649 の部分だけ
     let neutrons = [neutron(26, 56, 0, &[1, 2, 17, 37, 102, 107, 600, 601, 875])];
-    let built = build(&decays, &neutrons, &[], &[]).unwrap();
+    let built = build(&decays, &neutrons, &[], &Supplements::default()).unwrap();
     let fe56 = find(&built, "Fe-56");
     let got: Vec<_> = fe56
         .reactions
@@ -362,7 +362,7 @@ fn splits_reactions_into_the_final_states_of_mf8() {
             },
         ],
     )];
-    let built = build(&decays, &[am241], &[], &[]).unwrap();
+    let built = build(&decays, &[am241], &[], &Supplements::default()).unwrap();
     let channels = &find(&built, "Am-241").reactions[0].channels;
     assert_eq!(channels.len(), 2);
     assert_eq!(
@@ -401,7 +401,7 @@ fn sends_a_final_state_to_the_ground_state_when_the_product_has_no_isomer() {
         102,
         vec![entry(95242, 0.0, 10, 0), entry(95242, 3e5, 10, 3)],
     )];
-    let built = build(&decays, &[am241], &[], &[]).unwrap();
+    let built = build(&decays, &[am241], &[], &Supplements::default()).unwrap();
     let channels = &find(&built, "Am-241").reactions[0].channels;
     assert_eq!(
         channels[1].final_state,
@@ -451,7 +451,7 @@ fn matches_excited_states_to_isomers_by_the_nearest_energy() {
             entry(77190, 376_400.0, 10, 3),
         ],
     )];
-    let built = build(&ir190_decays(), &[ir191], &[], &[]).unwrap();
+    let built = build(&ir190_decays(), &[ir191], &[], &Supplements::default()).unwrap();
     let products: Vec<_> = find(&built, "Ir-191").reactions[0]
         .channels
         .iter()
@@ -486,7 +486,7 @@ fn keeps_the_remainder_when_mf8_lists_only_isomers() {
     ]);
     let mut in115 = neutron(49, 115, 0, &[102]);
     in115.final_states = vec![(102, vec![entry(49116, 127_269.7, 9, 1)])];
-    let built = build(&decays, &[in115], &[], &[]).unwrap();
+    let built = build(&decays, &[in115], &[], &Supplements::default()).unwrap();
     let channels = &find(&built, "In-115").reactions[0].channels;
     assert_eq!(channels.len(), 2);
     assert_eq!(
@@ -517,13 +517,19 @@ fn rejects_a_final_state_of_another_nuclide() {
             lfs: 0,
         }],
     )];
-    assert!(build(&decays, &[am241], &[], &[]).is_err());
+    assert!(build(&decays, &[am241], &[], &Supplements::default()).is_err());
 }
 
 #[test]
 fn keeps_the_loss_but_no_product_for_a_missing_reaction_product() {
     let decays = with_light(vec![stable(94, 245), stable(94, 246)]);
-    let built = build(&decays, &[neutron(94, 245, 0, &[102, 103])], &[], &[]).unwrap();
+    let built = build(
+        &decays,
+        &[neutron(94, 245, 0, &[102, 103])],
+        &[],
+        &Supplements::default(),
+    )
+    .unwrap();
     let reactions = &find(&built, "Pu-245").reactions;
     assert_eq!(reactions[1].mt, 103);
     // 生成物の Np-245 がないので、H-1 だけを生む
@@ -538,7 +544,15 @@ fn keeps_the_loss_but_no_product_for_a_missing_reaction_product() {
 #[test]
 fn rejects_neutron_data_for_a_nuclide_outside_decay() {
     let decays = with_light(vec![]);
-    assert!(build(&decays, &[neutron(26, 56, 0, &[102])], &[], &[]).is_err());
+    assert!(
+        build(
+            &decays,
+            &[neutron(26, 56, 0, &[102])],
+            &[],
+            &Supplements::default()
+        )
+        .is_err()
+    );
 }
 
 fn raw(za: u32, state: u32, value: f64) -> RawYield {
@@ -587,7 +601,7 @@ fn keeps_all_yield_energies_in_ascending_order() {
         &fp_decays(),
         &[neutron(92, 235, 0, &[18, 102])],
         &[u235_yields()],
-        &[],
+        &Supplements::default(),
     )
     .unwrap();
     let fission = find(&built, "U-235").fission.as_ref().unwrap();
@@ -619,7 +633,13 @@ fn borrows_yields_from_the_nearest_mass_of_the_same_element() {
         neutron(92, 238, 0, &[18]),
         neutron(92, 239, 0, &[18]),
     ];
-    let built = build(&fp_decays(), &neutrons, &[u235_yields(), u238_yields], &[]).unwrap();
+    let built = build(
+        &fp_decays(),
+        &neutrons,
+        &[u235_yields(), u238_yields],
+        &Supplements::default(),
+    )
+    .unwrap();
     let fission = find(&built, "U-239").fission.as_ref().unwrap();
     assert_eq!(fission.yield_source, "U-238");
     assert_eq!(fission.energies, vec![5e5]);
@@ -655,7 +675,13 @@ fn prefers_the_other_state_of_the_same_mass() {
         neutron(95, 242, 0, &[18]),
         neutron(95, 242, 1, &[18]),
     ];
-    let built = build(&decays, &neutrons, &[yields(0, 241), yields(1, 242)], &[]).unwrap();
+    let built = build(
+        &decays,
+        &neutrons,
+        &[yields(0, 241), yields(1, 242)],
+        &Supplements::default(),
+    )
+    .unwrap();
     assert_eq!(
         find(&built, "Am-242")
             .fission
@@ -674,7 +700,7 @@ fn borrows_from_the_nearest_element_when_the_element_has_no_yields() {
         tables: vec![(0.0253, vec![raw(53135, 0, 0.06)])],
     };
     let neutrons = [neutron(91, 233, 0, &[18, 19]), neutron(92, 235, 0, &[18])];
-    let built = build(&decays, &neutrons, &[yields], &[]).unwrap();
+    let built = build(&decays, &neutrons, &[yields], &Supplements::default()).unwrap();
     assert_eq!(
         find(&built, "Pa-233")
             .fission
@@ -688,7 +714,13 @@ fn borrows_from_the_nearest_element_when_the_element_has_no_yields() {
 #[test]
 fn takes_each_nuclides_own_fission_q_even_when_it_borrows_yields() {
     let neutrons = [neutron(92, 235, 0, &[18]), neutron(92, 239, 0, &[18])];
-    let built = build(&fp_decays(), &neutrons, &[u235_yields()], &[]).unwrap();
+    let built = build(
+        &fp_decays(),
+        &neutrons,
+        &[u235_yields()],
+        &Supplements::default(),
+    )
+    .unwrap();
     let q = |name| find(&built, name).fission.as_ref().unwrap().q;
     assert_eq!(q("U-235"), 1.9e8 + 92.0);
     assert_eq!(q("U-239"), 1.9e8 + 92.0);
@@ -698,7 +730,7 @@ fn takes_each_nuclides_own_fission_q_even_when_it_borrows_yields() {
         material: material(92, 235, 0, 0.0),
         tables: vec![(0.0253, vec![raw(53135, 0, 0.06)])],
     };
-    let built = build(&decays, &neutrons, &[yields], &[]).unwrap();
+    let built = build(&decays, &neutrons, &[yields], &Supplements::default()).unwrap();
     assert_eq!(
         find(&built, "Np-239").fission.as_ref().unwrap().q,
         1.9e8 + 93.0
@@ -713,7 +745,7 @@ fn rejects_fission_without_the_q_value_of_mt18() {
         tables: vec![(0.0253, vec![raw(53135, 0, 0.06)])],
     };
     let neutrons = [neutron(91, 233, 0, &[19]), neutron(92, 235, 0, &[18])];
-    let error = build(&decays, &neutrons, &[yields], &[])
+    let error = build(&decays, &neutrons, &[yields], &Supplements::default())
         .unwrap_err()
         .to_string();
     assert!(
@@ -724,7 +756,13 @@ fn rejects_fission_without_the_q_value_of_mt18() {
 
 #[test]
 fn ignores_neutron_data_of_the_neutron_itself() {
-    let built = build(&with_light(vec![]), &[neutron(0, 1, 0, &[2])], &[], &[]).unwrap();
+    let built = build(
+        &with_light(vec![]),
+        &[neutron(0, 1, 0, &[2])],
+        &[],
+        &Supplements::default(),
+    )
+    .unwrap();
     assert_eq!(built.chain.nuclides.len(), 2);
 }
 
@@ -742,7 +780,13 @@ fn merges_a_daughter_that_is_also_the_emitted_light_nuclide() {
         unstable(4, 7, 0, 4.6e6, vec![mode(&[Step::EcBetaPlus], 0, 1.0)]),
         stable(3, 7),
     ]);
-    let built = build(&decays, &[neutron(4, 7, 0, &[107])], &[], &[]).unwrap();
+    let built = build(
+        &decays,
+        &[neutron(4, 7, 0, &[107])],
+        &[],
+        &Supplements::default(),
+    )
+    .unwrap();
     let two_alphas = vec![Product {
         nuclide: index(&built, "He-4"),
         count: 2,
@@ -761,7 +805,15 @@ fn rejects_yields_of_a_nuclide_without_fission() {
         material: material(92, 235, 0, 0.0),
         tables: vec![(0.0253, vec![raw(53135, 0, 0.06)])],
     };
-    assert!(build(&fp_decays(), &[neutron(92, 235, 0, &[102])], &[yields], &[]).is_err());
+    assert!(
+        build(
+            &fp_decays(),
+            &[neutron(92, 235, 0, &[102])],
+            &[yields],
+            &Supplements::default()
+        )
+        .is_err()
+    );
 }
 
 #[test]
@@ -772,13 +824,13 @@ fn rejects_repeated_yield_and_neutron_evaluations() {
             &fp_decays(),
             &neutrons,
             &[u235_yields(), u235_yields()],
-            &[]
+            &Supplements::default()
         )
         .is_err()
     );
     // チェーンの反応を持たない評価の重なりも止める
     let twice = [neutron(92, 238, 0, &[2]), neutron(92, 238, 0, &[2])];
-    assert!(build(&fp_decays(), &twice, &[], &[]).is_err());
+    assert!(build(&fp_decays(), &twice, &[], &Supplements::default()).is_err());
 }
 
 #[test]
@@ -788,7 +840,7 @@ fn drops_a_neutron_residual_without_a_warning() {
         &with_light(vec![stable(1, 2)]),
         &[neutron(1, 2, 0, &[103])],
         &[],
-        &[],
+        &Supplements::default(),
     )
     .unwrap();
     assert_eq!(
@@ -805,7 +857,13 @@ fn warns_once_per_borrowed_yield_table() {
         neutron(92, 238, 0, &[18]),
         neutron(92, 239, 0, &[18]),
     ];
-    let built = build(&fp_decays(), &neutrons, &[u235_yields()], &[]).unwrap();
+    let built = build(
+        &fp_decays(),
+        &neutrons,
+        &[u235_yields()],
+        &Supplements::default(),
+    )
+    .unwrap();
     let moved = built
         .warnings
         .iter()
@@ -820,7 +878,7 @@ fn sends_a_missing_isomeric_daughter_to_the_ground_state() {
         unstable(53, 135, 0, 2.4e4, vec![mode(&[Step::BetaMinus], 1, 1.0)]),
         stable(54, 135),
     ]);
-    let built = build(&decays, &[], &[], &[]).unwrap();
+    let built = build(&decays, &[], &[], &Supplements::default()).unwrap();
     let modes = &find(&built, "I-135").decay.as_ref().unwrap().modes;
     assert_eq!(modes[0].products, vec![one(&built, "Xe-135")]);
     assert!(
@@ -863,7 +921,7 @@ fn warns_about_a_residual_with_fewer_nucleons_than_protons() {
         &with_light(vec![stable(1, 2)]),
         &[neutron(1, 2, 0, &[17])],
         &[],
-        &[],
+        &Supplements::default(),
     )
     .unwrap();
     assert!(
@@ -877,7 +935,15 @@ fn warns_about_a_residual_with_fewer_nucleons_than_protons() {
 fn rejects_decay_modes_of_a_stable_evaluation() {
     let mut fe56 = stable(26, 56);
     fe56.decay.modes = vec![mode(&[Step::BetaMinus], 0, 1.0)];
-    assert!(build(&with_light(vec![fe56, stable(27, 56)]), &[], &[], &[]).is_err());
+    assert!(
+        build(
+            &with_light(vec![fe56, stable(27, 56)]),
+            &[],
+            &[],
+            &Supplements::default()
+        )
+        .is_err()
+    );
 }
 
 /// C-12、C-13 と、天然の C の反応の生成物（C-14、Be-9、Be-10）
@@ -893,18 +959,26 @@ fn carbon_decays() -> Vec<DecayEvaluation> {
     ])
 }
 
-fn isotopes(names: &[&str]) -> Vec<String> {
+fn names(names: &[&str]) -> Vec<String> {
     names.iter().map(|n| n.to_string()).collect()
+}
+
+/// 天然の元素の評価を `isotopes` に当てる入力
+fn natural(isotopes: &[&str]) -> Supplements {
+    Supplements {
+        natural_isotopes: names(isotopes),
+        ..Supplements::default()
+    }
 }
 
 #[test]
 fn applies_a_natural_evaluation_to_each_listed_isotope() {
-    let natural = neutron(6, 0, 0, &[1, 2, 102, 107]);
+    let carbon = neutron(6, 0, 0, &[1, 2, 102, 107]);
     let built = build(
         &carbon_decays(),
-        &[natural],
+        &[carbon],
         &[],
-        &isotopes(&["C-12", "C-13"]),
+        &natural(&["C-12", "C-13"]),
     )
     .unwrap();
     // 反応の先は、天然の元素でなく、当てた核種の (Z, A) から決める
@@ -942,8 +1016,8 @@ fn applies_a_natural_evaluation_to_each_listed_isotope() {
 
 #[test]
 fn rejects_a_natural_evaluation_that_no_listed_isotope_takes() {
-    let natural = neutron(6, 0, 0, &[102]);
-    let error = build(&carbon_decays(), &[natural], &[], &[]).unwrap_err();
+    let carbon = neutron(6, 0, 0, &[102]);
+    let error = build(&carbon_decays(), &[carbon], &[], &Supplements::default()).unwrap_err();
     assert!(
         format!("{error:#}").contains("natural-isotopes"),
         "{error:#}"
@@ -956,7 +1030,7 @@ fn rejects_a_listed_isotope_without_a_natural_evaluation_of_its_element() {
         &carbon_decays(),
         &[neutron(6, 12, 0, &[102])],
         &[],
-        &isotopes(&["C-13"]),
+        &natural(&["C-13"]),
     )
     .unwrap_err();
     assert!(format!("{error:#}").contains("C-13"), "{error:#}");
@@ -970,7 +1044,7 @@ fn rejects_a_listed_isotope_that_has_its_own_evaluation() {
             &carbon_decays(),
             &neutrons,
             &[],
-            &isotopes(&["C-12", "C-13"])
+            &natural(&["C-12", "C-13"])
         )
         .is_err()
     );
@@ -978,10 +1052,10 @@ fn rejects_a_listed_isotope_that_has_its_own_evaluation() {
 
 #[test]
 fn rejects_a_listed_isotope_outside_the_decay_data_or_in_an_excited_state() {
-    let natural = || neutron(6, 0, 0, &[102]);
+    let carbon = || neutron(6, 0, 0, &[102]);
     for names in [&["C-12", "C-11"][..], &["C-12", "C-12m"], &["C-12", "C-12"]] {
         assert!(
-            build(&carbon_decays(), &[natural()], &[], &isotopes(names)).is_err(),
+            build(&carbon_decays(), &[carbon()], &[], &natural(names)).is_err(),
             "{names:?}"
         );
     }
@@ -990,5 +1064,68 @@ fn rejects_a_listed_isotope_outside_the_decay_data_or_in_an_excited_state() {
 #[test]
 fn rejects_two_natural_evaluations_of_one_element() {
     let neutrons = [neutron(6, 0, 0, &[102]), neutron(6, 0, 0, &[102])];
-    assert!(build(&carbon_decays(), &neutrons, &[], &isotopes(&["C-12"])).is_err());
+    assert!(build(&carbon_decays(), &neutrons, &[], &natural(&["C-12"])).is_err());
+}
+
+/// ENDF/B-VII.0 の decay は Nb-88m の ELIS を -1000 eV と書く（励起エネルギーが分からない準位）
+fn nb88m_decays() -> Vec<DecayEvaluation> {
+    let mut nb88m = unstable(41, 88, 1, 468.0, vec![mode(&[Step::EcBetaPlus], 0, 1.0)]);
+    nb88m.material.excitation = -1000.0;
+    with_light(vec![nb88m, stable(40, 88)])
+}
+
+fn unknown(isomers: &[&str]) -> Supplements {
+    Supplements {
+        unknown_excitations: names(isomers),
+        ..Supplements::default()
+    }
+}
+
+#[test]
+fn records_a_listed_negative_isomer_excitation_as_not_given() {
+    let built = build(&nb88m_decays(), &[], &[], &unknown(&["Nb-88m"])).unwrap();
+    assert_eq!(find(&built, "Nb-88m").excitation, 0.0);
+    assert!(
+        built
+            .warnings
+            .iter()
+            .any(|w| w.contains("Nb-88m") && w.contains("-1000")),
+        "{:?}",
+        built.warnings
+    );
+}
+
+#[test]
+fn rejects_an_unlisted_negative_isomer_excitation() {
+    // 符号の誤りなどを 0 にして黙って通さない
+    let error = build(&nb88m_decays(), &[], &[], &Supplements::default()).unwrap_err();
+    assert!(
+        format!("{error:#}").contains("unknown-excitations"),
+        "{error:#}"
+    );
+}
+
+#[test]
+fn rejects_a_listed_isomer_whose_excitation_is_not_negative() {
+    let mut decays = nb88m_decays();
+    decays[0].material.excitation = 1e6;
+    assert!(build(&decays, &[], &[], &unknown(&["Nb-88m"])).is_err());
+    // decay にない核種と、基底状態も止める
+    assert!(build(&nb88m_decays(), &[], &[], &unknown(&["Nb-88m", "Nb-90m"])).is_err());
+    assert!(build(&nb88m_decays(), &[], &[], &unknown(&["Nb-88m", "Zr-88"])).is_err());
+}
+
+#[test]
+fn rejects_a_ground_state_with_an_excitation() {
+    let mut fe56 = stable(26, 56);
+    fe56.material.excitation = -1000.0;
+    assert!(build(&with_light(vec![fe56]), &[], &[], &Supplements::default()).is_err());
+}
+
+#[test]
+fn rejects_a_listed_isomer_whose_excitation_is_not_a_number() {
+    // NaN は負でないので、分からない準位として 0 にしない
+    let mut decays = nb88m_decays();
+    decays[0].material.excitation = f64::NAN;
+    assert!(build(&decays, &[], &[], &unknown(&["Nb-88m"])).is_err());
 }
