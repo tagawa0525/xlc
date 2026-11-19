@@ -55,6 +55,7 @@
     "moved_production": 9.409031658917579,
     "rest": 0.031489784580121416
    },
+   "u238_flux_ratio_pcm": 0.01703158991933714,
    "transported_pcm": -0.03230737824427099,
    "moved_absorption_ranges": {
     "fast": -0.030236514296776273,
@@ -396,6 +397,7 @@
     "moved_production": 0.0,
     "rest": -1.1963048649898997
    },
+   "u238_flux_ratio_pcm": -1.338467294937785,
    "transported_pcm": 60.71475225790325,
    "moved_absorption_ranges": {
     "fast": -1.8347971117478126,
@@ -2319,6 +2321,7 @@
     "moved_production": 0,
     "rest": 16.7827162003808
    },
+   "u238_flux_ratio_pcm": -0.1703094679853539,
    "transported_pcm": -20.061708030291264,
    "moved_absorption_ranges": {
     "fast": 0,

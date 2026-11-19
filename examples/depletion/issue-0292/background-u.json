@@ -46,6 +46,7 @@
     "moved_production": 0.0,
     "rest": 2.190384227597249
    },
+   "u238_flux_ratio_pcm": -1.4544686413928363,
    "transported_pcm": 94.8806663182088,
    "moved_absorption_ranges": {
     "fast": -2.348282627980991,
@@ -1951,6 +1952,7 @@
     "moved_production": 0,
     "rest": 30.545643041434335
    },
+   "u238_flux_ratio_pcm": -0.4055345686731451,
    "transported_pcm": -130.87249720024872,
    "moved_absorption_ranges": {
     "fast": 0,
