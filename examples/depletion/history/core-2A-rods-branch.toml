@@ -1,5 +1,5 @@
-# 一生を制御棒を入れて燃焼させた core（ADR-0215 の確認の、履歴の分岐の点）: core-2A-rods-switch.toml と同じテーブルの集合体 1 体を、制御棒を
-# 集合体の高さのすべてに入れたまま 60 MWd/kg まで燃焼させる（H_r = 1、w = 1）。比べる先は履歴の分岐の自分の条件のテーブル
+# 一生を制御棒を入れて燃焼させた core（ADR-0215 の確認の、履歴ブランチの点）: core-2A-rods-switch.toml と同じテーブルの集合体 1 体を、制御棒を
+# 集合体の高さのすべてに入れたまま 60 MWd/kg まで燃焼させる（H_r = 1、w = 1）。比べる先は履歴ブランチの自分の条件のテーブル
 # （residual-rods-branch.toml の値 aic）。
 # ステップは core-2A-residual-switch.toml と同じ 40（0.1〜60 MWd/kg）、出力密度は 2A の燃焼の履歴と同じ 38.41 W/g。
 cycle = "core-2A-rods-cycle.toml"

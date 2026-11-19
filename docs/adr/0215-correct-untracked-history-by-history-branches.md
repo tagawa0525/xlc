@@ -590,10 +590,10 @@ R はその温度の履歴の分も含む。core は変数を密度だけで持�
     （ブランチ feat/0190-history-core の c3df5269）は 60 MWd/kg で −245.402 pcm 違い、その −245.390 pcm が追う核種の数密度の違い（#0190 の経緯）。
     20 MWd/kg まで基準条件、その後を条件 j にした燃焼の w は 60 MWd/kg で 2/3、履歴の補正の効きは −306.182 pcm
   - lattice: R の第 1 項のブランチ計算が、履歴ブランチの燃焼の点の k∞ を ADR-0187 の確認と同じ程度（0.06 pcm）で再現する。L の線形の補正の項が cᵢ と
-    N̄ᵢ の積の差で、ミクロ燃焼の補正を持たない項目では 0。実装のテストは crates/lattice/src/residual/tests.rs: L がハイブリッドの定数から、公称の
+    N̄ᵢ の積の差で、ミクロ燃焼の補正を持たない項目では 0。実装のテストは crates/lattice/src/residual/tests.rs: L がハイブリッドの定数から、ベース計算のテーブルの
     条件 j の状態に core と同じ係数（微分を持つ核種は ∂Σ/∂N̄ᵢ、吸収は全断面積の係数から散乱の行の和を引いたもの）の線形の補正を足した定数を
     引いたものであること（`linearizations_are_the_hybrid_less_the_linearly_corrected_nominal_condition`）、U がブランチ計算とハイブリッドの定数の差で
-    あること（`untracked_parts_are_the_branch_less_the_hybrid`）、N̄ᵢ^j を持つこと（`branch_densities_are_held_at_each_residual_point`）、公称の
+    あること（`untracked_parts_are_the_branch_less_the_hybrid`）、N̄ᵢ^j を持つこと（`branch_densities_are_held_at_each_residual_point`）、ベース計算のテーブルの
     条件 j の状態 + 補正 + U + L がブランチ計算の定数になること（`the_nominal_condition_with_the_correction_and_both_parts_is_the_branch`）、ハイブリッドが
     ブランチ計算と違う点、条件、数密度、追う核種、初めの重金属を持てばエラー（`hybrids_solve_the_branch_points_with_the_branch_tracked_densities`）、
     条件 j が変数の軸だけ基準値と違う格子点でなければ、燃焼度の点がベース計算のテーブルの解いた点でなければ、追う核種か初めの重金属が
@@ -606,7 +606,7 @@ R はその温度の履歴の分も含む。core は変数を密度だけで持�
     核分裂の有無、群の数の有限の値）は `rate_residuals_match_the_micro_nuclides_and_their_reactions`、分けない前の形を読まないことは
     `rate_residuals_of_one_unsplit_list_are_not_read`、ΔN̄ᵢ^j がすべて 0 の点の L と Δσ_L は
     `branch_points_at_the_nominal_densities_hold_no_linearization`。lattice の Δσ_U と Δσ_L は crates/lattice/src/residual/tests.rs の
-    `rate_residuals_split_at_the_hybrid_like_the_constants`（Δσ_U は分岐 − ハイブリッド、Δσ_L はハイブリッド − 公称の条件 j の σᵢ の差で、微分を
+    `rate_residuals_split_at_the_hybrid_like_the_constants`（Δσ_U はブランチ計算 − ハイブリッド、Δσ_L はハイブリッド − ベース計算のテーブルの条件 j の σᵢ の差で、微分を
     持つ核種も σᵢ の差。和がブランチ計算 − ベース計算の差）と `branch_tables_with_other_reactions_or_fission_are_errors`（ブランチ計算かハイブリッドの反応の並びか
     核分裂の有無が違えばエラー）。反応率の微分（案 R9）の形の検査は crates/format/src/table/tests.rs の
     `rate_derivatives_have_the_reactions_and_the_fission_of_the_nuclide`、lattice の前進差分は crates/lattice/src/history/tests.rs の

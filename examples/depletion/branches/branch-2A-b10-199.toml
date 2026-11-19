@@ -1,5 +1,5 @@
 # 冷却材の B-10 の割合がテーブルと違う状態の ppm の換算（ADR-0237）を確かめる、B-10 19.9 at% のテーブル（core-2A-b10.toml が引く）。燃焼度の点（0、20、40 MWd/kg）、
-# 格子、離散化、組成は branch-2A-boron.toml と同じ。分岐はホウ素 0、600、1300、2000 ppm × 燃料 565 K（減速材は 565 K、0.743 g/cc）の
+# 格子、離散化、組成は branch-2A-boron.toml と同じ。ブランチ計算の状態はホウ素 0、600、1300、2000 ppm × 燃料 565 K（減速材は 565 K、0.743 g/cc）の
 # 4 状態で、12 回の輸送。2000 ppm は、ADR-0237 の換算で 30 at% の 1300 ppm を引くため（換算後は約 1978 ppm）。
 library = "../p2/depletion.msgpack"
 ufg-tolerance = 1e-4
@@ -62,7 +62,7 @@ Sn-124 = 2.79392e-05
 
 [material.water]
 temperature = 565
-# 公称の 1300 ppm
+# 基準の 1300 ppm
 water = { density = 0.743, boron = 1300, b10 = 0.199 }
 
 # 燃料のピン（3.1%）

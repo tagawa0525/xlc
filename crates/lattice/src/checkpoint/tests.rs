@@ -9,7 +9,7 @@ use super::*;
 use crate::branches::Starts;
 use crate::depletion::tests::{PIN, deplete_with, first_save, library};
 
-/// 燃焼も分岐も持たないチェックポイントのファイル
+/// 燃焼もブランチ計算も持たないチェックポイントのファイル
 fn empty(checkpoint: &Checkpoint) -> CheckpointFile {
     CheckpointFile {
         format: FORMAT.into(),

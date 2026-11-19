@@ -35,7 +35,7 @@ FLUX = [[1.0, 1.0], [1.0, 1.0]]
 
 class Compare(unittest.TestCase):
     def test_the_same_tangent_has_no_error(self):
-        # 状態が変わっても暗黙の分が同じなら、公称の係数のずれは 0。相対の暗黙の分は Σ φ T / Σ φ Σ
+        # 状態が変わっても暗黙の分が同じなら、基準条件の係数のずれは 0。相対の暗黙の分は Σ φ T / Σ φ Σ
         nominal = report(FLUX, [2.0, 2.0], [[-0.1, -0.3], [0.01, 0.0]])
         out = cut.compare(
             nominal, {"hot": report(FLUX, [4.0, 4.0], [[-0.1, -0.3], [0.01, 0.0]])}
@@ -51,7 +51,7 @@ class Compare(unittest.TestCase):
         )
 
     def test_a_scaled_tangent_has_the_relative_error_of_the_scale(self):
-        # 状態の暗黙の分が公称の 1.1 倍なら、ずれは 0.1 / 1.1
+        # 状態の暗黙の分が基準条件の 1.1 倍なら、ずれは 0.1 / 1.1
         nominal = report(FLUX, [2.0, 2.0], [[-0.1, -0.3]])
         state = report(FLUX, [2.0, 2.0], [[-0.11, -0.33]])
         error = cut.compare(nominal, {"s": state})["nuclides"]["N-0"]["total"]["s"][
@@ -60,7 +60,7 @@ class Compare(unittest.TestCase):
         self.assertAlmostEqual(error, 0.1 / 1.1)
 
     def test_a_vanishing_state_tangent_is_an_infinite_error(self):
-        # 状態の暗黙の分が 0 で公称が 0 でなければ、公称の係数のずれは無限（0 と書いて一致に見せない）
+        # 状態の暗黙の分が 0 で基準条件が 0 でなければ、基準条件の係数のずれは無限（0 と書いて一致に見せない）
         nominal = report(FLUX, [2.0, 2.0], [[-0.1, -0.3]])
         state = report(FLUX, [2.0, 2.0], [[0.0, 0.0]])
         error = cut.compare(nominal, {"s": state})["nuclides"]["N-0"]["total"]["s"][

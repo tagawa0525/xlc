@@ -1,4 +1,4 @@
-# branch-2A-cross.toml の 12 状態を、案内管 24 本すべてに AIC の制御棒を入れた格子で解く（制御棒の分岐。ADR-0097 の形状の変更）。
+# branch-2A-cross.toml の 12 状態を、案内管 24 本すべてに AIC の制御棒を入れた格子で解く（制御棒のブランチ。ADR-0097 の形状の変更）。
 # 制御棒、被覆管（SS304）、吸収体と被覆管の間の真空の形と組成は ../p2/lattice-2A-rods.toml と同じ。制御棒の物質は 565 K のまま。
 library = "../p2/depletion.msgpack"
 ufg-tolerance = 1e-4
@@ -61,7 +61,7 @@ Sn-124 = 2.79392e-05
 
 [material.water]
 temperature = 565
-# 公称の 1300 ppm。B-10 の割合は履歴の入力の数密度の B-10 / (B-10 + B-11)
+# 基準の 1300 ppm。B-10 の割合は履歴の入力の数密度の B-10 / (B-10 + B-11)
 water = { density = 0.743, boron = 1300, b10 = 0.199 }
 
 [material.ss304]
@@ -146,7 +146,7 @@ boron = { ppm = [0, 650, 1300], materials = ["water"] }
 # 600 K の密度は仕様書の 2B〜2D の 0.661 g/cc（表 P2-4）。565 K は履歴の 0.743 g/cc
 moderator = { temperature = [565, 600], density = [0.743, 0.661], materials = ["water", "zircaloy"] }
 fuel = { temperature = [565, 600], materials = ["fuel"] }
-# 交差の項を落とす誤差を測る真値なので、直積で解く（燃焼度の軸を持つ分岐の既定は 2 軸の組の部分格子。ADR-0200）
+# 交差の項を落とす誤差を測る真値なので、直積で解く（燃焼度の軸を持つブランチ計算の既定は 2 軸の組の部分格子。ADR-0200）
 subgrids = [["boron", "moderator", "fuel"]]
 
 [history]

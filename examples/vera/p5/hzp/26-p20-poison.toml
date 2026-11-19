@@ -1,5 +1,5 @@
 # このファイルは p5_inputs.py が書く。手で直さない。
-# VERA Problem 5 の集合体（濃縮度 2.619%、Pyrex の棒 20 本（図 5 の配置）、Pyrex の棒の毒物の高さ）の単一集合体の格子（外周は鏡面反射）の分岐のテーブル（ADR-0097）。少数群定数は形状関数と
+# VERA Problem 5 の集合体（濃縮度 2.619%、Pyrex の棒 20 本（図 5 の配置）、Pyrex の棒の毒物の高さ）の単一集合体の格子（外周は鏡面反射）のブランチのテーブル（ADR-0097）。少数群定数は形状関数と
 # 角の不連続因子つき（ADR-0096）。組成は 5-2D と同じ（表 M3-4、Problem 3 の表 P3-3）で、冷却材はホウ酸水（ADR-0106）。
 library = "../../vera.msgpack"
 few-group = { output = "lattice/26-p20-poison.msgpack", bounds = [1e7, 0.625, 1e-5], pins = true }

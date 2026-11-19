@@ -9,7 +9,7 @@
 - その向きの暗黙の分が全体の暗黙の分に占める大きさ ‖φ_0 T_0‖ / max_d ‖φ_0 T_0,d‖（反応ごと。ずれの小さい向きと、効きの小さい向きを
   分けて読む）
 
-使い方: python3 compare_ufg_tangent.py <公称の結果の TOML> <状態の結果の TOML>...
+使い方: python3 compare_ufg_tangent.py <基準条件の結果の TOML> <状態の結果の TOML>...
 """
 
 import json

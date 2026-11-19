@@ -7,7 +7,7 @@ axial-mesh = [0.0, 50.0, 55.0, 61.053, 66.951, 68.221, 70.817, 79.0281, 87.2393,
 radial-nodes = 1
 boundary = { x = ["vacuum", "vacuum"], y = ["vacuum", "vacuum"], z = ["vacuum", "vacuum"], outline = "vacuum" }
 
-# 場合 1 の臨界ホウ素濃度（実測 1285 ppm）。範囲は分岐のホウ素の格子点の中（ADR-0145）
+# 場合 1 の臨界ホウ素濃度（実測 1285 ppm）。範囲はブランチのホウ素の格子点の中（ADR-0145）
 [state.case-1-boron]
 search = { boron = [1100.0, 1400.0], k = 1.0, tolerance = 1.0e-6, max-solves = 20 }
 b10 = 0.199
@@ -22,7 +22,7 @@ moderator = 565
 fuel = 565
 banks = { A = 230, B = 230, C = 230, D = 167, SA = 230, SB = 230, SC = 230, SD = 230 }
 
-# 場合 2 の臨界ホウ素濃度（実測 1291 ppm）。範囲は分岐のホウ素の格子点の中（ADR-0145）
+# 場合 2 の臨界ホウ素濃度（実測 1291 ppm）。範囲はブランチのホウ素の格子点の中（ADR-0145）
 [state.case-2-boron]
 search = { boron = [1100.0, 1400.0], k = 1.0, tolerance = 1.0e-6, max-solves = 20 }
 b10 = 0.199

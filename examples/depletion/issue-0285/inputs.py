@@ -1,9 +1,9 @@
-"""#0285 の段 1（ADR-0250）の入力を書く: 分岐の状態の自己遮蔽を基準の UFG と等価原理の比で求めたテーブルと、状態ごとに UFG で
+"""#0285 の段 1（ADR-0250）の入力を書く: ブランチ計算の状態の自己遮蔽を基準の UFG と等価原理の比で求めたテーブルと、状態ごとに UFG で
 解いたテーブル（`every-state`）を、燃料の種類と燃焼度を変えて比べる。
 
-燃焼の履歴の入力（`[depletion]` より前）の格子、物質、離散化に、テーブルの出力（ピン出力の形状関数つき）と分岐と `[history]` を
-足す。状態は ADR-0239 の減速材の軸と燃料の温度の軸の、両端と公称（減速材 560、580、615 K、燃料 560、900、1350 K）の 3 × 3 で、
-ホウ素は公称の 650 ppm の 1 点。物質の状態は、どの履歴でも ADR-0239 の公称（燃料 900 K、被覆管と減速材 580 K、密度 0.711901 g/cc、
+燃焼の履歴の入力（`[depletion]` より前）の格子、物質、離散化に、テーブルの出力（ピン出力の形状関数つき）とブランチ計算と `[history]` を
+足す。状態は ADR-0239 の減速材の軸と燃料の温度の軸の、両端と基準点（減速材 560、580、615 K、燃料 560、900、1350 K）の 3 × 3 で、
+ホウ素は基準の 650 ppm の 1 点。物質の状態は、どの履歴でも ADR-0239 の基準条件（燃料 900 K、被覆管と減速材 580 K、密度 0.711901 g/cc、
 ホウ素 650 ppm）に書き直す（比の基準は入力の物質の減速材の点で、本番の基準と同じ点にするため。p2 の 2O の履歴は 600 K で燃焼させた
 もので、組成だけを使う）。
 
@@ -65,7 +65,7 @@ import tomllib
 HERE = Path(__file__).resolve().parent
 DEPLETION = HERE / ".."
 
-# 種類: （履歴の入力（examples/depletion から）、分岐を解く燃焼点 (MWd/kg)）。Gd の 2O は Gd が残る 10 MWd/kg
+# 種類: （履歴の入力（examples/depletion から）、ブランチ計算を行う燃焼点 (MWd/kg)）。Gd の 2O は Gd が残る 10 MWd/kg
 CASES = {
     "2A": ("p9-product/lattice-2A.toml", [0, 20, 60]),
     "2O": ("p2/lattice-2O.toml", [10]),
@@ -74,7 +74,7 @@ CASES = {
 # 比が決めない量の候補を比べる燃焼点
 CANDIDATES = {"2A": [60], "2O": [10], "MOX": [60]}
 
-# ADR-0239 の軸の両端と公称（../p9-2A/branch-2A.toml の格子点）
+# ADR-0239 の軸の両端と基準点（../p9-2A/branch-2A.toml の格子点）
 MODERATOR = ([560, 580, 615], [0.752074, 0.711901, 0.608215])
 FUEL = [560, 900, 1350]
 NOMINAL_FUEL, NOMINAL_MODERATOR = 900, 580
@@ -152,7 +152,7 @@ PRODUCTION = {
 # 今の既定で比べ直す入力: (種類, 燃焼度) と解き方
 SIX_POINTS = "ufg-cp-points = 6"
 # (種類, 燃焼度) → 解き方。2A の 60 MWd/kg のほかは、2A の 60 MWd/kg で判定の値に入った f1-light-rows を燃料の種類と燃焼度に広げる。
-# 2O の 10 MWd/kg は、燃料を公称の 900 K に書き直すと、p2 のライブラリに 900 K のデータが無い履歴の核種（輸送した 90 のうち 1 つ）で
+# 2O の 10 MWd/kg は、燃料を基準の 900 K に書き直すと、p2 のライブラリに 900 K のデータが無い履歴の核種（輸送した 90 のうち 1 つ）で
 # 止まるので入れない（Slurm 882）
 SIX = {
     ("2A", 60): None,
@@ -249,7 +249,7 @@ def branch(
     )
     if "few-group" in data or body.count("few-group = ") != 1:
         sys.exit(f"{path} has a few-group line or no library line")
-    # 減速材は公称のホウ酸水（p2 の履歴は数密度で書いてあるので書き直す）
+    # 減速材は基準ホウ素濃度のホウ酸水（p2 の履歴は数密度で書いてあるので書き直す）
     water = re.compile(
         r"\[material\.water\]\ntemperature = [0-9.]+\n(?:#[^\n]*\n)*(?:water|nuclides) = \{[^\n]*\}\n"
     )
@@ -309,7 +309,7 @@ def production(shielding: str) -> str:
         f"\n# 本番の 27 点のうち {PRODUCTION_BURNUP} MWd/kg の 1 点（inputs.py の PRODUCTION）\n"
         f"burnup = [{PRODUCTION_BURNUP}]\n",
     )
-    # 公称でない状態の燃焼点は 1 点の `burnup` の部分集合でなくなるので、その注釈ごと除く（1 点ではすべての状態をその点で解く）
+    # ブランチ条件の燃焼点は 1 点の `burnup` の部分集合でなくなるので、その注釈ごと除く（1 点ではすべての状態をその点で解く）
     body = replaced(body, r"\n(?:#[^\n]*\n)*off-nominal-burnup = \[[^\]]*\]\n", "\n")
     if points:
         body = replaced(

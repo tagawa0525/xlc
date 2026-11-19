@@ -5,11 +5,11 @@
 
 記録の表は、この JSON から examples/verification_tables.py が描く。
 
-履歴 X（条件を変えた燃焼の組成）と、その条件の 1 状態のテーブルごとに、公称の履歴の組成のうち R の第 3 項と同じ追う核種（分岐の入力の
+履歴 X（条件を変えた燃焼の組成）と、その条件の 1 状態のテーブルごとに、ベース計算の履歴の組成のうち R の第 3 項と同じ追う核種（ブランチ計算の入力の
 `micro`）だけを X の値にしたハイブリッド H_X（make_hybrid.py の --micro）を同じ条件で解いたテーブルを読み、燃焼度の点 u ごとに
 
 - U_X = f(X) − f(H_X)（追う核種の数密度が同じで、追わない核種だけが違う 2 つの組成の定数の差）
-- L_X = f(H_X) − f(公称) − Σᵢ cᵢ ΔN̄ᵢ（追う核種だけが違う組成の定数の差から、core と同じ係数の線形の補正を引いたもの。係数は公称の組成の
+- L_X = f(H_X) − f(ベース計算) − Σᵢ cᵢ ΔN̄ᵢ（追う核種だけが違う組成の定数の差から、core と同じ係数の線形の補正を引いたもの。係数はベース計算の組成の
   その条件の状態の値で、数密度の微分を持つ核種は微分。ΔN̄ᵢ = N̄ᵢ^X − N̄ᵢ^0 で、H_X の N̄ᵢ は X と同じ）
 - R_X = U_X + L_X（compare_residual.py の R と同じ式）
 
@@ -19,7 +19,7 @@
 
 - 基準条件の定数での効き: ベース計算のテーブル（R を書き足した `table-residual-nominal-histories.msgpack`）の基準条件（565 K、0.743 g/cc）に、その履歴の数密度の
   線形の補正 Σᵢ cᵢ⁰ ΔN̄ᵢ を足した定数に、成分を足した効き（compare_weight.py の比べ方。同じ定数に足すので、成分どうしを比べられる）
-- 条件での効き: ρ(f(X)) − ρ(f(H_X))、ρ(f(H_X)) − ρ(f(公称) + Σᵢ cᵢ ΔN̄ᵢ)、ρ(f(X)) − ρ(f(公称) + Σᵢ cᵢ ΔN̄ᵢ)。和が閉じる
+- 条件での効き: ρ(f(X)) − ρ(f(H_X))、ρ(f(H_X)) − ρ(f(ベース計算) + Σᵢ cᵢ ΔN̄ᵢ)、ρ(f(X)) − ρ(f(ベース計算) + Σᵢ cᵢ ΔN̄ᵢ)。和が閉じる
 
 比べるもの:
 
@@ -109,8 +109,8 @@ def nominal_state(table, burnup):
 
 
 def split(nominal, branch, hybrid, label):
-    """条件の 1 状態の分岐とハイブリッドのテーブルと、同じ条件の状態を持つ公称の組成のテーブルから、条件と、燃焼度の点ごとの U、L、R と、
-    条件の線形の補正の後の定数、ΔN̄ᵢ、分岐とハイブリッドの定数"""
+    """条件の 1 状態のブランチ計算とハイブリッドのテーブルと、同じ条件の状態を持つベース計算の組成のテーブルから、条件と、燃焼度の点ごとの U、L、R と、
+    条件の線形の補正の後の定数、ΔN̄ᵢ、ブランチ計算とハイブリッドの定数"""
     condition, burnups, states = condition_table(branch, f"{label} branch")
     h_condition, h_burnups, h_states = condition_table(hybrid, f"{label} hybrid")
     if h_condition != condition or h_burnups != burnups:
@@ -266,7 +266,7 @@ def density_rows(nominal, half, full):
 
 
 def check_nominal(nominal, path_nominal, label):
-    """密度だけの経路の公称の組成のテーブルが、ベース計算のテーブルと同じ履歴の組成（ΔN̄ᵢ の基準が同じ）であること"""
+    """密度だけの経路のベース計算の組成のテーブルが、ベース計算のテーブルと同じ履歴の組成（ΔN̄ᵢ の基準が同じ）であること"""
     _, burnups, _ = condition_table(path_nominal, f"{label} nominal")
     for b, u in enumerate(burnups):
         bn, _ = nominal_state(nominal, u)

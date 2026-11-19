@@ -1,5 +1,5 @@
 # このファイルは inputs.py が書く（手で直さない）。#0286 の UFG の自己遮蔽の項目ごとの時間と差: ケース mox-assembly-60、変種 cp-share-point-points-6
-# mox-assembly/lattice-mox-assembly.toml の 60 MWd/kg からの 1 状態の分岐
+# mox-assembly/lattice-mox-assembly.toml の 60 MWd/kg からの 1 状態のブランチ計算
 library = "../p2/depletion.msgpack"
 ufg-free-gas = { share = { threshold = 1e-4, measure = "point" } }
 ufg-cp-points = 6
@@ -71,7 +71,7 @@ Sn-124 = 2.79392e-05
 
 [material.water]
 temperature = 580
-# ../p9-product/lattice-2A.toml と同じ（減速材の格子点 580 K の密度、公称のホウ素 650 ppm。ADR-0239）
+# ../p9-product/lattice-2A.toml と同じ（減速材の格子点 580 K の密度、基準ホウ素濃度 650 ppm。ADR-0239）
 water = { density = 0.711901, boron = 650, b10 = 0.199 }
 
 # MOX の燃料のピン（内側、その外、外周）。形状は 2A の燃料のピンと同じ

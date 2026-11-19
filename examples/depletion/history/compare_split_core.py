@@ -6,21 +6,21 @@
 記録の表は、この JSON から examples/verification_tables.py が描く。
 
 読むのは、core が使った R を持つベース計算のテーブル（`table-residual-nominal-histories.msgpack`。U(1)、L(1)、N̄ᵢ^j と、条件 j の状態の定数と
-係数）、途中で条件を変えた燃焼の参照（`table-switch-density-branch.msgpack`）と、その追う核種だけを公称の履歴に入れたハイブリッド
+係数）、途中で条件を変えた燃焼の参照（`table-switch-density-branch.msgpack`）と、その追う核種だけをベース計算の履歴に入れたハイブリッド
 （`table-hybrid-switch-branch.msgpack`）、履歴の補正の core の燃焼の履歴（`core-2A-residual-switch.msgpack`）と、その比較の要約（`switch.json`）。
 
 参照の燃焼度の点 u ごとに、compare_split.py の `split` で参照の組成の U_switch = f(switch) − f(H_switch) と
-L_switch = f(H_switch) − f(公称、j) − Σᵢ cᵢ ΔN̄ᵢ^switch を作り（係数 cᵢ はベース計算のテーブルの条件 j の状態のもの）、core が足す量からの外れを
+L_switch = f(H_switch) − f(ベース計算、j) − Σᵢ cᵢ ΔN̄ᵢ^switch を作り（係数 cᵢ はベース計算のテーブルの条件 j の状態のもの）、core が足す量からの外れを
 
 - U の外れ δ_U = w U(1) − U_switch（w = (H − H⁰) / (Hᵇ − H⁰)、H は core の点の履歴の変数）
 - L の外れ δ_L = (P / P_j) L(1) − L_switch（P = Σᵢ cᵢ_νf,G (Nᵢ − N̄ᵢ⁰)、P_j = Σᵢ cᵢ_νf,G ΔN̄ᵢ^j。Nᵢ は core の点の数密度、cᵢ は core と同じ
   ベース計算のテーブルの条件 j の状態の格子点の係数。core の `production_ratio`）
 
-とする。w が 0 の点は core が U も L も、履歴ブランチの数密度が公称と同じ点は L を足さず（core の `production_ratio`）、足さない成分の外れは
+とする。w が 0 の点は core が U も L も、履歴ブランチの数密度がベース計算と同じ点は L を足さず（core の `production_ratio`）、足さない成分の外れは
 −U_switch か −L_switch（下の f_core もその項を持たない）。
 
-core のノードの定数 f_core = f(公称、j) + Σᵢ cᵢ (Nᵢ − N̄ᵢ⁰) + w U(1) + (P / P_j) L(1) は、参照の定数
-f(switch) = f(公称、j) + Σᵢ cᵢ ΔN̄ᵢ^switch + U_switch + L_switch を使うと、線形の補正が数密度の差に 1 次なので
+core のノードの定数 f_core = f(ベース計算、j) + Σᵢ cᵢ (Nᵢ − N̄ᵢ⁰) + w U(1) + (P / P_j) L(1) は、参照の定数
+f(switch) = f(ベース計算、j) + Σᵢ cᵢ ΔN̄ᵢ^switch + U_switch + L_switch を使うと、線形の補正が数密度の差に 1 次なので
 f(switch) + Σᵢ cᵢ (Nᵢ − N̄ᵢ^switch) + δ_U + δ_L。効きは参照の定数に足した Δρ（ρ = 1 − 1/k の差の pcm、k は 2 群の無限媒質の k）:
 
 - 数密度の効き ρ(f(switch) + Σᵢ cᵢ (Nᵢ − N̄ᵢ^switch)) − ρ(f(switch))（compare_switch.py の `composition`）
@@ -84,7 +84,7 @@ def node_gap_effect(node, gap):
 
 
 def core_parts(t, point, b, node, weight):
-    """core が足す w U(1) と (P / P_j) L(1) と P / P_j。w が 0 なら U も L も、履歴ブランチの数密度が公称と同じ点なら L を足さない（None。
+    """core が足す w U(1) と (P / P_j) L(1) と P / P_j。w が 0 なら U も L も、履歴ブランチの数密度がベース計算と同じ点なら L を足さない（None。
     core の `production_ratio`）"""
     if weight == 0.0:
         return None, None, None
@@ -140,7 +140,7 @@ def compare(tables, summary):
         if at_condition[u] != (b, point):
             raise SystemExit(f"the core node at {u} is not at the condition j")
         coeff = coefficients(nominal["micro"]["states"][point])
-        # 公称の履歴の w は −0 になりうる（H − H⁰ = 0 を負の数で割る）
+        # ベース計算の履歴の w は −0 になりうる（H − H⁰ = 0 を負の数で割る）
         weight = t.weight(n["history"]) + 0.0
         core_untracked, core_linearization, index = core_parts(t, point, b, n, weight)
         reference = x["branch"]
@@ -210,7 +210,7 @@ def compare(tables, summary):
                 if added_part is None
                 else effect(state, added_part),
                 f"one_{key}_pcm": one,
-                # core が足さない成分（w = 0 の点の U と L、履歴ブランチの数密度が公称と同じ点の L）は、参照に合う重みを出さない
+                # core が足さない成分（w = 0 の点の U と L、履歴ブランチの数密度がベース計算と同じ点の L）は、参照に合う重みを出さない
                 f"{key}_weight": None
                 if added_part is None or one is None
                 else ratio(own, one),

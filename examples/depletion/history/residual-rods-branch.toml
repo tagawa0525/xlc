@@ -1,7 +1,7 @@
-# 履歴の残り R（ADR-0215、#0190）の第 1 項の制御棒の履歴の分岐: 案内管 24 本すべてに AIC の制御棒を入れたまま一生を燃焼させた 2A-rods の
-# 燃焼の履歴（../p2/lattice-2A-rods.msgpack）の 17 の燃焼点（公称のテーブル residual-rods-nominal.toml と同じ）を、公称の状態（ホウ素 1300 ppm、
-# 減速材 565 K と 0.743 g/cc、燃料 565 K）の、制御棒を入れた値 aic（履歴の分岐の条件）と制御棒のない値（逆向きの分岐）で解く
-# （[branches.rod]。案内管の中身を変えた格子で同じ燃料の組を読む。ADR-0226）。追う 31 核種は公称のテーブルと同じ。微分は R に使わないので書かない。
+# 履歴の残り R（ADR-0215、#0190）の第 1 項の制御棒の履歴ブランチ: 案内管 24 本すべてに AIC の制御棒を入れたまま一生を燃焼させた 2A-rods の
+# 燃焼の履歴（../p2/lattice-2A-rods.msgpack）の 17 の燃焼点（ベース計算のテーブル residual-rods-nominal.toml と同じ）を、基準条件（ホウ素 1300 ppm、
+# 減速材 565 K と 0.743 g/cc、燃料 565 K）の、制御棒を入れた値 aic（履歴ブランチの条件）と制御棒のない値（逆向きのブランチ）で解く
+# （[branches.rod]。案内管の中身を変えた格子で同じ燃料の組を読む。ADR-0226）。追う 31 核種はベース計算のテーブルと同じ。微分は R に使わないので書かない。
 library = "../p2/depletion.msgpack"
 few-group = { output = "table-residual-rods-branch.msgpack", bounds = [1e7, 0.625, 1e-5] }
 ufg-tolerance = 1e-4

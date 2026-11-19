@@ -345,7 +345,7 @@ fn fuel_weights_match_the_python_comparison_of_the_p9_grid() {
 
 #[test]
 fn fuel_quadratics_in_the_square_root_hold_in_cut_hdmr_and_burnup_tables() {
-    // ホウ素と減速材の多重線形な量に、燃料の温度の a + b√T + cT と、燃焼度の 2 次式を掛けた量。公称の値を持つ直積（すべての
+    // ホウ素と減速材の多重線形な量に、燃料の温度の a + b√T + cT と、燃焼度の 2 次式を掛けた量。基準値を持つ直積（すべての
     // 成分の部分格子。係数が負の成分を含む）でも、燃焼度の軸を足しても、軸ごとの内挿の積が厳密に再現する
     let state_of =
         |g: f64, ppm: f64, tm: f64, tf: f64| curved(g * doppler_model(tf), ppm, tm, 565.0);
@@ -944,7 +944,7 @@ fn product_sum(table: &Table, state: &State, rod: Option<&str>) -> Vec<FewGroup>
     out
 }
 
-/// `table` の 3 つの状態の軸に、公称の値（`nominal` の番号の格子点）を与えたもの
+/// `table` の 3 つの状態の軸に、基準値（`nominal` の番号の格子点）を与えたもの
 fn with_nominal(mut table: Table, nominal: [usize; 3]) -> Table {
     let mut n = nominal.into_iter();
     table.axes = table
@@ -969,7 +969,7 @@ fn product_tables_interpolate_bit_for_bit_like_the_axis_product_sum() {
         (1650.0, 551.0, 899.0),
         (1300.0, 580.0, 900.0),
     ];
-    // 公称の値のない直積と、公称の値を持つ直積（すべての成分の部分格子を持つ cut-HDMR）
+    // 基準値のない直積と、基準値を持つ直積（すべての成分の部分格子を持つ cut-HDMR）
     for t in [table(), with_nominal(table(), [1, 1, 0])] {
         for &(ppm, tm, tf) in &states {
             let s = state(ppm, tm, tf);
@@ -1038,7 +1038,7 @@ fn axes_interpolate_in_the_variable_of_their_transform() {
 
 const TF3: [f64; 3] = [550.0, 565.0, 580.0];
 
-/// (ppm, 減速材の温度, √燃料の温度) の公称（1300、565、565）からの偏差の多項式で、2 軸の積の項を持ち、3 軸の積の項の係数が
+/// (ppm, 減速材の温度, √燃料の温度) の基準値（1300、565、565）からの偏差の多項式で、2 軸の積の項を持ち、3 軸の積の項の係数が
 /// `triple` の値
 fn pair_value(triple: f64, ppm: f64, tm: f64, tf: f64) -> f64 {
     let (b, m, f) = (ppm - 1300.0, tm - 565.0, tf.sqrt() - 565f64.sqrt());
@@ -1051,7 +1051,7 @@ fn pair_value(triple: f64, ppm: f64, tm: f64, tf: f64) -> f64 {
         + triple * b * m * f
 }
 
-/// ホウ素、減速材、燃料が 3 点ずつ（公称は中央）で、`keep` を満たす点（公称の点の番号 1 の数で選ぶ）だけを持つテーブル。状態は
+/// ホウ素、減速材、燃料が 3 点ずつ（基準点は中央）で、`keep` を満たす点（基準点の番号 1 の数で選ぶ）だけを持つテーブル。状態は
 /// `pair_value(triple, …)` 倍
 fn subgrid_table(triple: f64, keep: impl Fn(&[usize]) -> bool) -> Table {
     let axes = vec![
@@ -1089,7 +1089,7 @@ fn subgrid_table(triple: f64, keep: impl Fn(&[usize]) -> bool) -> Table {
     table
 }
 
-/// 公称でない軸が 2 つ以下の点（2 軸の組すべての部分格子。ADR-0200）
+/// 基準値でない軸が 2 つ以下の点（2 軸の組すべての部分格子。ADR-0200）
 fn pairs(p: &[usize]) -> bool {
     p.contains(&1)
 }
@@ -1138,7 +1138,7 @@ fn cut_hdmr_points_return_the_table_states() {
 
 #[test]
 fn rod_values_assemble_from_their_own_nominal_state() {
-    // 制御棒を入れた組（基準条件を制御棒を入れた状態にした別の組。ADR-0200）は 1 軸ずつの分岐だけを持ち、吸収を半分にした値
+    // 制御棒を入れた組（基準条件を制御棒を入れた状態にした別の組。ADR-0200）は 1 軸ずつのブランチだけを持ち、吸収を半分にした値
     let out = subgrid_table(0.0, pairs);
     let rodded = subgrid_table(0.0, |p| p.iter().filter(|&&i| i != 1).count() <= 1);
     let mut t = out.clone();
@@ -1190,7 +1190,7 @@ fn rod_values_assemble_from_their_own_nominal_state() {
 
 #[test]
 fn negative_cut_hdmr_assemblies_are_errors() {
-    // 熱群の吸収が、2 軸の組の点で小さく、1 軸ずつの分岐と公称で大きいと、3 つの軸の端（解いていない格子点）で負になる
+    // 熱群の吸収が、2 軸の組の点で小さく、1 軸ずつのブランチと基準条件で大きいと、3 つの軸の端（解いていない格子点）で負になる
     let mut t = subgrid_table(0.0, pairs);
     for (p, s) in t.points.iter().zip(t.states.iter_mut()) {
         let off = p.iter().filter(|&&i| i != 1).count();
@@ -1205,9 +1205,9 @@ fn negative_cut_hdmr_assemblies_are_errors() {
     assert!(interpolate(&t, Some(&state(900.0, 550.0, 565.0)), None).is_ok());
 }
 
-/// 燃焼度の点 CURVED のテーブルで、ホウ素 3 点 × 減速材 1 点 × 燃料 2 点（公称は 1300 ppm、565 K、550 K）の状態を解き、基準条件は
+/// 燃焼度の点 CURVED のテーブルで、ホウ素 3 点 × 減速材 1 点 × 燃料 2 点（基準値は 1300 ppm、565 K、550 K）の状態を解き、基準条件は
 /// すべての燃焼度の点で、ほかの点は `thinned` の燃焼度の点だけで解いたもの。状態は few(1300, 565, 550) の
-/// `shape(燃焼度) + c × quadratic(燃焼度)` 倍（c は点ごとの係数で、公称で 0）
+/// `shape(燃焼度) + c × quadratic(燃焼度)` 倍（c は点ごとの係数で、基準条件で 0）
 fn thinned_table(thinned: &[f64], shape: impl Fn(f64) -> f64) -> Table {
     let axes = vec![
         Axis::Burnup {
@@ -1247,7 +1247,7 @@ fn thinned_table(thinned: &[f64], shape: impl Fn(f64) -> f64) -> Table {
     }
 }
 
-/// 点（ホウ素、減速材、燃料の番号）の、燃焼度の 2 次の差の係数（公称で 0）
+/// 点（ホウ素、減速材、燃料の番号）の、燃焼度の 2 次の差の係数（基準条件で 0）
 fn coefficient(p: &[usize]) -> f64 {
     0.1 * (p[0] as f64 - 1.0) + 0.05 * p[2] as f64 + 0.02 * (p[0] as f64 - 1.0) * p[2] as f64
 }
@@ -1408,7 +1408,7 @@ fn micro_cross_sections_take_the_weights_of_the_few_group_constants() {
             assert_eq!(n.reactions[0].mt, 102);
             assert_eq!(n.reactions[0].channels, std::slice::from_ref(&f.absorption));
             assert!((n.thermal_fission.unwrap() - 0.9).abs() <= 1e-15);
-            // 数密度は公称の履歴の値なので、燃焼度だけで内挿する
+            // 数密度はベース計算の履歴の値なので、燃焼度だけで内挿する
             let want: f64 = burnup_terms(points, bu)
                 .unwrap()
                 .iter()

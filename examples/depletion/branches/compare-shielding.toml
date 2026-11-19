@@ -1,4 +1,4 @@
-# 減速材の分岐でも公称の自己遮蔽を使う方式（`shielding = "nominal-moderator"`。ADR-0201 で採らなかった案）の比較: xlc 1199f764 の
+# 減速材のブランチでも基準条件の自己遮蔽を使う方式（`shielding = "nominal-moderator"`。ADR-0201 で採らなかった案）の比較: xlc 1199f764 の
 # shielding-<集合体>-every.toml と shielding-<集合体>-nominal.toml が書いたテーブルを比べる（../compare_branch_shielding.py）。今の lattice は
 # nominal-moderator を読まないので、テーブルを作り直すには 1199f764 を checkout する
 [[case]]

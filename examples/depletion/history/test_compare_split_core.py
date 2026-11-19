@@ -144,7 +144,7 @@ class Gaps(unittest.TestCase):
         )
 
     def test_the_continued_point_adds_nothing_and_has_no_index(self):
-        # w = 0 の点は core が U も L も足さない。続ける点の参照の組成は公称と同じでも、ハイブリッドの定数は別の解
+        # w = 0 の点は core が U も L も足さない。続ける点の参照の組成はベース計算と同じでも、ハイブリッドの定数は別の解
         row = c.compare(tables(), switch_summary())["rows"][0]
         self.assertEqual(row["weight"], 0.0)
         self.assertIsNone(row["index_ratio"])
@@ -189,7 +189,7 @@ class Gaps(unittest.TestCase):
         )
 
     def test_branch_densities_at_the_nominal_ones_add_no_linearization(self):
-        # core の `production_ratio` は、履歴ブランチの数密度が公称と同じ点で L を足さない（U は w で足す）
+        # core の `production_ratio` は、履歴ブランチの数密度がベース計算と同じ点で L を足さない（U は w で足す）
         nominal = table()
         rod = nominal["histories"][0]["rods"][0]
         rod["densities"][1] = list(nominal["micro"]["densities"][2])

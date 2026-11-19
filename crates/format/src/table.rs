@@ -3,7 +3,7 @@
 //! フィールド名付きの map 形式の MessagePack（ADR-0011、ADR-0013）:
 //! `format` ("xlc-table"), `bounds`（群境界 (eV)、降順）, `axes`（軸ごとに `name`（`burnup`、`boron`、`moderator`、`fuel`、`rod`）。
 //! 連続の軸は `points`（昇順。燃焼度は MWd/kg（ADR-0187）、ほかは ppm か K）を持ち、`moderator` は格子点ごとの `density` (g/cm³)、`boron` は `b10`（B-10 の
-//! 原子分率）も持つ。`boron`、`moderator`、`fuel` は、内挿の変数 `transform`（`linear` か `sqrt`。ADR-0097）と、公称の値 `nominal`（格子点の
+//! 原子分率）も持つ。`boron`、`moderator`、`fuel` は、内挿の変数 `transform`（`linear` か `sqrt`。ADR-0097）と、基準値 `nominal`（格子点の
 //! 1 つ。部分格子の組み立ての基準。ADR-0200。3 つとも持つか、どれも持たない）を持つ。離散の軸の `rod` は `points` の代わりに `values`
 //! （制御棒の値の名前の列。`out` は棒のない状態）を持つ）,
 //! `split`（集合体を各方向に分けたノードの数。ADR-0108）, `heavy_metal`（初めの重金属の質量 (g/cm、高さ 1 cm あたり)。燃焼の履歴から
@@ -15,10 +15,10 @@
 //! エラー））。燃焼度の軸を持ち、分けない
 //! テーブルだけが書き、ほかはキーを書かない。ADR-0216）,
 //! `histories`（履歴の変数ごとの補正の残り R の列。変数の名前 `variable`（`moderator-density` か `rods`）、ベース計算の値 `nominal`（H⁰）、履歴の
-//! 分岐の値 `branch`（Hᵇ）、制御棒の値ごとの `rods`（制御棒の値の名前 `rod`、R を持つ燃焼度の点 `burnup`（燃焼度の軸の点で、最初と最後を
+//! ブランチの値 `branch`（Hᵇ）、制御棒の値ごとの `rods`（制御棒の値の名前 `rod`、R を持つ燃焼度の点 `burnup`（燃焼度の軸の点で、最初と最後を
 //! 含み、テーブルが履歴ブランチの条件の状態を解いた点）、点ごとの追わない核種の分 `untracked` と線形化の誤差 `linearization`（どちらも
 //! `total`、`absorption`、`nu_fission`、`fission`、`chi`、`diffusion`、`scatter`、`adf`。和が残り R）、点ごとに追う核種の順の履歴ブランチの均質化した
-//! 数密度 `densities`、ミクロ燃焼の反応率の微視的断面積の差 `micro`（追う核種だけを履歴ブランチの値にした公称の組成（ハイブリッド）で
+//! 数密度 `densities`、ミクロ燃焼の反応率の微視的断面積の差 `micro`（追う核種だけを履歴ブランチの値にしたベース計算の組成（ハイブリッド）で
 //! 分けた、追わない核種の分 `untracked` と線形化の誤差 `linearization` の map。どちらも点ごとに追う核種の順の `fission`、`reactions`（`mt` と
 //! 経路ごとの `channels`）、`thermal_fission`（収率の境界より下の核分裂の断面積の差。核分裂しない核種は nil で、キーは省けない））。履歴ブランチの条件は、減速材の密度は `moderator` の軸だけが値 `branch` の格子点で、ほかの軸は
 //! 基準条件、制御棒の挿入の割合は基準条件（`nominal` は 0、`branch` は 1。制御棒を入れた値が条件で、`out` は逆向き）。ミクロ燃焼のデータを持つテーブルだけが書き、持たなければキーを書かない。ADR-0215）,
@@ -33,8 +33,8 @@
 //! `bounds` 以外の項目。`height` は数か nil、`pins` は `dx`、`dy`、`form`、`corners`、`normalized_corners`、`halves` を持つ map か nil で、
 //! どちらもキーは省けない）。軸のないテーブルは点が1つ（番号の列は空）。
 //!
-//! 点の集合は、制御棒の値ごとに、`boron`、`moderator`、`fuel` の軸の直積か（公称の値がないとき）、基準条件と、公称と違う軸の組
-//! （成分）ごとの部分格子の和（cut-HDMR。成分の集合は部分集合について閉じる。ADR-0200）。点の成分は、公称と違う軸の組として点の
+//! 点の集合は、制御棒の値ごとに、`boron`、`moderator`、`fuel` の軸の直積か（基準値がないとき）、基準条件と、基準条件と違う軸の組
+//! （成分）ごとの部分格子の和（cut-HDMR。成分の集合は部分集合について閉じる。ADR-0200）。点の成分は、基準条件と違う軸の組として点の
 //! 番号から決まる。燃焼度の軸を持つテーブルは、点ごとに解いた燃焼度の点が違ってよく、すべての燃焼度の点で解いていない点があれば、
 //! 基準条件（制御棒の軸があれば `out`）がすべての燃焼度の点を持つ。
 
@@ -155,7 +155,7 @@ impl Axis {
         }
     }
 
-    /// 公称の値を除いた軸
+    /// 基準値を除いた軸
     pub fn without_nominal(mut self) -> Self {
         match &mut self {
             Self::Boron { nominal, .. }
@@ -166,7 +166,7 @@ impl Axis {
         self
     }
 
-    /// 公称の値を `value` にした軸（`boron`、`moderator`、`fuel` だけ。ほかの軸はそのまま）
+    /// 基準値を `value` にした軸（`boron`、`moderator`、`fuel` だけ。ほかの軸はそのまま）
     pub fn with_nominal(mut self, value: f64) -> Self {
         match &mut self {
             Self::Boron { nominal, .. }
@@ -197,7 +197,7 @@ impl Axis {
         }
     }
 
-    /// 部分格子で組み立てる軸（ホウ素、減速材、燃料）の、公称の値と内挿の変数。ほかの軸は `None`
+    /// 部分格子で組み立てる軸（ホウ素、減速材、燃料）の、基準値と内挿の変数。ほかの軸は `None`
     pub fn state_axis(&self) -> Option<(Option<f64>, Transform)> {
         match self {
             Self::Boron {
@@ -213,7 +213,7 @@ impl Axis {
         }
     }
 
-    /// 公称の値の格子点の番号（公称の値のない軸と、部分格子で組み立てない軸は `None`）
+    /// 基準値の格子点の番号（基準値のない軸と、部分格子で組み立てない軸は `None`）
     pub fn nominal_index(&self) -> Option<usize> {
         let (nominal, _) = self.state_axis()?;
         let nominal = nominal?;
@@ -234,7 +234,7 @@ impl Axis {
     }
 }
 
-/// 軸の並びを確かめる: 同じ軸が2つなく、点が範囲の中で増え、減速材の密度が点ごとに正で、B-10 の割合が 0〜1。公称の値は
+/// 軸の並びを確かめる: 同じ軸が2つなく、点が範囲の中で増え、減速材の密度が点ごとに正で、B-10 の割合が 0〜1。基準値は
 /// 格子点の 1 つで、部分格子で組み立てる軸（ホウ素、減速材、燃料）のすべてが持つか、どれも持たない。
 pub fn validate_axes(axes: &[Axis]) -> Result<(), String> {
     let nominals: Vec<bool> = axes
@@ -333,7 +333,7 @@ pub fn product_points(axes: &[Axis]) -> Vec<Vec<usize>> {
         .collect()
 }
 
-/// 点 `at`（部分格子で組み立てる軸の番号の列）の、公称 `nominal` と違う軸の組（`at` の中の位置の bit）
+/// 点 `at`（部分格子で組み立てる軸の番号の列）の、基準点 `nominal` と違う軸の組（`at` の中の位置の bit）
 pub fn component(at: &[usize], nominal: &[usize]) -> u32 {
     at.iter()
         .zip(nominal)
@@ -655,9 +655,9 @@ pub struct HistoryRod {
     pub rod: String,
     /// R を持つ燃焼度の点 (MWd/kg)。燃焼度の軸の点で、最初と最後の点を含み、テーブルが履歴ブランチの条件の状態を解いた点
     pub burnup: Vec<f64>,
-    /// `burnup` の点ごとの追わない核種の分 U = f(履歴ブランチの組成) − f(追う核種だけを履歴ブランチの値にした公称の組成)（どちらも条件 j）
+    /// `burnup` の点ごとの追わない核種の分 U = f(履歴ブランチの組成) − f(追う核種だけを履歴ブランチの値にしたベース計算の組成)（どちらも条件 j）
     pub untracked: Vec<Residual>,
-    /// `burnup` の点ごとの線形化の誤差 L = f(追う核種だけを履歴ブランチの値にした公称の組成) − f(公称の組成) − Σᵢ cᵢ ΔN̄ᵢ（どちらも条件 j）
+    /// `burnup` の点ごとの線形化の誤差 L = f(追う核種だけを履歴ブランチの値にしたベース計算の組成) − f(ベース計算の組成) − Σᵢ cᵢ ΔN̄ᵢ（どちらも条件 j）
     pub linearization: Vec<Residual>,
     /// [`burnup` の点][追う核種（`Micro::nuclides` の順）] の、履歴ブランチの均質化した数密度 N̄ᵢ^j (1/(barn cm))。core が L の重みの
     /// 指標（熱群の νΣf の線形の補正）を作る
@@ -666,15 +666,15 @@ pub struct HistoryRod {
     pub micro: RateResiduals,
 }
 
-/// 1 つの制御棒の値の、ミクロ燃焼の反応率の微視的断面積の差 Δσ（ADR-0215 の案 S2）を、追う核種だけを履歴ブランチの値にした公称の
-/// 組成（ハイブリッド）で分けたもの。和が履歴ブランチの組成と公称の組成の差。core は反応率の σᵢ に、U と同じ w を掛けた
+/// 1 つの制御棒の値の、ミクロ燃焼の反応率の微視的断面積の差 Δσ（ADR-0215 の案 S2）を、追う核種だけを履歴ブランチの値にしたベース計算の
+/// 組成（ハイブリッド）で分けたもの。和が履歴ブランチの組成とベース計算の組成の差。core は反応率の σᵢ に、U と同じ w を掛けた
 /// `untracked` と、L と同じ P / P_j を掛けた `linearization` を足す
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RateResiduals {
     /// [`burnup` の点][追う核種（`Micro::nuclides` の順）] の、σᵢ(履歴ブランチの組成) − σᵢ(ハイブリッドの組成)（どちらも条件 j）
     pub untracked: Vec<Vec<RateResidual>>,
-    /// [`burnup` の点][追う核種] の、σᵢ(ハイブリッドの組成) − σᵢ(公称の組成)（どちらも条件 j）
+    /// [`burnup` の点][追う核種] の、σᵢ(ハイブリッドの組成) − σᵢ(ベース計算の組成)（どちらも条件 j）
     pub linearization: Vec<Vec<RateResidual>>,
 }
 
@@ -747,7 +747,7 @@ pub struct Residual {
     pub adf: Vec<Vec<f64>>,
 }
 
-/// 履歴ブランチの数密度が公称と同じ点の L と Δσ_L の、条件 j の状態の値（項目ごとの絶対値の最大）に対する許容。その点の L と Δσ_L は
+/// 履歴ブランチの数密度がベース計算と同じ点の L と Δσ_L の、条件 j の状態の値（項目ごとの絶対値の最大）に対する許容。その点の L と Δσ_L は
 /// 同じ組成と状態の 2 つの格子計算の解の差で、lattice の MOC の中性子束の収束の判定（相対 1e-6。crates/lattice/src/moc.rs の
 /// `Options::default`）の大きさ。2A の燃焼度 0 で測った値は L が 1.5e-7、Δσ_L が 1.3e-8（ADF と Pu-238 の (n,2n)）
 pub const NOMINAL_POINT_TOLERANCE: f64 = 1.0e-6;
@@ -824,7 +824,7 @@ pub fn linear_coefficients(sigma: &MicroNuclide) -> LinearCoefficients<'_> {
 /// 履歴ブランチの条件の状態の、テーブルの格子点（ADR-0215）
 #[derive(Debug, Clone, PartialEq)]
 pub struct HistoryCondition {
-    /// ベース計算の変数の値 H⁰（減速材の密度は、公称の格子点の密度）
+    /// ベース計算の変数の値 H⁰（減速材の密度は、基準の格子点の密度）
     pub nominal: f64,
     /// 条件の状態の、軸の順の格子点の番号（燃焼度の軸は 0。呼ぶ側が燃焼度の点を入れる）
     pub point: Vec<usize>,
@@ -1283,9 +1283,9 @@ impl Table {
     }
 
     /// 履歴の変数 `variable` の値 `branch`（Hᵇ）の履歴ブランチの条件と、制御棒の値 `rod` の状態の格子点。減速材の密度は、`moderator`
-    /// の軸だけが公称でない格子点（値が Hᵇ のもの。1 つだけのこと）で、ほかの軸は公称の値、制御棒の軸は `rod`（軸がなければ `rod` は
-    /// `out`）。制御棒の挿入の割合は、Hᵇ が 1（一生を制御棒を入れて燃焼させた）、H⁰ が 0 で、どの連続の軸も公称の値、制御棒の軸は `rod`
-    /// （制御棒を入れた値が履歴ブランチの条件、`out` は逆向きの分岐。制御棒の軸が要る）。テーブルの検査と `lattice histories` が、同じ
+    /// の軸だけが基準でない格子点（値が Hᵇ のもの。1 つだけのこと）で、ほかの軸は基準値、制御棒の軸は `rod`（軸がなければ `rod` は
+    /// `out`）。制御棒の挿入の割合は、Hᵇ が 1（一生を制御棒を入れて燃焼させた）、H⁰ が 0 で、どの連続の軸も基準値、制御棒の軸は `rod`
+    /// （制御棒を入れた値が履歴ブランチの条件、`out` は逆向きのブランチ。制御棒の軸が要る）。テーブルの検査と `lattice histories` が、同じ
     /// 規則で条件を決めるように使う
     pub fn history_condition(
         &self,
@@ -1302,7 +1302,7 @@ impl Table {
         }
     }
 
-    /// 制御棒の挿入の割合の履歴ブランチの条件（`history_condition`）: どの連続の軸も公称の値で、制御棒の軸は `rod`
+    /// 制御棒の挿入の割合の履歴ブランチの条件（`history_condition`）: どの連続の軸も基準値で、制御棒の軸は `rod`
     fn rod_history_condition(&self, branch: f64, rod: &str) -> Result<HistoryCondition, String> {
         let variable = RODS;
         // 履歴ブランチは一生を制御棒を入れて燃焼させるので、core の重み (H − H⁰)/(Hᵇ − H⁰) は H そのもの
@@ -1403,7 +1403,7 @@ impl Table {
                     )
                 })?,
                 _ if k == m => condition,
-                // 公称の値は、部分格子で組み立てる軸のすべてが持つか、どれも持たない（軸の検査）。減速材の軸が持つので、ほかも持つ
+                // 基準値は、部分格子で組み立てる軸のすべてが持つか、どれも持たない（軸の検査）。減速材の軸が持つので、ほかも持つ
                 _ => axis.nominal_index().ok_or_else(|| {
                     format!("history variable {variable}: the {} axis has no nominal value", axis.name())
                 })?,
@@ -1423,7 +1423,7 @@ impl Table {
     }
 
     /// 履歴の補正（ADR-0215）: ミクロ燃焼のデータを持つテーブルの、重ならない既知の変数で、H⁰ と Hᵇ が `history_condition` の値
-    /// （減速材の密度は軸の公称と公称でない格子点の密度、制御棒は 0 と 1）。制御棒の値ごとの燃焼度の点は、その条件の状態をテーブルが解いた
+    /// （減速材の密度は軸の基準の格子点と基準でない格子点の密度、制御棒は 0 と 1）。制御棒の値ごとの燃焼度の点は、その条件の状態をテーブルが解いた
     /// 燃焼度の点で、増え、最初と最後の点を含み、点ごとに状態と同じ群と辺の数の有限の残りを持つ
     fn validate_histories(&self) -> Result<(), String> {
         if self.histories.is_empty() {
@@ -1547,8 +1547,8 @@ impl Table {
         Ok(())
     }
 
-    /// 履歴ブランチの追う核種の数密度が公称と同じ R の点（燃焼度 0 など）の、線形化の誤差 L と Δσ_L が、条件 j の状態（`point`、燃焼度の軸
-    /// `burnup`）の値に対して `NOMINAL_POINT_TOLERANCE` 以内であること。その点のハイブリッドは公称の組成そのもので、L と Δσ_L は 2 つの
+    /// 履歴ブランチの追う核種の数密度がベース計算と同じ R の点（燃焼度 0 など）の、線形化の誤差 L と Δσ_L が、条件 j の状態（`point`、燃焼度の軸
+    /// `burnup`）の値に対して `NOMINAL_POINT_TOLERANCE` 以内であること。その点のハイブリッドはベース計算の組成そのもので、L と Δσ_L は 2 つの
     /// 格子計算の解の差の大きさ。core はその点の L と Δσ_L を足さないので（比 P / P_j を作れない）、ほかの組成から作った値を黙って捨てない
     fn validate_nominal_points(
         &self,

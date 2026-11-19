@@ -115,7 +115,7 @@ class Hybrid(unittest.TestCase):
 
 
 class MicroNuclides(unittest.TestCase):
-    """R の第 3 項の追う核種（分岐の入力の `[history]` の `micro`）だけを置き換える形"""
+    """R の第 3 項の追う核種（ブランチ計算の入力の `[history]` の `micro`）だけを置き換える形"""
 
     def test_listed_nuclides_take_the_varied_densities_and_the_rest_stay_nominal(self):
         nominal, varied = history(1.0, [1, 2]), history(2.0, [1, 2])

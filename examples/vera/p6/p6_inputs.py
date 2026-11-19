@@ -1,15 +1,15 @@
 """VERA Problem 6（3D の HFP の単一集合体）を xlc で解く入力を書く。
 
 Problem 6 の形状と組成は Problem 3A と同じ（仕様書 CASL-U-2012-0131-004 の 78 ページ）なので、格子、平板、炉心のメッシュは
-examples/vera/p3/p3_inputs.py の 3A の関数で書き、物質の状態を、ADR-0230 の格子点の分岐のテーブル（ADR-0097）に置き換える。
+examples/vera/p3/p3_inputs.py の 3A の関数で書き、物質の状態を、ADR-0230 の格子点のブランチのテーブル（ADR-0097）に置き換える。
 置き換える文字列は p3_inputs.py が書く文字列そのもので、見つからなければ止まる（p3_inputs.py の形が変わったことを黙って
 見過ごさないため）。
 
 このファイルのある場所に次を書く。
 
-- `lattice-6-<層>.toml`: 燃料の高さの 2D の単一集合体の格子（3A の fuel、zgrid、igrid）の分岐のテーブル。支持格子のない層は、
+- `lattice-6-<層>.toml`: 燃料の高さの 2D の単一集合体の格子（3A の fuel、zgrid、igrid）のブランチのテーブル。支持格子のない層は、
   平板の燃料にする媒質（`medium-6-fuel.msgpack`）も書く（ADR-0128）
-- `axial-6.toml`: 軸方向の反射体の平板（ADR-0128）の分岐のテーブル。軸は格子と同じ（媒質は格子の同じ状態を使う）
+- `axial-6.toml`: 軸方向の反射体の平板（ADR-0128）のブランチのテーブル。軸は格子と同じ（媒質は格子の同じ状態を使う）
 - `core-6.toml` と、共通の `core-6-cycle.toml`、`core-6-plant.toml`、`core-6-assemblies.toml`（ADR-0105）: 表 P6-1 の HFP の
   熱水力のフィードバックの解（ADR-0229）
 - `core-6-low-power.toml`: 同じ熱水力で出力だけを 1e-6 倍にした解（ノードの温度がほぼ入口の温度になる）
@@ -61,7 +61,7 @@ WETTED_PERIMETER = (
     2 * math.pi * (RODS * CLAD_OUT + GUIDE_TUBES * GUIDE_OUT + INSTRUMENT_OUT)
 )
 
-# 分岐のテーブルの格子点（ADR-0230）。減速材の密度は IF97 の 15.5132 MPa の値（crates/core/src/thermal/water.rs の
+# ブランチのテーブルの格子点（ADR-0230）。減速材の密度は IF97 の 15.5132 MPa の値（crates/core/src/thermal/water.rs の
 # `region_one`）を小数 6 桁に丸めたもの。core は格子点の密度を IF97 と 5e-6 g/cc で確かめる（ADR-0229）
 MODERATOR = [
     (565, 0.742713),
@@ -80,7 +80,7 @@ P3_HEADER = "# このファイルは p3_inputs.py が書く。手で直さない
 HEADER = "# このファイルは p6_inputs.py が書く（形状は p3_inputs.py の 3A）。手で直さない。\n"
 P3_PROBLEM = f"VERA Problem 3A（{p3.PROBLEMS['3A']['description']}"
 # 状態は表 P6-1 と ADR-0230 の格子点。3A の格子の見出しは、この後に「。表 P3-1、P3-3）」（形状と組成の出典）が続く
-PROBLEM = "VERA Problem 6（Problem 3A の集合体の HFP の分岐のテーブル。状態は表 P6-1 と ADR-0230 の格子点（ADR-0097）"
+PROBLEM = "VERA Problem 6（Problem 3A の集合体の HFP のブランチのテーブル。状態は表 P6-1 と ADR-0230 の格子点（ADR-0097）"
 
 
 def replaced(text: str, old: str, new: str) -> str:
@@ -106,7 +106,7 @@ def renamed(text: str) -> str:
 
 
 def materials(names: list[str]) -> str:
-    """物質の TOML（`names` の順）。公称の状態（入口の温度）。冷却材はホウ酸水（ADR-0106）"""
+    """物質の TOML（`names` の順）。基準条件（入口の温度）。冷却材はホウ酸水（ADR-0106）"""
     t = NOMINAL_T
     blocks = {
         "fuel": f"[material.fuel]\ntemperature = {FUEL[0]}\nnuclides = {{ {p3.PROBLEMS['3A']['fuel']} }}",
@@ -135,7 +135,7 @@ def branches(borated: list[str], moderated: list[str], fuels: list[str]) -> str:
 
 
 def lattice(name: str, insert: str, grid: str | None, what: str) -> str:
-    """3A の 2D の格子の、物質を分岐のテーブルにしたもの"""
+    """3A の 2D の格子の、物質をブランチのテーブルにしたもの"""
     text = p3.lattice("3A", name, insert, grid, what)
     names = ["fuel", "water", "zircaloy"] + (["inconel"] if grid == "inconel" else [])
     moderated = names[1:]
@@ -150,7 +150,7 @@ def lattice(name: str, insert: str, grid: str | None, what: str) -> str:
 
 
 def slab() -> str:
-    """3A の軸方向の反射体の平板の、物質を分岐のテーブルにしたもの。体積で混ぜた物質はどれも水を含むので、ホウ素と
+    """3A の軸方向の反射体の平板の、物質をブランチのテーブルにしたもの。体積で混ぜた物質はどれも水を含むので、ホウ素と
     減速材の軸に挙げる（lattice::branches）"""
     text = p3.slab("3A")
     names = ["water", "zircaloy", "ss304", "inconel"]
@@ -339,8 +339,8 @@ def pipeline() -> str:
     )
     return (
         "# このファイルは p6_inputs.py が書く。手で直さない。\n"
-        "# VERA Problem 6 を xlc で解くステージ: 多群ライブラリ（../dvc.yaml の xs）→ 燃料の高さの 2D の格子の分岐のテーブル（層ごと。\n"
-        "# 平板の燃料の媒質も）→ 軸方向の反射体の平板の分岐のテーブル（axial-6）→ 炉心（熱水力のフィードバックの core-6 と、\n"
+        "# VERA Problem 6 を xlc で解くステージ: 多群ライブラリ（../dvc.yaml の xs）→ 燃料の高さの 2D の格子のブランチのテーブル（層ごと。\n"
+        "# 平板の燃料の媒質も）→ 軸方向の反射体の平板のブランチのテーブル（axial-6）→ 炉心（熱水力のフィードバックの core-6 と、\n"
         "# 確認の core-6-low-power、core-6-isothermal）→ 比較（compare-6.json）。実行するのは `dvc repro`（ADR-0159）\n"
         "stages:\n" + "".join(stages)
     )

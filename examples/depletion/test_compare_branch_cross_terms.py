@@ -1,4 +1,4 @@
-"""compare_branch_cross_terms.py の要約（分岐のテーブルを公称の状態からの 1 軸ずつの分岐と、選んだ交差の項の部分格子から組み立てた
+"""compare_branch_cross_terms.py の要約（ブランチのテーブルを基準条件からの 1 軸ずつのブランチと、選んだ交差の項の部分格子から組み立てた
 ときの、直積の状態との差。ADR-0200）。
 
 実行: python3 -m unittest discover -s examples/depletion -p 'test_compare_branch_cross_terms.py'
@@ -188,10 +188,10 @@ THINNING_BURNUP = [0.0, 1.0, 2.0, 4.0, 6.0, 10.0]
 
 
 class Thinning(unittest.TestCase):
-    """分岐を燃焼度の一部の点だけで解き、公称の状態との差を燃焼度について内挿する"""
+    """ブランチ計算を燃焼度の一部の点だけで解き、基準条件との差を燃焼度について内挿する"""
 
     def branch_table(self, delta) -> dict:
-        """公称の νΣf2 は燃焼度で 2 次に変わり、分岐の状態はそこに delta(燃焼度) × (ホウ素の偏差) を足す"""
+        """基準条件の νΣf2 は燃焼度で 2 次に変わり、ブランチ計算の状態はそこに delta(燃焼度) × (ホウ素の偏差) を足す"""
 
         def g(u, b, m, f):
             base = additive(u, b, m, f)["nu_fission"][1] - 1e-3 * u * u
@@ -216,7 +216,7 @@ class Thinning(unittest.TestCase):
         self.assertGreater(linear["max_abs_pcm"], 1.0)
         # 間引いた点 1、2 は折れの手前で、差は 0
         self.assertLess(max(abs(r) for r in linear["rho_pcm"][:2]), 1e-9)
-        # 誤差を出すのは公称でない状態だけで、そのうち最大の状態を書く
+        # 誤差を出すのはブランチ条件だけで、そのうち最大の状態を書く
         self.assertNotEqual(linear["worst"]["boron"], 1300.0)
         self.assertEqual(linear["worst"]["burnup"], 6.0)
 
@@ -364,7 +364,7 @@ PAIRS = [["boron", "moderator"], ["boron", "fuel"], ["moderator", "fuel"]]
 
 
 def lattice_table(burnup: list[float] | None = None) -> dict:
-    """lattice が書く形の直積のテーブル（点の番号、公称の値、内挿の変数を持つ。ADR-0200）"""
+    """lattice が書く形の直積のテーブル（点の番号、基準値、内挿の変数を持つ。ADR-0200）"""
     t = table(boron_moderator_cross, burnup)
     for a in t["axes"]:
         if a["name"] in NOMINAL:
@@ -390,7 +390,7 @@ class Subgrids(unittest.TestCase):
     def test_pair_subgrids_keep_the_points_with_a_nominal_axis(self):
         product = lattice_table()
         out = cct.subgrid_table(product, PAIRS)
-        # 1 + 6 + 12 点。3 つの軸がどれも公称でない点だけを除く
+        # 1 + 6 + 12 点。3 つの軸がどれも基準値でない点だけを除く
         self.assertEqual(len(out["points"]), 19)
         self.assertTrue(all(1 in p for p in out["points"]))
         for p, s in zip(out["points"], out["states"], strict=True):
@@ -490,7 +490,7 @@ def with_micro(t: dict, nuclides) -> dict:
     return t
 
 
-# 状態の点の番号の、公称の状態（NOMINAL の点）
+# 状態の点の番号の、基準条件（NOMINAL の点）
 AT_NOMINAL = (1, 1, 1)
 
 
@@ -548,7 +548,7 @@ class ThinningSubgrids(unittest.TestCase):
 
 
 class ThinningMicro(unittest.TestCase):
-    """微視的断面積と数密度の微分を、少数群定数と同じ内挿（公称の状態との差を燃焼度について内挿する）で比べる"""
+    """微視的断面積と数密度の微分を、少数群定数と同じ内挿（基準条件との差を燃焼度について内挿する）で比べる"""
 
     def thinned(self, nuclides) -> dict:
         t = with_micro(Thinning().branch_table(lambda u: 1e-3 * u), nuclides)
@@ -662,7 +662,7 @@ ESTIMATE = {
 
 
 class ThinningTime(unittest.TestCase):
-    """燃焼点を間引いたテーブルを作る時間の見込み（公称の状態はすべての燃焼点で解く）"""
+    """燃焼点を間引いたテーブルを作る時間の見込み（基準条件はすべての燃焼点で解く）"""
 
     def summary(self, plans=None) -> dict:
         t = Thinning().branch_table(lambda u: 1e-3 * max(u - 3.0, 0.0))
@@ -680,7 +680,7 @@ class ThinningTime(unittest.TestCase):
 
     def test_hours_scale_the_off_nominal_states_by_the_chosen_points(self):
         s = self.summary()
-        # 27 状態（3 × 3 × 3）のうち、ホウ素を公称から変えた 18 状態が再利用、残りの 9 状態（公称を含む）が自己遮蔽を解く。
+        # 27 状態（3 × 3 × 3）のうち、ホウ素を基準値から変えた 18 状態が再利用、残りの 9 状態（基準条件を含む）が自己遮蔽を解く。
         # 燃焼点ごとの状態によらない秒は 100 − (9 × 3 + 18 × 1) = 55
         self.assertAlmostEqual(s["other_seconds"], 55.0)
         self.assertAlmostEqual(s["hours"], 6 * 100.0 / 3600)
@@ -819,7 +819,7 @@ class ThinningTime(unittest.TestCase):
         choice = dict.fromkeys(kinds, "3 点") | {"boron+moderator": "4 点"}
         with self.assertRaisesRegex(SystemExit, "reuse"):
             self.summary([{"name": "広い", "kinds": choice}])
-        # 公称の状態はすべての燃焼点で解くので、ホウ素だけを変えた状態はどの燃焼点でもよい
+        # 基準条件はすべての燃焼点で解くので、ホウ素だけを変えた状態はどの燃焼点でもよい
         self.summary(
             [
                 {
@@ -857,11 +857,11 @@ class MainThinningOnly(unittest.TestCase):
 
 
 class NominalBurnupPoints(unittest.TestCase):
-    """公称の状態を燃焼度の一部の点だけで解いたとして、その点から燃焼度について内挿した公称の状態を、全点のテーブルの公称の状態と
-    比べる（公称でない状態は使わない）"""
+    """基準条件を燃焼度の一部の点だけで解いたとして、その点から燃焼度について内挿した基準条件を、全点のテーブルの基準条件と
+    比べる（ブランチ条件は使わない）"""
 
     def kinked(self, nominal_kink: float, off_kink: float = 0.0) -> dict:
-        """公称の νΣf2 は燃焼度で線形に変わり、6 で nominal_kink × (u − 6) の折れを持つ。公称でない状態は off_kink の折れを足す"""
+        """基準条件の νΣf2 は燃焼度で線形に変わり、6 で nominal_kink × (u − 6) の折れを持つ。ブランチ条件は off_kink の折れを足す"""
 
         def g(u, b, m, f):
             base = 0.1 - 1e-3 * u + nominal_kink * max(u - 6.0, 0.0)
@@ -887,13 +887,13 @@ class NominalBurnupPoints(unittest.TestCase):
             self.assertEqual(len(r["rho_pcm"]), 3, method)
 
     def test_removed_points_compare_the_nominal_state_of_the_full_table(self):
-        # 公称の状態が 6 で折れる。選んだ 4 と 10 の間の折れを、線形も Hermite（区間の点が 2 つなので線形）も拾えない
+        # 基準条件が 6 で折れる。選んだ 4 と 10 の間の折れを、線形も Hermite（区間の点が 2 つなので線形）も拾えない
         sel = self.compared(self.kinked(1e-3))
         linear = sel["results"]["linear"]
         self.assertGreater(linear["max_abs_pcm"], 1.0)
         self.assertEqual(linear["worst_burnup"], 6.0)
         self.assertLess(max(abs(r) for r in linear["rho_pcm"][:2]), 1e-9)
-        # 公称でない状態の折れは、公称の状態の比較に効かない
+        # ブランチ条件の折れは、基準条件の比較に効かない
         other = self.compared(self.kinked(1e-3, off_kink=5e-3))
         self.assertEqual(other["results"], sel["results"])
 
@@ -905,7 +905,7 @@ class NominalBurnupPoints(unittest.TestCase):
         self.assertLess(relative["absorption"], 1e-12)
 
     def test_micro_errors_name_the_item_the_nuclide_and_the_burnup(self):
-        # 公称の状態の Pu-240 の全断面積だけが 6 で折れる（公称でない状態の折れは効かない）
+        # 基準条件の Pu-240 の全断面積だけが 6 で折れる（ブランチ条件の折れは効かない）
         def nuclides(u, at):
             kink = max(u - 6.0, 0.0) * (1.0 if at == AT_NOMINAL else 3.0)
             return [micro_nuclide(10 + u), micro_nuclide(5 + kink)]
@@ -948,12 +948,12 @@ class NominalBurnupPoints(unittest.TestCase):
             self.assertEqual(entry["selections"][0]["removed"], [1.0, 2.0, 6.0])
             lines = cct.report(summary)
             self.assertTrue(
-                any("公称の状態" in line and "3 点" in line for line in lines)
+                any(line.startswith("  基準条件を 3 点（3 点）から") for line in lines)
             )
 
 
 class ThinningNominalBurnups(unittest.TestCase):
-    """間引きの真値のテーブルより少ない燃焼点で公称の状態を解く、本番の形のテーブルの時間の見込み"""
+    """間引きの真値のテーブルより少ない燃焼点で基準条件を解く、本番の形のテーブルの時間の見込み"""
 
     def thinned(self, nominal_burnup, burnup=(0.0, 4.0, 10.0)) -> dict:
         t = Thinning().branch_table(lambda u: 1e-3 * u)
@@ -979,12 +979,12 @@ class ThinningNominalBurnups(unittest.TestCase):
         self.assertEqual(s["nominal_burnup"], THINNING_BURNUP)
 
     def test_selections_must_be_nominal_points(self):
-        # 公称でない状態は、公称の状態を解く燃焼点でしか解けない（公称の状態との差を持つため）
+        # ブランチ条件は、基準条件を解く燃焼点でしか解けない（基準条件との差を持つため）
         with self.assertRaisesRegex(SystemExit, "nominal-burnup"):
             self.thinned([0, 2, 4, 10], burnup=(0.0, 6.0, 10.0))
 
     def test_selections_off_the_table_are_named_before_the_nominal_points(self):
-        # 表に無い点を選んだ誤りを、公称の状態の点の外として出さない
+        # 表に無い点を選んだ誤りを、基準条件の点の外として出さない
         with self.assertRaisesRegex(SystemExit, "increasing points of the table"):
             self.thinned([0, 2, 4, 10], burnup=(0.0, 3.0, 10.0))
 
@@ -997,11 +997,11 @@ class ThinningNominalBurnups(unittest.TestCase):
 
 
 class CombinedBurnupPoints(unittest.TestCase):
-    """公称の状態を一部の燃焼点で、公称でない状態をその中の一部の燃焼点で解いたとして、core の組み立て（公称の状態を公称の点から
-    内挿し、公称でない状態の公称の状態との差を公称でない点から内挿して足す。ADR-0200）の値を、全点のテーブルの状態と比べる"""
+    """基準条件を一部の燃焼点で、ブランチ条件をその中の一部の燃焼点で解いたとして、core の組み立て（基準条件を基準条件の点から
+    内挿し、ブランチ条件の基準条件との差をブランチ条件の点から内挿して足す。ADR-0200）の値を、全点のテーブルの状態と比べる"""
 
     def kinked(self, nominal_kink: float, off_kink: float = 0.0, at: float = 6.0):
-        """公称の νΣf2 は燃焼度で線形で、`at` で nominal_kink の折れを持つ。公称でない状態の差はホウ素の偏差に比例し、燃焼度で
+        """基準条件の νΣf2 は燃焼度で線形で、`at` で nominal_kink の折れを持つ。ブランチ条件の差はホウ素の偏差に比例し、燃焼度で
         線形に変わり、6 で off_kink の折れを持つ"""
 
         def g(u, b, m, f):
@@ -1014,10 +1014,10 @@ class CombinedBurnupPoints(unittest.TestCase):
 
     def combined(self, t, nominal, off, timing=None) -> dict:
         selections = [
-            {"name": "公称", "burnup": list(nominal)},
-            {"name": "公称でない", "burnup": list(off)},
+            {"name": "基準条件", "burnup": list(nominal)},
+            {"name": "ブランチ条件", "burnup": list(off)},
         ]
-        pairs = [{"nominal": "公称", "off-nominal": "公称でない"}]
+        pairs = [{"nominal": "基準条件", "off-nominal": "ブランチ条件"}]
         return cct.combine("t", t, NOMINAL, selections, pairs, timing)
 
     def test_states_linear_in_burnup_are_reproduced_from_any_points(self):
@@ -1028,8 +1028,8 @@ class CombinedBurnupPoints(unittest.TestCase):
             self.assertLess(pair["results"][method]["max_abs_pcm"], 1e-9, method)
 
     def test_off_nominal_states_carry_the_error_of_the_nominal_interpolation(self):
-        # 公称の状態だけが 6 で折れ、公称でない状態の差は線形。公称の点にも公称でない点にも無い 6 で、公称でない状態も公称の
-        # 状態の内挿の誤差を持つ（間引きの比較は公称の状態を全点の値にするので、この誤差を持たない）
+        # 基準条件だけが 6 で折れ、ブランチ条件の差は線形。基準条件の点にもブランチ条件の点にも無い 6 で、ブランチ条件も基準条件の
+        # 内挿の誤差を持つ（間引きの比較は基準条件を全点の値にするので、この誤差を持たない）
         t = self.kinked(1e-3)
         s = self.combined(t, [0.0, 4.0, 10.0], [0.0, 4.0, 10.0])
         thinned = cct.thin("t", t, NOMINAL, [{"name": "3 点", "burnup": [0, 4, 10]}])
@@ -1044,7 +1044,7 @@ class CombinedBurnupPoints(unittest.TestCase):
             for kind, k in r["kinds"].items():
                 self.assertGreater(k["max_abs_pcm"], 1.0, (method, kind))
                 self.assertEqual(k["worst"]["burnup"], 6.0, (method, kind))
-            # 公称の状態の誤差は、公称の状態だけの比較と同じ
+            # 基準条件の誤差は、基準条件だけの比較と同じ
             expected = nominal["selections"][0]["results"][method]
             self.assertAlmostEqual(
                 r["nominal"]["max_abs_pcm"], expected["max_abs_pcm"], places=9
@@ -1061,8 +1061,8 @@ class CombinedBurnupPoints(unittest.TestCase):
             self.assertGreater(r["max_relative"]["nu_fission"], 1e-3)
 
     def test_nominal_points_take_the_nominal_state_of_the_table(self):
-        # 公称の状態は 1 で折れる。公称の点の 2 と 6 では公称の状態はテーブルの値で、誤差は間引きの比較と同じ。どちらの点にも
-        # 無い 1 だけが、公称の状態の内挿の誤差（0 から 2 の線形）を足す
+        # 基準条件は 1 で折れる。基準条件の点の 2 と 6 では基準条件はテーブルの値で、誤差は間引きの比較と同じ。どちらの点にも
+        # 無い 1 だけが、基準条件の内挿の誤差（0 から 2 の線形）を足す
         t = self.kinked(1e-3, off_kink=1e-3, at=1.0)
         s = self.combined(t, [0.0, 2.0, 4.0, 6.0, 10.0], [0.0, 4.0, 10.0])
         thinned = cct.thin("t", t, NOMINAL, [{"name": "3 点", "burnup": [0, 4, 10]}])
@@ -1076,8 +1076,8 @@ class CombinedBurnupPoints(unittest.TestCase):
             self.assertLess(r["nominal"]["max_abs_pcm"] - abs(r["rho_pcm"][0]), 1e-9)
 
     def test_off_nominal_points_must_be_nominal_points(self):
-        # core は公称でない状態の公称の状態との差を、その状態を解いた燃焼点で作る。公称の状態はテーブルの燃焼度の軸の点の
-        # すべてで解く（ADR-0200）ので、公称でない状態の点は公称の点の中から選ぶ
+        # core はブランチ条件の基準条件との差を、その状態を解いた燃焼点で作る。基準条件はテーブルの燃焼度の軸の点の
+        # すべてで解く（ADR-0200）ので、ブランチ条件の点は基準条件の点の中から選ぶ
         with self.assertRaisesRegex(SystemExit, "nominal"):
             self.combined(self.kinked(0.0), [0.0, 4.0, 10.0], [0.0, 6.0, 10.0])
 
@@ -1098,7 +1098,7 @@ class CombinedBurnupPoints(unittest.TestCase):
         self.assertAlmostEqual(
             pair["hours"], (4 * (55 + 3) + 3 * (5 * 1 + 36 * 3)) / 3600
         )
-        # 公称の状態の燃焼点は組が持つので、時間の見込みの `nominal-burnup` は書かない
+        # 基準条件の燃焼点は組が持つので、時間の見込みの `nominal-burnup` は書かない
         with self.assertRaisesRegex(SystemExit, "nominal-burnup"):
             self.combined(
                 self.kinked(0.0),
@@ -1108,7 +1108,7 @@ class CombinedBurnupPoints(unittest.TestCase):
             )
 
     def test_micro_errors_carry_the_nominal_interpolation(self):
-        # 公称の状態の Pu-240 の全断面積だけが 6 で折れ、公称でない状態の差は線形
+        # 基準条件の Pu-240 の全断面積だけが 6 で折れ、ブランチ条件の差は線形
         def nuclides(u, at):
             off = 0.0 if at == AT_NOMINAL else u
             return [micro_nuclide(10 + u), micro_nuclide(5 + max(u - 6.0, 0.0) + off)]

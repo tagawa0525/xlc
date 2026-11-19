@@ -1,6 +1,6 @@
 # 制御棒を途中まで入れて抜く燃焼の参照の U と L の分け方（ADR-0215、ADR-0228、#0190）: switch-rods-history.toml の燃焼の履歴の追う 31 核種だけを
-# 公称の履歴（../p2/lattice-2A.msgpack）に入れた組成（make_hybrid.py の --micro。hybrid-switch-rods.msgpack）の、switch-rods-branch.toml と同じ
-# 7 点を、同じ制御棒を抜いた公称の状態で解く。switch-rods-branch.toml との差が追わない核種の分、公称のテーブルの制御棒の値 out の公称の状態
+# ベース計算の履歴（../p2/lattice-2A.msgpack）に入れた組成（make_hybrid.py の --micro。hybrid-switch-rods.msgpack）の、switch-rods-branch.toml と同じ
+# 7 点を、同じ制御棒を抜いた基準条件で解く。switch-rods-branch.toml との差が追わない核種の分、ベース計算のテーブルの制御棒の値 out の基準条件
 # との差から線形の補正を引いたものが線形化の誤差。
 library = "../p2/depletion.msgpack"
 few-group = { output = "table-hybrid-switch-rods-branch.msgpack", bounds = [1e7, 0.625, 1e-5] }

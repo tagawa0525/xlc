@@ -11,7 +11,7 @@ ADR-0251 の前の既定（ADR-0209、ADR-0243、ADR-0246 の自由ガスで、�
 - ピンセル（VERA 1C の形状。../issue-0274 の #0133 のピンセルの組成と同じ。燃料は 5 リングで一様）: 新しいウラン燃料の 900 K
   （`pin-uo2`）と 600 K、1200 K（`pin-uo2-600`、`pin-uo2-1200`）、2A の 40 MWd/kg の組成（`pin-uo2-40`）、MOX-1（`pin-mox`。
   ../lattice-mox1-rings1.toml の燃焼度 0 の組成）
-- 集合体（燃焼の履歴の燃焼点から、履歴と同じ条件の 1 状態の分岐。../issue-0180/fuels/inputs.py と同じ作り）: 2A の 60 MWd/kg
+- 集合体（燃焼の履歴の燃焼点から、履歴と同じ条件の 1 状態のブランチ計算。../issue-0180/fuels/inputs.py と同じ作り）: 2A の 60 MWd/kg
   （`2A-60`。../issue-0180/branch/2A-60.toml の微分を除いたもの）、Gd の 2O の 10 MWd/kg（`2O-10`）、Pyrex の 2F の 10 MWd/kg
   （`2F-10`）、制御棒を入れて燃焼させた 2A の 20 MWd/kg（`2A-rods-20`。棒は入ったまま）
 
@@ -19,9 +19,9 @@ ADR-0251 の前の既定（ADR-0209、ADR-0243、ADR-0246 の自由ガスで、�
 
 衝突確率の近似（`CP_VARIANTS`）は、上のケースに 2 つを足して比べる（変種の名前は `cp-` で始まる）: Gd の 2O の 5 MWd/kg（`2O-5`。
 Gd のピンのリングの組成の差が 10 MWd/kg より大きい途中）と、燃焼した MOX のピンセル（`pin-mox-40`。mox-history.toml の
-40 MWd/kg からの 1 状態の分岐。燃料はリングごとに組成が違う）。
+40 MWd/kg からの 1 状態のブランチ計算。燃料はリングごとに組成が違う）。
 
-燃焼した MOX の集合体（`mox-assembly-60`。../mox-assembly の履歴の 60 MWd/kg からの 1 状態の分岐）は、`MOX_ASSEMBLY_TIMING` の変種で
+燃焼した MOX の集合体（`mox-assembly-60`。../mox-assembly の履歴の 60 MWd/kg からの 1 状態のブランチ計算）は、`MOX_ASSEMBLY_TIMING` の変種で
 時間だけを比べる（差は coverage.py の `assembly-mox` の 4 状態で比べる）。
 
 使い方: python3 inputs.py（このディレクトリで）
@@ -91,9 +91,9 @@ CP_VARIANTS = {
     "cp-share-1e-4-combined": LETHARGY_1E_4 + CP_COMBINED,
     "cp-share-1e-4-points-6": LETHARGY_1E_4 + "ufg-cp-points = 6\n",
 }
-# 衝突確率の近似だけで比べるケース: （履歴の入力（examples/depletion から）、分岐を解く燃焼点 (MWd/kg)）
+# 衝突確率の近似だけで比べるケース: （履歴の入力（examples/depletion から）、ブランチ計算を行う燃焼点 (MWd/kg)）
 CP_ASSEMBLIES = {"2O-5": ("p2/lattice-2O.toml", 5)}
-# 燃焼した MOX のピンセルの分岐（mox-history.toml の燃焼点）
+# 燃焼した MOX のピンセルのブランチ計算（mox-history.toml の燃焼点）
 MOX_BURNUP = 40
 # 燃焼した MOX の集合体（../mox-assembly の履歴）の 1 状態で時間を比べる変種: どの核種も自由ガスの 16 点（基準）、既定の候補の
 # 選び方（ADR-0251）、求積 6 点（ADR-0252）、その両方
@@ -124,7 +124,7 @@ PIN_SETTINGS = (
     "ufg-free-gas = { upper = 400, cells = 2, sweeps = 3, heavy = { energy = 1000 }, sab = true }\n",
     'ufg-transfer = "infinite-dilution"\n',
 )
-# 集合体: （履歴の入力（examples/depletion から）、分岐を解く燃焼点 (MWd/kg)）
+# 集合体: （履歴の入力（examples/depletion から）、ブランチ計算を行う燃焼点 (MWd/kg)）
 ASSEMBLIES = {
     "2O-10": ("p2/lattice-2O.toml", 10),
     "2F-10": ("p2/lattice-2F.toml", 10),
@@ -216,11 +216,11 @@ def assembly(name: str) -> str:
     text = replace_once(text, f"table-{name}-fixed.msgpack", "{table}", source)
     # FUELS.branch はパスを ../issue-0180/fuels から書く
     text = text.replace('"../../', '"../')
-    return f"# {source} の {burnup} MWd/kg からの 1 状態の分岐\n" + text
+    return f"# {source} の {burnup} MWd/kg からの 1 状態のブランチ計算\n" + text
 
 
 def mox_burned() -> str:
-    """mox-history.toml の `[depletion]` より前（UFG の格子の間引きを含む）に、少数群定数の出力と、履歴と同じ条件の 1 状態の分岐と `[history]` を足したもの"""
+    """mox-history.toml の `[depletion]` より前（UFG の格子の間引きを含む）に、少数群定数の出力と、履歴と同じ条件の 1 状態のブランチ計算と `[history]` を足したもの"""
     source = "issue-0286/mox-history.toml"
     text = (HERE / "mox-history.toml").read_text()
     body = text[text.find("library = ") : text.find("[depletion]")]
@@ -248,7 +248,7 @@ def mox_burned() -> str:
     )
     fuels = ", ".join(f'"fuel-{k}"' for k in range(5))
     return (
-        f"# {source} の {MOX_BURNUP} MWd/kg からの 1 状態の分岐\n"
+        f"# {source} の {MOX_BURNUP} MWd/kg からの 1 状態のブランチ計算\n"
         + body.rstrip()
         + "\n\n[branches]\n"
         + 'boron = { ppm = [650], materials = ["water"] }\n'
@@ -260,7 +260,7 @@ def mox_burned() -> str:
 
 
 def mox_assembly() -> str:
-    """../mox-assembly/lattice-mox-assembly.toml の `[depletion]` より前に、テーブルの出力と、履歴と同じ条件の 1 状態の分岐と `[history]` を
+    """../mox-assembly/lattice-mox-assembly.toml の `[depletion]` より前に、テーブルの出力と、履歴と同じ条件の 1 状態のブランチ計算と `[history]` を
     足したもの"""
     source = "mox-assembly/lattice-mox-assembly.toml"
     text = (DEPLETION / source).read_text()
@@ -277,7 +277,7 @@ def mox_assembly() -> str:
         source,
     )
     return (
-        f"# {source} の {MOX_ASSEMBLY_BURNUP} MWd/kg からの 1 状態の分岐\n"
+        f"# {source} の {MOX_ASSEMBLY_BURNUP} MWd/kg からの 1 状態のブランチ計算\n"
         + body.rstrip()
         + "\n\n[branches]\n"
         + 'boron = { ppm = [650], materials = ["water"] }\n'

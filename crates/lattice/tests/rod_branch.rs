@@ -144,7 +144,7 @@ fn library() -> Library {
     }
 }
 
-/// 2 × 2 の格子（燃料のピンと案内管）。案内管の中は水で、制御棒の値の分岐では吸収体の棒を入れたセルに置き換える
+/// 2 × 2 の格子（燃料のピンと案内管）。案内管の中は水で、制御棒の値のブランチ計算では吸収体の棒を入れたセルに置き換える
 const ASSEMBLY: &str = r#"
 library = "library.msgpack"
 self-shielding = false
@@ -313,7 +313,7 @@ fuel = { temperature = [600], materials = ["medium"] }
 #[test]
 fn rod_branches_of_a_slab_use_the_same_medium_state_for_every_value() {
     let dir = scratch("slab");
-    // 媒質は分岐の 2 つの状態を持つ（制御棒のブランチのない格子で作る）
+    // 媒質はブランチ計算の 2 つの状態を持つ（制御棒のブランチのない格子で作る）
     let assembly = dir.join("assembly");
     std::fs::create_dir_all(&assembly).unwrap();
     run(&assembly, ASSEMBLY);

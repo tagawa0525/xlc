@@ -615,7 +615,7 @@ fn reading_checks_the_transform_and_the_nominal_fields() {
         })
         .is_err()
     );
-    // 燃焼度と制御棒の軸は内挿の変数も公称の値も持たない
+    // 燃焼度と制御棒の軸は内挿の変数も基準値も持たない
     assert!(edit(|v| axis_fields(v, 0).push(("transform".into(), "linear".into()))).is_err());
     assert!(edit(|v| axis_fields(v, 4).push(("nominal".into(), 0.0.into()))).is_err());
     assert!(edit(|v| axis_fields(v, 0).push(("nominal".into(), 0.0.into()))).is_err());
@@ -642,7 +642,7 @@ fn nominal_values_are_points_given_to_all_state_axes_or_none() {
     ]);
 }
 
-/// ホウ素、減速材、燃料が 3 点ずつで公称が中央の軸と、2 軸の組すべての部分格子の点（cut-HDMR の 2 次。ADR-0200）
+/// ホウ素、減速材、燃料が 3 点ずつで基準点が中央の軸と、2 軸の組すべての部分格子の点（cut-HDMR の 2 次。ADR-0200）
 fn pairs() -> Table {
     let axes = vec![
         Axis::boron(vec![900.0, 1300.0, 1700.0], 0.199).with_nominal(1300.0),
@@ -650,7 +650,7 @@ fn pairs() -> Table {
             .with_nominal(565.0),
         Axis::fuel(vec![550.0, 565.0, 580.0]).with_nominal(565.0),
     ];
-    // 3 つの軸がどれも公称でない点（3 次の成分）だけを除く
+    // 3 つの軸がどれも基準値でない点（3 次の成分）だけを除く
     let points: Vec<Vec<usize>> = product_points(&axes)
         .into_iter()
         .filter(|p| p.contains(&1))
@@ -690,13 +690,13 @@ fn cut_hdmr_points_hold_full_subgrids_closed_under_subsets() {
         .unwrap_err()
         .to_string();
     assert!(err.contains("subgrids"), "{err}");
-    // ホウ素と減速材の部分格子を持ち、ホウ素だけの分岐を持たない（部分集合について閉じない）
+    // ホウ素と減速材の部分格子を持ち、ホウ素だけのブランチを持たない（部分集合について閉じない）
     let err = without(|p| !(p[1] == 1 && p[2] == 1 && p[0] != 1))
         .validate()
         .unwrap_err()
         .to_string();
     assert!(err.contains("subsets"), "{err}");
-    // 公称の値のないテーブルは直積
+    // 基準値のないテーブルは直積
     let mut product = pairs();
     for axis in &mut product.axes {
         if let Axis::Boron { nominal, .. }
@@ -711,7 +711,7 @@ fn cut_hdmr_points_hold_full_subgrids_closed_under_subsets() {
     product.points = product_points(&product.axes);
     product.states = (0..27).map(|i| state(3.0 + f64::from(i))).collect();
     assert!(product.validate().is_ok());
-    // 公称の値を持つ直積（3 軸の成分を含む、すべての成分の部分格子）
+    // 基準値を持つ直積（3 軸の成分を含む、すべての成分の部分格子）
     let mut full = pairs();
     full.points = product_points(&full.axes);
     full.states = (0..27).map(|i| state(3.0 + f64::from(i))).collect();
@@ -726,7 +726,7 @@ fn rod_values_hold_their_own_subgrids() {
         values: vec!["out".into(), "aic".into()],
     });
     let out: Vec<Vec<usize>> = pairs().points;
-    // 制御棒を入れた組は 1 軸ずつの分岐だけ
+    // 制御棒を入れた組は 1 軸ずつのブランチだけ
     let rodded: Vec<Vec<usize>> = out
         .iter()
         .filter(|p| p.iter().filter(|&&i| i != 1).count() <= 1)
@@ -789,7 +789,7 @@ fn points_solved_at_some_burnups_need_the_nominal_state_at_every_burnup() {
     missing.states.pop();
     let err = missing.validate().unwrap_err().to_string();
     assert!(err.contains("every burnup"), "{err}");
-    // 公称の値がなければ、燃焼度の点の差を作れない
+    // 基準値がなければ、燃焼度の点の差を作れない
     let mut product = thinned();
     product.axes = vec![
         product.axes[0].clone(),
@@ -1346,7 +1346,7 @@ fn rate_residual(scale: f64, fissile: bool) -> RateResidual {
     }
 }
 
-/// ベース計算のテーブル: 燃焼度 0、10、20 MWd/kg、ホウ素 1 点、減速材 2 点（公称の 565 K と 0.743 g/cm³、履歴ブランチの条件の 600 K と
+/// ベース計算のテーブル: 燃焼度 0、10、20 MWd/kg、ホウ素 1 点、減速材 2 点（基準の 565 K と 0.743 g/cm³、履歴ブランチの条件の 600 K と
 /// 0.661 g/cm³）、燃料 1 点。基準条件はすべての燃焼度で、減速材のブランチ条件は 0 と 20 で解き、追う核種 1 つと、制御棒のない
 /// 減速材の密度の履歴の補正（0 と 20 の点。追わない核種の分、線形化の誤差、履歴ブランチの均質化した数密度）を持つ
 fn history_sample() -> Table {
@@ -1385,7 +1385,7 @@ fn history_sample() -> Table {
                 rod: ROD_OUT.into(),
                 burnup: vec![0.0, 20.0],
                 untracked: vec![residual(1.0), residual(2.0)],
-                // 燃焼度 0 は履歴ブランチの数密度が公称と同じで、線形化の誤差は 2 つの格子計算の解の差の大きさ
+                // 燃焼度 0 は履歴ブランチの数密度がベース計算と同じで、線形化の誤差は 2 つの格子計算の解の差の大きさ
                 linearization: vec![residual(3.0e-9), residual(4.0)],
                 densities: vec![vec![7.0e-4 / 3.0], vec![5.5e-4 / 3.0]],
                 micro: RateResiduals {
@@ -1451,12 +1451,12 @@ fn history_corrections_need_micro_data_and_a_known_distinct_variable() {
 
 #[test]
 fn history_values_are_the_moderator_densities_of_the_nominal_and_another_point() {
-    // H⁰ は公称の格子点の密度
+    // H⁰ は基準の格子点の密度
     bad_history(&|t| t.histories[0].nominal = 0.75, "nominal");
-    // Hᵇ は公称でない格子点の密度（その格子点が履歴ブランチの条件）
+    // Hᵇ は基準でない格子点の密度（その格子点が履歴ブランチの条件）
     bad_history(&|t| t.histories[0].branch = 0.70, "branch");
     bad_history(&|t| t.histories[0].branch = 0.743, "branch");
-    // 公称と同じ密度の格子点（温度だけが違う）は変数の差を作らない（core の重み (H − H⁰)/(Hᵇ − H⁰) が 0 で割る）
+    // 基準の格子点と同じ密度の格子点（温度だけが違う）は変数の差を作らない（core の重み (H − H⁰)/(Hᵇ − H⁰) が 0 で割る）
     bad_history(
         &|t| {
             t.axes[2] = Axis::moderator(vec![565.0, 600.0], vec![0.743, 0.743]).with_nominal(565.0);
@@ -1464,7 +1464,7 @@ fn history_values_are_the_moderator_densities_of_the_nominal_and_another_point()
         },
         "branch",
     );
-    // 公称の値のない（直積の）テーブルには、履歴ブランチの条件を決める基準条件がない
+    // 基準値のない（直積の）テーブルには、履歴ブランチの条件を決める基準条件がない
     bad_history(
         &|t| {
             for axis in &mut t.axes {
@@ -1705,7 +1705,7 @@ fn rate_residuals_match_the_micro_nuclides_and_their_reactions() {
     }
     for (part, name) in RATE_PARTS {
         for (k, row) in part(&mut table.histories[0].rods[0]).iter_mut().enumerate() {
-            // 線形化の誤差の燃焼度 0 は、数密度が公称と同じ点の 0 の大きさ
+            // 線形化の誤差の燃焼度 0 は、数密度がベース計算と同じ点の 0 の大きさ
             let tiny = name == "linearization" && k == 0;
             row.push(rate_residual(if tiny { 3.0e-9 } else { 3.0 }, false));
         }
@@ -1724,7 +1724,7 @@ fn rate_residuals_match_the_micro_nuclides_and_their_reactions() {
 
 #[test]
 fn branch_points_at_the_nominal_densities_hold_no_linearization() {
-    // 履歴ブランチの追う核種の数密度が公称と同じ点では、ハイブリッドは公称の組成そのもので、線形化の誤差 L と Δσ_L は 2 つの格子計算の
+    // 履歴ブランチの追う核種の数密度がベース計算と同じ点では、ハイブリッドはベース計算の組成そのもので、線形化の誤差 L と Δσ_L は 2 つの格子計算の
     // 解の差の大きさ（core はその点の L と Δσ_L を足さないので、ほかの組成から作った値を黙って捨てない）
     history_sample().validate().unwrap();
     bad_history(
@@ -1742,7 +1742,7 @@ fn branch_points_at_the_nominal_densities_hold_no_linearization() {
         },
         "nominal densities",
     );
-    // 追わない核種の分は、同じ組成でも 0 とは限らない（燃焼度 0 の residual(1.0)）。数密度が公称と違う点の L は大きくてよい
+    // 追わない核種の分は、同じ組成でも 0 とは限らない（燃焼度 0 の residual(1.0)）。数密度がベース計算と違う点の L は大きくてよい
     let mut table = history_sample();
     table.histories[0].rods[0].linearization[1] = residual(400.0);
     table.validate().unwrap();
@@ -2009,12 +2009,12 @@ fn history_conditions_are_the_branch_point_of_the_variable_axis_and_nominal_else
         assert!(!err.contains("  "), "{err}");
     };
     fails(&table, "boron", 0.661, ROD_OUT, "variable");
-    // Hᵇ は公称でない 1 つの格子点の密度
+    // Hᵇ は基準でない 1 つの格子点の密度
     fails(&table, MODERATOR_DENSITY, 0.70, ROD_OUT, "branch");
     fails(&table, MODERATOR_DENSITY, 0.743, ROD_OUT, "branch");
     // 制御棒の軸のないテーブルの値は out だけ
     fails(&table, MODERATOR_DENSITY, 0.661, "aic", "rod");
-    // 公称の値のないテーブルには、条件を決める基準条件がない
+    // 基準値のないテーブルには、条件を決める基準条件がない
     let mut direct = table.clone();
     for axis in &mut direct.axes {
         *axis = axis.clone().without_nominal();
@@ -2106,7 +2106,7 @@ fn rod_history_conditions_are_the_rod_value_at_the_nominal_state() {
     fails(&table, 1.0, "b4c", "rod");
     // 制御棒を入れた状態を持たないテーブルには、制御棒の履歴ブランチの条件がない
     fails(&history_sample(), 1.0, ROD_OUT, "rod axis");
-    // 公称の値のないテーブルには、条件を決める基準条件がない
+    // 基準値のないテーブルには、条件を決める基準条件がない
     let mut direct = table;
     for axis in &mut direct.axes {
         *axis = axis.clone().without_nominal();

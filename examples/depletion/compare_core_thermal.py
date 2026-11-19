@@ -9,7 +9,7 @@
   密度、軸方向のメッシュ、集合体を持ち、熱水力なしの状態の減速材と燃料の温度は、熱水力の状態の入口の温度と同じこと
 - 熱水力の効き `effect` (ppm): 点のホウ素の差から、k の差の反応度 (1 − 1/k) を k∞ のホウ素の係数でホウ素に直した分を引いた値（探索した点は
   k が同じでホウ素の差、ホウ素を与えた点は k の差）
-- 見込み `estimate` (ppm): テーブルの k∞ の反応度の 1 軸の分岐の係数（制御棒の値 out、ほかの軸は公称の値。燃焼度は点の炉心の平均の燃焼度で、
+- 見込み `estimate` (ppm): テーブルの k∞ の反応度の 1 軸のブランチの係数（制御棒の値 out、ほかの軸は基準値。燃焼度は点の炉心の平均の燃焼度で、
   燃焼度の点の間は線形）に、点のノードの温度の入口の温度からの上がりの、出力の割合の 2 乗の重みの平均（燃料は √T。テーブルの燃料の軸の
   内挿の変数）を掛け、ホウ素の係数（熱水力なしの点のホウ素を挟む格子点の割線）で割った値の負。2 乗の重みは、随伴の中性子束を中性子束に
   比例とみた 1 次の摂動の重み（近似。確かめていない）
@@ -61,7 +61,7 @@ def check_states(isothermal: dict, thermal: dict) -> None:
 
 
 def table_rho(table: dict, burnup: float, at: dict[str, int]) -> float:
-    """テーブルの k∞ の反応度を、燃焼度 `burnup`（燃焼度の点の間は線形）、制御棒の値 out、軸 `at`（名前 → 格子点の番号。ほかの軸は公称）で"""
+    """テーブルの k∞ の反応度を、燃焼度 `burnup`（燃焼度の点の間は線形）、制御棒の値 out、軸 `at`（名前 → 格子点の番号。ほかの軸は基準値）で"""
     axes = table["axes"]
     (points,) = [a["points"] for a in axes if a["name"] == "burnup"]
     if not points[0] <= burnup <= points[-1]:
@@ -88,7 +88,7 @@ def table_rho(table: dict, burnup: float, at: dict[str, int]) -> float:
 
 
 def coefficients(table: dict, burnup: float, boron: float) -> dict[str, float]:
-    """燃焼度 `burnup` の k∞ の反応度の係数: 燃料（/√K）、減速材（/K）は公称から 1 つ上の格子点の割線、ホウ素（/ppm）は `boron` を挟む格子点の割線"""
+    """燃焼度 `burnup` の k∞ の反応度の係数: 燃料（/√K）、減速材（/K）は基準値から 1 つ上の格子点の割線、ホウ素（/ppm）は `boron` を挟む格子点の割線"""
     axes = {a["name"]: a for a in table["axes"]}
 
     def rho_at(name: str, i: int) -> float:

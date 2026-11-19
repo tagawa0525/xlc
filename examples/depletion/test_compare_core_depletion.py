@@ -20,7 +20,7 @@ def inputs():
             for b, k in [(0.0, 1.2), (1.0, 1.15), (2.0, 1.1), (3.0, 1.05)]
         ],
     }
-    # 燃焼度 2 点 × ホウ素 2 点 × 減速材 1 点 × 燃料 1 点。公称（1300 ppm）の分岐の k∞ は 1.2 + 2e-8 と 1.1 − 1e-8
+    # 燃焼度 2 点 × ホウ素 2 点 × 減速材 1 点 × 燃料 1 点。基準条件（1300 ppm）のブランチ計算の k∞ は 1.2 + 2e-8 と 1.1 − 1e-8
     table = {
         "format": "xlc-table",
         "split": 1,
@@ -111,7 +111,7 @@ class Summary(unittest.TestCase):
         )
 
     def test_branch_states_are_found_by_their_points(self):
-        # 解いた点だけを持つテーブル（ADR-0200）: 燃焼度 2 の公称でない点（1000 ppm）を解いていない
+        # 解いた点だけを持つテーブル（ADR-0200）: 燃焼度 2 のブランチ条件の点（1000 ppm）を解いていない
         lattice, table, core = inputs()
         table["points"] = [[0, 0, 0, 0], [0, 1, 0, 0], [1, 1, 0, 0]]
         table["states"] = [{"k_inf": k} for k in [1.3, 1.2 + 2e-8, 1.1 - 1e-8]]

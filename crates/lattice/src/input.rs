@@ -88,14 +88,14 @@
 //! sectors = 8                     # 各リングを 45° ごとの扇形に分ける（1, 4, 8。省略すると 1）
 //! frame = { thickness = 0.0141, material = "zircaloy" }   # 外周の正方形の枠（支持格子。省略すると無し）
 //!
-//! [branches]                    # 分岐（省略すると1つの状態）。軸と書き方は lattice::branches（ADR-0097）
+//! [branches]                    # ブランチ計算（省略すると1つの状態）。軸と書き方は lattice::branches（ADR-0097）
 //! fuel = { temperature = [550, 565, 580], materials = ["fuel"] }
 //!
 //! [cell.box]
 //! zones = [{ material = "water", rings = 1 }]
 //! grid = 4                        # 均質なセルを 4 × 4 の正方形に分ける（省略すると 1）
 //!
-//! [depletion]                     # 燃焼（ADR-0173。分岐、pin-powers、媒質、ファイルの few-group とは使えない）
+//! [depletion]                     # 燃焼（ADR-0173。ブランチ計算、pin-powers、媒質、ファイルの few-group とは使えない）
 //! chain = "chain.msgpack"         # 燃焼チェーン
 //! power = 38.41                   # 初めの重金属の出力密度 (W/g)
 //! burnup = [0.1, 0.5, 1.0]        # 燃焼度の点 (MWd/kg)
@@ -113,7 +113,7 @@
 //! # 直す（core の燃焼点が、そこから始まるステップの状態で解くのと同じ。ADR-0218）。燃焼度と出力の基準の初めの重金属の質量は、燃焼度 0 の組成（入力と同じ）のもの
 //! # continue = { file = "nominal.msgpack", burnup = 20 }
 //!
-//! [history]                       # 燃焼の履歴の燃焼点からの分岐（ADR-0187。[branches] とファイルの few-group と組む）
+//! [history]                       # 燃焼の履歴の燃焼点からのブランチ計算（ADR-0187。[branches] とファイルの few-group と組む）
 //! file = "history.msgpack"        # 燃焼の履歴（`[depletion]` の output）
 //! chain = "chain.msgpack"         # 履歴を作った燃焼チェーン（`[depletion]` の chain。テーブルの κΣf の Q 値。ADR-0190）
 //! burnup = [0, 10, 20]            # ブランチ計算を行う燃焼点 (MWd/kg)。履歴の燃焼度から選ぶ
@@ -318,11 +318,11 @@ pub struct LatticeInput {
     pub heights: Option<Vec<f64>>,
     /// 格子の周りの余白
     pub gap: Option<Gap>,
-    /// 分岐（ADR-0097）。`None` なら物質は書いたままの1つの状態
+    /// ブランチ計算（ADR-0097）。`None` なら物質は書いたままの1つの状態
     pub branches: Option<Branches>,
     /// 燃焼（ADR-0173）。`None` なら燃焼させない
     pub depletion: Option<DepletionInput>,
-    /// 燃焼の履歴の燃焼点からの分岐（ADR-0187）。`None` なら物質は入力のまま
+    /// 燃焼の履歴の燃焼点からのブランチ計算（ADR-0187）。`None` なら物質は入力のまま
     pub history: Option<HistoryInput>,
     pub sensitivity: Option<SensitivityInput>,
 }
@@ -841,7 +841,7 @@ impl GeneralizedEntry {
 /// 数密度の微分の摂動の割合の既定（ADR-0221）
 const DEFAULT_PERTURBATION: f64 = 0.1;
 
-/// 燃焼の履歴の燃焼点からの分岐（ADR-0187、ADR-0200）
+/// 燃焼の履歴の燃焼点からのブランチ計算（ADR-0187、ADR-0200）
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 struct HistoryEntry {
@@ -1530,7 +1530,7 @@ impl LatticeInput {
                 "materials with `medium` or `mix` need `self-shielding = false` (ADR-0128)".into(),
             ));
         }
-        // ホウ酸水で書いた物質の量（分岐でホウ素濃度と密度を変える）
+        // ホウ酸水で書いた物質の量（ブランチ計算でホウ素濃度と密度を変える）
         let waters: BTreeMap<String, Water> = entries
             .iter()
             .filter_map(|(name, entry)| {
@@ -1730,7 +1730,7 @@ impl LatticeInput {
         let depletion = file
             .depletion
             .map(|d| {
-                // 燃焼点からの分岐は履歴を読む別の入力（`[history]`。ADR-0187）で解く。媒質は決めていない（ADR-0173）。燃焼点ごとのピン出力は
+                // 燃焼点からのブランチ計算は履歴を読む別の入力（`[history]`。ADR-0187）で解く。媒質は決めていない（ADR-0173）。燃焼点ごとのピン出力は
                 // 燃焼の履歴に入る（ADR-0181）
                 if macroscopic || branches.is_some() {
                     return Err("depletion needs a library and no branches (ADR-0173)".to_string());
@@ -1842,7 +1842,7 @@ impl LatticeInput {
         let history = file
             .history
             .map(|h| {
-                // core は 3 つの分岐の軸と燃焼度で引く。燃焼の輸送と同じく自己遮蔽で解き、格子全体の 1 つのテーブルを書く
+                // core は 3 つのブランチの軸と燃焼度で引く。燃焼の輸送と同じく自己遮蔽で解き、格子全体の 1 つのテーブルを書く
                 if branches.is_none() {
                     return Err("[history] needs [branches] (ADR-0187)".to_string());
                 }
@@ -2444,7 +2444,7 @@ impl LatticeInput {
 }
 
 impl LatticeInput {
-    /// ブランチ計算の状態ごとの物質の組（軸の直積の順）。分岐がなければ、書いたままの物質の1つの組
+    /// ブランチ計算の状態ごとの物質の組（軸の直積の順）。ブランチ計算がなければ、書いたままの物質の1つの組
     pub fn branch_states(&self) -> Cow<'_, [Vec<MaterialInput>]> {
         match &self.branches {
             Some(branches) => Cow::Borrowed(branches.states()),

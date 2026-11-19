@@ -10,14 +10,14 @@
    （`core-2A-residual-switch-omega*.toml`）の k と、参照（`switch-density-branch.toml`）の k∞ の差を、参照の点ごとに出す。
    `switch.json` の、補正の量が w に比例すると置いた見込み（`omegas`）と並べる
 2. R の w への依存: 2A を 565 K のまま減速材の密度を 0.702 g/cc（w = 0.5）と 0.661 g/cc（w = 1）にして燃焼させた履歴ブランチの、
-   自分の条件の 1 状態のテーブル（第 1 項）と、公称の履歴を同じ条件で解いた 1 状態のテーブル（第 2 項と係数）から、燃焼度の点 u
-   ごとに compare_residual.py と同じ式で R(w) = f(分岐の組成、条件) − f(公称の組成、条件) − Σᵢ cᵢ(条件) ΔN̄ᵢ を作る
+   自分の条件の 1 状態のテーブル（第 1 項）と、ベース計算の履歴を同じ条件で解いた 1 状態のテーブル（第 2 項と係数）から、燃焼度の点 u
+   ごとに compare_residual.py と同じ式で R(w) = f(履歴ブランチの組成、条件) − f(ベース計算の組成、条件) − Σᵢ cᵢ(条件) ΔN̄ᵢ を作る
    （`lattice histories` を通さない。テーブルの減速材の軸は同じ温度の 2 点を置けないため）。core は R をノードの定数に w R(1) と
    足すので、R(0.5) と R(1)/2 を、同じ定数（基準条件の定数（`table-residual-nominal.msgpack` の 565 K、0.743 g/cc の格子点）に
    w = 0.5 の数密度の線形の補正 Σᵢ cᵢ⁰ ΔN̄ᵢ(0.5) を足した f⁰ + Σᵢ cᵢ⁰ ΔN̄ᵢ(0.5)。core のノードの定数とは別のもの）に足した効き Δρ で比べる:
-   差 = ρ(f⁰ + Σᵢ cᵢ⁰ ΔN̄ᵢ(0.5) + R(0.5)) − ρ(f⁰ + Σᵢ cᵢ⁰ ΔN̄ᵢ(0.5) + R(1)/2)。R(w) はそれぞれの分岐の自分の条件で作るので、この差には
-   w への非線形と R の瞬時の状態への依存が混ざる。反応率の微視的断面積の差 Δσ(w) = σ(分岐の組成、
-   条件) − σ(公称の組成、条件) も、主な反応の Δσ(0.5) / Δσ(1) の比で比べる（比例なら 0.5）
+   差 = ρ(f⁰ + Σᵢ cᵢ⁰ ΔN̄ᵢ(0.5) + R(0.5)) − ρ(f⁰ + Σᵢ cᵢ⁰ ΔN̄ᵢ(0.5) + R(1)/2)。R(w) はそれぞれの履歴ブランチの自分の条件で作るので、この差には
+   w への非線形と R の瞬時の状態への依存が混ざる。反応率の微視的断面積の差 Δσ(w) = σ(履歴ブランチの組成、
+   条件) − σ(ベース計算の組成、条件) も、主な反応の Δσ(0.5) / Δσ(1) の比で比べる（比例なら 0.5）
 3. 検算: 600 K、0.661 g/cc の経路（温度の履歴を含む）の R(1) を、ベース計算のテーブルの条件 j の状態と第 1 項
    （`table-residual-density-branch.msgpack`）から同じ式で作り直し、`lattice histories` が書いた R（`histories`）との差を出す。
    その条件 j での効きを、密度だけの経路の R(1) の自分の条件での効きと並べる（差は温度の履歴の分と、効きを測る条件（600 K と 565 K）の違いを含み、分けない）
@@ -120,8 +120,8 @@ def reaction(sigma, which):
 
 
 def residuals(nominal_condition, branch_condition, label):
-    """条件の公称の組成と分岐の組成の 1 状態のテーブルから、燃焼度の点ごとの（R、条件の線形の補正の後の定数、ΔN̄ᵢ、分岐の微視的
-    断面積、公称の微視的断面積）。R の式は compare_residual.py と同じ（係数は公称の組成の条件の状態の値。微分を持つ核種は微分）"""
+    """条件のベース計算の組成と履歴ブランチの組成の 1 状態のテーブルから、燃焼度の点ごとの（R、条件の線形の補正の後の定数、ΔN̄ᵢ、履歴ブランチの微視的
+    断面積、ベース計算の微視的断面積）。R の式は compare_residual.py と同じ（係数はベース計算の組成の条件の状態の値。微分を持つ核種は微分）"""
     c0, burnups, states0 = condition_table(nominal_condition, f"{label} nominal")
     c1, burnups1, states1 = condition_table(branch_condition, f"{label} branch")
     if c0 != c1:
@@ -223,7 +223,7 @@ def compare_residuals(nominal, histories, branch, half_tables, one_tables):
     one_condition, one = residuals(*one_tables, "w = 1")
     if [x["burnup"] for x in half] != [x["burnup"] for x in one]:
         raise SystemExit("the w = 0.5 and w = 1 tables solve other burnups")
-    # 密度だけの経路: 公称と同じホウ素、減速材の温度、燃料
+    # 密度だけの経路: 基準条件と同じホウ素、減速材の温度、燃料
     for c, label in ((half_condition, "w = 0.5"), (one_condition, "w = 1")):
         if (c[0], c[1][0], c[2]) != (
             nominal_condition[0],
@@ -244,7 +244,7 @@ def compare_residuals(nominal, histories, branch, half_tables, one_tables):
         c0 = coefficients(nominal["micro"]["states"][p0])
         n0 = nominal["micro"]["densities"][b]
         for x, label in ((h, "w = 0.5"), (o, "w = 1")):
-            # 公称の組成を条件で解いたテーブルは、ベース計算のテーブルと同じ履歴の組成（ΔN̄ᵢ の基準が同じ）
+            # ベース計算の組成を条件で解いたテーブルは、ベース計算のテーブルと同じ履歴の組成（ΔN̄ᵢ の基準が同じ）
             if x["nominal_densities"] != n0:
                 raise SystemExit(
                     f"{label}: the nominal composition differs from the nominal table at {u}"

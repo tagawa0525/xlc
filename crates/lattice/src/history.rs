@@ -1,14 +1,14 @@
-//! 燃焼の履歴の燃焼点からの分岐（ADR-0187）。
+//! 燃焼の履歴の燃焼点からのブランチ計算（ADR-0187）。
 //!
 //! 入力の `[history]` が挙げた燃焼点ごとに、燃焼の履歴（ADR-0173）の燃焼の領域の数密度を固定し、`[branches]` の状態
 //! （ADR-0097）で輸送する。ブランチ計算の状態では燃焼させない。燃焼の領域は燃焼の輸送と同じ `<物質>@<セル>` の物質として解き、
 //! 輸送する核種は履歴の `transportable`（数密度が 0 の核種も含め、負の値は 0 にする）。状態は燃焼度がいちばん遅く変わり、
-//! 各燃焼度の点の中は分岐の軸の直積の順。解くのは、基準条件（`[branches]` の公称）をすべての燃焼点で、ほかの部分格子の状態を
+//! 各燃焼度の点の中はブランチの軸の直積の順。解くのは、基準条件（`[branches]` の基準値）をすべての燃焼点で、ほかの部分格子の状態を
 //! `off-nominal-burnup` の燃焼点で（ADR-0200）。
 //!
 //! 制御棒のブランチ（`[branches.rod]`。ADR-0224）があれば、値ごとに、その値の形状（基準の形状のセルを置き換えたもの）から燃焼の領域を
 //! 求め、履歴の燃焼の領域（物質、組の代表のセル、体積）と同じことを確かめ、その形状の MOC の領域で同じ燃焼度の点の組成を解く。
-//! 制御棒の値のすべての状態（公称を含む）は、その値の `rod-burnup`（書かなければ `off-nominal-burnup`）の燃焼点で解く（ADR-0225）。
+//! 制御棒の値のすべての状態（基準条件を含む）は、その値の `rod-burnup`（書かなければ `off-nominal-burnup`）の燃焼点で解く（ADR-0225）。
 //!
 //! テーブルの状態ごとの κΣf（[`HistoryBranches::kappa_fission`]。ADR-0190）は、燃焼の領域の核種の核分裂率に `chain`（履歴を作った
 //! チェーン）の核分裂の Q 値で重みを付けたもの。
@@ -36,8 +36,8 @@
 //! 数密度の微分（ADR-0221）は、状態ごとに、燃焼の領域の微分の核種の数密度だけを (1 + ε) 倍した摂動の組成を解いた格子全体の少数群定数
 //! と、その核種の反応率の微視的断面積（ADR-0215 の自分の数密度の項）から前進差分で作る（[`HistoryBranches::add_derivatives`]）。摂動の組成は、既定では
 //! 状態の自己遮蔽のまま燃焼の領域の物質だけを摂動の組成で作り直し（ADR-0249）、`derivative-shielding = "solved"` では自己遮蔽を
-//! 公称の組成と同じ扱いで解き直す（参照から作る状態は、参照の組成も同じく変えた摂動の参照から作る）。`shielding-file` か
-//! `shielding-burnup` を与えた分岐の摂動は、自己遮蔽がその組成のまま（直接の摂動の `"solved"` はそれらと組めず、一般化摂動は
+//! 基準の組成と同じ扱いで解き直す（参照から作る状態は、参照の組成も同じく変えた摂動の参照から作る）。`shielding-file` か
+//! `shielding-burnup` を与えたブランチ計算の摂動は、自己遮蔽がその組成のまま（直接の摂動の `"solved"` はそれらと組めず、一般化摂動は
 //! その組成の参照を解き直す）。
 //!
 //! 動特性のデータ（[`HistoryBranches::kinetics`]）は状態ごとに、冷却計算の 1 群の微視的断面積（[`HistoryBranches::cooling`]）は燃焼度の点ごとの
@@ -165,7 +165,7 @@ struct ValueShape {
 /// 履歴の燃焼点からのブランチ計算の状態。状態ごとの物質は `state` で作る。
 #[derive(Debug, Clone, PartialEq)]
 pub struct HistoryBranches {
-    /// 連続の軸（燃焼度、続いて分岐の軸）。テーブルは制御棒の値があれば制御棒の軸を最後に足す（ADR-0224）
+    /// 連続の軸（燃焼度、続いてブランチの軸）。テーブルは制御棒の値があれば制御棒の軸を最後に足す（ADR-0224）
     pub axes: Vec<Axis>,
     /// 初めの重金属の質量 (g/cm、格子全体の高さ 1 cm あたり)。テーブルの `heavy_metal`（ADR-0190）
     pub heavy_metal: f64,
@@ -183,7 +183,7 @@ pub struct HistoryBranches {
     branch: Vec<(Vec<MaterialInput>, Vec<f64>)>,
     /// ブランチ計算の状態ごとの参照の番号（`Branches::reference`。ADR-0201）
     reference_of: Vec<Option<usize>>,
-    /// 参照の状態（ホウ素が公称。`Branches::references` の順）の、燃焼させない物質と、燃焼の領域ごとの温度 (K)
+    /// 参照の状態（ホウ素が基準値。`Branches::references` の順）の、燃焼させない物質と、燃焼の領域ごとの温度 (K)
     references: Vec<(Vec<MaterialInput>, Vec<f64>)>,
     /// ブランチ計算の状態ごとに、解くか（`Branches::solved`）
     solved: Vec<bool>,
@@ -339,7 +339,7 @@ pub fn history_branches(
         Ok((z >= f64::from(HEAVY_METAL_Z)).then_some(data.awr))
     })?;
     // 輸送する核種は、燃焼のライブラリが燃焼の温度で持つチェーンの核種（ADR-0173 の案 N1）。入力のライブラリと燃焼させた物質の温度
-    // （公称）で求め直した集合が履歴と同じこと。違えば、燃焼と違うライブラリか温度で、公称の分岐が履歴の点の輸送でなくなる
+    // （基準条件）で求め直した集合が履歴と同じこと。違えば、燃焼と違うライブラリか温度で、基準条件のブランチ計算が履歴の点の輸送でなくなる
     let mut nominal: Vec<f64> = Vec::new();
     for name in &depleted {
         let t = input
@@ -715,7 +715,7 @@ impl HistoryBranches {
         &self.values[rod].region_materials
     }
 
-    /// 制御棒の値 `rod` の状態 `index`（軸の直積の順）を解くか: 分岐の部分格子の状態で、棒のない値は基準条件かブランチ条件を
+    /// 制御棒の値 `rod` の状態 `index`（軸の直積の順）を解くか: ブランチ計算の部分格子の状態で、棒のない値は基準条件かブランチ条件を
     /// 解く燃焼点のもの（ADR-0200）、制御棒の値はその値の燃焼点のもの（ADR-0225）
     pub fn solved(&self, rod: usize, index: usize) -> bool {
         let (point, b) = (index / self.branch.len(), index % self.branch.len());
@@ -731,7 +731,7 @@ impl HistoryBranches {
     /// 燃焼の領域を、履歴 `shielding` の同じ燃焼度の点の組成で自己遮蔽する（#0191 の線形の補正の誤差を候補に分ける検査）。
     /// 状態はすべて参照から作り、参照の物質の燃焼の領域は `shielding` の数密度にする。燃焼の領域の実効断面積、UFG の範囲の移行、
     /// SPH 因子は参照のもので、燃焼の領域の物質（`remixed`）だけを状態の組成で作り直す（`BranchShielder` に `remixed` をホウ素の
-    /// 軸の物質と合わせて渡す）。`shielding` の核種、燃焼の領域、輸送する核種が分岐の履歴と違うか、選んだ燃焼度の点がなければエラー
+    /// 軸の物質と合わせて渡す）。`shielding` の核種、燃焼の領域、輸送する核種がブランチ計算の履歴と違うか、選んだ燃焼度の点がなければエラー
     pub fn shield_with(&mut self, shielding: &History) -> anyhow::Result<()> {
         if shielding.nuclides != self.nuclides {
             bail!("the shielding history has other nuclides than the history");
@@ -1127,7 +1127,7 @@ impl HistoryBranches {
                     );
                 }
                 for (k, (&i, shielded)) in self.transported.iter().zip(effective).enumerate() {
-                    // 輸送する核種の数密度は負を 0 にする（分岐の物質と同じ。格子計算の燃焼の出力も同じ）
+                    // 輸送する核種の数密度は負を 0 にする（ブランチ計算の物質と同じ。格子計算の燃焼の出力も同じ）
                     let density = n[i].max(0.0);
                     if density == 0.0 || shielded.fission.iter().all(|&f| f == 0.0) {
                         continue;
@@ -1155,7 +1155,7 @@ impl HistoryBranches {
     /// 数密度の微分を持つ核種の名前（入力の `derivative` の順。ADR-0221）
     /// 燃焼度の点 `point` の、棒のない値の基準条件（ADR-0200 の x₀。入力の物質がどの軸でも格子点にあれば履歴の輸送と同じ問題。
     /// 冷却計算の断面積を作る状態）の番号。基準条件の
-    /// ない分岐か、点がなければ `None`
+    /// ないブランチ計算か、点がなければ `None`
     pub fn nominal_state(&self, point: usize) -> Option<usize> {
         (point < self.densities.len())
             .then_some(self.nominal)
@@ -1521,7 +1521,7 @@ impl HistoryBranches {
         self.materials_with(&self.perturbed(&self.densities[point], j), &self.branch[b])
     }
 
-    /// 燃焼度の点 `point` の参照 `reference` の、摂動の核種 `j` の摂動の組成（自己遮蔽を公称の組成と同じに扱う。ADR-0221）。自己遮蔽の
+    /// 燃焼度の点 `point` の参照 `reference` の、摂動の核種 `j` の摂動の組成（自己遮蔽を基準の組成と同じに扱う。ADR-0221）。自己遮蔽の
     /// 組成（`shield_with` か `shield_at`）があれば、自己遮蔽はその組成に固定するので `reference_state` と同じ
     pub fn perturbed_reference_state(
         &self,
@@ -1640,7 +1640,7 @@ impl HistoryBranches {
     /// `derivative` だけに挙げた核種も、解いた暗黙の分を捨てずに I1 にする。ほかの核種は自己遮蔽を固定した陽の微分（案 I0）。
     /// 直接の摂動の核種（`derivative`）は、解いた摂動の組成の反応率の微視的断面積の前進差分を反応率の微分にし（少数群定数の微分は
     /// 一般化随伴のもの）、ほかの核種は反応率の微分を持たない。N̄ᵢ が 0 の点は直接の摂動と同じく
-    /// ∂Σ/∂N̄ᵢ を σᵢ、反応率の微分を 0 にする（#0206）。追う核種を燃焼させない物質に持つ分岐は、作るときに止めてある
+    /// ∂Σ/∂N̄ᵢ を σᵢ、反応率の微分を 0 にする（#0206）。追う核種を燃焼させない物質に持つブランチ計算は、作るときに止めてある
     #[allow(clippy::too_many_arguments)]
     pub fn add_generalized_derivatives(
         &self,

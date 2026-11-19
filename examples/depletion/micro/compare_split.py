@@ -5,7 +5,7 @@
 
 記録の表は、この JSON から examples/verification_tables.py が描く。
 
-読むのは 5 つのブランチのテーブル（`xlc-table`。燃焼度の軸と 1 点の分岐の軸、点ごとに状態 1 つ、どれも `micro` を持つ）:
+読むのは 5 つのブランチのテーブル（`xlc-table`。燃焼度の軸と 1 点のブランチの軸、点ごとに状態 1 つ、どれも `micro` を持つ）:
 
 - nominal（`table-nominal.msgpack`、nominal.toml）: 2A の履歴の点
 - shifted（`table-split-shifted.msgpack`）: 点 k の組成を、点 k - 1 の組成のうち追う核種だけを点 k の値にしたもの（make_shifted.py）

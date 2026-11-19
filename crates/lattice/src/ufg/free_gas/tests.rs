@@ -660,7 +660,7 @@ fn the_nuclides_whose_kernels_stay_reuse_their_values_across_temperature_branche
             alone.evaluations
         );
     }
-    // 両方の分岐の核種の値を持ったので、減速材と燃料の両方を変えた状態も評価しない
+    // 両方のブランチの核種の値を持ったので、減速材と燃料の両方を変えた状態も評価しない
     let (both, _, work) = swept_at(
         &grid,
         1.2,

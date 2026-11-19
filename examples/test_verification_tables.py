@@ -1811,7 +1811,7 @@ class DrawCoreHistory(unittest.TestCase):
                 "core の k",
                 "第 1 項の k∞",
                 "core − 第 1 項 (pcm)",
-                "公称: core − テーブル (pcm)",
+                "基準条件で燃焼: core − テーブル (pcm)",
                 "組み立ての差 (pcm)",
                 "数密度の最大の差 (%)",
                 "第 1 項で燃焼: core − 第 1 項 (pcm)",
@@ -1961,7 +1961,7 @@ class DrawHistorySwitch(unittest.TestCase):
                 "補正を切った数密度の効き (pcm)",
                 "補正を切った数密度の最大の差 (%)",
                 "一生を条件 j: core − 第 1 項 (pcm)",
-                "公称: core − テーブル (pcm)",
+                "基準条件で燃焼: core − テーブル (pcm)",
                 "参照 − 格子計算の履歴 (pcm)",
             ],
         )

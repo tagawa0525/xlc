@@ -173,7 +173,7 @@ fn materials_come_back_from_the_medium() {
 
 #[test]
 fn media_must_match_the_library_and_the_branches() {
-    // 媒質の群境界はライブラリと同じ、軸（名前、点、密度、B-10 の割合）は平板の分岐の軸と同じ（ADR-0128）
+    // 媒質の群境界はライブラリと同じ、軸（名前、点、密度、B-10 の割合）は平板のブランチの軸と同じ（ADR-0128）
     let (solution, materials) = pin_cell();
     let refs: Vec<&Material> = materials.iter().collect();
     let state = homogenize_medium(&solution, &refs, &Boundaries::REFLECTIVE).unwrap();
@@ -189,7 +189,7 @@ fn media_must_match_the_library_and_the_branches() {
         states: vec![state.clone(), state.clone()],
     };
     assert!(check_medium(&medium, &bounds, &axes).is_ok());
-    // 平板の軸の公称の値（ADR-0200）は比べない（媒質は持たない）
+    // 平板の軸の基準値（ADR-0200）は比べない（媒質は持たない）
     let nominal: Vec<Axis> = axes
         .iter()
         .map(|a| {

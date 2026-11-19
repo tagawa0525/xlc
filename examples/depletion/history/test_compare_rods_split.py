@@ -36,7 +36,7 @@ def scaled(r, w):
 
 
 def tables(untracked_weight=0.5, linearization_weight=None):
-    """ベース計算のテーブル、参照、core と、参照の組成の分岐とハイブリッドのテーブル。切り替えの点（燃焼度 10）の参照の U と L はテーブルの
+    """ベース計算のテーブル、参照、core と、参照の組成のブランチ計算とハイブリッドのテーブル。切り替えの点（燃焼度 10）の参照の U と L はテーブルの
     値 out の U(1) と L(1)、燃焼度 20 の U_switch はその U(1) の `untracked_weight` 倍、L_switch は L(1) の `linearization_weight` 倍
     （None なら core の P / P_j 倍）"""
     t, reference, core = histories()
@@ -175,7 +175,7 @@ class Compare(unittest.TestCase):
             compare(t, reference, branch, hybrid, core)
 
     def test_a_switch_point_other_than_the_rods_out_residual_is_an_error(self):
-        # 切り替えの点の分岐が、テーブルの値 out の残りと同じ組成と状態を解いていなければ（別の履歴、制御棒を入れた状態）止まる
+        # 切り替えの点のブランチ計算が、テーブルの値 out の残りと同じ組成と状態を解いていなければ（別の履歴、制御棒を入れた状態）止まる
         t, reference, branch, hybrid, core = tables()
         branch["states"][0] = added(branch["states"][0], residual(0.01))
         with self.assertRaises(SystemExit):
@@ -236,7 +236,7 @@ class Compare(unittest.TestCase):
             c.compare(*tables(), direction_nuclides=("Pu-239",))
 
     def test_a_branch_density_where_the_table_has_none_is_an_error(self):
-        # 表の N̄ᵢ^j が 0 の核種（燃焼度 0 の Pu-240 など）に分岐が数密度を持てば、同じ組成ではない
+        # 表の N̄ᵢ^j が 0 の核種（燃焼度 0 の Pu-240 など）にブランチ計算が数密度を持てば、同じ組成ではない
         t, reference, branch, hybrid, core = tables()
         out = t["histories"][1]["rods"][1]
         out["densities"] = [list(d) for d in out["densities"]]
@@ -262,7 +262,7 @@ class Compare(unittest.TestCase):
             compare(t, reference, branch, hybrid, core)
 
     def test_a_branch_without_a_rods_residual_point_is_an_error(self):
-        # 切り替えの後の制御棒の履歴の R の点を分岐が解いていなければ、その点を黙って落とさない
+        # 切り替えの後の制御棒の履歴の R の点をブランチ計算が解いていなければ、その点を黙って落とさない
         t, reference, branch, hybrid, core = tables()
         for table in (branch, hybrid):
             table["axes"][0]["points"] = table["axes"][0]["points"][:1]

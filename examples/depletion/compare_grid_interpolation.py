@@ -1,4 +1,4 @@
-"""直積の分岐のテーブルの格子点の間の内挿の誤差を測る（ADR-0239 の確認）。連続の軸（ホウ素、減速材、燃料の温度）の内側の格子点
+"""直積のブランチのテーブルの格子点の間の内挿の誤差を測る（ADR-0239 の確認）。連続の軸（ホウ素、減速材、燃料の温度）の内側の格子点
 ごとに、その軸の両隣の格子点の状態の少数群定数を隣の 2 点の線形（ADR-0097 の式）で内挿し、格子点の状態と比べる。測った誤差から、本番の間隔
 （隣り合う格子点の区間）の中点の誤差を見込む。
 
@@ -213,8 +213,8 @@ def check_scheme(spec: dict, axes: dict) -> None:
 
 
 def summarize(table: dict, schemes: list[dict] = ()) -> dict:
-    # table_grid は公称の値を引数に取る（測る量には使わない）。lattice は、入力の物質の状態がどの軸でも格子点にあるときだけ軸に公称の
-    # 値を書く（crates/lattice/src/branches.rs）ので、公称の値の無いテーブルはここで止まる。制御棒の軸（`points` が無い）は
+    # table_grid は基準値を引数に取る（測る量には使わない）。lattice は、入力の物質の状態がどの軸でも格子点にあるときだけ軸に基準の
+    # 値を書く（crates/lattice/src/branches.rs）ので、基準値の無いテーブルはここで止まる。制御棒の軸（`points` が無い）は
     # table_grid が止める
     state_axes = [a for a in table["axes"] if a["name"] != "burnup" and "points" in a]
     if any("nominal" not in a for a in state_axes):

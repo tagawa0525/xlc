@@ -1,7 +1,7 @@
 # 履歴の残り R の w への依存（ADR-0215、#0190）の、R の第 2 項と第 3 項の係数: 2A の今の既定の燃焼の履歴（../p2/lattice-2A.msgpack、
 # md5 7efea664）の 17 の燃焼点（residual-nominal.toml と同じ）を、条件（ホウ素 1300 ppm、減速材 565 K と 0.702 g/cc、燃料 565 K）の 1 状態で
-# 解く。追う 31 核種と Pu-240 の数密度の微分は residual-nominal.toml と同じ。テーブルの減速材の軸は同じ温度の 2 点を置けないので、公称の
-# 状態とは別のテーブルにし、R は compare_weight.py が作る（`lattice histories` を通さない）。
+# 解く。追う 31 核種と Pu-240 の数密度の微分は residual-nominal.toml と同じ。テーブルの減速材の軸は同じ温度の 2 点を置けないので、基準条件
+# とは別のテーブルにし、R は compare_weight.py が作る（`lattice histories` を通さない）。
 library = "../p2/depletion.msgpack"
 few-group = { output = "table-weight-nominal-0702.msgpack", bounds = [1e7, 0.625, 1e-5] }
 ufg-tolerance = 1e-4

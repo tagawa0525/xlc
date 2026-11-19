@@ -384,13 +384,13 @@ const NOMINAL_DENSITIES: [[f64; 2]; 3] = [[7.0e-4, 0.0], [6.0e-4, 1.0e-5], [5.0e
 /// 履歴ブランチの均質化した数密度（燃焼度 0、20）
 const BRANCH_DENSITIES: [[f64; 2]; 2] = [[7.0e-4, 0.0], [5.2e-4, 2.6e-5]];
 
-/// ハイブリッド（公称の組成の追う核種だけを履歴ブランチの値にしたもの）の自分の条件の定数（燃焼度 0、20。燃焼度 0 は公称と同じ組成）
+/// ハイブリッド（ベース計算の組成の追う核種だけを履歴ブランチの値にしたもの）の自分の条件の定数（燃焼度 0、20。燃焼度 0 はベース計算と同じ組成）
 fn hybrid_constants(table: &Table) -> [FewGroup; 2] {
     let [first, _] = branch_constants(table);
     [first, history_few(7.25)]
 }
 
-/// 履歴ブランチの自分の条件の定数（燃焼度 0、20。燃焼度 0 は公称と同じ組成なので、ベース計算のテーブルの条件の状態と同じ定数）
+/// 履歴ブランチの自分の条件の定数（燃焼度 0、20。燃焼度 0 はベース計算と同じ組成なので、ベース計算のテーブルの条件の状態と同じ定数）
 fn branch_constants(table: &Table) -> [FewGroup; 2] {
     // 制御棒の軸を持てば、その値 out（最初の値）
     let mut at = vec![0, 0, 1, 0];
@@ -399,14 +399,14 @@ fn branch_constants(table: &Table) -> [FewGroup; 2] {
     [table.states[p].clone(), history_few(9.5)]
 }
 
-/// 履歴ブランチの自分の条件の、反応率の微視的断面積（燃焼度 0、20 の点 `k`。微分は持たない）。収率の境界より下の割合も公称と違う
+/// 履歴ブランチの自分の条件の、反応率の微視的断面積（燃焼度 0、20 の点 `k`。微分は持たない）。収率の境界より下の割合もベース計算と違う
 fn branch_sigma(k: usize) -> [MicroNuclide; 2] {
     let mut out = [sigma(12.0 + k as f64, false), sigma(24.0 + k as f64, false)];
     out[0].thermal_fission = Some(0.85);
     out
 }
 
-/// ハイブリッドの自分の条件の、反応率の微視的断面積（燃焼度 0、20 の点 `k`）。燃焼度 0 は公称と同じ組成なので、ベース計算のテーブルの
+/// ハイブリッドの自分の条件の、反応率の微視的断面積（燃焼度 0、20 の点 `k`）。燃焼度 0 はベース計算と同じ組成なので、ベース計算のテーブルの
 /// 条件の状態の値
 fn hybrid_sigma(table: &Table, k: usize) -> [MicroNuclide; 2] {
     if k == 0 {
@@ -468,9 +468,9 @@ fn difference(a: &FewGroup, b: &FewGroup) -> Residual {
     }
 }
 
-/// ベース計算のテーブル: 燃焼度 0、10、20、ホウ素 1300 ppm、減速材 565 K と 0.743 g/cm³（公称）と 600 K と 0.661 g/cm³（履歴ブランチの
+/// ベース計算のテーブル: 燃焼度 0、10、20、ホウ素 1300 ppm、減速材 565 K と 0.743 g/cm³（基準条件）と 600 K と 0.661 g/cm³（履歴ブランチの
 /// 条件）、燃料 565 K。ブランチ条件は 0 と 20 で解く。U-235 と Pu-240（数密度の微分を持つ）を追う。`rods` が空でなければ制御棒の軸を
-/// 持つ。減速材の密度の履歴の残り（制御棒の値 out、燃焼度 0 と 20）は、lattice と同じく、追わない核種の分 U = 分岐 − ハイブリッドの
+/// 持つ。減速材の密度の履歴の残り（制御棒の値 out、燃焼度 0 と 20）は、lattice と同じく、追わない核種の分 U = 履歴ブランチ − ハイブリッドの
 /// 定数、線形化の誤差 L = ハイブリッドの定数 − (条件の状態 + 線形の補正)
 fn history_table(rods: &[&str]) -> Table {
     let mut axes = vec![
@@ -536,7 +536,7 @@ fn history_table(rods: &[&str]) -> Table {
             difference(fb, &corrected)
         })
         .collect();
-    // 反応率の微視的断面積の差: 追わない核種の分は履歴ブランチ − ハイブリッド、線形化の誤差はハイブリッド − 公称の条件の状態
+    // 反応率の微視的断面積の差: 追わない核種の分は履歴ブランチ − ハイブリッド、線形化の誤差はハイブリッド − 基準条件の状態
     // （lattice と同じ）
     let untracked_rates = (0..2)
         .map(|k| {
@@ -634,7 +634,7 @@ fn history_branch_points_return_the_branch_constants() {
 
 #[test]
 fn nominal_histories_leave_the_constants_bit_identical() {
-    // w = 0（公称の履歴）では、R を持たないテーブルと同じ定数（ビットで同じ）
+    // w = 0（ベース計算の履歴）では、R を持たないテーブルと同じ定数（ビットで同じ）
     let with = history_table(&[]);
     let mut without = with.clone();
     without.histories.clear();
@@ -768,7 +768,7 @@ fn linearization_indices_between_residual_points_take_the_interpolated_branch_di
 
 #[test]
 fn linearizations_without_a_branch_index_are_errors() {
-    // 履歴ブランチの数密度は公称と違うのに、指標（熱群の νΣf の線形の補正）が 0 なら、比を作れないので止める（黙って w にしない）。
+    // 履歴ブランチの数密度はベース計算と違うのに、指標（熱群の νΣf の線形の補正）が 0 なら、比を作れないので止める（黙って w にしない）。
     // 違うのは熱群の νσf が 0 の核種だけ
     let mut table = history_table(&[]);
     let state = at(600.0, 20.0);
@@ -781,11 +781,11 @@ fn linearizations_without_a_branch_index_are_errors() {
     let n = [5.5e-4, 1.6e-5];
     let err = node_constants(&table, &state, None, &n, &[0.702, 0.0]).unwrap_err();
     assert!(err.contains("index"), "{err}");
-    // 公称の履歴（w = 0）は補正を使わない
+    // ベース計算の履歴（w = 0）は補正を使わない
     assert!(node_constants(&table, &state, None, &n, &[0.743, 0.0]).is_ok());
 }
 
-/// 燃焼度 20 の点の履歴ブランチの数密度を公称のものにし、その点の L と Δσ_L を 2 つの格子計算の解の差の大きさ（1e-9 倍）にする
+/// 燃焼度 20 の点の履歴ブランチの数密度をベース計算のものにし、その点の L と Δσ_L を 2 つの格子計算の解の差の大きさ（1e-9 倍）にする
 fn nominal_branch_densities_at_20(table: &mut Table) {
     let rod = &mut table.histories[0].rods[0];
     rod.densities[1] = NOMINAL_DENSITIES[2].to_vec();
@@ -816,7 +816,7 @@ fn nominal_branch_densities_at_20(table: &mut Table) {
 
 #[test]
 fn linearizations_of_branch_compositions_at_the_nominal_densities_are_zero() {
-    // 履歴ブランチの追う核種の数密度が公称と同じ点では、ハイブリッドは公称の組成そのもので、L は定義から 0（テーブルの値は 2 つの格子
+    // 履歴ブランチの追う核種の数密度がベース計算と同じ点では、ハイブリッドはベース計算の組成そのもので、L は定義から 0（テーブルの値は 2 つの格子
     // 計算の解の差）。L を足さず、U だけを w で足す
     let mut table = history_table(&[]);
     nominal_branch_densities_at_20(&mut table);
@@ -839,13 +839,13 @@ fn linearizations_of_branch_compositions_at_the_nominal_densities_are_zero() {
 
 #[test]
 fn history_residuals_that_the_table_lacks_are_errors() {
-    // 制御棒を入れた値の R を持たないテーブルで、制御棒の値 aic のノードが公称でない履歴を持つ
+    // 制御棒を入れた値の R を持たないテーブルで、制御棒の値 aic のノードが基準条件と違う履歴を持つ
     let table = history_table(&[ROD_OUT, "aic"]);
     let n = [5.5e-4, 1.6e-5];
     let state = at(600.0, 20.0);
     let err = node_constants(&table, &state, Some("aic"), &n, &[0.70, 0.0]).unwrap_err();
     assert!(err.contains("aic"), "{err}");
-    // 公称の履歴なら R は要らない
+    // ベース計算の履歴なら R は要らない
     assert!(node_constants(&table, &state, Some("aic"), &n, &[0.743, 0.0]).is_ok());
     assert!(node_constants(&table, &state, None, &n, &[0.70, 0.0]).is_ok());
     // ノードの履歴の変数の数が core の変数と違う
@@ -900,7 +900,7 @@ fn index_ratio(table: &Table, state: &State, n: &[f64], k: usize) -> f64 {
 #[test]
 fn history_branch_points_deplete_with_the_branch_rate_cross_sections() {
     // w = 1、条件 j、ノードの数密度が履歴ブランチの均質化した数密度（P = P_j）では、反応率の微視的断面積は履歴ブランチの自分の
-    // 条件の値（ADR-0215 の案 S2）。燃焼度 0 は線形化の誤差を足さず、ハイブリッドが公称の組成なので同じ
+    // 条件の値（ADR-0215 の案 S2）。燃焼度 0 は線形化の誤差を足さず、ハイブリッドがベース計算の組成なので同じ
     let table = history_table(&[]);
     for (k, &b) in [0.0, 20.0].iter().enumerate() {
         let m = node_micro(
@@ -917,7 +917,7 @@ fn history_branch_points_deplete_with_the_branch_rate_cross_sections() {
                 "{b}: {got:?} {want:?}"
             );
         }
-        // 基準の数密度は公称の履歴のまま
+        // 基準の数密度はベース計算の履歴のまま
         assert_eq!(m.densities, NOMINAL_DENSITIES[2 * k].to_vec());
     }
 }
@@ -1086,7 +1086,7 @@ fn density_derivatives_without_rate_derivatives_add_no_own_density_term() {
 
 #[test]
 fn rate_linearizations_of_nominal_branch_densities_are_not_added() {
-    // 履歴ブランチの追う核種の数密度が公称と同じ燃焼度では、ハイブリッドは公称の組成そのもので Δσ_L は定義から 0。比を作れないので
+    // 履歴ブランチの追う核種の数密度がベース計算と同じ燃焼度では、ハイブリッドはベース計算の組成そのもので Δσ_L は定義から 0。比を作れないので
     // 足さない（L と同じ扱い）。追わない核種の分は w で足す
     let mut table = history_table(&[]);
     nominal_branch_densities_at_20(&mut table);
@@ -1106,7 +1106,7 @@ fn rate_linearizations_of_nominal_branch_densities_are_not_added() {
 
 #[test]
 fn rate_linearizations_without_a_branch_index_are_errors() {
-    // 履歴ブランチの数密度は公称と違うのに P_j が 0 なら、Δσ_L の比を作れないので止める（黙って w にしない）
+    // 履歴ブランチの数密度はベース計算と違うのに P_j が 0 なら、Δσ_L の比を作れないので止める（黙って w にしない）
     let mut table = history_table(&[]);
     let state = at(600.0, 20.0);
     for nuclides in &mut table.micro.as_mut().unwrap().states {
@@ -1176,7 +1176,7 @@ fn rate_residuals_that_give_negative_cross_sections_or_fractions_are_errors() {
 const ROD_DENSITIES: [[f64; 2]; 3] = [[7.0e-4, 0.0], [5.7e-4, 1.5e-5], [5.1e-4, 2.9e-5]];
 
 /// `history_table(&[out, aic])` に、制御棒の挿入の割合の履歴の補正（H⁰ = 0、Hᵇ = 1、値 out の 0、10、20 の点、履歴ブランチの数密度
-/// `densities`）を足したもの。U、L、Δσ は形だけ合わせた値（燃焼度 0 の L と Δσ_L は、組成が公称と同じなので 0）
+/// `densities`）を足したもの。U、L、Δσ は形だけ合わせた値（燃焼度 0 の L と Δσ_L は、組成がベース計算と同じなので 0）
 fn two_history_table(densities: [[f64; 2]; 3]) -> Table {
     let mut table = history_table(&[ROD_OUT, "aic"]);
     let zero = |r: Residual| Residual {
@@ -1287,7 +1287,7 @@ fn linearizations_of_two_variables_share_the_production_index_by_their_expected_
         &added(&both.diffusion, &base.diffusion),
         &parts(&|r| &r.diffusion)
     ));
-    // 1 つの変数だけが公称でなければ、その変数の P / P_j（変数が 1 つのときと同じ）
+    // 1 つの変数だけが基準値でなければ、その変数の P / P_j（変数が 1 つのときと同じ）
     let one = node_constants(&table, &state, None, &n, &[0.702, 0.0]).unwrap();
     let alone = (0..2)
         .map(|g| wm * density.untracked[1].total[g] + p / pm * density.linearization[1].total[g])

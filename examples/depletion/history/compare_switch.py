@@ -6,14 +6,14 @@
 記録の表は、この JSON から examples/verification_tables.py が描く。
 
 読むのは、R を持つベース計算のテーブル（`lattice histories residual.toml` の出力。w の H⁰ と Hᵇ、続ける点の条件 j の状態の k∞）、
-格子計算の途中で条件を変えた燃焼の履歴（`switch-density-history.toml`。2A の公称の履歴の 20 MWd/kg の点から条件 j で続けた）、
+格子計算の途中で条件を変えた燃焼の履歴（`switch-density-history.toml`。2A のベース計算の履歴の 20 MWd/kg の点から条件 j で続けた）、
 その燃焼点を条件 j で解いた参照（`switch-density-branch.toml`。燃焼度ごとに 1 状態）、core の 2 つの燃焼の履歴（どちらも 20 MWd/kg
 まで基準条件、その後を条件 j）と、一生を条件 j で燃焼させた core の比較の要約（`core-history.json`）:
 
 - 履歴の補正の core（`core-2A-residual-switch.toml`。H_m を燃焼度で重みを付けた平均で進め、U と Δσ_U を w、L と Δσ_L を P / P_j で足す）
 - 補正を切った core（`core-2A-plain-switch.toml`。R と Δσ を持たないテーブルで同じ燃焼）
 
-と、参照の追う核種だけを公称の履歴に入れた組成（ハイブリッド）を参照と同じ点と条件 j で解いた分岐（`hybrid-switch-branch.toml`）。
+と、参照の追う核種だけをベース計算の履歴に入れた組成（ハイブリッド）を参照と同じ点と条件 j で解いたブランチ計算（`hybrid-switch-branch.toml`）。
 
 参照の燃焼度の点ごとに、core の k の参照の k∞ からの差と、それを追う核種の数密度の違いで説明する分（数密度の効き）: 参照の定数に、
 core の数密度と参照の均質化した数密度 N̄ᵢ の差の線形の補正 Σᵢ cᵢ (Nᵢ − N̄ᵢ)（係数は core と同じ、R を持つベース計算のテーブルの
@@ -21,16 +21,16 @@ core の数密度と参照の均質化した数密度 N̄ᵢ の差の線形の�
 2 群の k と、参照の定数の 2 群の k の差。核種ごと（その核種だけの差）の効きと、`GROUPS` の核種ごとと残りの核種をまとめた効き。
 核種の数密度の相対差の絶対値が最大の核種（N̄ᵢ が 0 の核種は除く）と、主な核種の相対差。
 
-補正を足す点（w が 0 でない）では、core の反応率の微視的断面積 σ(公称、条件 j) + w Δσ_U + (P / P_j) Δσ_L（Δσ_U と Δσ_L はテーブルの R の点の
+補正を足す点（w が 0 でない）では、core の反応率の微視的断面積 σ(ベース計算、条件 j) + w Δσ_U + (P / P_j) Δσ_L（Δσ_U と Δσ_L はテーブルの R の点の
 値、P / P_j は core の点の数密度で作った熱群の νΣf の線形の補正の比。反応率の微分 ∂σᵢ/∂N̄ᵢ を持つ核種は、さらに自分の数密度の項
 (Nᵢ − N̄ᵢ⁰ − (P / P_j) ΔN̄ᵢ^j) ∂σᵢ/∂N̄ᵢ。Nᵢ は core の点の数密度）の、参照の σ からの外れを、ハイブリッドで分けた参照の
-Δσ_U,switch = σ(参照) − σ(ハイブリッド) と Δσ_L,switch = σ(ハイブリッド) − σ(公称、条件 j) からの差 w Δσ_U − Δσ_U,switch と
+Δσ_U,switch = σ(参照) − σ(ハイブリッド) と Δσ_L,switch = σ(ハイブリッド) − σ(ベース計算、条件 j) からの差 w Δσ_U − Δσ_U,switch と
 (P / P_j) Δσ_L + 自分の数密度の項 − Δσ_L,switch に分け、自分の数密度の項も並べる（`GROUPS` の核種の、核分裂と捕獲（MT 102）の和、群ごと、参照の σ に対する %）。参照が求める
 Δσ_L の重み Δσ_L,switch / Δσ_L（群ごと）と、その核種の数密度の比 (N̄ᵢ − N̄ᵢ⁰) / (N̄ᵢ^j − N̄ᵢ⁰)（N̄ᵢ は参照）も並べる。core は P / P_j を
 解ごとの組成（予測子は点、修正子は中点）で作るので、点の組成の比は目安。
-続ける点の参照の k∞ は公称の組成を条件 j で解いたもので、ベース計算のテーブルの条件 j の状態の k∞ との差（`check_pcm`）は、同じ組成と
-状態の 2 つの分岐の解の差なので、MOC の収束の程度で 0 のはず。参照の分岐の k∞ と格子計算の履歴の点の k∞ の差も並べる。目安として、一生を条件 j で燃焼させた
-core と第 1 項のテーブルの差、公称の燃焼の core とベース計算のテーブルの差（`core-history.json`）を同じ点に並べる。
+続ける点の参照の k∞ はベース計算の組成を条件 j で解いたもので、ベース計算のテーブルの条件 j の状態の k∞ との差（`check_pcm`）は、同じ組成と
+状態の 2 つのブランチ計算の解の差なので、MOC の収束の程度で 0 のはず。参照のブランチ計算の k∞ と格子計算の履歴の点の k∞ の差も並べる。目安として、一生を条件 j で燃焼させた
+core と第 1 項のテーブルの差、基準条件で燃焼させた core とベース計算のテーブルの差（`core-history.json`）を同じ点に並べる。
 ρ = 1 − 1/k で、差は pcm。
 """
 
@@ -252,7 +252,7 @@ def check_core_history(core_history, md5s):
 
 
 def compare(table, reference, history, core, plain, core_history, hybrid):
-    """比べた要約（モジュールの説明）。`hybrid` は参照の追う核種だけを公称の履歴に入れた組成を、参照と同じ点と条件で解いた分岐"""
+    """比べた要約（モジュールの説明）。`hybrid` は参照の追う核種だけをベース計算の履歴に入れた組成を、参照と同じ点と条件で解いたブランチ計算"""
     t = Table(table)
     nuclides = table["micro"]["nuclides"]
     if reference["micro"]["nuclides"] != nuclides:
@@ -284,7 +284,7 @@ def compare(table, reference, history, core, plain, core_history, hybrid):
         lattice = at(history["points"], u, "lattice history")
         name, largest, major = densities(n, n_ref, nuclides)
         plain_name, plain_largest, plain_major = densities(q, n_ref, nuclides)
-        # 公称の履歴の w は −0 になりうる（H − H⁰ = 0 を負の数で割る）
+        # ベース計算の履歴の w は −0 になりうる（H − H⁰ = 0 を負の数で割る）
         weight = t.weight(n["history"]) + 0.0
         index, outliers = (
             (None, None)
@@ -411,7 +411,7 @@ def report(summary):
     return (
         f"続ける点 {u0:.4g} MWd/kg の参照の k∞ とベース計算のテーブルの条件 j の状態の k∞ の差は {summary['check_pcm']:+.4f} pcm"
         f"（core − 参照は {rows[0]['difference_pcm']:+.3f} pcm、補正を切った core も {rows[0]['plain_difference_pcm']:+.3f} pcm）。"
-        f"参照の分岐と格子計算の履歴の点の k∞ の差は {span('reference_history_pcm', rows)} pcm。"
+        f"参照のブランチ計算と格子計算の履歴の点の k∞ の差は {span('reference_history_pcm', rows)} pcm。"
         f"\n{u0:.4g} MWd/kg より後の参照の点 {len(later)} で、履歴の補正の core − 参照は {span('difference_pcm')} pcm"
         f"（最後の点 {last['burnup']:.4g} MWd/kg で {last['difference_pcm']:+.3f} pcm、w = {last['weight']:.6f}）。"
         f"そのうち数密度の効きは {span('composition_pcm')} pcm（最後の点で {last['composition_pcm']:+.3f} pcm）、"
@@ -423,7 +423,7 @@ def report(summary):
             f"{x['nuclide']} {x['pcm']:+.2f}" for x in last["composition_nuclides"]
         )
         + " pcm。"
-        f"同じ点の目安: 一生を条件 j で燃焼させた core − 第 1 項 {span('branch_difference_pcm')} pcm、公称の燃焼の core − 公称の"
+        f"同じ点の目安: 一生を条件 j で燃焼させた core − 第 1 項 {span('branch_difference_pcm')} pcm、基準条件で燃焼させた core − ベース計算の"
         f"テーブル {span('nominal_difference_pcm')} pcm。"
         f"\n数密度の効きの核種ごとと残り: "
         + "；".join(

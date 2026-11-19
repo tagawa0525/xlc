@@ -49,7 +49,7 @@ GRID = [560.0, 600.0, 750.0, 900.0, 1050.0, 1200.0, 1350.0]
 
 
 def load_product(table: dict) -> tuple:
-    """直積のテーブルの軸の点、状態のベクトル、形の見本の状態、状態の軸の公称の値（ピンセルごとに読み直さない）"""
+    """直積のテーブルの軸の点、状態のベクトル、形の見本の状態、状態の軸の基準値（ピンセルごとに読み直さない）"""
     points, vectors, like = load(table)
     return points, vectors, like, {a["name"]: a["nominal"] for a in table["axes"][1:]}
 
@@ -298,7 +298,7 @@ def report(summary: dict) -> list[str]:
             product = next(x for x in p["product"]["fits"] if x["basis"] == f["basis"])
             for label in [*JUMP_ITEMS, "k"]:
                 lines.append(
-                    f"    {label}: ピンセル {cells(f['grid'][label])} / 直積の公称 {cells(product['grid'][label])}"
+                    f"    {label}: ピンセル {cells(f['grid'][label])} / 直積の基準条件 {cells(product['grid'][label])}"
                 )
         lines.append(
             f"  格子点から引いた足した点（{'、'.join(f'{t:g}' for t in p['added'])} K）の Δρ（pcm）:"

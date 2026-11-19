@@ -52,3 +52,5 @@ resolution:
   runner が commit の中にいた時間（commit の直前の行から `committed` の行まで）は 66 回の和で 3,657.0 秒、`done` の
   elapsed × threads の和は 16 × 4,916.6 秒の 97.9% で、枠が空いていた偏りの分は経過時間で約 104 秒以下。軽い核種の xs は数秒で
   終わるので、後半は 16 の枠の大半が commit を待つ。直す候補: commit を投入と回収から切り離す（確かめていない）
+- 2026-11-19: #0291 のブランチ（chore/0291-terms-in-example-inputs）で、全体の `scripts/count-changed-stages.py`（中は `dvc status --json`）が
+  手元で 15 分の timeout（`timeout 900`）に収まらず、数を取れなかった。ステージ 1 本ずつの `dvc status <yaml>:<ステージ>` は返った（時間は測っていない）

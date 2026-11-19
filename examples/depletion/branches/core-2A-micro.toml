@@ -1,6 +1,6 @@
 # core のミクロ燃焼（ADR-0216）の確認: 微視的断面積を持つ燃焼度の軸のテーブル（table-2A-micro.msgpack。branch-2A-micro.toml）の
 # 集合体 1 体（反射境界）を、2A の燃焼の履歴（../p2/lattice-2A.msgpack）と同じ出力密度 38.41 W/g で、core-2A-steps.toml と同じ 40 の
-# ステップでミクロ燃焼させる。状態は公称（1300 ppm、565 K）。
+# ステップでミクロ燃焼させる。状態は基準条件（1300 ppm、565 K）。
 cycle = "core-2A-micro-cycle.toml"
 axial-mesh = [0.0, 21.5]
 radial-nodes = 1

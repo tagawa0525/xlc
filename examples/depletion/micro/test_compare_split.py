@@ -49,7 +49,7 @@ def with_nuclide(state, density, sigma_b, sigma_a, chi=None):
 
 
 def table(point1, sigma1, densities=DENSITIES):
-    """燃焼度 2 点、状態は点ごとに 1 つ。点 0 は公称の定数"""
+    """燃焼度 2 点、状態は点ごとに 1 つ。点 0 はベース計算の定数"""
     base = constants(TOTAL, SCATTER, NU_FISSION)
     return {
         "format": "xlc-table",

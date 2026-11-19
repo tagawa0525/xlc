@@ -796,7 +796,7 @@ def aws_depletion_densities(sources: list[dict]) -> str:
 
 def core_depletion_k(sources: list[dict]) -> str:
     """core の燃焼（集合体 1 体）: 燃焼点ごとの格子計算の履歴と core の k∞ と反応度の差（core − 履歴。ADR-0190）と、テーブルの点の
-    ブランチ計算との反応度の差（core − 分岐）"""
+    ブランチ計算との反応度の差（core − ブランチ計算）"""
     (s,) = sources
     if s.get("format") != "xlc-compare-core-depletion":
         raise TableError("not an xlc-compare-core-depletion summary")
@@ -820,7 +820,7 @@ def core_depletion_k(sources: list[dict]) -> str:
             "履歴の k∞",
             "core の k∞",
             "core − 履歴 (pcm)",
-            "core − 分岐 (pcm)",
+            "core − ブランチ計算 (pcm)",
         ],
         rows,
     )
@@ -1983,7 +1983,7 @@ def branch_cross_terms(sources: list[dict]) -> str:
 
 
 def branch_thinning(sources: list[dict]) -> str:
-    """分岐を燃焼度の一部の点だけで解いたとき（ADR-0200）: 選び方ごとの、間引いた点の |Δρ| の最大（pcm）。Hermite は最大の燃焼度を添える"""
+    """ブランチ計算を燃焼度の一部の点だけで解いたとき（ADR-0200）: 選び方ごとの、間引いた点の |Δρ| の最大（pcm）。Hermite は最大の燃焼度を添える"""
     s = branch_cross_terms_summary(sources)
     rows = []
     for t in s["thinning"]:
@@ -2031,7 +2031,7 @@ BRANCH_AXIS_LETTERS = {"boron": "B", "moderator": "M", "fuel": "F"}
 
 
 def branch_thinning_kinds(sources: list[dict]) -> str:
-    """テーブル 1 つの、分岐を燃焼度の一部の点だけで解いたとき（ADR-0200）の、状態の種類（公称と違う軸）ごとの、間引いた点の
+    """テーブル 1 つの、ブランチ計算を燃焼度の一部の点だけで解いたとき（ADR-0200）の、状態の種類（基準条件と違う軸）ごとの、間引いた点の
     |Δρ| の最大（pcm）。列は選び方ごとの線形と Hermite"""
     s = branch_cross_terms_summary(sources)
     if len(s["thinning"]) != 1:
@@ -2820,7 +2820,7 @@ def core_history_branch(sources: list[dict]) -> str:
             "core の k",
             "第 1 項の k∞",
             "core − 第 1 項 (pcm)",
-            "公称: core − テーブル (pcm)",
+            "基準条件で燃焼: core − テーブル (pcm)",
             "組み立ての差 (pcm)",
             "数密度の最大の差 (%)",
             "第 1 項で燃焼: core − 第 1 項 (pcm)",
@@ -2947,7 +2947,7 @@ def history_rods_split(sources: list[dict]) -> str:
 
 def history_switch(sources: list[dict]) -> str:
     """途中で条件を変えた燃焼（ADR-0215）: 参照の燃焼度の点ごとの、w、参照の k∞、履歴の補正の core と補正を切った core の k の参照からの
-    差と、そのうちの数密度の効き（pcm）、数密度の相対差の絶対値が最大の核種と相対差（%）、目安の 2 つの差（pcm）、参照の分岐と格子
+    差と、そのうちの数密度の効き（pcm）、数密度の相対差の絶対値が最大の核種と相対差（%）、目安の 2 つの差（pcm）、参照のブランチ計算と格子
     計算の履歴の点の k∞ の差（pcm）"""
     (s,) = sources
     if s.get("format") != "xlc-compare-history-switch":
@@ -2964,7 +2964,7 @@ def history_switch(sources: list[dict]) -> str:
             "補正を切った数密度の効き (pcm)",
             "補正を切った数密度の最大の差 (%)",
             "一生を条件 j: core − 第 1 項 (pcm)",
-            "公称: core − テーブル (pcm)",
+            "基準条件で燃焼: core − テーブル (pcm)",
             "参照 − 格子計算の履歴 (pcm)",
         ],
         [
@@ -3375,7 +3375,7 @@ INDEX_HISTORIES = {
 
 
 def index_rows(s: dict) -> list[tuple[str, dict]]:
-    """履歴の行を燃焼度の順（同じ燃焼度は INDEX_HISTORIES の順）に。指標が 0 の点（公称の組成）は比が無いので除く"""
+    """履歴の行を燃焼度の順（同じ燃焼度は INDEX_HISTORIES の順）に。指標が 0 の点（ベース計算の組成）は比が無いので除く"""
     rows = [
         (INDEX_HISTORIES[name], r)
         for name in INDEX_HISTORIES
@@ -3819,7 +3819,7 @@ def branch_shielding_groups(s: dict) -> dict:
 
 
 def branch_shielding_k(sources: list[dict]) -> str:
-    """ブランチ計算の自己遮蔽を公称の減速材で解いたテーブルの、状態ごとに解き直したテーブルとの k∞ の差（pcm。ADR-0201）。行はホウ素、
+    """ブランチ計算の自己遮蔽を基準の減速材で解いたテーブルの、状態ごとに解き直したテーブルとの k∞ の差（pcm。ADR-0201）。行はホウ素、
     列は減速材の温度と密度"""
     s = branch_shielding_summary(sources)
     groups = branch_shielding_groups(s)
@@ -3864,7 +3864,7 @@ def branch_shielding_k(sources: list[dict]) -> str:
 
 
 def branch_shielding_constants(sources: list[dict]) -> str:
-    """ブランチ計算の自己遮蔽を公称の減速材で解いたテーブルの、燃焼度の点ごとの状態の Δk∞ の絶対値の最大（pcm）と、少数群定数の項目ごとの
+    """ブランチ計算の自己遮蔽を基準の減速材で解いたテーブルの、燃焼度の点ごとの状態の Δk∞ の絶対値の最大（pcm）と、少数群定数の項目ごとの
     相対差の最大（ADR-0201）"""
     s = branch_shielding_summary(sources)
     rows = []

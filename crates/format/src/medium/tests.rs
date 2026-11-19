@@ -43,7 +43,7 @@ fn round_trips_bit_exactly() {
         Medium::from_msgpack(&medium.to_msgpack().unwrap()).unwrap(),
         medium
     );
-    // 分岐のない媒質は状態が1つ
+    // ブランチのない媒質は状態が1つ
     let single = Medium {
         axes: vec![],
         states: vec![state(1.0)],

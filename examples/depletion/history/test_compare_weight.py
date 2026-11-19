@@ -24,7 +24,7 @@ R_ONE = [residual(few(1.2), few(1.0)), residual(few(4.9), few(4.5))]
 
 
 def condition_tables(density, densities, residuals, sigma_shift):
-    """565 K、`density` g/cc の 1 状態の、公称の組成のテーブルと、R が `residuals` になる分岐の組成のテーブル（燃焼度 0 と 20）"""
+    """565 K、`density` g/cc の 1 状態の、ベース計算の組成のテーブルと、R が `residuals` になる履歴ブランチの組成のテーブル（燃焼度 0 と 20）"""
     nominal_sigma = [
         [sigma(3, False), sigma(4, True)],
         [sigma(5, False), sigma(6, True)],
