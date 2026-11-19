@@ -747,7 +747,7 @@ pub fn deplete(
         .as_ref()
         .map(|m| m.initial(point_state(0), &layouts, tables))
         .transpose()?;
-    // ノードの履歴の変数の値（ADR-0215）。燃焼度 0 のノードの値は、燃焼度 0 のまま解いた点の解の瞬時の値で置き換わる（`advance_history`）。熱水力の
+    // ノードの履歴の変数の値（ADR-0215）。燃焼度 0 のノードの値は、燃焼点 0 の解の瞬時の値で置き換わる（`advance_history`）。熱水力の
     // ケースの、解く前のここの値は入口の温度の密度
     let mut histories = match micro.as_ref() {
         None => None,
