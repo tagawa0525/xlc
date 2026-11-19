@@ -310,49 +310,52 @@ def write(path: Path, text: str) -> None:
     path.write_text(text)
 
 
-def main() -> None:
+def generated() -> dict[Path, str]:
+    """inputs.py が書く入力（パスと中身）"""
+    out: dict[Path, str] = {}
     for fuel in FUELS:
         # U は 80 点と 40 点の差が目安の 5 pcm を超えたので、さらに倍の 160 点で 2 次の収束を確かめる。Gd の本番の履歴
         # （../p9-gd/lattice-2O.toml の 72 点）は燃え尽きの間を 80 点と同じ 0.5 MWd/kg で刻むので、その誤差を 160 点で見る
         for points in (40, 80, 160) if fuel in ("u", "gd") else (40, 80):
-            write(
-                HERE / "steps" / f"{fuel}-{points}.toml", depletion_input(fuel, points)
+            out[HERE / "steps" / f"{fuel}-{points}.toml"] = depletion_input(
+                fuel, points
             )
     for variant in ("a", "b"):
-        write(HERE / "sab" / f"xs-{variant}.toml", library_input(variant))
-        link_nuclides(variant)
+        out[HERE / "sab" / f"xs-{variant}.toml"] = library_input(variant)
         for fuel in ("u", "mox"):
             head = (
                 f"# #0293 の項目 8: {fuel} の 40 点の履歴の組成から、減速材を {SAB_TEMPERATURE} K にしたブランチ計算（ライブラリ {variant}）。"
                 "inputs.py が書く。手で直さない\n"
             )
-            write(
-                HERE / "sab" / f"{fuel}-{variant}.toml",
-                branch_input(
-                    fuel,
-                    head,
-                    f"out/depletion-{variant}.msgpack",
-                    SAB_TEMPERATURE,
-                    f'few-group = {{ output = "out/{fuel}-{variant}.msgpack", bounds = [1e7, 0.625, 1e-5] }}',
-                    [],
-                ),
+            out[HERE / "sab" / f"{fuel}-{variant}.toml"] = branch_input(
+                fuel,
+                head,
+                f"out/depletion-{variant}.msgpack",
+                SAB_TEMPERATURE,
+                f'few-group = {{ output = "out/{fuel}-{variant}.msgpack", bounds = [1e7, 0.625, 1e-5] }}',
+                [],
             )
     for fuel in ("u", "mox"):
         head = (
             f"# #0293 の項目 6、7: {fuel} の 40 点の履歴の組成の、燃焼と同じ状態のブランチ計算（WIMS の 69 群のまま）。"
             "inputs.py が書く。手で直さない\n"
         )
-        write(
-            HERE / "urr" / f"{fuel}.toml",
-            branch_input(
-                fuel,
-                head,
-                library(fuel, "../../"),
-                MODERATOR_TEMPERATURE,
-                f'few-group = {{ output = "out/{fuel}.msgpack", bounds = {numbers(WIMS69)} }}',
-                URR_MICRO,
-            ),
+        out[HERE / "urr" / f"{fuel}.toml"] = branch_input(
+            fuel,
+            head,
+            library(fuel, "../../"),
+            MODERATOR_TEMPERATURE,
+            f'few-group = {{ output = "out/{fuel}.msgpack", bounds = {numbers(WIMS69)} }}',
+            URR_MICRO,
         )
+    return out
+
+
+def main() -> None:
+    for path, text in generated().items():
+        write(path, text)
+    for variant in ("a", "b"):
+        link_nuclides(variant)
 
 
 if __name__ == "__main__":
