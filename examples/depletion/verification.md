@@ -10323,7 +10323,7 @@ nix develop .#references -c python3 examples/depletion/issue-0293/compare_normal
 T=examples/depletion/issue-0293/fission_energy.py
 nix develop .#references -c python3 $T heating examples/depletion/openmc-library/cross_sections.xml H1 U235 U238 Pu239 Pu241
 nix develop .#references -c python3 $T kappa references/endf/ENDF-B-VII.0_neutrons examples/depletion/issue-0293/normalization/casl-kappa.toml \
-  U235 U238 Pu239 Pu241 U234 Pu240   # ENDF-B-VIII.0_neutrons も同じ形
+  U235 U238 Pu239 Pu241 U234 Pu240   # VIII.0 と、`nix build .#endf` の木の ENDF-B-VII.1_neutrons、ENDF-B-VIII.1_neutrons も同じ形
 ```
 
 `heating-local` が数えるもの（OpenMC 0.15.2 の `openmc/data/neutron.py` の 786〜846 行と、`fission_energy.py heating` の値）: NJOY の HEATR の、γ を
@@ -10364,12 +10364,13 @@ heating-local / 捕獲の断面積 = 2.2246 MeV）、B-10 の (n,α)、即発中
 
 核データの版に依るもの（本番の版は #0303 で決め直す）:
 
-- チェーンの QI（`fission-q` と、今の xlc の規格化）: ENDF/B-VII.0 から VIII.0 で U-235 −0.04%、U-238 −0.12%、Pu-239 −0.13%、Pu-241 は同じ。
-  VIII.0 では U-235 と U-238 の QI が MT458 の ER と食い違う（上）
+- チェーンの QI（`fission-q` と、今の xlc の規格化）: VIII.0 に対して、VII.0 は U-235 +0.04%、U-238 +0.12%、Pu-239 +0.13%、VII.1 は
+  Pu-239 +0.16%（U-235 と U-238 は同じ）、VIII.1 は U-235 +0.35%（194.077 MeV。VIII.0 の MT458 の ER と同じ値。U-238、Pu-239 は同じ）。
+  Pu-241 はどの版も同じ。VIII.0 では U-235 と U-238 の QI が MT458 の ER と食い違う（上）。版を替えると、`fission-q` の規格化のままでも
+  U-235 の核分裂の割合に比例して燃焼度の軸が動く
 - MT458 の成分（`heating-local` の核分裂の分と ER）と、捕獲の断面積（δ の大半を決める反応率）は評価ごとに変わる。#0303 が挙げる VIII.0 の
   燃焼の偏りの原因の候補（U-238 の共鳴の捕獲、Pu-239）は、δ にも効く
 - 仕様書の Kappa は VII.0 の値の定数で、ライブラリの版を替えても変わらない
-- VIII.1 の値は手元に評価が無く、確かめていない
 - 関係する文献: ENDF/B-VIII.1 の論文（Nobre ら、arXiv 2511.03564）の XIV.D.4「Fuel cycle calculations using CORD-2 and WIMSD-5B」は、核分裂
   あたりのエネルギーの仮定が燃焼に伴う反応度の傾きに最も強く効くと書く。同じ論文の XIV.D.1（Serpent）は、核分裂のほかの反応のエネルギーの
   沈着を KERMA で数える。版による燃焼の反応度の傾きを文献と比べる（#0303）ときは、規格化の定義をそろえる
@@ -10394,7 +10395,8 @@ Slurm 962（`fission-q`）と 968（`energy-deposition`）、2026-11-19〜20。�
 使わない。OpenMC 0.15.2、ライブラリは `openmc-library/`（ENDF/B-VIII.0）、チェーンは `openmc-chain.xml`（md5 2a2bc167）。出力は `.dvc` で追う
 生成物（`normalization/out` は md5 4a289298。`fission-q.msgpack` は be4e2a42、`energy-deposition.msgpack` は bda8ee6f、`compare.json` は c3080b5f）。
 比較は同じコミットで手元、2026-11-20。`heating-local` の中身、ER と QI、Kappa と VII.0 と VIII.0 の QI と ET の値は `fission_energy.py` で、
-836635ee7 で手元、2026-11-20
+836635ee7 で手元、2026-11-20。VII.1 と VIII.1 の QI は同じツールで 955fc9bf6 で手元、2026-11-20（main の `references/endf` は VII.1 と VIII.1 を
+並べる前の木を指すので、`nix build .#endf` の木から読んだ）
 
 ## 輸送しない核種の吸収（U、Gd、MOX）
 
