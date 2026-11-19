@@ -38,6 +38,13 @@ class DifferingNuclides(unittest.TestCase):
         varied = history([[1.5, 2.5, 3.0, 4.0], [1.0, 2.0, 3.0, 4.0]])
         self.assertEqual(inputs.differing_nuclides(nominal, varied, [2.0]), [])
 
+    def test_histories_with_other_burnup_points_are_errors(self):
+        nominal = history([[1.0, 2.0, 3.0, 4.0], [1.0, 2.0, 3.0, 4.0]])
+        varied = history([[1.0, 2.0, 3.0, 4.0], [1.0, 2.0, 3.0, 4.0]])
+        varied["points"][1]["burnup"] = 3.0
+        with self.assertRaises(SystemExit):
+            inputs.differing_nuclides(nominal, varied, [2.0])
+
     def test_branch_points_missing_from_the_histories_are_errors(self):
         h = history([[1.0, 2.0, 3.0, 4.0], [1.0, 2.0, 3.0, 4.0]])
         with self.assertRaises(SystemExit):

@@ -47,6 +47,15 @@ class Absorption(unittest.TestCase):
             ua.absorption({"fission": 0.0, "reactions": [reaction(28, 1.0)]})
 
 
+class Destruction(unittest.TestCase):
+    def test_every_reaction_and_fission_destroys_one_atom(self):
+        nuclide = {
+            "fission": 2.0,
+            "reactions": [reaction(102, 3.0), reaction(16, 0.5), reaction(17, 0.25)],
+        }
+        self.assertAlmostEqual(ua.destruction(nuclide), 5.75)
+
+
 class NominalStates(unittest.TestCase):
     def table(self, points):
         return {
@@ -182,6 +191,23 @@ class Ranking(unittest.TestCase):
         self.assertAlmostEqual(rows[2]["rest_pcm"], 0.0)
         # 残りの和が 50 pcm 以下になるのは 1 つ目から、5 pcm 以下は 2 つ目から
         self.assertEqual(result["counts"], {"50.0": 1, "5.0": 2})
+
+    def test_no_nuclide_is_needed_when_the_whole_sum_is_under_the_threshold(self):
+        points = [self.point(10.0, 1.0, {"A": (1e-5, 1.0)})]
+        self.assertEqual(ua.ranking(points)["counts"], {"50.0": 0, "5.0": 0})
+
+    def test_the_fraction_is_the_one_at_the_burnup_of_the_largest_estimate(self):
+        points = [
+            self.point(10.0, 1.0, {"A": (2e-4, 1.0)}),
+            self.point(60.0, 0.5, {"A": (1.5e-4, 1.0)}),
+        ]
+        (row,) = ua.ranking(points)["ranking"]
+        self.assertEqual(row["burnup"], 60.0)
+        self.assertAlmostEqual(row["max_fraction"], 1.5e-4)
+
+    def test_an_empty_ranking_is_an_error(self):
+        with self.assertRaises(SystemExit):
+            ua.ranking([self.point(10.0, 1.0, {})])
 
     def test_nuclides_xs_does_not_transport_are_marked(self):
         points = [self.point(10.0, 1.0, {"Pm-147": (1e-4, 1.0), "Xe-131": (1e-5, 1.0)})]

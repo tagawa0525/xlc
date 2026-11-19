@@ -60,5 +60,25 @@ class Ratio(unittest.TestCase):
         self.assertAlmostEqual(r, 51.0 / 101.0)
 
 
+class Shares(unittest.TestCase):
+    def test_a_dropped_nuclide_counts_as_zero_and_an_unknown_one_is_an_error(self):
+        point = {"untransported_all": {"A": {"fraction": 1e-3, "captured_ratio": 0.5}}}
+        pruned = {"P"}
+        self.assertEqual(ds.share(point, "A", pruned)["fraction"], 1e-3)
+        self.assertEqual(ds.share(point, "P", pruned)["fraction"], 0.0)
+        with self.assertRaises(SystemExit):
+            ds.share(point, "Z", pruned)
+
+
+class Grids(unittest.TestCase):
+    def test_files_with_another_sigma0_grid_or_groups_are_errors(self):
+        a = {"sigma0": [1e10, 1.0], "group_bounds": [10.0, 1.0, 0.1]}
+        ds.check_grid(a, a, "X")
+        with self.assertRaises(SystemExit):
+            ds.check_grid(a, {**a, "sigma0": [1e10, 10.0]}, "X")
+        with self.assertRaises(SystemExit):
+            ds.check_grid(a, {**a, "group_bounds": [10.0, 0.1]}, "X")
+
+
 if __name__ == "__main__":
     unittest.main()
