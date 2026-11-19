@@ -53,5 +53,21 @@ class Normalization(unittest.TestCase):
             read_text(INPUT.replace('"fission-q"', '"source-rate"'))
 
 
+class FissionPower(unittest.TestCase):
+    """燃焼点ごとの、核分裂の率とチェーンの核分裂の Q の積の和（W）。"""
+
+    def test_the_rates_times_the_chain_q_add_up_in_watts(self):
+        rates = {"U235": [1.0e10, 2.0e10], "U238": [1.0e9, 1.0e9], "O16": [0.0, 0.0]}
+        q = {"U235": 2.0e8, "U238": 1.0e8}
+        power = openmc_depletion.fission_power(rates, q)
+        ev = 1.602176634e-19
+        self.assertAlmostEqual(power[0], (1.0e10 * 2.0e8 + 1.0e9 * 1.0e8) * ev)
+        self.assertAlmostEqual(power[1], (2.0e10 * 2.0e8 + 1.0e9 * 1.0e8) * ev)
+
+    def test_a_fission_rate_without_a_chain_q_is_an_error(self):
+        with self.assertRaises(SystemExit):
+            openmc_depletion.fission_power({"Th232": [1.0e5]}, {"U235": 2.0e8})
+
+
 if __name__ == "__main__":
     unittest.main()
