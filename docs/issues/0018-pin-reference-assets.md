@@ -93,3 +93,4 @@ examples/ にコミットしていて、対比のために表の最後に並べ�
   `references/openmc/endfb80-565`（565 K を含む endfb80 の上位集合）で `endfb80` を置き換えるかは決めていない。
   `references/history-rewrite/` は #0077 が閉じるまで消さない
 - 2026-10-21: `references/history-rewrite/`（1 度目の書き換えのツール）は、#0141 で nixfiles の history-rewrite に置き換えて消した
+- 2026-11-19: 仕様書に KENO-VI の値がある問題は KENO-VI と直接比べ、OpenMC の参照解は参照のない問題と診断だけに作ることになった（ADR-0175）。完了の条件の VERA 1C〜2K の項は、OpenMC と抽出のステージを作らず、xlc の lattice と KENO-VI との比較を examples/vera/dvc.yaml の `keno-pincell`、`keno-assembly` のステージにしたことで済んだ。完了の条件のほかの残りの項はそのまま
