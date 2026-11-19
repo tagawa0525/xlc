@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [depletion, verification]
 opened: 2026-10-24
-closed:
+closed: 2026-11-19
 milestone: M4
 blocked-by: []
-resolution:
+resolution: "wontfix: #0224 に寄せた。2M は今の形式で再実行した。残る記録の本文の出どころは #0224 に足した"
 ---
 
 # 2M の集合体の燃焼を今の履歴の形式で再実行する
@@ -41,3 +41,4 @@ resolution:
   `build` の md5 7e959698 と、p2 の dvc.lock の `lattice@*` の md5 48387d65）ので、`lattice@2M` はほかの `lattice@*` とともに再び deps の changed で、完了の条件の
   「今の `bin/lattice` で relock」は満たさない。668 は割り込まれうるジョブで、2M の時間は記録の「時間」に無い（記録の「時間」の節の本文）。閉じずに残す
   （ブランチ docs/m4-plan-progress）
+- 2026-11-19: issue の棚卸しで閉じた。2M は 2026-11-05 と新しい既定の後の再実行（2026-11-17）で今の形式で流した。その後の `bin/lattice` の変更による changed は、ほかの `lattice@*` と同じ。2M〜2A-rods の節の冒頭の出どころの文は #0224 に足した

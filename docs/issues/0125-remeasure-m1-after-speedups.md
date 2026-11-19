@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [verification]
 opened: 2026-10-14
-closed:
+closed: 2026-11-19
 milestone:
 blocked-by: []
-resolution:
+resolution: "wontfix: #0224 に含まれる。examples/m1 のステージは今の bin で再実行してあり、残る記録の本文は #0224 の一覧にある"
 ---
 
 # M1 の記録を高速化の後のコードで再測定する
@@ -25,3 +25,4 @@ DVC のステージのある例と、examples/vera の 1C〜2Q、examples/mox �
 ## 経緯
 
 - 2026-10-14: 再測定のレビューで、M1 が抜けていることが分かった
+- 2026-11-19: issue の棚卸しで閉じた。examples/m1 のステージは新しい既定の後の再実行で再実行した。記録の k と表の書き直しは #0224 の一覧が受け持つ（前の値との差は、記録は今の結果だけという規則で書かない）
