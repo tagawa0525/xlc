@@ -348,7 +348,7 @@ cargo run --release -p xlc-xs --example compare_njoy_gendf -- \
 
 ### 計算
 
-xlc 34a5a5ff（分岐点 7c219dd2、2026-11-20）。手元で `compare_njoy_gendf` を実行した。`xs nuclide` は同じコミットの `cargo build --release`
+xlc f7c5a437（分岐点 7c219dd2、2026-11-20）。手元で `compare_njoy_gendf` を実行した。`xs nuclide` は同じコミットの `cargo build --release`
 の bin で、ブランチ feat/0303-pin-depletion-by-endf-version の `endfb70/xs.toml`、`endfb71/xs.toml` と同じ入力を手元の試行に置いて実行した。
 
 ### 結果
