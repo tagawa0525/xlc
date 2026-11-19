@@ -34,6 +34,10 @@ resolution:
   書く値は、`seconds` を測ったすべての実行のものにする（run-cache から戻した出力は、測った実行が書いた値をそのまま持つので、
   この案では食い違わない）
 
+今の上書きの経路の例: 集合体の燃焼の時間の表（`depletion-assembly-times`）は、timed のジョブで作った 2A、2F、2N の履歴（examples/depletion/verification.md の
+「集合体の燃焼」の「計算」）から描く。p2 の `lattice@` を時間を記録しないジョブで再実行すると、下流の `compare@` が比較の JSON の `seconds` を
+書き直し、チェックを通ったまま表の時間が替わる（#0270 から寄せた）。
+
 関係する ADR: なし
 
 ## 完了の条件
@@ -44,3 +48,4 @@ resolution:
 
 - 2026-11-03: 1C の再実行（#0152）で、担当が依頼の外で 1C の格子計算と比較を timed のジョブ（Slurm 658）で再実行した。規則を
   スキル verification-record に足したとき（ブランチ docs/timed-for-time-tables）、機械の確認は作らずにここに残した
+- 2026-11-19: #0270（2A の比較が時間を記録しない履歴を deps に持つ）を閉じ、残る上書きの経路をここに寄せた
