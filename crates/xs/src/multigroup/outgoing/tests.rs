@@ -384,19 +384,23 @@ fn madland_nix_breaks_at_the_temperature_table() {
 
 #[test]
 fn madland_nix_keeps_the_relative_accuracy_of_low_groups() {
-    // E'/T_M が 1e-11 まで小さい群でも、群の割合の相対誤差が小さく、負にならない（累積は E'^(3/2) で 0 に近づく）
-    let bounds = vec![2.0e7, 1.0e6, 1.0, 1.0e-2, 1.0e-3, 1.0e-4, 1.0e-5];
+    // E'/T_M が 1e-11 まで小さい群でも、群の割合の相対誤差が小さく、負にならない（累積は E'^(3/2) で 0 に近づく）。
+    // 30〜80 eV と 80〜200 eV の群は、級数と閉じた式の切り替え（E_F(H) で 54.7 eV、E_F(L) で 103 eV）をまたぐ
+    let bounds = vec![
+        2.0e7, 1.0e6, 1.0e4, 1.0e3, 2.0e2, 80.0, 30.0, 1.0, 1.0e-2, 1.0e-3, 1.0e-4, 1.0e-5,
+    ];
+    let n = bounds.len() - 1;
     let groups = GroupStructure::new(bounds.clone()).unwrap();
     let grouped = GroupedLaw::new(&groups, &madland_nix());
-    let mut out = vec![0.0; 6];
+    let mut out = vec![0.0; n];
     grouped.accumulate(1.0e-5, 1.0, &mut out);
     let mut edges = bounds.clone();
     edges[0] = 2.0e8;
     *edges.last_mut().unwrap() = 0.0;
-    for g in 1..6 {
+    for g in 1..n {
         let expected = madland_nix_integral(edges[g + 1], edges[g], 1.029979e6, 5.467297e5, 1.0e6);
         assert!(
-            out[g] > 0.0 && (out[g] - expected).abs() <= 1e-8 * expected,
+            out[g] > 0.0 && (out[g] - expected).abs() <= 1e-9 * expected,
             "group {g}: {} vs {expected}",
             out[g]
         );
