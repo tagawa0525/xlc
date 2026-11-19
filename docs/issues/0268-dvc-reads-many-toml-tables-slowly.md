@@ -28,11 +28,13 @@ resolution:
   伸びていく dvc.lock を読み書きしていることが候補（確かめていない）。直す案の候補は、commit を最後に 1 回にする、batch を大きくする
 - Slurm 887（p2 の 545 核種の `stage_runner.py`、排他、xlc d6cc90d96、2026-11-15）の 2 時間 3 分 9 秒のうち、16 コアの計算は約 27 分だけで、
   上流の確認 547 秒、`xs-range` と核種の投入の前の処理 1,317 秒（中身は確かめていない）、`dvc commit` が 1 回約 100 秒（まとめた核種の数に
-  よらず、64 回で約 1 時間 40 分。ログは `~/github/slurm-logs/xlc-p2-library-defaults-887.out`）。CLAUDE.md の方針の問題の大きさに釣り合わない時間（#0288 から寄せた）
+  よらず、64 回で約 1 時間 40 分。ログは `~/github/slurm-logs/xlc-p2-library-defaults-887.out`）。後に続く p2 の
+  `dvc repro examples/depletion/p2/dvc.yaml:compare@<履歴>`（Slurm 888〜895）も、計算の前の同じ確認で 10〜20 分かかる見込み（測っていない）。
+  CLAUDE.md の方針の問題の大きさに釣り合わない時間（#0288 から寄せた）
 - 2A のライブラリの放射化の核種（ADR-0238）は、インラインの表にした（xs.toml の説明）。同じ形の大きな入力（ほかの例の核種を足すとき）で
   また起きるのを止める検査はない
 
-関係する ADR: なし
+関係する ADR: ADR-0184、ADR-0193
 
 ## 完了の条件
 

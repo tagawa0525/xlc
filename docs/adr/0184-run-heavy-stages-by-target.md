@@ -6,7 +6,7 @@ requires: [ADR-0159, ADR-0130]
 supersedes: []
 superseded-by:
 amends: [ADR-0159]
-issues: ["#0220", "#0288"]
+issues: ["#0220", "#0288", "#0268"]
 ---
 
 # ADR-0184: 重いステージは、目標のステージを指定して 1 本ずつ Slurm に流す
@@ -95,7 +95,7 @@ lattice@2A のジョブ 421（docs/plans/m4-depletion.md）の実行で見てい
 - CLAUDE.md の「計算」と docs/plans/m4-depletion.md の「流すだけの手順」は、この ADR に合わせた
 - 2 つ目の `-s` の例外（「## 変更」の 2026-11-03）は、CLAUDE.md の「計算」と .claude/skills/dvc-relock/SKILL.md の 3 に合わせた。
   .claude/skills/openmc-reference/SKILL.md の `-s` は外し、確かめ方のうち `dvc status` で分かる部分は scripts/check-skip-upstream.py が
-  判定する（#0220。`references-shell.txt` と `python-ast` は判定の外）
+  判定する（#0220。changed の `python-ast` と `toml-values` も止める。`references-shell.txt` は判定の外）
 
 ## 変更
 

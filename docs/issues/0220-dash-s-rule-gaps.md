@@ -48,6 +48,6 @@ ADR-0184 の `-s` の 2 つ目の例外（「## 変更」の 2026-11-03）を足
     変更（4aa33c0c9）では xs-nuclide は出ない（xs-nuclide は xs.toml の `sigma0`、`scattering-order`、`nuclide.<核種>` を params に
     持つので、その値の変更では出る）。3 の出どころの文は 5 の「走らせなかったステージ」と重なる
 - 2026-11-19: 閉じた。openmc-reference の `-s` は、上流（references-shell、python-ast、toml-values）が数秒なので外した（完了の条件の 1 つ目）。
-  確かめ方のうち `dvc status` で分かる部分は scripts/check-skip-upstream.py が判定する（2 つ目。`references-shell.txt` と python-ast は判定の外で、
-  出力がそれを示す）。2026-11-03 の 2 つ目の項の指摘（deps だけの範囲、dvc-relock の 3 の例と 5 の重なり）は、手順のとおりに実行して失敗する
+  確かめ方のうち `dvc status` で分かる部分は scripts/check-skip-upstream.py が判定する（2 つ目。changed の python-ast と toml-values も止める。`references-shell.txt` は
+  判定の外で、出力がそれを示す）。2026-11-03 の 2 つ目の項の指摘（deps だけの範囲、dvc-relock の 3 の例と 5 の重なり）は、手順のとおりに実行して失敗する
   再現の無いレビューの指摘で、そうした指摘を集める issue はやめると決めた（親の案をユーザーが採った。2026-11-07）ので、直さない（3 つ目）
