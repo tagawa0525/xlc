@@ -1,4 +1,4 @@
-# 再配布できない仕様書の PDF の sha256（ADR-0124）。各行の前のコメントが取ってくる URL。
+# 再配布できない仕様書と、記録が引く文献の PDF の sha256（ADR-0124）。各行の前のコメントが取ってくる URL。
 # リポジトリの直下で `sha256sum -c docs/specs.sha256` と照らす。
 
 # https://corephysics.com/docs/CASL-U-2012-0131-004.pdf
@@ -9,3 +9,18 @@ cb3c7b5ac0bae5be28c778269ba49cb83f4b220009700140ff5d406ac9a46699  references/ver
 6139996dff7584d45ce91bc33523cd1bba9e9726a88ec1b1d283de1effb5156b  references/mox/spec.pdf
 # https://www.oecd-nea.org/science/docs/pubs/pin_cell.pdf
 7cd76941e565e82ced93309c3f938068f9aa59cd92db230861d2e4765cd23df2  references/mox/pin_cell.pdf
+# 以下は ADR-0264 が引く文献。再配布の可否を確かめていないので、URL と sha256 だけを書く
+# https://www.osti.gov/servlets/purl/1822049
+06c02899a545af19d448311869d1eddc587cc30ff01d0cedd5f6065dbefa455b  references/papers/kim-wieselquist-2021-endfb80-vs-71-lwr.pdf
+# https://arxiv.org/pdf/2511.03564
+5146f88921aac13e9d86b83ca97934b617288b39459edba4c5417d0de308e0f1  references/papers/endfb81-2025-arxiv-2511.03564.pdf
+# https://indico.bnl.gov/event/18702/contributions/75746/attachments/47221/80101/ferrer-mini-csewg-e8r1.pdf
+bde155d4689b7b42dafd142638f42c8c899c3710cbedae2cc878497107c2813c  references/papers/ferrer-wemple-mini-csewg-e8r1-casmo5.pdf
+# https://indico.bnl.gov/event/18701/contributions/82619/attachments/51064/87293/endf-8.1-b2-validation.pdf
+7d4f2ef822bf52b2af2015b3271bd53b4696badd3832160a419c7ed74e4554a5  references/papers/endfb81-beta2-multi-application-validation.pdf
+# https://indico.bnl.gov/event/7233/contributions/43847/attachments/31698/50097/CSEWG2020_12022020_r0.pdf
+59af8af5939712a52581dbb976810f5d217821e1dcf7d123667eaa50017a916c  references/papers/kim-csewg2020-endfb80-depletion.pdf
+# https://indico.bnl.gov/event/29405/contributions/114989/attachments/67270/115561/CSEWG_jan2026_GProcop_validation.pdf
+e967629e459298971ec2429d879064e0a5be0c098140329c3cf9359938565ca8  references/papers/procop-csewg2026-snf-validation.pdf
+# https://www.osti.gov/servlets/purl/1408006
+cd4bd638dfc7045218af9ee1f7a7650de91ba3894b98434335293a64f6d72729  references/papers/mc21-ctf-vera-problems-6-7.pdf

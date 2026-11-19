@@ -144,7 +144,8 @@ VIII.0 との違い（入力 `examples/vera/endfb70/xs.toml` で吸収する）:
 
 ## 仕様書の PDF
 
-VERA、C5G7、MOX の仕様書は再配布できないので、URL と sha256 だけを docs/specs.sha256 に書く。URL から
+VERA、C5G7、MOX の仕様書は再配布できないので、URL と sha256 だけを docs/specs.sha256 に書く。記録が引く文献の PDF（`references/papers/`）も、
+引いた ADR を添えて同じファイルに書く。URL から
 `references/` の同じパスに取り、リポジトリの直下で照らす:
 
 ```sh
