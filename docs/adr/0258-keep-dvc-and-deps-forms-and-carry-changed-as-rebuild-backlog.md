@@ -620,13 +620,13 @@ ADR-0257）は、上の段の実装のブランチで、その ADR の決定と�
 
   - crates/outputs/tests/check.rs: 本番の読み手で、媒質の出力が読めれば終了コード 0、形式の名前を変えた出力では、その出力と
     書いたステージを出して 1、open の issue に結び付ければ 0 になること
-  - 実際の出力（検査は xlc 2591cc2d0、lock は main 10824a18b と同じ。出力を戻していない worktree、手元、1 コア、2026-11-20）:
+  - 実際の出力（検査は xlc 4a001f847、lock は main 10824a18b と同じ。出力を戻していない worktree、手元、1 コア、2026-11-20）:
     `scripts/check-readable-outputs.py` は、crates/ と Cargo.lock の差分で読み、23 の例の lock と 766 の `.dvc` から 2027 の出力
     （ファイルで 2001。中身の同じものは 1 回読む）を読んで、読めない出力は 0、xlc の形式でない出力は 0、終了コード 0。読む時間
-    20.6 秒、全体 21.4 秒、最大の記憶 9.4 GB（d03eff4ae では 23.7 秒と 24.8 秒。読む時間は回ごとに数秒ずれる）。読み手は
+    20.6 秒、全体 21.4 秒、最大の記憶 9.4 GB（564f5cdb2 では 23.7 秒と 24.8 秒。読む時間は回ごとに数秒ずれる）。読み手は
     run-checks.sh の cargo test の後に `cargo build -p xlc-outputs` を流しても作り直されず（`-v` で `Compiling` が 0）、ビルドの時間は足さない。ファイルの形式は `xlc-table` 1224、`xlc-multigroup` 738（核種ごとのライブラリを含む）、`xlc-medium` 36、
     `xlc-chain` 1、`xlc-depletion-history` 1、範囲の TOML 1（4 つの出力が同じ中身）。媒質の読み手と書き手に必須の項目を
-    1 つ足した作業ツリー（検査は xlc 85442c8f6）では、43 の媒質の出力（36 ファイル）を `UNREADABLE:`（`missing field`）に出して
+    1 つ足した作業ツリー（検査は xlc 2fed09346）では、43 の媒質の出力（36 ファイル）を `UNREADABLE:`（`missing field`）に出して
     終了コード 1、全体 27.8 秒（試しの変更はコミットせずに戻した）
 
 ## 補足
