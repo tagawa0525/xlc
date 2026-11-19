@@ -10301,9 +10301,99 @@ u と mox の 40 点の履歴の組成の、燃焼と同じ状態のブランチ
   3.89〜4.16% から 5.33〜5.69%。幅は micro に挙げない吸収（u で吸収の 10.7〜13.5%、mox で 3.8〜4.2%。減速材の H-1 と B-10、被覆管など）の Q を
   2.22〜8 MeV にしたもの。出力をこの分も含むエネルギーで規格化すると、同じ燃焼度までの核分裂が燃焼度の平均の割合だけ減り、同じ燃焼度の
   k∞ は u で +460〜+573 pcm（20 MWd/kg）、+826〜+999 pcm（40）、+880〜+1,051 pcm（60）、mox で +240〜+256、+455〜+485、+658〜+702 pcm 変わる
-  見込み（履歴の k∞ の傾きから。燃焼度の軸がずれる量は 40 MWd/kg で 1.7〜2.1 MWd/kg）。OpenMC 0.15.2 の `energy-deposition` は
-  `heating-local`（photon を輸送しないとき）の tally で規格化する（`openmc/deplete/coupled_operator.py`）。`heating-local` に捕獲の γ が入るかは
-  確かめていない
+  見込み（履歴の k∞ の傾きから。燃焼度の軸がずれる量は 40 MWd/kg で 1.7〜2.1 MWd/kg）。OpenMC の燃焼で確かめた結果は次の節
+
+### 出力の規格化を OpenMC の燃焼で確かめる（項目 3）
+
+上の項目 3 の見込みを、出力の規格化だけが違う OpenMC の 1C のピンセル（燃料 1 リング）の燃焼 2 本で確かめる（`normalization/`。入力の
+説明は `fission-q.toml` の先頭）。`fission-q` はチェーンの核分裂の Q（MF3 MT18 の QI。ADR-0173 の案 P1。xlc と同じ定義）で、
+`energy-deposition` は `heating-local` の tally（photon を輸送しないとき。OpenMC 0.15.2 の `openmc/deplete/coupled_operator.py`）で
+規格化する。2 本は燃焼度の点（40 MWd/kg までの 14 点）、輸送する核種、出力密度（38.41 W/g）、チェーン、ライブラリ、粒子数、シードが
+同じで、`compare_normalization.py` はこれらと各本の規格化が合わなければ止まる（方法と各量の定義は先頭の説明）。
+
+```sh
+cd examples/depletion/issue-0293/normalization
+nix develop .#references -c python3 ../../openmc_depletion.py run fission-q.toml out/fission-q   # energy-deposition も同じ形
+nix develop .#references -c python3 ../../openmc_depletion.py extract fission-q.toml out/fission-q out/fission-q.msgpack
+cd ../../../..
+nix develop .#references -c python3 examples/depletion/issue-0293/compare_normalization.py \
+  examples/depletion/issue-0293/normalization/out/fission-q.msgpack examples/depletion/issue-0293/normalization/out/energy-deposition.msgpack \
+  --kappa examples/depletion/issue-0293/normalization/casl-kappa.toml --json examples/depletion/issue-0293/normalization/out/compare.json
+T=examples/depletion/issue-0293/fission_energy.py
+nix develop .#references -c python3 $T heating examples/depletion/openmc-library/cross_sections.xml H1 U235 U238 Pu239 Pu241
+nix develop .#references -c python3 $T kappa references/endf/ENDF-B-VII.0_neutrons examples/depletion/issue-0293/normalization/casl-kappa.toml \
+  U235 U238 Pu239 Pu241 U234 Pu240   # ENDF-B-VIII.0_neutrons も同じ形
+```
+
+`heating-local` が数えるもの（OpenMC 0.15.2 の `openmc/data/neutron.py` の 786〜846 行と、`fission_energy.py heating` の値）: NJOY の HEATR の、γ を
+その場に落とした KERMA で、核分裂の反応の分だけを MF1 MT458 の EFR + EGP + EGD + EB に置き換えたもの。捕獲の γ（H-1 の 0.0253 eV で
+heating-local / 捕獲の断面積 = 2.2246 MeV）、B-10 の (n,α)、即発中性子の運動エネルギー（ENP。減速材などの散乱の KERMA に入る）を含み、
+ニュートリノを含まない。U-235 の 0.0253 eV で、核分裂の反応の分は 189.24 MeV、ENP は 4.83 MeV で、その和に当たる MT458 の ER は
+194.08 MeV（チェーンの QI 193.405 MeV より +0.35%）。U-238 の ER は QI より −0.63%、Pu-239 と Pu-241 の ER は QI と 0.003% 以内で同じ。
+下の δ は、捕獲などの Q の分と、この核分裂の定義の差の和である。
+
+- バランス: `fission-q` の本の、チェーンの Q で数えた核分裂の出力は、どの点も決めた出力と相対 1e-6 以内で一致する（ツールが確かめる）。
+  燃焼度 0 の k は 2 本で同じ（差 −0 ± 49 pcm）
+- δ（`energy-deposition` で決めた出力 / チェーンの Q の核分裂の出力 − 1）: 燃焼度 0、20、40 MWd/kg で 3.09%、4.30%、4.77%。上の xlc の
+  見積もりの同じ量（`urr/out/u-estimates.json` の `capture_over_fission`）は 2.52〜3.36%、4.46〜5.33%、5.65〜6.65% で、燃焼度 0 は幅の中、
+  20 と 40 は幅より低い
+- 燃焼度の軸のずれ: 40 MWd/kg で δ̄ 4.22%、1.69 MWd/kg。xlc の見積もりは 4.27〜5.17%、1.71〜2.07 MWd/kg で、幅の下端に近い
+- k∞ の差（`energy-deposition` − `fission-q`、/ k。± は 2 本の標準誤差の二乗和で、同じシードの正の相関があるので差の標準誤差の上限）と、
+  OpenMC の δ と `fission-q` の履歴の傾きから出す 1 次の見込み（上の項目 3 と同じ式）:
+
+  - 測った差: 0.5、1、2、3、5、7.5 MWd/kg で +24 ± 52、+99 ± 47、+44 ± 50、+145 ± 51、+118 ± 50、+327 ± 54 pcm。10、15、20、25、30、35、
+    40 MWd/kg で +334 ± 54、+509 ± 52、+482 ± 52、+562 ± 62、+638 ± 61、+735 ± 60、+757 ± 59 pcm
+  - 1 次の見込み: 10〜40 MWd/kg の同じ点で +285、+411、+498、+563、+646、+715、+737 pcm。7 点のうち 15 MWd/kg（差 98 pcm）のほかは、
+    測った差との差が上限の 1σ の中。初めの数点の見込みは Xe と Sm の立ち上がりの傾きを含む（ツールの先頭の説明）
+  - xlc の見積もり（上の項目 3）: 20 MWd/kg の +460〜+573 pcm は測った +482 ± 52 pcm を含む。40 MWd/kg の +826〜+999 pcm は、測った
+    +757 ± 59 pcm より下端で 69 pcm 大きい
+
+  向きと桁は見積もりと合う。1 次の式は OpenMC の 2 本の中で成り立つ。40 MWd/kg で xlc の見積もりが大きい分は、δ̄ が下端で合うので、
+  主に k∞ の傾きの差（見込み / 軸のずれで、OpenMC は 437、xlc の下端は 483 pcm/(MWd/kg)）。傾きの差の候補は、状態の違い（OpenMC は 1C の
+  被覆管と減速材 600 K、0.661 g/cc。xlc の見積もりは 565 K、0.743 g/cc）と、差分の幅（OpenMC は 35〜40、xlc は 38〜40 MWd/kg）で、
+  確かめていない。xlc の δ が 20 と 40 MWd/kg で高い原因も確かめていない（候補は同じ状態の違いと、micro に挙げない吸収の Q の置き方）
+- 数密度の差（`energy-deposition` / `fission-q` − 1、リングの体積の平均）: 40 MWd/kg で U-235 +7.21%、Pu-239 −0.55%、Pu-240 −2.95%、
+  Pu-241 −3.12%、Xe-135 −0.85%、Sm-149 +0.07%。0.1 MWd/kg の Pu-239、Pu-240、Pu-241 の −3.15%、−6.17%、−9.15% は δ（3.30%）の約 1、2、3 倍で、
+  初めの立ち上がりが中性子の照射量のおよそ 1、2、3 乗で増える見込みと合う
+- VERA の燃焼のベンチマークの仕様書の Kappa（`normalization/casl-kappa.toml`）: Kappa / Kappa0 − 1 を `fission-q` の履歴の核種ごとの核分裂の
+  出力で重み付けた割合は、燃焼度 0、20、40 MWd/kg で 4.77%、6.37%、7.02%（表に無い核種の出力は 0）で、`energy-deposition` の δ の約 1.5 倍。
+  Kappa0 は ENDF/B-VII.0 の QI と、U-235、U-238、Pu-239、Pu-241、U-234、Pu-240 で約 0.001% の差で同じ。Kappa は VII.0 の MT458 の ET
+  （ニュートリノを含む全量）より大きい（U-235 の 0.0253 eV で ET 202.23 MeV に対し 202.34 MeV、Pu-239 で 206.00 MeV に対し 214.28 MeV）。
+  Kappa が捕獲の分を含むかは、仕様書が定義を書かず、確かめていない
+
+核データの版に依るもの（本番の版は #0303 で決め直す）:
+
+- チェーンの QI（`fission-q` と、今の xlc の規格化）: ENDF/B-VII.0 から VIII.0 で U-235 −0.04%、U-238 −0.12%、Pu-239 −0.13%、Pu-241 は同じ。
+  VIII.0 では U-235 と U-238 の QI が MT458 の ER と食い違う（上）
+- MT458 の成分（`heating-local` の核分裂の分と ER）と、捕獲の断面積（δ の大半を決める反応率）は評価ごとに変わる。#0303 が挙げる VIII.0 の
+  燃焼の偏りの原因の候補（U-238 の共鳴の捕獲、Pu-239）は、δ にも効く
+- 仕様書の Kappa は VII.0 の値の定数で、ライブラリの版を替えても変わらない
+- VIII.1 の値は手元に評価が無く、確かめていない
+- 関係する文献: ENDF/B-VIII.1 の論文（Nobre ら、arXiv 2511.03564）の XIV.D.4「Fuel cycle calculations using CORD-2 and WIMSD-5B」は、核分裂
+  あたりのエネルギーの仮定が燃焼に伴う反応度の傾きに最も強く効くと書く。同じ論文の XIV.D.1（Serpent）は、核分裂のほかの反応のエネルギーの
+  沈着を KERMA で数える。版による燃焼の反応度の傾きを文献と比べる（#0303）ときは、規格化の定義をそろえる
+
+修正の案（決めていない。実装しない）:
+
+- 案 K: 核種ごとの定数の核分裂あたりのエネルギー（仕様書の Kappa、または WIMSD のように U-235 の値を決めて Q を比で拡げる）。ベンチマークと
+  同じ定数で比べられるが、捕獲と核分裂の比の燃焼度による変化、スペクトル、Gd のピンの捕獲を失う。仕様書の Kappa は上のとおり
+  `energy-deposition` の約 1.5 倍の割合を足し、版を替えても VII.0 の値のまま
+- 案 R: 反応率から捕獲などのエネルギーを毎回数える。エネルギーの保存として正しく、OpenMC の `energy-deposition` とそろう。燃料の外
+  （減速材の H-1 と B-10、被覆管）と輸送しない核種の吸収の Q が要り、核分裂の分を MT458 の ER にそろえる。数え方は、反応ごとの Q
+  （ER + 捕獲と (n,α) の Q）か、KERMA の群定数（OpenMC と同じ量。xs に KERMA を作る処理が要る）。炉心のテーブルには、κΣf
+  （ADR-0190）に当たる発熱の断面積が 1 つ増える（#0266 の熱水力の重みも同じ量に当たる）。値はすべて使う版の評価から来る
+- 担当の推奨: 案 R を既定にし、OpenMC の参照も `energy-deposition` にそろえる。Problem 9 は実測の臨界ホウ素濃度と EFPD で比べるので、
+  物理的に正しいエネルギーが要り、版を替えても評価とそろう。`fission-q` を入力で選べる経路として残すか（OpenMC との差から規格化の分を
+  分ける用途）と、Kappa を選択肢に足すか（VERA の結果と同じ定数で比べる用途。今は要る比較が無い）は、案 R を決める ADR で決める
+
+### 計算（出力の規格化）
+
+OpenMC の 2 本は b7e7821c8（ブランチ feat/0293-energy-normalization-check、分岐点は main の 0500a720e。流したのは rebase の前の同じ変更）で、
+Slurm 962（`fission-q`）と 968（`energy-deposition`）、2026-11-19〜20。割り込まれうるジョブで（962 は止められていた時間がある）、時間は記録に
+使わない。OpenMC 0.15.2、ライブラリは `openmc-library/`（ENDF/B-VIII.0）、チェーンは `openmc-chain.xml`（md5 2a2bc167）。出力は `.dvc` で追う
+生成物（`normalization/out` は md5 4a289298。`fission-q.msgpack` は be4e2a42、`energy-deposition.msgpack` は bda8ee6f、`compare.json` は c3080b5f）。
+比較は同じコミットで手元、2026-11-20。`heating-local` の中身、ER と QI、Kappa と VII.0 と VIII.0 の QI と ET の値は `fission_energy.py` で、
+8663f0770 で手元、2026-11-20
 
 ## 輸送しない核種の吸収（U、Gd、MOX）
 
