@@ -68,13 +68,14 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。マー�
    並んだファイルが `.dvc` で追う生成物（ADR-0222）で、このブランチで作り直したものなら、`dvc add <ファイル>` で `.dvc` を
    付け直してコミットしてから 1 をやり直す。`--force` は作り直した版を失うので付けない。
 
-2. 実行ファイルと Python と TOML の正規形を作り直してから、deps の変わったステージを挙げる（rebase でリポジトリの直下の
-   `dvc.lock`、`python-ast/`、`toml-values/` が衝突したら、main の版を取って rebase を終え、ここで `build`、`python-ast`、
-   `toml-values` を実行して書き直す。手で行を選んで混ぜない）:
+2. 実行ファイルを作り直し、実行ファイルと Python と TOML の正規形を書き直してから、deps の変わったステージを挙げる（rebase でリポジトリの直下の
+   `dvc.lock`、`python-ast/`、`binary-forms/`、`toml-values/` が衝突したら、main の版を取って rebase を終え、ここで `build`、`python-ast`、
+   `binary-forms`、`toml-values` を実行して書き直す。手で行を選んで混ぜない）:
 
    ```bash
    nix develop -c dvc repro -s build
    nix develop -c dvc repro -s dvc.yaml:python-ast
+   nix develop -c dvc repro -s dvc.yaml:binary-forms
    nix develop -c dvc repro -s dvc.yaml:toml-values
    nix develop -c dvc status
    ```
@@ -84,11 +85,13 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。マー�
    下流は changed にならない。`python-ast` を実行したら、リポジトリの直下の `dvc.lock` と `python-ast/` も 4 でコミットする。
    入力の TOML も同じく `toml-values` が書く値の正規形が deps で（ADR-0254）、実行したら `toml-values/` も 4 でコミットする
 
-   計算のステージの deps は `bin/` の実行ファイルで（ADR-0159）、1 の `dvc checkout` は `dvc.lock` が指す古い実行ファイルを
-   戻す。先に `build`（リポジトリの直下の `dvc.yaml`。ビルドは数秒〜十数秒で、手元でよい）を実行しないと、ソースが変わった
-   ステージも changed に出ず、3 の `-s` が古い実行ファイルで走る。`build` が「didn't change」なら、ソースは変わっていない。
-   作り直した実行ファイルが `dvc.lock` と同じバイトなら、計算のステージは changed にならない。`build` を実行したら、
-   リポジトリの直下の `dvc.lock` も 4 でコミットする
+   計算のステージは `bin/` の実行ファイルを呼び（ADR-0159）、1 の `dvc checkout` は `dvc.lock` が指す古い実行ファイルを
+   戻す。先に `build`（リポジトリの直下の `dvc.yaml`。ビルドは数秒〜十数秒で、手元でよい）と `binary-forms` を実行しないと、
+   ソースが変わったステージも changed に出ず、3 の `-s` が古い実行ファイルで走る。`build` が「didn't change」なら、ソースは
+   変わっていない。作り直した実行ファイルの正規形が `dvc.lock` と同じなら、計算のステージは changed にならない。`build` を
+   実行したら、リポジトリの直下の `dvc.lock` も 4 でコミットする。計算のステージの deps は実行ファイルの正規形（`binary-forms` が
+   書く、行と列の番号を 0 にしたコピーの md5。ADR-0255）で、行と列の番号だけが違う実行ファイルなら変わらない。`binary-forms` を
+   実行したら `binary-forms/` も 4 でコミットする
 
    対象は `changed deps` のステージだけ。`changed outs` や `.dvc` ファイルの変更が混ざるので、`--json` のキーを
    そのままステージの一覧にしない（`deps` の項目を持つステージを読む）。`changed outs` だけのステージは、出力が手元で変わっている
@@ -109,7 +112,7 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。マー�
      `dvc repro` まで書き直されず、devShell が変わっても `dvc status` に出ないので、中身を `scripts/check-references-shell.sh` で
      確かめる（flake.nix、flake.lock、docs/patches/ を変えるコミットでは pre-commit の hook が同じものを実行するが、rebase で main の flake の変更と混ざった版は hook を
      通っていない）。食い違えば止め、出力の文言の修正方法に従う（ADR-0212 の (a)）
-   - `build`、`python-ast`、`toml-values` は 2 で走らせ終えている
+   - `build`、`python-ast`、`binary-forms`、`toml-values` は 2 で走らせ終えている
 
    数秒で終わると分かっているステージだけ実行する。迷えば実行しない。実行するときは Slurm を通さず直接、ステージを指定する:
 
@@ -133,7 +136,7 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。マー�
 4. 実行したら、`dvc.lock` の差分だけをコミットする（出力の追跡ファイルが変わっていればそれも含める）:
 
    ```bash
-   git add examples/<問題>/dvc.lock dvc.lock python-ast toml-values   # dvc.lock、python-ast/、toml-values/ はリポジトリの直下の build、python-ast、toml-values の分。git status で、dvc が書き換えたほかの追跡ファイル（.gitignore など）も足す。rebase の hook が付け替えた記録は足さない（5 で別のコミットにする）
+   git add examples/<問題>/dvc.lock dvc.lock python-ast binary-forms toml-values   # dvc.lock、python-ast/、binary-forms/、toml-values/ はリポジトリの直下の build、python-ast、binary-forms、toml-values の分。git status で、dvc が書き換えたほかの追跡ファイル（.gitignore など）も足す。rebase の hook が付け替えた記録は足さない（5 で別のコミットにする）
    git commit -F <メッセージのファイル>
    ```
 
@@ -156,7 +159,7 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。マー�
    （`git reflog` の `ORIG_HEAD` など）と今の HEAD を `git range-diff` で対応させ、中身を確かめてから渡す（全ファイルを
    書き換えるので、推測した対応を渡さない）。再測定はしない（記録の hash は再現のため）。再実行したステージの新しいコミットと分岐点の値は、rebase の対応表に載らないので、手で書く（書いた hash は `git rev-parse` で確かめる）。付け替えのコミットは `docs:` で分ける。
 
-6. 作り直した `dvc.lock` を確かめる（`build`、`python-ast`、`toml-values` のどれかを実行したら、リポジトリの直下の `dvc.lock` も同じように）。`head -1 examples/<問題>/dvc.lock` が `schema: '2.0'` を出すこと（dvc は、この行の無い lock を
+6. 作り直した `dvc.lock` を確かめる（`build`、`python-ast`、`binary-forms`、`toml-values` のどれかを実行したら、リポジトリの直下の `dvc.lock` も同じように）。`head -1 examples/<問題>/dvc.lock` が `schema: '2.0'` を出すこと（dvc は、この行の無い lock を
    読めず、書くこともない。欠けたら、手で書き換えた箇所を探し、dvc が書いた版に戻す。戻したら、4 のコミットを `git commit --fixup` で直して `git rebase -i --autosquash` でまとめ、5 の付け替えのコミットは rebase のあとに積み直す）。続けて
    `nix develop -c scripts/check-dvc-lock.sh examples/<問題>/dvc.lock`（direnv で入っていれば `nix develop -c` は要らない）が終了コード 0 で終わること（dvc が lock を読めるかの検査は、このツールが
    唯一の定義。pre-commit の hook `dvc-lock` も同じツールを呼ぶ。issue #0090）。
