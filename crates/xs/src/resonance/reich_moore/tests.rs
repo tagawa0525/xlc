@@ -142,7 +142,7 @@ fn two_poles_in_one_group_are_an_error() {
 
 #[test]
 fn negative_fission_amplitude_gives_same_single_level_result() {
-    // 単一準位では核分裂幅の符号（振幅の符号）は結果に影響しない
+    // 単一準位では核分裂幅の符号（振幅の符号）は結果に影響を与えない
     let xs = ReichMooreXs::new(&single_level(1.5e-3, 2.3e-2, -1.0e-1));
     let e = 6.7;
     assert_sigma(

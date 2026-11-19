@@ -45,7 +45,7 @@ fn mode(steps: &[Step], final_state: u32, ratio: f64) -> DecayMode {
     }
 }
 
-/// MT18 があれば、その QI を 1.9e8 eV + Z とする（核種ごとに違う値にして、写し間違いを見つけるため）
+/// MT18 があれば、その QI を 1.9e8 eV + Z とする（核種ごとに違う値にして、コピーミスを見つけるため）
 fn neutron(z: u32, a: u32, state: u32, mts: &[u32]) -> NeutronEvaluation {
     NeutronEvaluation {
         material: material(z, a, state, 0.0),

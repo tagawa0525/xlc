@@ -100,7 +100,7 @@ for file in "$@"; do
   ) || fail "$file を読めない"
 done
 
-# 確認用の入力の定義（examples/aws/aws-check/aws.toml）は VERA の定義の写し。コメントを除いて同じであること
+# 確認用の入力の定義（examples/aws/aws-check/aws.toml）は VERA の定義のコピー。コメントを除いて同じであること
 vera='' check=''
 for file in "$@"; do
   case $file in
