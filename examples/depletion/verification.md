@@ -259,15 +259,16 @@ U-235、U-238、Pu-239、Pu-241 と主な核分裂生成物（Xe-135、I-135、S
   （`check_natural_isotopes.py`。VII.0 では `../vera/endfb70/xs.toml` も）が確かめる
 - 熱散乱: H-1 の `tsl-HinH2O.endf` に 573.6 K の無い VII.0 と VII.1 は、H-1 を 550 K と 600 K で作る（ピンセルの減速材は 600 K）
 - 読めない評価: 分離共鳴の SLBW（LRF=1）の核種（VII.0 の Pu-238、Pu-242、Am-241、Am-243、Cm-242、Xe-135、Pm-148m、VII.1 の Xe-135、
-  Pm-148m）は読める（ADR-0265、下の「版ごとのライブラリの分離共鳴の SLBW」）。VII.0 と VII.1 の Am-241、Am-243 は、核分裂スペクトルが
-  MF5 の LF=12（Madland-Nix）で、核種ごとのステージ（`xs-nuclide`）で止まる（#0307）
+  Pm-148m）は読める（ADR-0265、下の「版ごとのライブラリの分離共鳴の SLBW」）。核分裂スペクトルが MF5 の LF=12（Madland-Nix）の VII.0 と
+  VII.1 の Am-241、Am-243 と、ν が MF1 の LNU=1（多項式）の VII.0 の Np-239 も読める（下の「版ごとのライブラリの Madland-Nix の核分裂
+  スペクトルと多項式の ν」）。65 核種の全部が核種ごとのステージ（`xs-nuclide`）を最後まで通るかは確かめていない（#0307）
 
 ```sh
 dvc repro examples/depletion/dvc.yaml:compare-depletion-versions   # 3 つの版のライブラリ、4 つの版の燃焼、比較
 python3 examples/depletion/compare_depletion_versions.py --report examples/depletion/compare-depletion-versions.json
 ```
 
-まだ解いていない（VII.0 と VII.1 のライブラリは #0305 で止まる）。
+まだ解いていない（VII.0 と VII.1 のライブラリの 65 核種が最後まで終わるかは確かめていない。#0307）。
 
 ## 版ごとのライブラリの分離共鳴の SLBW
 
@@ -320,7 +321,8 @@ Am241 VII.0 MT102: compared 36994, max rel diff 1.00e-3 at 1.114863e2 eV, > 2 to
 - 弾性散乱が負になる点（xs の warn）: Pu-238 は 6,652 点のうち 341（和の最小 −3.87 b）、Pu-242 は 30,202 点のうち 678（−4.42 b）、
   VII.0 の Cm-242 は 6,411 点のうち 295（−2.30 b）。どれも MF3 の弾性散乱のバックグラウンドが範囲の中で 0 なので、和で 0 にする xs と、
   共鳴の部分を 0 にする NJOY は同じ値になる（MF3 が打ち消した点は 0）。Xe-135、Pm-148m、Am-241 は、NJOY の `emerge` の
-  「nonpositive elastic cross sections」の message が出ない（Am-241 の xs の warn は、`xs nuclide` が #0307 で止まるので見ていない）
+  「nonpositive elastic cross sections」の message が出ない（Am-241 の xs の warn は下の「版ごとのライブラリの Madland-Nix の核分裂スペクトルと
+  多項式の ν」）
 - Am-241 と Am-243（VII.0）の全部の共鳴と Pm-148m の 1 つの共鳴は、J が標的のスピンに等しい（J の分からない共鳴の古い慣習。
   ENDF-102 の 2.4.7）。g = 1/2 のまま計算した（xs の warn）
 - 分離共鳴の外: Xe-135、Pu-242、Am-241 の非分離共鳴と、全核種の範囲の外は、どの反応も 2 倍を超える点が無い（最大は Xe-135 の非分離共鳴の
@@ -329,7 +331,56 @@ Am241 VII.0 MT102: compared 36994, max rel diff 1.00e-3 at 1.114863e2 eV, > 2 to
   大きい（NJOY の PENDF の点ごとに見た）。格子点の間の断面積を、xs は ENDF-102 の lin-lin、NJOY は log-log で補間するためで（#0306）、
   このブランチで変えていない非分離共鳴の処理の差である
 - `xs nuclide`（65 核種の入力の範囲のファイルと設定）は、VII.1 の Xe-135、Pm-148m、VII.0 の Xe-135、Pm-148m、Cm-242、Pu-238、Pu-242 が
-  終了コード 0 で終わる。VII.0 の Am-241、Am-243 は MF5 の LF=12 で止まる（#0307）
+  終了コード 0 で終わる。VII.0 の Am-241、Am-243 は、下の「版ごとのライブラリの Madland-Nix の核分裂スペクトルと多項式の ν」
+
+## 版ごとのライブラリの Madland-Nix の核分裂スペクトルと多項式の ν
+
+核分裂スペクトルの MF5 の LF=12（Madland-Nix。ENDF-102 の 5.1.1.6）と、ν の MF1 MT452 の LNU=1（多項式。1.2）を読む xs（#0307）の
+無限希釈の 0 K の群の値（WIMS 69 群、重みは iwt=4）を、NJOY2016.79 の RECONR（許容誤差 1e-3）と GROUPR の GENDF（MF3 MT452 と、MF6 MT18 から
+求めた χ）と比べた。核種は版ごとのライブラリでこの形を持つもの（LF=12 は VII.0 と VII.1 の Am-241、Am-243、LNU=1 は VII.0 の Np-239）。
+NJOY の入力と出力は references/njoy-runs/lf12-lnu1/<核種>-<版>/（git で追跡しない。入力は references/njoy-runs/U236-groupr/ と同じ形で
+MAT だけが違う）。
+
+```sh
+cargo run --release -p xlc-xs --example compare_njoy_gendf -- \
+  references/njoy-runs/lf12-lnu1/Am241-VII.0/tape20 references/njoy-runs/lf12-lnu1/Am241-VII.0/tape24 9543 452 18
+```
+
+### 計算
+
+xlc 34a5a5ff（分岐点 7c219dd2、2026-11-20）。手元で `compare_njoy_gendf` を実行した。`xs nuclide` は同じコミットの `cargo build --release`
+の bin で、ブランチ feat/0303-pin-depletion-by-endf-version の `endfb70/xs.toml`、`endfb71/xs.toml` と同じ入力を手元の試行に置いて実行した。
+
+### 結果
+
+`compare_njoy_gendf` の出力（先頭に核種と版を付けた。MT452 は群の ν、chi は χ の 1e-6 以上の群の相対差の最大と、差の絶対値の和）:
+
+```text
+Am241 VII.0 MT452: max rel diff 1.37e-5 in group 0 [6.0655e6, 1.0000e7] eV (ours 4.224206e0, njoy 4.224148e0)
+Am241 VII.0 chi  : max rel diff 8.13e-3 in group 0 (ours 3.920033e-2, njoy 3.888419e-2), sum of |diff| 1.76e-3
+Am241 VII.1 MT452: max rel diff 1.27e-5 in group 0 [6.0655e6, 1.0000e7] eV (ours 4.229076e0, njoy 4.229022e0)
+Am241 VII.1 chi  : max rel diff 8.17e-3 in group 0 (ours 3.918998e-2, njoy 3.887222e-2), sum of |diff| 1.76e-3
+Am243 VII.0 MT452: max rel diff 9.63e-6 in group 0 [6.0655e6, 1.0000e7] eV (ours 4.264595e0, njoy 4.264554e0)
+Am243 VII.0 chi  : max rel diff 4.31e-3 in group 0 (ours 4.096617e-2, njoy 4.079042e-2), sum of |diff| 9.75e-4
+Am243 VII.1 MT452: max rel diff 1.03e-5 in group 0 [6.0655e6, 1.0000e7] eV (ours 4.262544e0, njoy 4.262500e0)
+Am243 VII.1 chi  : max rel diff 4.02e-3 in group 0 (ours 4.101370e-2, njoy 4.084933e-2), sum of |diff| 9.12e-4
+Np239 VII.0 MT452: max rel diff 8.29e-6 in group 0 [6.0655e6, 1.0000e7] eV (ours 3.699360e0, njoy 3.699329e0)
+Np239 VII.0 chi  : max rel diff 2.87e-5 in group 0 (ours 2.644276e-2, njoy 2.644200e-2), sum of |diff| 1.52e-6
+```
+
+- ν: どの核種も群の ν の差は 1.4e-5 以下。Np-239 の多項式（ν = 2.74 + 1.3e-7 E）は、核分裂断面積の範囲（1e-5 eV〜20 MeV）の両端を結ぶ
+  lin-lin の表にした（1 次の式なので厳密）。GROUPR も多項式を入射エネルギーごとに評価する（`getyld`）
+- χ の差（Am-241 の群 1 で 0.8%、Am-243 で 0.4%）は、GROUPR が核分裂スペクトルを 40.85 keV（`spectrum constant below 4.0850E+04 ev`）
+  より下で 1e-5 eV の T_M のスペクトルとみなす（`econst`）ためで、docs/environment.md の NJOY 側の近似による既知の差の U-236 の χ と同じ。T_M は 1e-5 eV で 1.092 MeV、
+  40.85 keV で約 1.10 MeV（log-log）なので、GROUPR の χ は軟らかく、群 1 が小さい。確かめた診断（Am-241 VII.0 の T_M の表だけを替えた
+  ENDF を、両方に与えた。references/njoy-runs/lf12-lnu1/ の `Am241-VII.0-constant-tm`、`Am241-VII.0-flat-below-econst`）:
+  - T_M を全入射エネルギーで 1e-5 eV の値にした表: χ の差の最大 3.16e-7、和 1.31e-7。分布の式と群への振り分けは GROUPR の `anased` と同じ
+  - 40.85 keV に 1e-5 eV の値の点を足し、その下で T_M を一定にした表: χ の差の最大 4.83e-6、和 9.02e-7。差は `econst` の近似だけ
+- Np-239 の χ（MF5 MT18 は LF=7。GROUPR の `econst` は 10 MeV）の差は 2.9e-5
+- `xs nuclide`（65 核種の入力の範囲のファイルと設定）は、VII.0 の Am-241、Am-243、Np-239 と VII.1 の Am-241、Am-243 が終了コード 0 で
+  終わる。VII.0 の Am-241、Am-243 に、SLBW の弾性散乱が負になる点の warn は出ない
+- 既存の形の出力は変わらない: VIII.0 の U-235（MF5 MT18 は LF=1、MT455 は LF=5）、U-236、Pu-241（LF=7）の `xs nuclide` の出力は、
+  分岐点 7c219dd2 の bin の出力とバイトで同じ（本番の `xs.toml` と同じ入力を手元の試行に置いた）
 
 ## 燃焼の多群ライブラリ
 
