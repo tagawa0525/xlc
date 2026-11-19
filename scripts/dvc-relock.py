@@ -12,7 +12,7 @@
    pick では pre-commit の hook が走らないので、ブランチのコミットの分も見る。作業ツリーを書き換える前に行う（読めない lock を
    入れたコミットを直す fixup と rebase は、汚れた作業ツリーでは動かない）。読めない lock があれば止まる
 1. scripts/dvc-checkout.py。hash があるのに戻らない出力があれば止まる
-2. 直下の dvc.yaml の build、python-ast、binary-forms、toml-values を 1 つの `dvc repro -s` で実行する（dvc が DAG の順に並べる）。
+2. 直下の dvc.yaml の build、python-ast、binary-forms、toml-values を 1 つの `dvc repro -s` で、この順に実行する。
    実行ファイルと正規形は止まらずに書き直す（下流の changed が今のコードを示すように、dvc status の前に行う）。dvc repro が
    失敗すれば止まる
 3. `dvc status --json`（<dvc.yaml> を渡せば `--with-deps` でその範囲）。失敗すれば止まる。`changed outs` だけのステージか .dvc が
@@ -39,6 +39,8 @@ import sys
 from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parent
+# `dvc repro -s` は目標を挙げた順に実行し、DAG で並べ直さない（dvc 3.67.1 の dvc/repo/reproduce.py）。binary-forms は build の
+# bin/ と python-ast の normalize_binary.py.ast を読むので、その 2 つの後に置く
 FORMS = (
     "build",
     "dvc.yaml:python-ast",
@@ -204,6 +206,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
 def relock(args: argparse.Namespace, ran: list[str]) -> None:
     """付け直しの段（始めの lock の確認の後）を順に行う。実行したステージを ran に足す（止まったときも、そこまでを報告するため）"""
+    # 範囲を限るときも、挙げたステージが実行の後に changed outs だけになっていないかを見る
+    scope = [*args.targets, *args.run] if args.targets else []
     run(
         [str(SCRIPTS / "dvc-checkout.py")],
         "outputs did not come back as dvc.lock records them (see MISSING: above)",
@@ -213,7 +217,7 @@ def relock(args: argparse.Namespace, ran: list[str]) -> None:
         "dvc repro -s of the build or a normalized form failed",
         quiet=True,
     )
-    status = dvc_status(args.targets)
+    status = dvc_status(scope)
     run(
         [str(SCRIPTS / "check-references-shell.sh")],
         "references-shell.txt differs from the references devShell; follow the fix printed above",
@@ -231,7 +235,7 @@ def relock(args: argparse.Namespace, ran: list[str]) -> None:
         )
         ran.append(target)
     if ran:
-        status = dvc_status(args.targets)
+        status = dvc_status(scope)
     check_locks(args.base)
     for key, kinds in left_changed(status):
         print(f"CHANGED: {key}: {', '.join(kinds)}")
@@ -249,6 +253,10 @@ def report(ran: list[str], before: dict[str, str]) -> None:
     after = worktree_files()
     for path in sorted(p for p in after if before.get(p) != after[p] or written(p)):
         print(f"COMMIT: {path}")
+
+
+# 部品を起動できない（devShell の外、実行の許可が無い）ときの OSError も、止まる理由として報告する
+STOPS = (Stop, subprocess.CalledProcessError, OSError)
 
 
 def stop_reason(e: Exception) -> str:
@@ -270,18 +278,22 @@ def main(argv: list[str] | None = None) -> int:
         before = worktree_files()
         # 作業ツリーを書き換える前なので、止まってもコミットするファイルは無い（読めない lock そのものを出さない）
         check_locks(args.base)
-    except (Stop, subprocess.CalledProcessError) as e:
+    except STOPS as e:
         print(f"STOP: {stop_reason(e)}", file=sys.stderr)
+        print(
+            "NEXT: nothing was written. Find the cause at the STOP: line (/dvc-relock) and rerun",
+            file=sys.stderr,
+        )
         return 1
     ran: list[str] = []
     try:
         relock(args, ran)
-    except (Stop, subprocess.CalledProcessError) as e:
+    except STOPS as e:
         report(ran, before)
         print(f"STOP: {stop_reason(e)}", file=sys.stderr)
         print(
-            "NEXT: find the cause at the STOP: line (/dvc-relock). Rerun after fixing it; "
-            "the COMMIT: files above are not committed yet",
+            "NEXT: find the cause at the STOP: line (/dvc-relock) and rerun. Commit the COMMIT: files "
+            "only after a rerun passes",
             file=sys.stderr,
         )
         return 1
