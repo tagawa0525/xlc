@@ -10,17 +10,18 @@ dvc.lock の指す古い上流の出力をまだ読めるか（changed をため
 
 - 読むのは、deps に `binary-forms/` の実行ファイルの正規形を持つステージ（xlc の実行ファイルを呼ぶステージ）の deps の
   うち、例の dvc.lock のステージの outs（ディレクトリの outs の中のファイルと、deps のディレクトリの下にある outs を含む）と
-  `.dvc` の生成物であるもの。直下の dvc.lock（build と正規形）の出力と、md5 の無い（流していない）出力は読まない
+  `.dvc` の生成物であるもののうち、xlc の形式のもの（`.msgpack` と、xlc の実行ファイルを呼ぶステージが書く TOML）。
+  直下の dvc.lock（build と正規形）の出力、md5 の無い（流していない）出力、xlc の形式でない出力は読まない
 - 中身は作業ツリーでなく DVC のキャッシュから md5 で読む。出力を戻していない worktree でも同じ結果になり、走っている
   ジョブが書いている途中の出力には当たらない。キャッシュに無い出力は `MISSING:` で止める
-- 実行ファイルを変えうるブランチ（`--base` との差分が直下の dvc.yaml の `build` の deps、この script、下の一覧に当たる）
+- 実行ファイルを変えうるブランチ（`--base` との差分（移動の元と先、追跡していないファイルを含む）が直下の dvc.yaml の `build` の deps、この script、下の一覧に当たる）
   だけを読み、ほかは `SKIP:` で終わる（`--all` は差分によらず読む）。`--base` の既定は HEAD と main の分岐点。
   一覧の形の確かめは、差分によらず行う
 - 読めない出力を残してマージするときは、`scripts/unreadable-outputs.toml` の `[[output]]` に `md5`（ファイルの md5 か、
   ディレクトリの outs の `.dir` の md5）、`issue`（上流の作り直しの見積もりと時期を書いた open の issue。`#NNNN`）、
   `path`（結び付けたときのパス。照合には使わない）を書く。open の issue に結び付けた出力は `ALLOWED:` で通し、
   issue が無いか閉じていれば `STOP:` で止める
-- 出力の行: `UNREADABLE:`、`ALLOWED:`、`MISSING:`、`STOP:`、`SKIP:`、`READ:`（読んだファイルの数と時間）。終了コードは、
+- 出力の行: `UNREADABLE:`、`ALLOWED:`、`MISSING:`、`STOP:`、`SKIP:`、`READ:`（読んだファイルの数、時間、xlc の形式でないので読まなかった出力の数）。終了コードは、
   `UNREADABLE:`、`MISSING:`、`STOP:` のどれかがあれば 1、ほかは 0
 - 読み手の既定は `cargo run -p xlc-outputs`（dev のプロファイル。run-checks.sh の cargo test が作ったものを再利用する）
 """
