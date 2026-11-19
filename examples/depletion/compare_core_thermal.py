@@ -29,6 +29,7 @@ from pathlib import Path
 
 import compare_core_pair
 import msgpack
+from core_history import flat, largest_relative
 
 THERMAL = re.compile(
     r"thermal-hydraulics iterations=(\d+) change=\S+ outlet=([0-9.eE+-]+) fuel_average=\S+ fuel_max=([0-9.eE+-]+)"
@@ -164,13 +165,13 @@ def compare(
                 "state": q["state"],
                 "k": p["k"] - q["k"],
                 "boron": p["boron"] - q["boron"],
-                "burnup": compare_core_pair.largest_relative(
-                    compare_core_pair.flat(p["burnups"]),
-                    compare_core_pair.flat(q["burnups"]),
+                "burnup": largest_relative(
+                    flat(p["burnups"]),
+                    flat(q["burnups"]),
                 ),
-                "power": compare_core_pair.largest_relative(
-                    compare_core_pair.flat(p["powers"]),
-                    compare_core_pair.flat(q["powers"]),
+                "power": largest_relative(
+                    flat(p["powers"]),
+                    flat(q["powers"]),
                 ),
                 "isothermal_boron": q["boron"],
                 "solves": [q["solves"], p["solves"]],

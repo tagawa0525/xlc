@@ -29,7 +29,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import msgpack
-from core_history import core_run, differing_keys, setting
+from core_history import core_run, differing_keys, flat, largest_relative, setting
 
 # span `nem` の閉じる行のフィールド
 NEM = re.compile(r"nem\{iterations=(\d+) seconds=([0-9.eE+-]+)\}")
@@ -87,24 +87,6 @@ ITEMS = {
         True,
     ),
 }
-
-
-def flat(rows: list[list[float]]) -> list[float]:
-    return [v for row in rows for v in row]
-
-
-def largest_relative(a: list[float], b: list[float]) -> float:
-    """b を基準にした相対差の絶対値の最大。b が 0 の値は、a も 0 であること（核分裂のないノード）"""
-    if len(a) != len(b):
-        raise SystemExit(f"{len(a)} and {len(b)} values")
-    worst = 0.0
-    for x, y in zip(a, b):
-        if y == 0.0:
-            if x != 0.0:
-                raise SystemExit(f"{x} against 0")
-            continue
-        worst = max(worst, abs(x - y) / abs(y))
-    return worst
 
 
 def run_of(core: dict, log: str) -> dict:

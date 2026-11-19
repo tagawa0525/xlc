@@ -52,6 +52,24 @@ def single_state(core: dict) -> dict:
     return state
 
 
+def flat(rows: list[list[float]]) -> list[float]:
+    return [v for row in rows for v in row]
+
+
+def largest_relative(a: list[float], b: list[float]) -> float:
+    """b を基準にした相対差の絶対値の最大。b が 0 の値は、a も 0 であること（核分裂のないノード）"""
+    if len(a) != len(b):
+        raise SystemExit(f"{len(a)} and {len(b)} values")
+    worst = 0.0
+    for x, y in zip(a, b):
+        if y == 0.0:
+            if x != 0.0:
+                raise SystemExit(f"{x} against 0")
+            continue
+        worst = max(worst, abs(x - y) / abs(y))
+    return worst
+
+
 def core_run(source: Path) -> tuple[dict, Path, Path]:
     """core の入力 `source` と、それが書く燃焼の履歴（`[depletion]` の `history`。入力のディレクトリから）と、そのログ（入力の
     拡張子を `.log` にしたパス。記録のコマンドは core の標準エラーをそこに書く）。履歴は入力の項目の一部（`initial-guess` など）を
