@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [tooling, docs]
 opened: 2026-11-06
-closed:
+closed: 2026-11-19
 milestone:
 blocked-by: []
-resolution:
+resolution: "wontfix: レビューで直さなかった指摘を集めた issue は作らない決定（nixfiles の ADR-0066）に合わせ、点ごとに確かめた。再現のある点は無い"
 ---
 
 # 文書の整合性の hook のレビューで残した指摘
@@ -57,3 +57,4 @@ resolution:
 - 2026-11-06: 担当の 2 周目（HEAD 023d127fc）の指摘から 4〜9 を足した。競合を解いた後の `git rebase --continue` でも hook が走るという
   指摘は、一時のリポジトリで確かめると pre-commit が呼ばれなかったので外した
 - 2026-11-06: 担当の 3 周目（HEAD 1bad0bc92）の指摘から 10 と 11 を足した
+- 2026-11-19: 点ごとに確かめて閉じた（扱いは閉じるコミットの本文）

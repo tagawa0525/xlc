@@ -41,9 +41,11 @@ description: examples/*/verification.md に測定の結果を書く・直す手�
   - 始めから測る。残っている `.checkpoint` を先に消す（下の項。再開した履歴の `seconds` は前の実行との和で、前の実行が
     main のジョブなら、その時間が入る）
   - ログに格子計算のステージの `Running stage` が出たことを確かめる。`is cached - skipping run, checking out outputs` は
-    実行せずに前の出力を戻したもので、`seconds` は前のジョブのまま。DVC 3.67.1 の `StageCache.restore`（dvc/stage/cache.py）は、
-    ステージの cmd と deps が dvc.lock と同じで、dvc.lock に outs の hash があれば（出力を消しても）、`--no-run-cache` を付けても dvc.lock から
-    前の出力を戻す（#0218）。2026-11-03 の 1C の再実行では、`dvc repro --no-run-cache <yaml>:compare-1C` の Slurm 657 が
+    実行せずに前の出力を戻したもので、`seconds` は前のジョブのまま。DVC 3.67.1 の `StageCache.restore`（dvc/stage/cache.py。`-f` の
+    ときは呼ばれない）は、ステージの cmd と deps が dvc.lock と同じで、dvc.lock に outs の hash があり、DVC のキャッシュにその出力の実体があれば
+    （作業ツリーの出力を消しても）、`--no-run-cache` を付けても dvc.lock から前の出力を戻す（#0218）。ほかに `_can_hash` の条件（cmd、deps、outs が
+    どれもあり、deps と outs がリポジトリの中のローカルのファイルで deps に hash があり、`always_changed` でなく、`persist` の出力を 1 つも持たない）が
+    要る。xlc の dvc.yaml で `always_changed` を持つのは references-shell のステージだけで、`persist` は無い2026-11-03 の 1C の再実行では、`dvc repro --no-run-cache <yaml>:compare-1C` の Slurm 657 が
     格子計算を戻すだけで終わり、depletion の dvc.lock を戻して changed にしてから流した Slurm 658 で走った（#0152）
   - 比較のステージだけが走る再実行（上流が走らない）は、同じ `seconds` をコピーするだけなので、どのジョブで流してもよい。上流が
     走らないことは、CLAUDE.md の「計算」の数え方（`scripts/count-changed-stages.py` と、目標の上流のうち changed の下流にあるもの）で
@@ -166,3 +168,5 @@ python3 examples/vera/compare_balance.py xlc-2K.msgpack references/openmc/balanc
    3 で入力を移すときに `mv` で `examples/<問題>/` に移し（追跡しない出力は `git mv` では移らない）、そこで `dvc add` して `.dvc` を
    移すコミットに入れる（`trials/` は無視されるので、その中では `.dvc` が無視されるファイルになり、`dvc add` が止まる）。比較の
    JSON は、引く生成物のパスを書くので、移した後の置き場の出力から書く
+   記録か比較の JSON が試行の出力を md5 で引くときは、その記録か JSON をコミットする前に 3 の移動とこの `dvc add` を済ませる
+   （CLAUDE.md の「計算」の時機。`trials/` のパスのまま md5 を書くと、その時機に `dvc add` できず、2 で消す試行なら出力が残らない）

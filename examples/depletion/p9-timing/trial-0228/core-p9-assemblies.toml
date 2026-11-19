@@ -1,7 +1,7 @@
 # 熱水力のある core の燃焼（#0228）の全炉心の試行の台帳: ../core-p9-assemblies.toml（p9_timing_inputs.py が書く）の 2A のミクロ燃焼の
 # テーブルを、減速材と燃料の格子点を 565〜600 K に広げたテーブル（../../branches/branch-2A-micro-thermal-rod-axis.toml）にし、パスをこの
 # ディレクトリからに直したもの。軸方向と径方向の反射体は同じ（P5 の HZP のテーブル。減速材の格子点は 560、570 K）
-# p5 の台帳（../../vera/p5/hzp/core-hzp-assemblies.toml）の格子計算の層（燃料のある層）を 2A のミクロ燃焼のテーブルに替えた
+# p5 の台帳（../../../vera/p5/hzp/core-hzp-assemblies.toml）の格子計算の層（燃料のある層）を 2A のミクロ燃焼のテーブルに替えた
 # 台帳。濃縮度、可燃性毒物、反射体に面する位置の違いは無視する（時間の内訳を測るため。#0156）
 
 [design.21]

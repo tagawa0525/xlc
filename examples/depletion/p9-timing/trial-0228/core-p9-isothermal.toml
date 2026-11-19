@@ -22,7 +22,7 @@ banks = { A = 230, B = 230, C = 230, D = 219, SA = 230, SB = 230, SC = 230, SD =
 [depletion]
 specific-power = 38.41
 history = "core-p9-isothermal.msgpack"
-# 格子計算の燃焼（../p2/lattice-2A.toml）と同じチェーン
+# 格子計算の燃焼（../../p2/lattice-2A.toml）と同じチェーン
 micro = { chain = "../../chain.msgpack", xenon = "equilibrium" }
 steps = [
   { efpd = 9.0, power = 0.657, state = "case-2" },

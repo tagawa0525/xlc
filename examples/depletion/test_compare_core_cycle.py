@@ -6,6 +6,7 @@ I-135、Xe-135、Sm-149 の数密度）。
 
 import sys
 import unittest
+import unittest.mock
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -160,6 +161,25 @@ class Summary(unittest.TestCase):
         text = "\n".join(compare_core_cycle.report(summary))
         self.assertIn("1.0e-13", text)
         self.assertIn("full", text)
+
+
+class MainCycleEmptyPathTest(unittest.TestCase):
+    def test_an_empty_history_path_is_rejected_before_reading(self):
+        with (
+            unittest.mock.patch.object(
+                sys,
+                "argv",
+                [
+                    "compare_core_cycle.py",
+                    "--json",
+                    "out.json",
+                    "cycle.msgpack",
+                    "full=",
+                ],
+            ),
+            self.assertRaises(SystemExit),
+        ):
+            compare_core_cycle.main()
 
 
 if __name__ == "__main__":

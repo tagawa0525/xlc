@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [dvc, verification, review]
 opened: 2026-11-06
-closed:
+closed: 2026-11-19
 milestone:
 blocked-by: []
-resolution:
+resolution: "コミット 1ee942d01"
 ---
 
 # 比較の JSON が md5 で引く生成物の棚卸しと ADR-0222 の対象の残り
@@ -17,7 +17,7 @@ ADR-0222 の対象に、比較のツールが書いて git で追跡する JSON 
 2026-11-06）。ブランチ docs/0222-compare-json-generated のローカルのレビュー（/code-review high）で、再現を書けず直さなかった
 指摘（/git-merge の「直す指摘の基準」の non-blocking）を残す。
 
-関係する ADR: なし
+関係する ADR: ADR-0222
 
 1. 対象を広げる前に作った比較の JSON が md5 で引く生成物は棚卸ししておらず、`.dvc` が無い。git で追跡する `.json` の
    `path` と `md5` の組のうち、git で追跡せず、`.dvc` が無く、`dvc.lock` の outs に無く、`references/` の下でもないパスを
@@ -79,3 +79,4 @@ ADR-0222 の「## 変更」）。4 は #0209 で扱う。
 
 - 2026-11-06: ブランチ docs/0222-compare-json-generated のレビューの 1 周目の指摘から起こし、2 周目の指摘（8〜10）と 3 周目の指摘（11、12）を足した
 - 2026-11-07: 記録の周の後の例外の周の指摘で 3 と 11 を直し、直さない指摘（13〜15）を足した。例外の 2 周目の指摘（16〜19）を足した
+- 2026-11-19: 棚卸しをして閉じた（結果は ADR-0222 の帰結、扱いは閉じるコミットの本文）。追う生成物は残っておらず、失われた 79 組を帰結に足した。記録と JSON の md5 を照合する検査とスキルの手順は #0209

@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [xs]
 opened: 2026-10-23
-closed:
+closed: 2026-11-19
 milestone:
 blocked-by: []
-resolution:
+resolution: "wontfix: レビューで直さなかった指摘を集めた issue は作らない決定（nixfiles の ADR-0066）に合わせ、点ごとに確かめた。1〜4 は再現が無く、5 の参照の tally の上端は #0148 に寄せた"
 ---
 
 # ADR-0186 のレビューで残した χ の成分と LF=5 の整理
@@ -41,3 +41,4 @@ changed になるので、このブランチでは直していない。
 ## 経緯
 
 - 2026-10-23: ADR-0186 のコードレビューの 2 周目で見つけ、ライブラリの出力を変えないので分けた
+- 2026-11-19: 点ごとに確かめて閉じた（扱いは閉じるコミットの本文）。5 の参照の tally の上端は #0148 の「問題」に寄せた

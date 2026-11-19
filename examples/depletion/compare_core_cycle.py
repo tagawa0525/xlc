@@ -183,7 +183,7 @@ def main() -> None:
         named = []
         for a in args[3:]:
             name, sep, path = a.partition("=")
-            if not sep or not name:
+            if not sep or not name or not path:
                 raise SystemExit(f"give a reference as <name>=<core history>, got {a}")
             named.append((name, Path(path)))
         if len({n for n, _ in named}) != len(named):

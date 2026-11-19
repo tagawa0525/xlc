@@ -107,5 +107,11 @@ class Compare(unittest.TestCase):
         self.assertIn("集合体の出力の割合の相対差の絶対値の最大 2.50e-02", text)
 
 
+class ParseEnergyEmptyPathTest(unittest.TestCase):
+    def test_an_empty_path_in_the_list_is_rejected(self):
+        with self.assertRaises(SystemExit):
+            compare_core_energy.parse("case=a,")
+
+
 if __name__ == "__main__":
     unittest.main()

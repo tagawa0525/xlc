@@ -4,7 +4,7 @@ status: accepted
 date: 2026-10-11
 supersedes: []
 superseded-by:
-issues: ["#0005", "#0018"]
+issues: ["#0005", "#0018", "#0254"]
 requires: []
 ---
 

@@ -27,9 +27,10 @@ OOM killer が lattice のプロセスを止めた（Slurm 644、2026-10-31。sa
 
 2A の一生の燃焼（examples/depletion/p2/lattice-2A.toml）と history/ の入力（Slurm 582、617、621、629、630、638 など。MaxRSS 20,300,752〜25,878,580K、
 19.4〜24.7 GiB）は `ufg-tolerance = 1e-4` の間引いた格子で、この入力とは違う。この入力の前の実行からの bin の違い（dvc.lock の
-`lattice-2A` の deps の bin は 7cf252f4、Slurm 457 の 2026-10-23 02:46 JST（2026-10-22T17:46Z）の実行）には、自己遮蔽の ADR-0198、ADR-0203〜ADR-0205、ADR-0207、ADR-0209、ADR-0213 と、スレッドの数の
-ADR-0214 が入った（`git log --first-parent 13826a2b9..f86d7fda8 -- crates/lattice/src/ufg* crates/lattice/src/shielding.rs`）。持つ区間で
-足りなくなったのは ADR-0213 による（下の「原因」）。持たないときの 12.4 GiB（457）から 26.8 GiB（646）への増え方の内訳は確かめていない
+`lattice-2A` の deps の bin は 7cf252f4、Slurm 457 の 2026-10-23 02:46 JST（2026-10-22T17:46Z）の実行）には、自己遮蔽の ADR-0194、ADR-0198、ADR-0203〜ADR-0205、ADR-0207〜ADR-0209、ADR-0211、ADR-0213、#0133 の燃えた組成の輸送の差の分け方、#0180 の
+S(α, β) の散乱源の並列化（`git log --first-parent 13826a2b9..f86d7fda8 -- crates/lattice/src/ufg* crates/lattice/src/shielding.rs`）と、
+スレッドの数の ADR-0214（main.rs の変更で、このコマンドには出ない）が入った。持つ区間で
+足りなくなったのは ADR-0213 による（下の「原因」）。持たないときの 12.4 GiB（457。ジョブの全体の値で、2A だけの上限）から 26.8 GiB（646）への増え方の内訳は確かめていない
 （#0215）。依頼が挙げた 2 つの bin の間の違いによるのではない（bin の二分は流していない）:
 
 - 間の bin（621c10a69 の 22cf3181 と c67424147 の 36667823）の lattice の差は history.rs、residual.rs、main.rs の摂動の解の `h.micro`
