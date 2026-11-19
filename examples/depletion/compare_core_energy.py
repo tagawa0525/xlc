@@ -23,6 +23,7 @@ import sys
 from pathlib import Path
 
 import msgpack
+from core_history import rho_pcm
 
 # 2 つの燃焼で同じであるべき履歴の項目
 SHARED = ("specific_power", "states", "axial_mesh", "assemblies", "heavy_metal")
@@ -74,7 +75,7 @@ def compare(rate: dict, energy: dict) -> dict:
                 "state": p["state"],
                 "k": [p["k"], q["k"]],
                 "boron": [p["boron"], q["boron"]],
-                "reactivity": (1.0 / p["k"] - 1.0 / q["k"]) * 1e5,
+                "reactivity": rho_pcm(p["k"], q["k"]),
                 "power": largest_relative(flat(q["powers"]), flat(p["powers"])),
                 "burnup": largest_relative(flat(q["burnups"]), flat(p["burnups"])),
                 "assembly_powers": {

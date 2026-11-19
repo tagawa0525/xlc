@@ -28,8 +28,11 @@ R の燃焼度の点の、状態が格子点の燃焼点だけで組み立てる
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
+# core の比較のツールの共通の部分（燃焼点の一致の許容）は、親のディレクトリの core_history.py
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from compare_residual import (
     added,
     coefficients,
@@ -40,6 +43,7 @@ from compare_residual import (
     residual,
     rho,
 )
+from core_history import same_burnup
 
 FILES = {
     "residual_table": "table-residual-nominal-histories.msgpack",
@@ -57,16 +61,8 @@ VARIABLE = "moderator-density"
 LARGEST = 6
 
 
-# core の燃焼度とテーブルの燃焼度の点の一致の許容（core は出力密度 × EFPD で燃焼度を進める。compare_core_micro.py と同じ）
-BURNUP_TOLERANCE = 1e-9
-
-
 # core がノードごとに持つ履歴の変数（crates/core/src/case.rs の `HISTORY_VARIABLES`）。減速材の密度は最初
 CORE_VARIABLES = [VARIABLE, "rods"]
-
-
-def same_burnup(a, b):
-    return abs(a - b) <= BURNUP_TOLERANCE * max(1.0, abs(b))
 
 
 def single_node(core, label, nuclides):
