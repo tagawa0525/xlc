@@ -129,6 +129,19 @@ class Statuses(unittest.TestCase):
         counts = exc.count_by_kind(exc.find_markers(files))
         self.assertEqual(counts, {"textlintignore": 2, "provisional": 1})
 
+    def test_listing_counts_open_issues_and_review_leftovers_by_name(self):
+        names = {
+            "0001": "0001-frame-gap.md",
+            "0002": "0002-core-review-leftovers.md",
+            "0003": "0003-adr-review-points.md",
+            "0004": "0004-rod-branch-leftovers.md",
+        }
+        statuses = {"0001": "open", "0002": "open", "0003": "closed", "0004": "open"}
+        self.assertEqual(
+            exc.count_open_issues(statuses, names),
+            {"open-issues": 3, "open-review-leftover-issues": 2},
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
