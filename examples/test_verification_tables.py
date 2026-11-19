@@ -6392,9 +6392,20 @@ class DrawCombinedBurnupPoints(unittest.TestCase):
 
 
 class Placement(unittest.TestCase):
-    """記録の表が引く JSON の置き場。md5 は JSON と同じディレクトリの dvc.lock から読むので、そこの dvc.yaml が出力を宣言する"""
+    """記録の表が引く JSON の置き場。md5 は JSON と同じディレクトリの dvc.lock から読むので、そこの dvc.yaml がステージの出力に宣言する"""
 
-    def test_each_stage_json_is_named_by_the_dvc_yaml_of_its_directory(self):
+    @staticmethod
+    def outs(stages: Path) -> list[str]:
+        """dvc.yaml のステージの出力のパス（foreach のステージは do の出力。${...} を含んだまま）"""
+        import yaml  # python-tests の devShell のパッケージ（flake.nix の pythonPackages）
+
+        found = []
+        for stage in yaml.safe_load(stages.read_text()).get("stages", {}).values():
+            for out in stage.get("do", stage).get("outs", []):
+                found.extend(out if isinstance(out, dict) else [out])
+        return found
+
+    def test_each_stage_json_is_an_out_of_the_dvc_yaml_of_its_directory(self):
         root = Path(__file__).resolve().parent.parent
         misplaced = []
         for name, (sources, _) in vt.TABLES.items():
@@ -6403,14 +6414,10 @@ class Placement(unittest.TestCase):
                     continue
                 stages = (root / source).with_name("dvc.yaml")
                 # foreach の出力（compare-${item}.json）の ${...} は、パスの 1 つの要素の中の任意の文字列として照らす
-                names = (
-                    [
-                        re.sub(r"\\\$\\\{[^}]*\\\}", "[^/]*", re.escape(t))
-                        for t in re.findall(r"[\w./${}@-]+\.json", stages.read_text())
-                    ]
-                    if stages.exists()
-                    else []
-                )
+                names = [
+                    re.sub(r"\\\$\\\{[^}]*\\\}", "[^/]*", re.escape(str(out)))
+                    for out in (self.outs(stages) if stages.exists() else [])
+                ]
                 if not any(re.fullmatch(n, Path(source).name) for n in names):
                     misplaced.append(f"{name}: {source}")
         self.assertEqual(misplaced, [])
