@@ -1,5 +1,6 @@
 # VERA の燃焼のベンチマークの仕様書（K. S. Kim、CASL-X-2015-1014-000 Rev. 0、2015-12-17）の Table 3.1「Recoverable energy per fission」の
-# ENDF/B-7.0 の 2 つの列（J/核分裂）。仕様書は列の定義を書かない（Kappa0 は ENDF/B-VII.0 の MF3 MT18 の QI に 0.01% で一致する）。
+# ENDF/B-7.0 の 2 つの列（J/核分裂）。仕様書は列の定義を書かない（Kappa0 は ENDF/B-VII.0 の MF3 MT18 の QI と約 0.001% の差で同じ。
+# ../fission_energy.py kappa）。
 # Am242_m1 の値は仕様書の表でも Am243 と同じ。名前は OpenMC の名前。https://info.ornl.gov/sites/publications/files/Pub61302.pdf の 6〜7 ページから取った
 
 Th230 = { kappa = 3.24352E-11, kappa0 = 3.05372E-11 }

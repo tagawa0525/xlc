@@ -10308,8 +10308,9 @@ u と mox の 40 点の履歴の組成の、燃焼と同じ状態のブランチ
 上の項目 3 の見込みを、出力の規格化だけが違う OpenMC の 1C のピンセル（燃料 1 リング）の燃焼 2 本で確かめる（`normalization/`。入力の
 説明は `fission-q.toml` の先頭）。`fission-q` はチェーンの核分裂の Q（MF3 MT18 の QI。ADR-0173 の案 P1。xlc と同じ定義）で、
 `energy-deposition` は `heating-local` の tally（photon を輸送しないとき。OpenMC 0.15.2 の `openmc/deplete/coupled_operator.py`）で
-規格化する。2 本は燃焼度の点（40 MWd/kg までの 14 点）、輸送する核種、出力密度（38.41 W/g）、チェーン、ライブラリ、粒子数、シードが
-同じで、`compare_normalization.py` はこれらと各本の規格化が合わなければ止まる（方法と各量の定義は先頭の説明）。
+規格化する。2 本の入力は `normalization` のほかは同じ（燃焼度の点は 40 MWd/kg までの 14 点、出力密度 38.41 W/g、同じチェーン、
+ライブラリ、粒子数、シード）。`compare_normalization.py` は、各本の規格化と、2 本の燃焼度の点、輸送する核種、決めた出力、チェーンの
+核分裂の Q が合わなければ止まる（方法と各量の定義は先頭の説明）。
 
 ```sh
 cd examples/depletion/issue-0293/normalization
@@ -10326,7 +10327,7 @@ nix develop .#references -c python3 $T kappa references/endf/ENDF-B-VII.0_neutro
 ```
 
 `heating-local` が数えるもの（OpenMC 0.15.2 の `openmc/data/neutron.py` の 786〜846 行と、`fission_energy.py heating` の値）: NJOY の HEATR の、γ を
-その場に落とした KERMA で、核分裂の反応の分だけを MF1 MT458 の EFR + EGP + EGD + EB に置き換えたもの。捕獲の γ（H-1 の 0.0253 eV で
+その場に落とした KERMA で、核分裂の反応の分だけを MF1 MT458 の EFR + EGP + EGD + EB に置き換えたもの。捕獲の γ（H-1 の 600 K、0.0253 eV で
 heating-local / 捕獲の断面積 = 2.2246 MeV）、B-10 の (n,α)、即発中性子の運動エネルギー（ENP。減速材などの散乱の KERMA に入る）を含み、
 ニュートリノを含まない。U-235 の 0.0253 eV で、核分裂の反応の分は 189.24 MeV、ENP は 4.83 MeV で、その和に当たる MT458 の ER は
 194.08 MeV（チェーンの QI 193.405 MeV より +0.35%）。U-238 の ER は QI より −0.63%、Pu-239 と Pu-241 の ER は QI と 0.003% 以内で同じ。
@@ -10393,7 +10394,7 @@ Slurm 962（`fission-q`）と 968（`energy-deposition`）、2026-11-19〜20。�
 使わない。OpenMC 0.15.2、ライブラリは `openmc-library/`（ENDF/B-VIII.0）、チェーンは `openmc-chain.xml`（md5 2a2bc167）。出力は `.dvc` で追う
 生成物（`normalization/out` は md5 4a289298。`fission-q.msgpack` は be4e2a42、`energy-deposition.msgpack` は bda8ee6f、`compare.json` は c3080b5f）。
 比較は同じコミットで手元、2026-11-20。`heating-local` の中身、ER と QI、Kappa と VII.0 と VIII.0 の QI と ET の値は `fission_energy.py` で、
-8663f0770 で手元、2026-11-20
+ae69e1e44 で手元、2026-11-20
 
 ## 輸送しない核種の吸収（U、Gd、MOX）
 
