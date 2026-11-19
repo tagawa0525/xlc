@@ -34,6 +34,8 @@ BLOCKED = [
     f"timeout 3600 {SLURM} 'dvc repro examples/vera/dvc.yaml'",
     f"bash -c \"{SLURM} 'dvc repro examples/vera/dvc.yaml'\"",
     "slurm-run.sh --class record --ref '- x' --purpose 'p' --timed -t 90 n 'dvc repro x'",
+    f"{SLURM} 'dvc repro examples/vera/dvc.yaml' 2>&1 | tail -20",
+    f"{SLURM} 'dvc repro examples/vera/dvc.yaml' 2>/dev/null",
 ]
 
 ALLOWED = [

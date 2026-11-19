@@ -267,6 +267,23 @@ class Process(unittest.TestCase):
         self.assertIn("locally", r.stderr)
         self.assertFalse((self.d / "calls").exists())
 
+    def test_running_outside_the_repository_root_is_refused(self):
+        # dvc の目標は cwd からの相対で、ステージの key はリポジトリの直下からのパス
+        sub = self.repo / "examples" / "v"
+        sub.mkdir(parents=True)
+        (self.d / "status.json").write_text(json.dumps(XS_CHANGED))
+        r = subprocess.run(
+            [sys.executable, str(self.script), "--max-stages", "4", "dvc.yaml"],
+            cwd=sub,
+            env=self.env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("root of the repository", r.stderr)
+        self.assertFalse((self.d / "calls").exists())
+
     def test_max_stages_is_required(self):
         r = self.run_script(XS_CHANGED, V)
         self.assertEqual(r.returncode, 2)

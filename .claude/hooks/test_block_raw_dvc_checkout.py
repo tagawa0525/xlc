@@ -28,6 +28,7 @@ BLOCKED = [
     "dvc status\ndvc checkout",
     "git status || dvc checkout",
     "dvc checkout 2>&1 | tail -5",
+    "2>/dev/null dvc checkout",
     "dvc -q checkout",
     "dvc --cd examples/vera checkout dvc.yaml",
     "/nix/store/abc-dvc/bin/dvc checkout",
