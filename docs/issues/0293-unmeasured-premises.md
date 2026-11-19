@@ -35,7 +35,7 @@ Gd の本番の入力はまだ無い。ADR-0253 の帰結）。
 ### 上流: ライブラリ、チェーン、出力の規格化、燃焼の時間の進め方
 
 1. 本番のライブラリが Pm-147、Pm-148、Pm-149、Am-242m、Eu-151 を輸送しない（a、c、e）
-   - どこで: examples/depletion/p2/xs.toml:10 の注釈が #0127 を理由に 5 核種を外し、「../xs.toml と同じ」と書く。#0127 は閉じ（ADR-0177）、
+   - どこで: examples/depletion/p2/xs.toml:10 の注釈のとおり、5 核種を輸送する核種から外したまま（外した理由は #0127）。#0127 は閉じ（ADR-0177）、
      ADR-0177 の帰結は 5 核種を燃焼のライブラリに戻すとしたが、戻したのはピンセルの examples/depletion/xs.toml だけで、p2 では
      5 核種が放射化だけの核種（`activation = true`）のまま。p9-product、p9-2A、p9-gd の入力はどれも `../p2/depletion.msgpack` を読む
    - 根拠: 集合体（2A、2O、2P）では測定なし。参照の examples/depletion/p2/openmc-library.toml にも 5 核種が無く（Pm-148m だけがある）、
@@ -240,7 +240,6 @@ Gd の本番の入力はまだ無い。ADR-0253 の帰結）。
 
 ### 直すべき記述
 
-- examples/depletion/p2/xs.toml:10 の「../xs.toml と同じ」は今は誤り（../xs.toml は 5 核種を戻した。上の 1）
 - ADR-0178 の決定の Gd のリングの「#0044 などで測って決める」: #0044 は弦の求積の issue で、リングの数を扱わない。リングの数は #0277
 
 関係する ADR: なし
