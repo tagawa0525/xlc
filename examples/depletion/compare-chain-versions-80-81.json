@@ -649,7 +649,6 @@
   {
    "nuclide": "Ac-225",
    "energy": 0.0253,
-   "only": null,
    "products": 886,
    "differ": 0,
    "sum_a": 1.9999998697598191,
@@ -661,7 +660,6 @@
   {
    "nuclide": "Ac-226",
    "energy": 0.0253,
-   "only": null,
    "products": 886,
    "differ": 0,
    "sum_a": 1.9999998697598191,
@@ -673,7 +671,6 @@
   {
    "nuclide": "Ac-227",
    "energy": 0.0253,
-   "only": null,
    "products": 886,
    "differ": 0,
    "sum_a": 1.9999998697598191,
@@ -685,7 +682,6 @@
   {
    "nuclide": "Am-240",
    "energy": 0.0253,
-   "only": null,
    "products": 993,
    "differ": 0,
    "sum_a": 1.999999442371248,
@@ -697,7 +693,6 @@
   {
    "nuclide": "Am-240",
    "energy": 500000.0,
-   "only": null,
    "products": 1009,
    "differ": 0,
    "sum_a": 1.9999998894127922,
@@ -709,7 +704,6 @@
   {
    "nuclide": "Am-240",
    "energy": 14000000.0,
-   "only": null,
    "products": 1116,
    "differ": 0,
    "sum_a": 1.9999996994547327,
@@ -721,7 +715,6 @@
   {
    "nuclide": "Am-241",
    "energy": 0.0253,
-   "only": null,
    "products": 993,
    "differ": 0,
    "sum_a": 1.999999442371248,
@@ -733,7 +726,6 @@
   {
    "nuclide": "Am-241",
    "energy": 500000.0,
-   "only": null,
    "products": 1009,
    "differ": 0,
    "sum_a": 1.9999998894127922,
@@ -745,7 +737,6 @@
   {
    "nuclide": "Am-241",
    "energy": 14000000.0,
-   "only": null,
    "products": 1116,
    "differ": 0,
    "sum_a": 1.9999996994547327,
@@ -757,7 +748,6 @@
   {
    "nuclide": "Am-242",
    "energy": 0.0253,
-   "only": null,
    "products": 997,
    "differ": 0,
    "sum_a": 1.9999997973105355,
@@ -769,7 +759,6 @@
   {
    "nuclide": "Am-242m",
    "energy": 0.0253,
-   "only": null,
    "products": 997,
    "differ": 0,
    "sum_a": 1.9999997973105355,
@@ -781,7 +770,6 @@
   {
    "nuclide": "Am-243",
    "energy": 500000.0,
-   "only": null,
    "products": 1011,
    "differ": 0,
    "sum_a": 2.0000002035806532,
@@ -793,7 +781,6 @@
   {
    "nuclide": "Am-244",
    "energy": 500000.0,
-   "only": null,
    "products": 1011,
    "differ": 0,
    "sum_a": 2.0000002035806532,
@@ -805,7 +792,6 @@
   {
    "nuclide": "Am-244m",
    "energy": 500000.0,
-   "only": null,
    "products": 1011,
    "differ": 0,
    "sum_a": 2.0000002035806532,
@@ -817,7 +803,6 @@
   {
    "nuclide": "Bk-245",
    "energy": 0.0253,
-   "only": null,
    "products": 1003,
    "differ": 0,
    "sum_a": 1.9999999970073195,
@@ -829,7 +814,6 @@
   {
    "nuclide": "Bk-246",
    "energy": 500000.0,
-   "only": null,
    "products": 998,
    "differ": 0,
    "sum_a": 2.0000000755196132,
@@ -841,7 +825,6 @@
   {
    "nuclide": "Bk-247",
    "energy": 500000.0,
-   "only": null,
    "products": 998,
    "differ": 0,
    "sum_a": 2.0000000755196132,
@@ -853,7 +836,6 @@
   {
    "nuclide": "Bk-248",
    "energy": 500000.0,
-   "only": null,
    "products": 948,
    "differ": 0,
    "sum_a": 2.0000003773647133,
@@ -865,7 +847,6 @@
   {
    "nuclide": "Bk-249",
    "energy": 500000.0,
-   "only": null,
    "products": 948,
    "differ": 0,
    "sum_a": 2.0000003773647133,
@@ -877,7 +858,6 @@
   {
    "nuclide": "Bk-250",
    "energy": 500000.0,
-   "only": null,
    "products": 948,
    "differ": 0,
    "sum_a": 2.0000003773647133,
@@ -889,7 +869,6 @@
   {
    "nuclide": "Cf-246",
    "energy": 0.0253,
-   "only": null,
    "products": 1101,
    "differ": 0,
    "sum_a": 1.9999996762038694,
@@ -901,7 +880,6 @@
   {
    "nuclide": "Cf-247",
    "energy": 0.0253,
-   "only": null,
    "products": 1101,
    "differ": 0,
    "sum_a": 1.9999996762038694,
@@ -913,7 +891,6 @@
   {
    "nuclide": "Cf-248",
    "energy": 0.0253,
-   "only": null,
    "products": 1101,
    "differ": 0,
    "sum_a": 1.9999996762038694,
@@ -925,7 +902,6 @@
   {
    "nuclide": "Cf-249",
    "energy": 0.0253,
-   "only": null,
    "products": 1101,
    "differ": 0,
    "sum_a": 1.9999996762038694,
@@ -937,7 +913,6 @@
   {
    "nuclide": "Cf-250",
    "energy": 0.0253,
-   "only": null,
    "products": 1101,
    "differ": 0,
    "sum_a": 1.9999996762038694,
@@ -949,7 +924,6 @@
   {
    "nuclide": "Cf-251",
    "energy": 0.0252,
-   "only": null,
    "products": 1014,
    "differ": 0,
    "sum_a": 1.9999998542007715,
@@ -961,7 +935,6 @@
   {
    "nuclide": "Cf-252",
    "energy": 0.0252,
-   "only": null,
    "products": 1014,
    "differ": 0,
    "sum_a": 1.9999998542007715,
@@ -973,7 +946,6 @@
   {
    "nuclide": "Cf-253",
    "energy": 0.0252,
-   "only": null,
    "products": 1014,
    "differ": 0,
    "sum_a": 1.9999998542007715,
@@ -985,7 +957,6 @@
   {
    "nuclide": "Cf-254",
    "energy": 0.0252,
-   "only": null,
    "products": 1014,
    "differ": 0,
    "sum_a": 1.9999998542007715,
@@ -997,7 +968,6 @@
   {
    "nuclide": "Cm-240",
    "energy": 500000.0,
-   "only": null,
    "products": 1050,
    "differ": 0,
    "sum_a": 1.9999995468791771,
@@ -1009,7 +979,6 @@
   {
    "nuclide": "Cm-241",
    "energy": 500000.0,
-   "only": null,
    "products": 1050,
    "differ": 0,
    "sum_a": 1.9999995468791771,
@@ -1021,7 +990,6 @@
   {
    "nuclide": "Cm-242",
    "energy": 500000.0,
-   "only": null,
    "products": 1050,
    "differ": 0,
    "sum_a": 1.9999995468791771,
@@ -1033,7 +1001,6 @@
   {
    "nuclide": "Cm-243",
    "energy": 0.0253,
-   "only": null,
    "products": 1032,
    "differ": 1,
    "sum_a": 1.9999993198796058,
@@ -1045,7 +1012,6 @@
   {
    "nuclide": "Cm-243",
    "energy": 500000.0,
-   "only": null,
    "products": 1047,
    "differ": 0,
    "sum_a": 2.0000005256140656,
@@ -1057,7 +1023,6 @@
   {
    "nuclide": "Cm-244",
    "energy": 500000.0,
-   "only": null,
    "products": 1039,
    "differ": 0,
    "sum_a": 2.0000004840726646,
@@ -1069,7 +1034,6 @@
   {
    "nuclide": "Cm-245",
    "energy": 0.0253,
-   "only": null,
    "products": 1003,
    "differ": 0,
    "sum_a": 1.9999999970073195,
@@ -1081,7 +1045,6 @@
   {
    "nuclide": "Cm-246",
    "energy": 500000.0,
-   "only": null,
    "products": 998,
    "differ": 0,
    "sum_a": 2.0000000755196132,
@@ -1093,7 +1056,6 @@
   {
    "nuclide": "Cm-247",
    "energy": 500000.0,
-   "only": null,
    "products": 998,
    "differ": 0,
    "sum_a": 2.0000000755196132,
@@ -1105,7 +1067,6 @@
   {
    "nuclide": "Cm-248",
    "energy": 500000.0,
-   "only": null,
    "products": 948,
    "differ": 0,
    "sum_a": 2.0000003773647133,
@@ -1117,7 +1078,6 @@
   {
    "nuclide": "Cm-249",
    "energy": 500000.0,
-   "only": null,
    "products": 948,
    "differ": 0,
    "sum_a": 2.0000003773647133,
@@ -1129,7 +1089,6 @@
   {
    "nuclide": "Cm-250",
    "energy": 500000.0,
-   "only": null,
    "products": 948,
    "differ": 0,
    "sum_a": 2.0000003773647133,
@@ -1141,7 +1100,6 @@
   {
    "nuclide": "Es-251",
    "energy": 0.0253,
-   "only": null,
    "products": 997,
    "differ": 1,
    "sum_a": 2.000000070943102,
@@ -1153,7 +1111,6 @@
   {
    "nuclide": "Es-252",
    "energy": 0.0253,
-   "only": null,
    "products": 997,
    "differ": 1,
    "sum_a": 2.000000070943102,
@@ -1165,7 +1122,6 @@
   {
    "nuclide": "Es-253",
    "energy": 0.0253,
-   "only": null,
    "products": 997,
    "differ": 1,
    "sum_a": 2.000000070943102,
@@ -1177,7 +1133,6 @@
   {
    "nuclide": "Es-254",
    "energy": 0.0253,
-   "only": null,
    "products": 997,
    "differ": 1,
    "sum_a": 2.000000070943102,
@@ -1189,7 +1144,6 @@
   {
    "nuclide": "Es-254m",
    "energy": 0.0253,
-   "only": null,
    "products": 997,
    "differ": 1,
    "sum_a": 2.000000070943102,
@@ -1201,7 +1155,6 @@
   {
    "nuclide": "Es-255",
    "energy": 0.0253,
-   "only": null,
    "products": 997,
    "differ": 1,
    "sum_a": 2.000000070943102,
@@ -1213,7 +1166,6 @@
   {
    "nuclide": "Fm-255",
    "energy": 0.0253,
-   "only": null,
    "products": 1009,
    "differ": 1,
    "sum_a": 2.0000001349322263,
@@ -1225,7 +1177,6 @@
   {
    "nuclide": "Np-234",
    "energy": 0.0253,
-   "only": null,
    "products": 933,
    "differ": 0,
    "sum_a": 2.0000004351978404,
@@ -1237,7 +1188,6 @@
   {
    "nuclide": "Np-234",
    "energy": 500000.0,
-   "only": null,
    "products": 979,
    "differ": 0,
    "sum_a": 2.0000001688744,
@@ -1249,7 +1199,6 @@
   {
    "nuclide": "Np-234",
    "energy": 14000000.0,
-   "only": null,
    "products": 1067,
    "differ": 0,
    "sum_a": 2.000000185705832,
@@ -1261,7 +1210,6 @@
   {
    "nuclide": "Np-235",
    "energy": 0.0253,
-   "only": null,
    "products": 933,
    "differ": 0,
    "sum_a": 2.0000004351978404,
@@ -1273,7 +1221,6 @@
   {
    "nuclide": "Np-235",
    "energy": 500000.0,
-   "only": null,
    "products": 979,
    "differ": 0,
    "sum_a": 2.0000001688744,
@@ -1285,7 +1232,6 @@
   {
    "nuclide": "Np-235",
    "energy": 14000000.0,
-   "only": null,
    "products": 1067,
    "differ": 0,
    "sum_a": 2.000000185705832,
@@ -1297,7 +1243,6 @@
   {
    "nuclide": "Np-236",
    "energy": 0.0253,
-   "only": null,
    "products": 933,
    "differ": 0,
    "sum_a": 2.0000004351978404,
@@ -1309,7 +1254,6 @@
   {
    "nuclide": "Np-236",
    "energy": 500000.0,
-   "only": null,
    "products": 979,
    "differ": 0,
    "sum_a": 2.0000001688744,
@@ -1321,7 +1265,6 @@
   {
    "nuclide": "Np-236",
    "energy": 14000000.0,
-   "only": null,
    "products": 1067,
    "differ": 0,
    "sum_a": 2.000000185705832,
@@ -1333,7 +1276,6 @@
   {
    "nuclide": "Np-236m",
    "energy": 0.0253,
-   "only": null,
    "products": 933,
    "differ": 0,
    "sum_a": 2.0000004351978404,
@@ -1345,7 +1287,6 @@
   {
    "nuclide": "Np-236m",
    "energy": 500000.0,
-   "only": null,
    "products": 979,
    "differ": 0,
    "sum_a": 2.0000001688744,
@@ -1357,7 +1298,6 @@
   {
    "nuclide": "Np-236m",
    "energy": 14000000.0,
-   "only": null,
    "products": 1067,
    "differ": 0,
    "sum_a": 2.000000185705832,
@@ -1369,7 +1309,6 @@
   {
    "nuclide": "Np-237",
    "energy": 0.0253,
-   "only": null,
    "products": 933,
    "differ": 0,
    "sum_a": 2.0000004351978404,
@@ -1381,7 +1320,6 @@
   {
    "nuclide": "Np-237",
    "energy": 500000.0,
-   "only": null,
    "products": 979,
    "differ": 0,
    "sum_a": 2.0000001688744,
@@ -1393,7 +1331,6 @@
   {
    "nuclide": "Np-237",
    "energy": 14000000.0,
-   "only": null,
    "products": 1067,
    "differ": 0,
    "sum_a": 2.000000185705832,
@@ -1405,7 +1342,6 @@
   {
    "nuclide": "Np-238",
    "energy": 500000.0,
-   "only": null,
    "products": 916,
    "differ": 0,
    "sum_a": 2.0000000115651857,
@@ -1417,7 +1353,6 @@
   {
    "nuclide": "Np-239",
    "energy": 500000.0,
-   "only": null,
    "products": 916,
    "differ": 0,
    "sum_a": 2.0000000115651857,
@@ -1429,7 +1364,6 @@
   {
    "nuclide": "Pa-229",
    "energy": 500000.0,
-   "only": null,
    "products": 984,
    "differ": 0,
    "sum_a": 1.9999993398716251,
@@ -1441,7 +1375,6 @@
   {
    "nuclide": "Pa-230",
    "energy": 500000.0,
-   "only": null,
    "products": 984,
    "differ": 0,
    "sum_a": 1.9999993398716251,
@@ -1453,7 +1386,6 @@
   {
    "nuclide": "Pa-231",
    "energy": 500000.0,
-   "only": null,
    "products": 984,
    "differ": 0,
    "sum_a": 1.9999993398716251,
@@ -1465,7 +1397,6 @@
   {
    "nuclide": "Pa-232",
    "energy": 500000.0,
-   "only": null,
    "products": 984,
    "differ": 0,
    "sum_a": 1.9999993398716251,
@@ -1477,7 +1408,6 @@
   {
    "nuclide": "Pa-233",
    "energy": 500000.0,
-   "only": null,
    "products": 984,
    "differ": 0,
    "sum_a": 1.9999993398716251,
@@ -1489,7 +1419,6 @@
   {
    "nuclide": "Pu-236",
    "energy": 500000.0,
-   "only": null,
    "products": 1010,
    "differ": 0,
    "sum_a": 1.9999994657222102,
@@ -1501,7 +1430,6 @@
   {
    "nuclide": "Pu-237",
    "energy": 500000.0,
-   "only": null,
    "products": 1010,
    "differ": 0,
    "sum_a": 1.9999994657222102,
@@ -1513,7 +1441,6 @@
   {
    "nuclide": "Pu-238",
    "energy": 500000.0,
-   "only": null,
    "products": 1010,
    "differ": 0,
    "sum_a": 1.9999994657222102,
@@ -1525,7 +1452,6 @@
   {
    "nuclide": "Pu-239",
    "energy": 0.0253,
-   "only": null,
    "products": 996,
    "differ": 0,
    "sum_a": 2.0000001294987997,
@@ -1537,7 +1463,6 @@
   {
    "nuclide": "Pu-239",
    "energy": 500000.0,
-   "only": null,
    "products": 1003,
    "differ": 1,
    "sum_a": 1.9999999803525785,
@@ -1549,7 +1474,6 @@
   {
    "nuclide": "Pu-239",
    "energy": 2000000.0,
-   "only": null,
    "products": 1003,
    "differ": 0,
    "sum_a": 1.9999999657234173,
@@ -1561,7 +1485,6 @@
   {
    "nuclide": "Pu-239",
    "energy": 14000000.0,
-   "only": null,
    "products": 1113,
    "differ": 1,
    "sum_a": 1.999999962012257,
@@ -1573,7 +1496,6 @@
   {
    "nuclide": "Pu-240",
    "energy": 0.0253,
-   "only": null,
    "products": 964,
    "differ": 0,
    "sum_a": 2.0000002985577714,
@@ -1585,7 +1507,6 @@
   {
    "nuclide": "Pu-240",
    "energy": 500000.0,
-   "only": null,
    "products": 973,
    "differ": 0,
    "sum_a": 2.000000295107409,
@@ -1597,7 +1518,6 @@
   {
    "nuclide": "Pu-240",
    "energy": 14000000.0,
-   "only": null,
    "products": 1095,
    "differ": 0,
    "sum_a": 1.9999999936229858,
@@ -1609,7 +1529,6 @@
   {
    "nuclide": "Pu-241",
    "energy": 0.0253,
-   "only": null,
    "products": 931,
    "differ": 931,
    "sum_a": 2.000000188221734,
@@ -1621,7 +1540,6 @@
   {
    "nuclide": "Pu-241",
    "energy": 500000.0,
-   "only": null,
    "products": 958,
    "differ": 0,
    "sum_a": 2.0000001883574634,
@@ -1633,7 +1551,6 @@
   {
    "nuclide": "Pu-242",
    "energy": 0.0253,
-   "only": null,
    "products": 918,
    "differ": 0,
    "sum_a": 2.000000339788772,
@@ -1645,7 +1562,6 @@
   {
    "nuclide": "Pu-242",
    "energy": 500000.0,
-   "only": null,
    "products": 944,
    "differ": 0,
    "sum_a": 2.0000003774012383,
@@ -1657,7 +1573,6 @@
   {
    "nuclide": "Pu-242",
    "energy": 14000000.0,
-   "only": null,
    "products": 996,
    "differ": 0,
    "sum_a": 1.999999462955107,
@@ -1669,7 +1584,6 @@
   {
    "nuclide": "Pu-243",
    "energy": 0.0253,
-   "only": null,
    "products": 918,
    "differ": 0,
    "sum_a": 2.000000339788772,
@@ -1681,7 +1595,6 @@
   {
    "nuclide": "Pu-243",
    "energy": 500000.0,
-   "only": null,
    "products": 944,
    "differ": 0,
    "sum_a": 2.0000003774012383,
@@ -1693,7 +1606,6 @@
   {
    "nuclide": "Pu-243",
    "energy": 14000000.0,
-   "only": null,
    "products": 996,
    "differ": 0,
    "sum_a": 1.999999462955107,
@@ -1705,7 +1617,6 @@
   {
    "nuclide": "Pu-244",
    "energy": 0.0253,
-   "only": null,
    "products": 918,
    "differ": 0,
    "sum_a": 2.000000339788772,
@@ -1717,7 +1628,6 @@
   {
    "nuclide": "Pu-244",
    "energy": 500000.0,
-   "only": null,
    "products": 944,
    "differ": 0,
    "sum_a": 2.0000003774012383,
@@ -1729,7 +1639,6 @@
   {
    "nuclide": "Pu-244",
    "energy": 14000000.0,
-   "only": null,
    "products": 996,
    "differ": 0,
    "sum_a": 1.999999462955107,
@@ -1741,7 +1650,6 @@
   {
    "nuclide": "Pu-245",
    "energy": 0.0253,
-   "only": null,
    "products": 918,
    "differ": 0,
    "sum_a": 2.000000339788772,
@@ -1753,7 +1661,6 @@
   {
    "nuclide": "Pu-245",
    "energy": 500000.0,
-   "only": null,
    "products": 944,
    "differ": 0,
    "sum_a": 2.0000003774012383,
@@ -1765,7 +1672,6 @@
   {
    "nuclide": "Pu-245",
    "energy": 14000000.0,
-   "only": null,
    "products": 996,
    "differ": 0,
    "sum_a": 1.999999462955107,
@@ -1777,7 +1683,6 @@
   {
    "nuclide": "Pu-246",
    "energy": 0.0253,
-   "only": null,
    "products": 918,
    "differ": 0,
    "sum_a": 2.000000339788772,
@@ -1789,7 +1694,6 @@
   {
    "nuclide": "Pu-246",
    "energy": 500000.0,
-   "only": null,
    "products": 944,
    "differ": 0,
    "sum_a": 2.0000003774012383,
@@ -1801,7 +1705,6 @@
   {
    "nuclide": "Pu-246",
    "energy": 14000000.0,
-   "only": null,
    "products": 996,
    "differ": 0,
    "sum_a": 1.999999462955107,
@@ -1813,7 +1716,6 @@
   {
    "nuclide": "Ra-223",
    "energy": 0.0253,
-   "only": null,
    "products": 886,
    "differ": 0,
    "sum_a": 1.9999998697598191,
@@ -1825,7 +1727,6 @@
   {
    "nuclide": "Ra-226",
    "energy": 0.0253,
-   "only": null,
    "products": 886,
    "differ": 0,
    "sum_a": 1.9999998697598191,
@@ -1837,7 +1738,6 @@
   {
    "nuclide": "Th-227",
    "energy": 0.0253,
-   "only": null,
    "products": 886,
    "differ": 0,
    "sum_a": 1.9999998697598191,
@@ -1849,7 +1749,6 @@
   {
    "nuclide": "Th-228",
    "energy": 0.0253,
-   "only": null,
    "products": 886,
    "differ": 0,
    "sum_a": 1.9999998697598191,
@@ -1861,7 +1760,6 @@
   {
    "nuclide": "Th-229",
    "energy": 0.0253,
-   "only": null,
    "products": 888,
    "differ": 0,
    "sum_a": 1.9999996637641761,
@@ -1873,7 +1771,6 @@
   {
    "nuclide": "Th-230",
    "energy": 0.0253,
-   "only": null,
    "products": 888,
    "differ": 0,
    "sum_a": 1.9999996637641761,
@@ -1885,7 +1782,6 @@
   {
    "nuclide": "Th-231",
    "energy": 500000.0,
-   "only": null,
    "products": 847,
    "differ": 0,
    "sum_a": 1.9999997135457748,
@@ -1897,7 +1793,6 @@
   {
    "nuclide": "Th-231",
    "energy": 14000000.0,
-   "only": null,
    "products": 976,
    "differ": 0,
    "sum_a": 2.000000068378732,
@@ -1909,7 +1804,6 @@
   {
    "nuclide": "Th-232",
    "energy": 500000.0,
-   "only": null,
    "products": 847,
    "differ": 0,
    "sum_a": 1.9999997135457748,
@@ -1921,7 +1815,6 @@
   {
    "nuclide": "Th-232",
    "energy": 14000000.0,
-   "only": null,
    "products": 976,
    "differ": 0,
    "sum_a": 2.000000068378732,
@@ -1933,7 +1826,6 @@
   {
    "nuclide": "Th-233",
    "energy": 500000.0,
-   "only": null,
    "products": 847,
    "differ": 0,
    "sum_a": 1.9999997135457748,
@@ -1945,7 +1837,6 @@
   {
    "nuclide": "Th-233",
    "energy": 14000000.0,
-   "only": null,
    "products": 976,
    "differ": 0,
    "sum_a": 2.000000068378732,
@@ -1957,7 +1848,6 @@
   {
    "nuclide": "Th-234",
    "energy": 500000.0,
-   "only": null,
    "products": 847,
    "differ": 0,
    "sum_a": 1.9999997135457748,
@@ -1969,7 +1859,6 @@
   {
    "nuclide": "Th-234",
    "energy": 14000000.0,
-   "only": null,
    "products": 976,
    "differ": 0,
    "sum_a": 2.000000068378732,
@@ -1981,7 +1870,6 @@
   {
    "nuclide": "U-230",
    "energy": 0.0253,
-   "only": null,
    "products": 1052,
    "differ": 0,
    "sum_a": 1.9999999288840862,
@@ -1993,7 +1881,6 @@
   {
    "nuclide": "U-231",
    "energy": 0.0253,
-   "only": null,
    "products": 1052,
    "differ": 0,
    "sum_a": 1.9999999288840862,
@@ -2005,7 +1892,6 @@
   {
    "nuclide": "U-232",
    "energy": 0.0253,
-   "only": null,
    "products": 1052,
    "differ": 0,
    "sum_a": 1.9999999288840862,
@@ -2017,7 +1903,6 @@
   {
    "nuclide": "U-233",
    "energy": 0.0253,
-   "only": null,
    "products": 970,
    "differ": 0,
    "sum_a": 2.000000044998829,
@@ -2029,7 +1914,6 @@
   {
    "nuclide": "U-233",
    "energy": 500000.0,
-   "only": null,
    "products": 993,
    "differ": 0,
    "sum_a": 1.999999893435932,
@@ -2041,7 +1925,6 @@
   {
    "nuclide": "U-233",
    "energy": 14000000.0,
-   "only": null,
    "products": 1100,
    "differ": 0,
    "sum_a": 2.000000525210647,
@@ -2053,7 +1936,6 @@
   {
    "nuclide": "U-234",
    "energy": 500000.0,
-   "only": null,
    "products": 977,
    "differ": 0,
    "sum_a": 2.000000136731193,
@@ -2065,7 +1947,6 @@
   {
    "nuclide": "U-234",
    "energy": 14000000.0,
-   "only": null,
    "products": 1092,
    "differ": 0,
    "sum_a": 1.9999998458245876,
@@ -2077,7 +1958,6 @@
   {
    "nuclide": "U-235",
    "energy": 0.0253,
-   "only": null,
    "products": 923,
    "differ": 0,
    "sum_a": 1.999999767627597,
@@ -2089,7 +1969,6 @@
   {
    "nuclide": "U-235",
    "energy": 500000.0,
-   "only": null,
    "products": 924,
    "differ": 0,
    "sum_a": 1.9999995112591584,
@@ -2101,7 +1980,6 @@
   {
    "nuclide": "U-235",
    "energy": 14000000.0,
-   "only": null,
    "products": 1082,
    "differ": 0,
    "sum_a": 1.9999996103156321,
@@ -2113,7 +1991,6 @@
   {
    "nuclide": "U-236",
    "energy": 500000.0,
-   "only": null,
    "products": 926,
    "differ": 0,
    "sum_a": 1.9999997292150002,
@@ -2125,7 +2002,6 @@
   {
    "nuclide": "U-236",
    "energy": 14000000.0,
-   "only": null,
    "products": 1059,
    "differ": 0,
    "sum_a": 1.999999636258147,
@@ -2137,7 +2013,6 @@
   {
    "nuclide": "U-237",
    "energy": 500000.0,
-   "only": null,
    "products": 899,
    "differ": 1,
    "sum_a": 2.000000033987683,
@@ -2149,7 +2024,6 @@
   {
    "nuclide": "U-238",
    "energy": 500000.0,
-   "only": null,
    "products": 895,
    "differ": 1,
    "sum_a": 2.000000036194088,
@@ -2161,7 +2035,6 @@
   {
    "nuclide": "U-238",
    "energy": 14000000.0,
-   "only": null,
    "products": 1000,
    "differ": 0,
    "sum_a": 1.9999997889746226,
@@ -2173,7 +2046,6 @@
   {
    "nuclide": "U-239",
    "energy": 500000.0,
-   "only": null,
    "products": 895,
    "differ": 1,
    "sum_a": 2.000000036194088,
@@ -2185,7 +2057,6 @@
   {
    "nuclide": "U-239",
    "energy": 14000000.0,
-   "only": null,
    "products": 1000,
    "differ": 0,
    "sum_a": 1.9999997889746226,
@@ -2197,7 +2068,6 @@
   {
    "nuclide": "U-240",
    "energy": 500000.0,
-   "only": null,
    "products": 895,
    "differ": 1,
    "sum_a": 2.000000036194088,
@@ -2209,7 +2079,6 @@
   {
    "nuclide": "U-240",
    "energy": 14000000.0,
-   "only": null,
    "products": 1000,
    "differ": 0,
    "sum_a": 1.9999997889746226,
@@ -2221,7 +2090,6 @@
   {
    "nuclide": "U-241",
    "energy": 500000.0,
-   "only": null,
    "products": 895,
    "differ": 1,
    "sum_a": 2.000000036194088,
@@ -2233,7 +2101,6 @@
   {
    "nuclide": "U-241",
    "energy": 14000000.0,
-   "only": null,
    "products": 1000,
    "differ": 0,
    "sum_a": 1.9999997889746226,
@@ -2243,6 +2110,7 @@
    "max_product": "Ag-107m"
   }
  ],
+ "one_sided_tables": [],
  "watched": {
   "nuclides": [
    {
