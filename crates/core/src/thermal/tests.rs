@@ -196,8 +196,8 @@ fn reflector_positions_take_the_inlet_temperature() {
     );
 }
 
-/// 下に出力のない流路のノードと、出力のない流路の出口は、入口の温度そのもの（エンタルピーからの逆の解きの丸めで入口の温度の
-/// 格子点の下に出ると、テーブルの外になる。Problem 6 の出力を下げた解で 564.9999999999999 K になった）
+/// 下に出力のない流路のノードと、出力のない流路の出口は、入口の温度そのもの（エンタルピーから逆に解くと、丸めで入口の温度の
+/// 格子点の下に出て、テーブルの外になる。Problem 6 の出力を下げた解の入口のエンタルピーを逆に解くと 564.9999999999999 K）
 #[test]
 fn channel_nodes_without_power_below_take_the_inlet_temperature() {
     let (layout, channels) = channels();

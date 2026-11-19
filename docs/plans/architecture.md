@@ -13,7 +13,7 @@ ENDF 形式の評価済み核データから出発し、PWR 炉心全体の解�
 
 計算を3つのステージ（`xs`: 核データ処理、`lattice`: 格子計算、`core`: 炉心計算）に分け、ステージごとのクレートとして
 実装する。ステージ間はファイルでデータを受け渡す。ステージが共有するデータファイルの形式と計算は、共通のクレート
-（`xlc-format`、`xlc-numeric`、`xlc-depletion`）に置く。
+（`xlc-format`、`xlc-numeric`、`xlc-depletion`、`xlc-cmfd`）に置く。
 
 - ステージのクレートとファイルでの受け渡し: [ADR-0001](../adr/0001-split-into-three-stage-crates.md)
 - ステージのクレートの間の依存: [ADR-0166](../adr/0166-build-chain-in-its-own-crate.md)（[ADR-0162](../adr/0162-add-depletion-crate.md) を置き換え）

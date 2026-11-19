@@ -429,6 +429,38 @@ class Replace(unittest.TestCase):
         ):
             vt.render("<!-- table: demo -->\n<!-- /table -->\n", self.root)
 
+    def test_the_md5_comes_from_the_outs_and_not_from_the_deps(self):
+        """dvc.lock の deps も同じ 3 行の形なので、JSON を deps に持つステージの md5 を出力の md5 と取り違えない"""
+        md5 = hashlib.md5((self.root / "t/a.json").read_bytes()).hexdigest()
+        entry = "    - path: a.json\n      hash: md5\n      md5: {}\n"
+        (self.root / "t/dvc.lock").write_text(
+            "schema: '2.0'\nstages:\n  s:\n    cmd: make\n    outs:\n"
+            + entry.format(md5)
+            + "  table:\n    cmd: draw\n    deps:\n"
+            + entry.format("0" * 32)
+        )
+        self.assertEqual(vt.locked_md5(self.root, "t/a.json"), md5)
+
+    def test_a_wrapped_long_path_has_its_locked_md5(self):
+        """DVC は長いパスを `- path:` の次の行に折り返して書く"""
+        md5 = hashlib.md5((self.root / "t/a.json").read_bytes()).hexdigest()
+        (self.root / "t/dvc.lock").write_text(
+            f"schema: '2.0'\nstages:\n  s:\n    outs:\n    - path: \n        a.json\n      hash: md5\n      md5: {md5}\n"
+        )
+        self.assertEqual(vt.locked_md5(self.root, "t/a.json"), md5)
+
+    def test_a_json_only_in_the_deps_has_no_locked_md5(self):
+        """JSON を出力するステージが無ければ、deps の md5 で照合を通さない"""
+        (self.root / "t/dvc.lock").write_text(
+            "schema: '2.0'\nstages:\n  table:\n    cmd: draw\n    deps:\n    - path: a.json\n      hash: md5\n      md5: "
+            + "0" * 32
+            + "\n    outs:\n    - path: b.json\n      hash: md5\n      md5: "
+            + "1" * 32
+            + "\n"
+        )
+        with self.assertRaisesRegex(vt.TableError, "has 0 outputs named a.json"):
+            vt.locked_md5(self.root, "t/a.json")
+
     def test_a_tracked_json_passes_in_a_git_repository(self):
         self.lock()
         self.git("init", "-q", "-b", "main")
@@ -5203,6 +5235,13 @@ def core_acceleration_summary():
 
 
 class DrawCoreAcceleration(unittest.TestCase):
+    def test_the_fastest_solve_of_a_small_core_keeps_its_digits(self):
+        """小さな炉心の 1 回の固有値計算は数 ms なので、比較のツールの --report と同じ小数 3 桁で描く"""
+        s = core_acceleration_summary()
+        s["cases"]["search"]["runs"]["cmfd"]["per_solve"]["seconds"] = [0.003, 0.25]
+        rows = cells(vt.core_acceleration_runs([s]))
+        self.assertEqual(rows[1][6], "0.003〜0.250")
+
     def test_runs_list_both_iterations_their_range_and_ratio(self):
         rows = cells(vt.core_acceleration_runs([core_acceleration_summary()]))
         self.assertEqual(
@@ -5215,7 +5254,7 @@ class DrawCoreAcceleration(unittest.TestCase):
                     "4,000",
                     "500〜1,500",
                     "8.0",
-                    "1.00〜3.00",
+                    "1.000〜3.000",
                     "10.0",
                 ],
                 [
@@ -5225,7 +5264,7 @@ class DrawCoreAcceleration(unittest.TestCase):
                     "2,000",
                     "20〜900",
                     "4.0",
-                    "0.25〜1.50",
+                    "0.250〜1.500",
                     "6.0",
                 ],
                 [
@@ -5484,7 +5523,7 @@ class DrawCoreThreads(unittest.TestCase):
                     "4,000",
                     "20〜900",
                     "8.0",
-                    "0.25〜1.50",
+                    "0.250〜1.500",
                     "10.0",
                     "",
                 ],
@@ -5496,7 +5535,7 @@ class DrawCoreThreads(unittest.TestCase):
                     "3,000",
                     "15〜700",
                     "8.0",
-                    "0.20〜1.25",
+                    "0.200〜1.250",
                     "10.0",
                     "同じ",
                 ],
@@ -5508,7 +5547,7 @@ class DrawCoreThreads(unittest.TestCase):
                     "3,000",
                     "15〜700",
                     "2.0",
-                    "0.05〜0.25",
+                    "0.050〜0.250",
                     "3.0",
                     "同じ",
                 ],
@@ -6350,6 +6389,38 @@ class DrawCombinedBurnupPoints(unittest.TestCase):
             vt.TABLES["depletion-p9-gd-combined-micro"],
             (both, vt.combined_burnup_micro),
         )
+
+
+class Placement(unittest.TestCase):
+    """記録の表が引く JSON の置き場。md5 は JSON と同じディレクトリの dvc.lock から読むので、そこの dvc.yaml がステージの出力に宣言する"""
+
+    @staticmethod
+    def outs(stages: Path) -> list[str]:
+        """dvc.yaml のステージの出力のパス（foreach のステージは do の出力。${...} を含んだまま）"""
+        import yaml  # python-tests の devShell のパッケージ（flake.nix の pythonPackages）
+
+        found = []
+        for stage in yaml.safe_load(stages.read_text()).get("stages", {}).values():
+            for out in stage.get("do", stage).get("outs", []):
+                found.extend(out if isinstance(out, dict) else [out])
+        return found
+
+    def test_each_stage_json_is_an_out_of_the_dvc_yaml_of_its_directory(self):
+        root = Path(__file__).resolve().parent.parent
+        misplaced = []
+        for name, (sources, _) in vt.TABLES.items():
+            for source in sources:
+                if source in vt.GIT_TRACKED:
+                    continue
+                stages = (root / source).with_name("dvc.yaml")
+                # foreach の出力（compare-${item}.json）の ${...} は、パスの 1 つの要素の中の任意の文字列として照らす
+                names = [
+                    re.sub(r"\\\$\\\{[^}]*\\\}", "[^/]*", re.escape(str(out)))
+                    for out in (self.outs(stages) if stages.exists() else [])
+                ]
+                if not any(re.fullmatch(n, Path(source).name) for n in names):
+                    misplaced.append(f"{name}: {source}")
+        self.assertEqual(misplaced, [])
 
 
 if __name__ == "__main__":

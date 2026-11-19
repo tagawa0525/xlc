@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [core, depletion]
 opened: 2026-10-29
-closed:
+closed: 2026-11-19
 milestone: M4
 blocked-by: []
-resolution:
+resolution: コミット ed17bf20f
 ---
 
 # 部分挿入のノードのミクロ燃焼の残り（数密度が割合について単調でないことと、#0192 のレビューの残り）
@@ -40,3 +40,4 @@ resolution:
 ## 経緯
 
 - 2026-11-19: issue の棚卸しで、済んだ指摘を消した（rod_table.py の `DENSITY_ROUNDING`。#0213 でファイルが消えた）
+- 2026-11-19: 点ごとに、済んだか、直したか、捨てたか、ほかの文書に寄せたかを決めて閉じた（扱いは resolution のコミットの本文）

@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [core, depletion]
 opened: 2026-10-29
-closed:
+closed: 2026-11-19
 milestone: M4
 blocked-by: []
-resolution:
+resolution: コミット ed17bf20f
 ---
 
 # サイクルのステップ（ADR-0218）のレビューの残り
@@ -49,3 +49,4 @@ ADR-0218 のブランチ（feat/core-cycle-steps）のレビューの 1 周目�
 ## 経緯
 
 - 2026-10-29: feat/core-cycle-steps のレビューの 1〜3 周目（/code-review high）で挙がった
+- 2026-11-19: 点ごとに、済んだか、直したか、捨てたか、ほかの文書に寄せたかを決めて閉じた（扱いは resolution のコミットの本文）

@@ -115,7 +115,8 @@ fn use_threads(given: Option<NonZeroUsize>) -> anyhow::Result<()> {
         (Some(threads), None) => (threads.get(), "input"),
         (None, Some(threads)) => (threads, "RAYON_NUM_THREADS"),
         (None, None) => {
-            // xs の `parallel::cores` と同じ規則。共通のクレートに移すと xs の実行ファイルのバイトが変わる（ADR-0232 の案 S2 と同じ）
+            // xs の `parallel::cores` と同じ規則。共通のクレートに移すと xs の実行ファイルのバイトが変わる（ADR-0232 の案 S2 と同じ）ので、
+            // xs が次に変わる作業で移す（docs/plans/upstream-error-budget.md の「作り直しのときに入れる xs と lattice の修正」）
             let allowed = std::thread::available_parallelism().context("available CPUs")?;
             (num_cpus::get_physical().min(allowed.get()), "default")
         }

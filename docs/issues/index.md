@@ -212,7 +212,7 @@
 * [dvc checkout の hook が dvc を実行しない形を止める](0211-refine-dvc-checkout-hook-false-blocks.md)
 * [間引かない格子の 2A の燃焼で自己遮蔽が機械のメモリを使い切る](0212-lattice-depletion-memory.md)
 * [rod_table.py を、燃焼の履歴からのブランチ計算の制御棒の軸に置き換えて消す](0213-remove-rod-table.md)
-* [制御棒のブランチの残り（examples/core の再実行、テストの範囲、始める解の軸）](0214-rod-branch-leftovers.md)
+* [制御棒のブランチの残り（examples/core の再実行、カラーセットと平板の軸の付け分け）](0214-rod-branch-leftovers.md)
 * [減速計算の作業の配列の数え方の残り（#0212 のレビュー）](0215-held-memory-work-accounting.md)
 * [dvc-relock のマージの直前の段を、手順の入口と許可に通す](0216-dvc-relock-pre-merge-step.md)
 * [時間の表の出どころが timed のジョブかを機械で確かめない](0217-time-tables-timed-source.md)

@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [core, lattice, depletion]
 opened: 2026-11-07
-closed:
+closed: 2026-11-19
 milestone: M4
 blocked-by: []
-resolution:
+resolution: コミット 0a8e22ebe
 ---
 
 # ノードの出力の重み（#0154）のレビューの残り
@@ -49,3 +49,4 @@ resolution:
 ## 経緯
 
 - 2026-11-07: #0154 のブランチの 1〜3 周目と記録の周の後の例外の周のレビューで出た、直さなかった指摘を集めた
+- 2026-11-19: 点ごとに、済んだか、直したか、捨てたか、ほかの文書に寄せたかを決めて閉じた（扱いは resolution のコミットの本文）

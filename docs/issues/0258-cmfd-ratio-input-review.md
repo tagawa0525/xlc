@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [core]
 opened: 2026-11-07
-closed:
+closed: 2026-11-19
 milestone: M4
 blocked-by: []
-resolution:
+resolution: コミット 0a8e22ebe
 ---
 
 # core の CMFD の粗メッシュの許容の比の入力のレビューで残した指摘
@@ -54,3 +54,4 @@ issue #0245 で粗メッシュの固有値問題の許容の比をケースの `
 ## 経緯
 
 - 2026-11-07: #0245 のローカルのレビューの 1 周目の指摘から起こした
+- 2026-11-19: 点ごとに、済んだか、直したか、捨てたか、ほかの文書に寄せたかを決めて閉じた（扱いは resolution のコミットの本文）

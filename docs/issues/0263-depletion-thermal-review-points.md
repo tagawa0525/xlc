@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [core, depletion]
 opened: 2026-11-07
-closed:
+closed: 2026-11-19
 milestone: M4
 blocked-by: []
-resolution:
+resolution: コミット 0a8e22ebe
 ---
 
 # 燃焼の熱水力のブランチのレビューで直さなかった点
@@ -79,3 +79,4 @@ resolution:
   issue の一覧は直し、コメントの狭さと `.unwrap_or(1.0)` を足した
 - 2026-11-07: 例外の周の指摘のうち、ADR-0229 の出典の範囲（ADR-0219 の「出力のある解」は燃焼点 0 と停止の後の点を含まない）と、ADR-0215 の
   帰結の値の言い方を直し、コメントの出典と `.unwrap_or(1.0)` の届き方を足した
+- 2026-11-19: 点ごとに、済んだか、直したか、捨てたか、ほかの文書に寄せたかを決めて閉じた（扱いは resolution のコミットの本文）

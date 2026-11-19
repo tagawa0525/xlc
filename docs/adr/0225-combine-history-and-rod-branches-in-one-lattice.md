@@ -118,6 +118,8 @@ aic = { gt = "gt-aic" }
 - rod_table.py は、examples/vera/p5 の HZP のテーブルを 1 つの入力の格子に置き換え（ノードごとに制御棒の軸を付け分ける仕組みは
   [ADR-0227](0227-give-the-rod-axis-to-nodes-with-replaced-cells.md)）、確認の手順（ADR-0224 の examples/core/rod-branch-check、この ADR の examples/depletion/rod-axis-check）とともに
   消した（#0213、2026-11-04）。この ADR の確認の計算の入力と手順は、タグ `record/adr-0225-rod-axis-check` にある
+- `rod-burnup` を書かない制御棒の値は `off-nominal-burnup` で解くので、棒のない値のブランチ条件の燃焼点を間引くと、制御棒の値も黙って
+  同じ点に間引かれる。制御棒を入れた組の間引きを測るまで（[ADR-0200](0200-tabulate-burnup-branches-by-cut-hdmr.md)、#0176）すべての燃焼点で解くには、制御棒の値に `rod-burnup` を書く
 - 制御棒の履歴の補正（[ADR-0215](0215-correct-untracked-history-by-history-branches.md) の制御棒の変数。#0190）は、この組み合わせの上に作る別のトピック
 
 ### 確認

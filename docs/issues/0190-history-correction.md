@@ -110,6 +110,9 @@ ADR-0215 は 2026-10-31 に、途中で条件を変えた燃焼（2A）の 5 点
      `StopIteration`、0 除算で止まる箇所、`report` の符号の書き方、index.json の鍵 `untracked_weight` が 2 つの量を指すこと。
      history/residual-nominal-rate.toml は residual-nominal.toml の複製。比較のコミット f819d6016 の本文の範囲は −14.036 pcm が抜けている
      （記録と ADR の値が正）
+6. 減速材の密度の履歴の変数の定義（#0263 から）: 熱水力の燃焼ではノードの温度の IF97 の密度、熱水力のない燃焼ではテーブルの格子点の組を
+   温度で内挿した密度（crates/core/src/state.rs の `moderator_density`）。定数は格子点の間を格子点の組の線形の内挿で引くので、格子点の間で履歴の
+   変数と定数の密度が内挿の差（ADR-0229 の帰結）だけ違う。どちらに合わせるかは、HFP の範囲の本番のテーブルで履歴の補正の効きを測ってから決める
 
 ## 経緯
 

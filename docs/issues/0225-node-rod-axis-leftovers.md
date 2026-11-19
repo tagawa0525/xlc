@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [lattice, examples]
 opened: 2026-11-04
-closed:
+closed: 2026-11-19
 milestone: M3
 blocked-by: []
-resolution:
+resolution: "wontfix: 残った点はどれも再現が無く、閉じたコミットの本文に点ごとの理由を書いて捨てた"
 ---
 
 # ノードごとの制御棒の軸の付け分けの残り（p5 の棒のない状態の照合、軸の有無の判定の重複）
@@ -42,3 +42,4 @@ resolution:
   examples/vera/verification.md の「Problem 5 の 3D の炉心の計算」の「制御棒のブランチの格子の棒のない状態」）。ほかの項目は、直すかを
   決めていない。照合のレビューの残りは #0229
 - 2026-11-19: issue の棚卸しで、済んだ指摘を消した（p5 の値 out の状態の照合。上の 2026-11-05 の項）。完了の条件を残りの項目に合わせた
+- 2026-11-19: 点ごとに、済んだか、直したか、捨てたか、ほかの文書に寄せたかを決めて閉じた（扱いは閉じたコミットの本文）
