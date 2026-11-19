@@ -498,7 +498,8 @@ ADR-0257）は、上の段の実装のブランチで、その ADR の決定と�
   - `scripts/test_dvc_repro.py` の `PlanSingleItem` と、`Process` の `test_single_item_*`（PATH に置いた偽の dvc で）: 上流の changed が
     deps だけなら `dvc repro -s <目標>` だけを呼ぶこと。上流が `changed outs`、`changed command`、`changed checksum` のどれかを持てば、
     `BLOCKED:` を出して何も実行せずに終了コード 1 で止まること。changed の正規形のステージを目標の前に実行し、確かめ直してから
-    目標を実行すること。正規形のほかに止める上流があれば、正規形も実行しないこと。参照解の目標は `--allow-reference` が無ければ
+    目標を実行すること（`--no-run-cache` は両方に付き、`references-shell.txt` の照合は 1 回）。正規形のほかに止める上流があれば、
+    正規形も実行しないこと。目標を `./examples/…` と書いても、目標自身の変更を上流と取り違えないこと。参照解の目標は `--allow-reference` が無ければ
     止まること。上流の `references-shell.txt` が食い違えば止まること。`--count-only` は確かめるだけで実行しないこと。`-s` に
     `--max-stages`、2 つの目標、ステージでない目標、`-P` を渡すと、dvc を呼ばずに止まること
   - `.claude/hooks/test_block_raw_dvc_repro_in_slurm.py`: `slurm-run.sh` に `scripts/dvc-repro.py -s …` を渡すコマンドを通し、生の
