@@ -292,6 +292,30 @@ fn unresolved_shielding_lowers_capture_at_small_background() {
 }
 
 #[test]
+fn shielding_temperatures_together_gives_the_bits_of_each_temperature_alone() {
+    // 温度の間で同じラダーと係数を使っても、温度ごとに作った補正とビットまで同じ（#0155）
+    let tape = unresolved_tape();
+    let sigma0 = [1.0e10, 100.0, 1.0];
+    let temperatures = [300.0, 600.0, 1200.0];
+    let together = unresolved_shielding(&tape, 1, &temperatures, &sigma0)
+        .unwrap()
+        .unwrap();
+    assert_eq!(together.len(), temperatures.len());
+    for (shielding, &t) in together.iter().zip(&temperatures) {
+        let [alone] = &unresolved_shielding(&tape, 1, &[t], &sigma0)
+            .unwrap()
+            .unwrap()[..]
+        else {
+            panic!("one temperature gives one shielding");
+        };
+        // f64 の Debug は値を往復できる最短の桁で書くので、文字列が同じならビットも同じ（-0.0 と 0.0 も区別する）
+        assert_eq!(format!("{shielding:?}"), format!("{alone:?}"), "{t} K");
+    }
+    // 温度で補正が変わる（同じ値を温度の数だけ返していない）
+    assert_ne!(together[0], together[2]);
+}
+
+#[test]
 fn no_unresolved_range_gives_no_shielding() {
     use crate::endf::rec;
     let text = [
