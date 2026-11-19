@@ -66,6 +66,24 @@ class Blockers(unittest.TestCase):
             ],
         )
 
+    def test_changed_python_ast_or_toml_values_upstream_blocks(self):
+        # 下流の cmd は元の .py と TOML を読むので、正規形のステージは先に実行して changed でなくする（ADR-0184、ADR-0254）
+        status = {
+            "python-ast@examples/vera/openmc_model.py": [
+                {"changed deps": {"examples/vera/openmc_model.py": "modified"}}
+            ],
+            "toml-values@examples/vera/p1/openmc-1B.toml": [
+                {"changed deps": {"examples/vera/p1/openmc-1B.toml": "modified"}}
+            ],
+        }
+        self.assertEqual(
+            skip.blockers(status, TARGET),
+            [
+                ("python-ast@examples/vera/openmc_model.py", ["changed deps"]),
+                ("toml-values@examples/vera/p1/openmc-1B.toml", ["changed deps"]),
+            ],
+        )
+
     def test_root_stage_target_matches_the_key_without_the_yaml(self):
         status = {"build": [{"changed outs": {"bin/xs": "modified"}}]}
         self.assertEqual(skip.blockers(status, "dvc.yaml:build"), [])
