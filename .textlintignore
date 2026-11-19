@@ -1,7 +1,7 @@
 # 崩れた日本語の語の検査（nixfiles の ADR-0014）から外すファイル。語の調査の表は、直す対象の語をわざと含む
 docs/issues/0142-fix-context-dependent-terms.md
 
-# 例の入力（TOML）と、それを書くスクリプト（p2_inputs.py などの入力を書く .py）、DVC のステージの deps の .py
+# 例の入力（TOML）、それを書くスクリプト（p2_inputs.py など）とスクリプトが書く dvc.yaml、DVC のステージの deps の .py
 # （python-ast の対象）と、その出力の文を確かめるテストのうち、.ja-terms/prh.yml の nominal と branch の規則が当たるもの。
 # 入力は、ほかの入力のコピーや、スクリプトが書いて手で直さないものが多く、元と一緒に直さないと食い違う。deps を直すと
 # ステージが changed になり、付け直しの条件（ADR-0212 の (b)）をステージごとに確かめる必要がある。別の PR で直してから
@@ -26,6 +26,7 @@ examples/branches/xs.toml
 examples/colorset/diffusion.py
 examples/core/assemblies.toml
 examples/core/assembly.toml
+examples/core/dvc.yaml
 examples/core/rods_cases.py
 examples/depletion/branches/branch-2A-all.toml
 examples/depletion/branches/branch-2A-boron.toml
@@ -554,6 +555,7 @@ examples/vera/p5/hzp/rodless-reflector-I-31-fuel.toml
 examples/vera/p5/hzp/rodless-reflector-I-31-zgrid.toml
 examples/vera/p5/p5_inputs.py
 examples/vera/p6/axial-6.toml
+examples/vera/p6/dvc.yaml
 examples/vera/p6/lattice-6-fuel.toml
 examples/vera/p6/lattice-6-igrid.toml
 examples/vera/p6/lattice-6-zgrid.toml
