@@ -253,3 +253,4 @@
 * [ADR-0256: docs/ を OKF v0.3 のバンドルにし、design-records check で type と索引を検査する](0256-make-docs-an-okf-bundle.md)
 * [ADR（設計判断の記録）](README.md) - ADR（設計判断の記録）の書式と運用。
 * [ADR-0257: Slurm に投げる dvc repro は、走りうるステージを数えて上限と参照解の許可を確かめるラッパーを通し、生の dvc repro を hook で止める](0257-count-stages-before-slurm-dvc-repro.md)
+* [ADR-0258: DVC のステージと dvc.lock は残し、deps の正規形と relock をやめ、上流を飛ばす実行は上流の出力が dvc.lock のとおりかで決める](0258-keep-dvc-stages-and-drop-deps-forms-and-relock.md)
