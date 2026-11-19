@@ -4378,7 +4378,8 @@ core の燃焼（[ADR-0190](../../docs/adr/0190-advance-node-burnups-by-midpoint
 `branches/core-2A-coarse.toml` は 5、15、30、52 MWd/kg の 4 ステップ（どれもテーブルの点の間）にした。反応度は ρ = 1 − 1/k。
 燃焼度の内挿は [ADR-0192](../../docs/adr/0192-interpolate-burnup-by-cubic-hermite.md) の 3 次 Hermite（0 から次の点までは線形）。今の main の `p2/lattice-2A.msgpack` は
 `ufg-tolerance = 1e-4` で作り直したもの（md5 c2591c9f）なので、テーブルを作った履歴（md5 6272e937。764268e1 を checkout した worktree で
-`nix develop -c python3 <今の main の worktree>/scripts/dvc-checkout.py examples/depletion/p2/dvc.yaml` で戻る。その版に scripts/dvc-checkout.py は無いので、今の版をパスで呼ぶ）のコピーを `branches/lattice-2A-6272e937.msgpack` に置いて比べる。
+`nix develop -c python3 <今の main の worktree>/scripts/dvc-checkout.py examples/depletion/p2/dvc.yaml` で戻る。その版に scripts/dvc-checkout.py は無いので、今の版をパスで呼ぶ。worktree には、キャッシュを共有する `references` の symlink を
+スキル topic-start の「始める」のとおり張る）のコピーを `branches/lattice-2A-6272e937.msgpack` に置いて比べる。
 
 ```sh
 cargo build --release -p xlc-lattice -p xlc-core

@@ -60,8 +60,9 @@ ADR-0159 は ADR-0123 から、DVC のステージを実行する形を引き継
     （`changed outs`、`changed command`、`changed checksum`）を持たないこと。目標のステージ自身の `changed deps` は再実行の理由
     なので数えない。`always_changed` のステージ（`references-shell`）がいつも出す `always changed` の項目は、deps と outs の
     差を表さないので数えないが、同じステージの `changed outs` は数える。`references-shell.txt` は devShell が変わっても
-    `dvc status` に出ないので、`scripts/check-references-shell.sh` で確かめる（/dvc-relock の 3 と同じ）。`python-ast` は、
-    下流の cmd が出力（`.ast`）でなく元の .py を実行するので、changed なら先に実行して changed でなくする（ADR-0210）。上流は
+    `dvc status` に出ないので、`scripts/check-references-shell.sh` で確かめる（/dvc-relock の 3 と同じ）。正規形のステージ
+    （`python-ast`、`toml-values`、`binary-forms`）は、下流の cmd が出力（正規形）でなく元の .py、TOML、`bin/` を読むので、changed なら
+    先に実行して changed でなくする（ADR-0210、ADR-0254、ADR-0255）。`dvc status` で分かる部分は scripts/check-skip-upstream.py が判定する。上流は
     changed のまま `dvc.lock` に残り、記録には上流の出どころ（上流を実行したコミットと分岐点）を下流と別に書く
 
 2 つ目の例外は、背景と案 C が防ぐ危険の一部を、条件を付けて受け入れる。上流の deps が changed なので、上流の outs は
@@ -95,10 +96,15 @@ lattice@2A のジョブ 421（docs/plans/m4-depletion.md）の実行で見てい
 - CLAUDE.md の「計算」と docs/plans/m4-depletion.md の「流すだけの手順」は、この ADR に合わせた
 - 2 つ目の `-s` の例外（「## 変更」の 2026-11-03）は、CLAUDE.md の「計算」と .claude/skills/dvc-relock/SKILL.md の 3 に合わせた。
   .claude/skills/openmc-reference/SKILL.md の `-s` は外し、確かめ方のうち `dvc status` で分かる部分は scripts/check-skip-upstream.py が
-  判定する（#0220。changed の `python-ast`、`toml-values`、`binary-forms` も止める（決定の文は `python-ast` だけを挙げるが、下流が元のファイルを読む正規形のステージは同じ扱い）。`references-shell.txt` は判定の外）
+  判定する（#0220。changed の `python-ast`、`toml-values`、`binary-forms` も止める。`references-shell.txt` は判定の外）
 
 ## 変更
 
+- 2026-11-19: 決定と理由の `-s` の 2 つ目の例外の、先に実行する正規形のステージに `toml-values` と `binary-forms` を足し、判定のスクリプトを
+  指した。前は「`python-ast` は、下流の cmd が出力（`.ast`）でなく元の .py を実行するので、changed なら先に実行して changed でなくする
+  （ADR-0210）」。この ADR の後に ADR-0254（TOML の値の正規形）と ADR-0255（実行ファイルの正規形）が同じ形の deps を足し、下流が元の
+  ファイルを読むので、changed のまま `-s` で下流を流すと `dvc.lock` に古い正規形の md5 が入る（#0220 のレビューの指摘。python-ast は
+  examples/vera/openmc_model.py に注釈を足して、判定が止めることを確かめた）
 - 2026-11-03: 決定と理由の `-s` の項に、上流の changed が deps だけで outs が `dvc.lock` と同じとき、数秒の下流のステージに
   `-s` を許す例外を足した。前は「`-s` は、/dvc-relock の rebase のあとに数秒で終わり、上流が changed でないと分かっているステージの
   例外だけにする」。きっかけは 2026-11-03 の MOX-1 の記録（main のマージ 54ab434ff、コミット a0cb82d30）で、compare_depletion.py に
