@@ -638,12 +638,64 @@ def depletion_assembly_k(sources: list[dict]) -> str:
     rows = [
         [
             burnup_label(b),
-            f"{signed(k['diff_pcm'], 0)} ± {k['openmc_std_pcm']:.0f}",
+            assembly_k_diff(k),
             signed(k["change_pcm"], 0),
         ]
         for b, k in zip(s["burnup"], s["k"], strict=True)
     ]
     return markdown_table(["燃焼度 (MWd/kg)", "差 (pcm)", "変化 (pcm)"], rows)
+
+
+def assembly_k_diff(k: dict) -> str:
+    """k∞ の差（pcm）と OpenMC の標準偏差"""
+    return f"{signed(k['diff_pcm'], 0)} ± {k['openmc_std_pcm']:.0f}"
+
+
+def depletion_assembly_summary(sources: list[dict]) -> str:
+    """集合体の燃焼の種類をまたぐ要約: 問題ごとの k∞ の差（xlc − OpenMC。± は OpenMC の標準偏差）の燃焼度 0 の点、絶対値の
+    最大とその燃焼度、最後の点、許容の ±150 pcm（ADR-0032）を超える点の数と、燃焼点の中のピン出力の rms の最小〜最大"""
+    rows = []
+    for source in sources:
+        s = assembly_checked(source)
+        missing = {"burnup", "k", "pins"} - s.keys()
+        if missing:
+            raise TableError(
+                f"{s.get('problem')}: no {sorted(missing)}; rerun the stage"
+            )
+        burnup, k, pins = s["burnup"], s["k"], s["pins"]
+        if not len(burnup) == len(k) == len(pins):
+            raise TableError(
+                f"{s['problem']}: {len(burnup)} burnup points with {len(k)} k and "
+                f"{len(pins)} pin comparisons; rerun the stage"
+            )
+        largest = max(range(len(k)), key=lambda i: abs(k[i]["diff_pcm"]))
+        rms = [p["rms"] for p in pins]
+        rows.append(
+            [
+                s["problem"],
+                assembly_k_diff(k[0]),
+                assembly_k_diff(k[largest]),
+                burnup_label(burnup[largest]),
+                assembly_k_diff(k[-1]),
+                burnup_label(burnup[-1]),
+                # 描く差と同じ丸め（整数の pcm）で数える。+150.4 を「+150」と描きながら超えたと数えない
+                str(sum(abs(round(x["diff_pcm"])) > 150 for x in k)),
+                f"{100 * min(rms):.3f}〜{100 * max(rms):.3f}",
+            ]
+        )
+    return markdown_table(
+        [
+            "問題",
+            "燃焼度 0 の差 (pcm)",
+            "最大の差 (pcm)",
+            "最大の燃焼度 (MWd/kg)",
+            "最後の点の差 (pcm)",
+            "最後の燃焼度 (MWd/kg)",
+            "±150 pcm を超える点",
+            "ピン出力の rms (%)",
+        ],
+        rows,
+    )
 
 
 def depletion_assembly_free_gas_k(sources: list[dict]) -> str:
@@ -5508,6 +5560,13 @@ TABLES = {
         )
         for job in ("2A", "2O")
     },
+    "depletion-assembly-summary": (
+        [
+            f"examples/depletion/p2/compare-{job}.json"
+            for job in ASSEMBLY_DEPLETION_JOBS
+        ],
+        depletion_assembly_summary,
+    ),
     "depletion-assembly-times": (
         [f"examples/depletion/p2/compare-{job}.json" for job in ["2A", "2F", "2N"]],
         depletion_assembly_times,

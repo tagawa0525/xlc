@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [verification]
 opened: 2026-10-11
-closed:
+closed: 2026-11-19
 milestone:
 blocked-by: []
-resolution:
+resolution: コミット ae90aba41
 ---
 
 # VERA 2F、2G、2H の入力で計装管のセルの注釈が「案内管」になっている
@@ -26,3 +26,4 @@ examples/vera/p2/assembly-2F.toml、assembly-2G.toml、assembly-2H.toml の `[ce
 ## 経緯
 
 - 2026-10-11: 2K の入力（2F から作った）のレビューで見つけ、2K の分だけ直した（ブランチ feat/vera-2k）
+- 2026-11-19: 3 つの入力と、そこからコピーした examples/core/assembly.toml、examples/depletion/issue-0274/vera-light-cap/ の 2F〜2H の入力の注釈を直した（値の正規形は変わらない）

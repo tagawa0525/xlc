@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [dvc, depletion]
 opened: 2026-11-07
-closed:
+closed: 2026-11-19
 milestone:
 blocked-by: []
-resolution:
+resolution: コミット a8a860120
 ---
 
 # 2A の OpenMC との比較が時間を記録しない履歴を deps に持ち、作り直すと記録の時間の内訳を上書きしうる
@@ -37,3 +37,4 @@ resolution:
 ## 経緯
 
 - 2026-11-07: ADR-0238 の 2A の作り直し（Slurm 726）で、比較を前の版に戻したときに分けた
+- 2026-11-19: 完了の条件の後者で済んでいた。ブランチ chore/rerun-new-defaults が 2A、2F、2N の格子計算と比較を timed のジョブ（Slurm 917〜919）で再実行し、p2 の dvc.lock の `compare@` の deps の履歴の md5 は 8 本とも `lattice@` の outs と同じ。時間を記録しないジョブでの再実行が時間を上書きする経路は #0217 に寄せた

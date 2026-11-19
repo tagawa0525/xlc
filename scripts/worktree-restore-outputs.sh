@@ -8,9 +8,9 @@
 # .dvc ファイル（ADR-0222）を対象にする。キャッシュの置き方は .dvc/config の cache.type（reflink だけ）で、中身をコピーしない。
 #
 # 終了コード: dvc.lock か .dvc ファイルに hash がある出力を戻せなければ 0 でない。checkout は scripts/dvc-checkout.py で行い、hash の
-# まだ無いステージ（未実行。No file hash info）の出力は数えるだけにする（#0184）。キャッシュに無い出力（OpenMC の結果
-# など、作った機械から持ってきていないもの）は MISSING に並ぶので、作業に要るものが入っていなければ dvc repro で作る。
-# 黙って捨てない。
+# まだ無いステージ（未実行。No file hash info）の出力は数えるだけにする（#0184）。hash があるのに戻らない出力（キャッシュに
+# 無いか、ブランチが変えた lock の出力）は MISSING に並び、dvc repro で埋めずに原因を調べる（.dvc で追う生成物は dvc repro で
+# 作れない。ADR-0222）。黙って捨てない。
 
 set -uo pipefail
 

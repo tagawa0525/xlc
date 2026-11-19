@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [aws, reference]
 opened: 2026-10-13
-closed:
+closed: 2026-11-19
 milestone:
 blocked-by: []
-resolution:
+resolution: "wontfix: AWS は枠が無く今は使わない（docs/environment.md の「外部の計算機（AWS）」）。AWS で流すのを再開するときに開き直す"
 ---
 
 # Sync to S3 on the spot interruption notice
@@ -33,3 +33,4 @@ ADR-0155 の VM は、SIGTERM を受けると finish で最後の同期とログ
 ## 経緯
 
 - 2026-10-13: ADR-0155 の確認とレビューで見つけた。ADR-0155 のブランチでは入れていない（確かめる手段の用意が要るため）
+- 2026-11-19: AWS の枠が無く、数時間の OpenMC の参照解も r995 の Slurm で流すことになった（ユーザー 2026-11-19）ので閉じた。スポットの中断は AWS の VM だけの問題。AWS で流すのを再開するときに、本番の前に開き直す

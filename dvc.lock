@@ -1604,7 +1604,7 @@ stages:
     deps:
     - path: examples/vera/p2/assembly-2F.toml
       hash: md5
-      md5: 935e8726d4029825d4f651018d18f1aa
+      md5: e0aefe1ff6509d18d1d04e0ed1754693
       size: 4730
     - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
@@ -1778,7 +1778,7 @@ stages:
     deps:
     - path: examples/vera/p2/assembly-2G.toml
       hash: md5
-      md5: 5e1d8fe5706fcb206e870b40a3ff1911
+      md5: dd54e2104e426e0b061fb8df4728f2e6
       size: 4707
     - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
@@ -2930,7 +2930,7 @@ stages:
     deps:
     - path: examples/core/assembly.toml
       hash: md5
-      md5: 2b3ed9c07e28697a5378c3f1201a68c9
+      md5: 41c617507035c5296bccbdb9c5721683
       size: 5961
     - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5
@@ -7972,7 +7972,7 @@ stages:
     deps:
     - path: examples/vera/p2/assembly-2H.toml
       hash: md5
-      md5: f791eeaca60c21269f90553937c309d9
+      md5: d07f80ea71c2b3fabb88bfed8abed5e2
       size: 4531
     - path: python-ast/scripts/normalize_toml.py.ast
       hash: md5

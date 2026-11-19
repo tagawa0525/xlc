@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [aws, openmc, verification]
 opened: 2026-10-23
-closed:
+closed: 2026-11-19
 milestone: M4
 blocked-by: []
-resolution:
+resolution: "wontfix: AWS は枠が無く今は使わない（docs/environment.md の「外部の計算機（AWS）」）。AWS で燃焼を流すのを再開するときに開き直す"
 ---
 
 # AWS の再開で前の区間の statepoint が S3 から消える
@@ -41,3 +41,4 @@ AWS の OpenMC の燃焼（ADR-0174 の区間 `step-<k>`）は、各ステップ
 ## 経緯
 
 - 2026-10-23: #0159 の調査で、抽出をやり直せないことが分かった。ユーザーが、残すべき出力を残す設計にしていなかったのは見落としだと指摘し、同じ種類の見落としがほかに無いかを尋ねた（2026-10-23 21:05、21:06）ので、その 1 つとして洗い出した
+- 2026-11-19: AWS の枠が無く、燃焼の参照解も r995 の Slurm で流すことになった（ユーザー 2026-11-19）ので閉じた。消えるのは S3 の同期の `--delete` で、Slurm の作業ディレクトリでは区間が残る。AWS で燃焼を流すのを再開するときに、本番の前に開き直す

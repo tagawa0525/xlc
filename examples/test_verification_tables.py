@@ -1059,6 +1059,108 @@ class DrawAssemblyDepletion(unittest.TestCase):
                 draw([{"format": "xlc-compare-depletion"}])
 
 
+class DrawAssemblySummary(unittest.TestCase):
+    def summary(self, problem: str, diffs: list[float], rms: list[float]) -> dict:
+        """compare_depletion_assembly.py の要約の、要約の表が読む項目（燃焼度は 0 から 1 刻み）"""
+        return {
+            "format": "xlc-compare-depletion-assembly",
+            "problem": problem,
+            "burnup": [float(b) for b in range(len(diffs))],
+            "k": [
+                {"diff_pcm": d, "openmc_std_pcm": 10.0 + b} for b, d in enumerate(diffs)
+            ],
+            "pins": [{"rms": r} for r in rms],
+        }
+
+    def cells(self, table: str) -> list[list[str]]:
+        return [
+            [c.strip() for c in line.strip("|").split("|")]
+            for line in table.split("\n")
+        ]
+
+    def test_rows_give_the_first_largest_and_last_differences_and_the_pin_rms_range(
+        self,
+    ):
+        rows = self.cells(
+            vt.depletion_assembly_summary(
+                [
+                    self.summary(
+                        "2A",
+                        [56.0, 164.4, -151.0, 120.0],
+                        [0.001, 0.002, 0.0015, 0.0012],
+                    ),
+                    self.summary("2F", [-20.0, 30.0], [0.0021, 0.0011]),
+                ]
+            )
+        )
+        self.assertEqual(
+            rows[0],
+            [
+                "問題",
+                "燃焼度 0 の差 (pcm)",
+                "最大の差 (pcm)",
+                "最大の燃焼度 (MWd/kg)",
+                "最後の点の差 (pcm)",
+                "最後の燃焼度 (MWd/kg)",
+                "±150 pcm を超える点",
+                "ピン出力の rms (%)",
+            ],
+        )
+        # 最大は絶対値の最大で、符号を残す。± は OpenMC の標準偏差。rms は燃焼点の中の最小〜最大
+        self.assertEqual(
+            rows[2],
+            ["2A", "+56 ± 10", "+164 ± 11", "1", "+120 ± 13", "3", "2", "0.100〜0.200"],
+        )
+        self.assertEqual(
+            rows[3],
+            [
+                "2F",
+                "\u221220 ± 10",
+                "+30 ± 11",
+                "1",
+                "+30 ± 11",
+                "1",
+                "0",
+                "0.110〜0.210",
+            ],
+        )
+
+    def test_the_table_reads_every_assembly_stage(self):
+        sources, draw = vt.TABLES["depletion-assembly-summary"]
+        self.assertEqual(
+            sources,
+            [
+                f"examples/depletion/p2/compare-{job}.json"
+                for job in vt.ASSEMBLY_DEPLETION_JOBS
+            ],
+        )
+        self.assertIs(draw, vt.depletion_assembly_summary)
+
+    def test_the_count_past_the_tolerance_agrees_with_the_printed_differences(self):
+        # +150.4 は「+150」と描くので、±150 pcm を超える点に数えない
+        rows = self.cells(
+            vt.depletion_assembly_summary(
+                [self.summary("2A", [150.4, -150.6], [0.001, 0.001])]
+            )
+        )
+        self.assertEqual(rows[2][6], "1")
+
+    def test_a_summary_without_pin_comparisons_is_a_table_error(self):
+        s = self.summary("2A", [1.0], [0.001])
+        del s["pins"]
+        with self.assertRaises(vt.TableError):
+            vt.depletion_assembly_summary([s])
+
+    def test_points_without_pins_are_a_table_error(self):
+        s = self.summary("2A", [1.0, 2.0], [0.001])
+        with self.assertRaises(vt.TableError):
+            vt.depletion_assembly_summary([s])
+
+    def test_a_summary_of_another_format_is_an_error(self):
+        with self.assertRaises(vt.TableError):
+            vt.depletion_assembly_summary([{"format": "xlc-compare-depletion"}])
+
+
 class DrawAssemblyFreeGas(unittest.TestCase):
     def summary(self, diffs: list[float]) -> dict:
         """compare_depletion_assembly.py の要約（k だけ。2 点）"""

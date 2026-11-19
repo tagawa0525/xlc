@@ -29,8 +29,6 @@ ADR-0222 は、記録（examples/*/verification*.md）と ADR が md5 か名前�
   一般の誤りの文で原因が見えにくい）
 - examples/depletion/verification.md の「ブランチのテーブルの交差の項」は、`table-2B.msgpack` と
   `table-2A-fine.msgpack` を main の作業ツリーからコピーすると書く（今は `.dvc` で戻る。記録の本文はこのブランチで変えない）
-- スキル topic-start の「生成物を戻す」は、終了コード 255 と、戻らない出力を `dvc repro` で作ると書く（スクリプトは
-  dvc-checkout.py の 0 か 1 を返し、`.dvc` の対象は `dvc repro` で作れない）
 - CLAUDE.md の `dvc repro -P` と `dvc repro <yaml>` は、変わった `.dvc` の対象の md5 を書き直しうる（ADR-0222 の帰結）が、
   その注意は CLAUDE.md に無い
 - スキル dvc-relock の後半の `.dvc` の checkout は `HEAD^1 HEAD` で、マージのコミットが HEAD である前提（後にほかのマージや
@@ -47,3 +45,7 @@ ADR-0222 は、記録（examples/*/verification*.md）と ADR が md5 か名前�
 記録か ADR に新しく書いた md5 か名前が、追跡しない生成物を指すのに `.dvc` が無いか md5 が合わないとき、チェック
 （pre-commit の hook か `run-checks.sh` の中の検査）が止める。#0207 の /retro の試し（md5 の拾い方、DVC の出力の除き方）の
 指摘を検査の側で扱う。上の点は、検査を足すときに合わせて直す。
+
+## 経緯
+
+- 2026-11-19: スキル topic-start の「生成物を戻す」の終了コードと戻らない出力の扱いを、dvc-checkout.py に合わせて直した
