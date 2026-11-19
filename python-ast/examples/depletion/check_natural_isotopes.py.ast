@@ -10,13 +10,13 @@ def endf_number(field: str) -> float:
             return float(s[:i] + 'e' + s[i:])
     return float(s)
 
-def endf_za(path: Path) -> tuple[int, int]:
+def endf_za(path: Path) -> tuple[int, int, int]:
     with path.open() as f:
-        for line in f:
-            if line[70:72].strip() == '1' and line[72:75].strip() == '451':
-                za = round(endf_number(line[0:11]))
-                return (za // 1000, za % 1000)
-    raise SystemExit(f'{path}: no MF1/MT451 record')
+        records = [line for line in f if line[70:72].strip() == '1' and line[72:75].strip() == '451'][:2]
+    if len(records) < 2:
+        raise SystemExit(f'{path}: no MF1/MT451 HEAD and CONT records')
+    za = round(endf_number(records[0][0:11]))
+    return (za // 1000, za % 1000, int(records[1][33:44]))
 
 def check(chain_input: dict, chain_dir: Path, chain: dict, xs_input: dict, xs_dir: Path) -> dict:
     errors = []
@@ -25,13 +25,13 @@ def check(chain_input: dict, chain_dir: Path, chain: dict, xs_input: dict, xs_di
     if neutrons != endf:
         errors.append(f'the chain reads {neutrons}, the library {endf}')
     listed = list(chain_input.get('natural-isotopes', []))
-    nuclides = {n['name']: (n['z'], n['a']) for n in chain['nuclides']}
+    nuclides = {n['name']: (n['z'], n['a'], n['state']) for n in chain['nuclides']}
     natural = []
     for name, entry in xs_input['nuclide'].items():
         if name not in nuclides:
             errors.append(f'{name} is not in the chain')
             continue
-        z, a = endf_za(endf / entry['endf'])
+        z, a, liso = endf_za(endf / entry['endf'])
         if a == 0:
             if z != nuclides[name][0]:
                 errors.append(f"{name}: {entry['endf']} is the natural evaluation of Z = {z}")
@@ -39,8 +39,8 @@ def check(chain_input: dict, chain_dir: Path, chain: dict, xs_input: dict, xs_di
                 errors.append(f"{name}: the library takes the natural evaluation {entry['endf']}, but natural-isotopes of the chain does not list it")
             else:
                 natural.append([name, entry['endf']])
-        elif (z, a) != nuclides[name]:
-            errors.append(f"{name}: {entry['endf']} is the evaluation of ZA {z}{a:03d}")
+        elif (z, a, liso) != nuclides[name]:
+            errors.append(f"{name}: {entry['endf']} is the evaluation of ZA {z}{a:03d} LISO {liso}")
         elif name in listed:
             errors.append(f"{name}: natural-isotopes of the chain lists it, but the library takes its own evaluation {entry['endf']}")
     in_library = set(xs_input['nuclide'])

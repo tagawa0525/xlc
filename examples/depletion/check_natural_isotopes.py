@@ -3,12 +3,12 @@
 
 使い方: python3 check_natural_isotopes.py <チェーンの入力> <チェーン（msgpack）> <xs の入力>...
 
-xs の入力ごとに、各核種の評価の MF1/MT451 の HEAD の ZA を読み、次を確かめる。食い違いがあればすべてを標準エラーに出して 1 で終わる。
+xs の入力ごとに、各核種の評価の MF1/MT451 の ZA（HEAD）と LISO（2 つ目の記録）を読み、次を確かめる。食い違いがあればすべてを標準エラーに出して 1 で終わる。
 
 - チェーンの `neutron-directory` と xs の `endf-directory` が同じディレクトリ（同じ版の中性子のファイル）を指す
-- 核種がチェーンにある（チェーンの核種の名前、Z、A で照らす）
-- 評価が天然の元素（A = 0）なら、同じ Z の核種で、チェーンの `natural-isotopes` が挙げる。核種ごとの評価なら、ZA がその核種のもので、
-  `natural-isotopes` が挙げない
+- 核種がチェーンにある（チェーンの核種の名前、Z、A、状態で照らす）
+- 評価が天然の元素（A = 0）なら、同じ Z の核種で、チェーンの `natural-isotopes` が挙げる。核種ごとの評価なら、ZA と LISO がその核種の
+  Z、A、状態のもので、`natural-isotopes` が挙げない
 
 標準出力には、xs の入力ごとに天然の元素の評価を当てた核種と、`natural-isotopes` のうちライブラリに無い核種を書く。
 """
@@ -29,14 +29,18 @@ def endf_number(field: str) -> float:
     return float(s)
 
 
-def endf_za(path: Path) -> tuple[int, int]:
-    """評価の MF1/MT451 の最初の行（HEAD）の ZA を (Z, A) にする"""
+def endf_za(path: Path) -> tuple[int, int, int]:
+    """評価の MF1/MT451 の最初の記録（HEAD）の ZA と 2 つ目の記録の LISO を (Z, A, LISO) にする"""
     with path.open() as f:
-        for line in f:
-            if line[70:72].strip() == "1" and line[72:75].strip() == "451":
-                za = round(endf_number(line[0:11]))
-                return za // 1000, za % 1000
-    raise SystemExit(f"{path}: no MF1/MT451 record")
+        records = [
+            line
+            for line in f
+            if line[70:72].strip() == "1" and line[72:75].strip() == "451"
+        ][:2]
+    if len(records) < 2:
+        raise SystemExit(f"{path}: no MF1/MT451 HEAD and CONT records")
+    za = round(endf_number(records[0][0:11]))
+    return za // 1000, za % 1000, int(records[1][33:44])
 
 
 def check(
@@ -53,13 +57,13 @@ def check(
     if neutrons != endf:
         errors.append(f"the chain reads {neutrons}, the library {endf}")
     listed = list(chain_input.get("natural-isotopes", []))
-    nuclides = {n["name"]: (n["z"], n["a"]) for n in chain["nuclides"]}
+    nuclides = {n["name"]: (n["z"], n["a"], n["state"]) for n in chain["nuclides"]}
     natural = []
     for name, entry in xs_input["nuclide"].items():
         if name not in nuclides:
             errors.append(f"{name} is not in the chain")
             continue
-        z, a = endf_za(endf / entry["endf"])
+        z, a, liso = endf_za(endf / entry["endf"])
         if a == 0:
             if z != nuclides[name][0]:
                 errors.append(
@@ -72,8 +76,10 @@ def check(
                 )
             else:
                 natural.append([name, entry["endf"]])
-        elif (z, a) != nuclides[name]:
-            errors.append(f"{name}: {entry['endf']} is the evaluation of ZA {z}{a:03d}")
+        elif (z, a, liso) != nuclides[name]:
+            errors.append(
+                f"{name}: {entry['endf']} is the evaluation of ZA {z}{a:03d} LISO {liso}"
+            )
         elif name in listed:
             errors.append(
                 f"{name}: natural-isotopes of the chain lists it, but the library takes "
