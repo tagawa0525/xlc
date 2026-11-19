@@ -19,14 +19,15 @@ TOOLS = [
     "openmc_depletion_assembly.py",
     "openmc_depletion_mox.py",
 ]
-# 問題ごとに違ってよい引数（モデル、チェーン、再開の前の結果、ステップ、出力）は比べない
+# 問題ごとに違ってよい引数（モデル、チェーン、再開の前の結果、ステップ）は比べない。出力は値でなく、単位を決める引数の
+# 名前と入力の鍵（`power_density=run["power"]`）を比べる
 OPERATOR_KEYWORDS = {
     "normalization_mode",
     "fission_yield_mode",
     "fission_yield_opts",
     "reaction_rate_mode",
 }
-INTEGRATOR_KEYWORDS = {"timestep_units", "solver"}
+INTEGRATOR_KEYWORDS = {"power_density", "timestep_units", "solver"}
 
 
 class _ResolveDepletion(ast.NodeTransformer):
@@ -67,14 +68,22 @@ def imported_from_depletion(tree: ast.AST) -> set[str]:
     }
 
 
-def module_assigned(tree: ast.Module) -> set[str]:
+def defined(nodes) -> set[str]:
+    """`nodes` の中で代入、関数、クラスで定義する名前"""
     names = set()
-    for node in tree.body:
-        targets = node.targets if isinstance(node, ast.Assign) else []
-        if isinstance(node, ast.AnnAssign):
-            targets = [node.target]
-        names |= {t.id for t in targets if isinstance(t, ast.Name)}
+    for node in nodes:
+        if isinstance(node, ast.Assign):
+            names |= {t.id for t in node.targets if isinstance(t, ast.Name)}
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            names.add(node.target.id)
+        elif isinstance(node, (ast.FunctionDef, ast.ClassDef)):
+            names.add(node.name)
     return names
+
+
+# openmc_depletion.py が定義する名前（YIELD_CUTOFF、TimedOperator など）。コピーはこれを import して使い、どのスコープでも
+# 定義し直さない
+SHARED = defined(ast.parse((HERE / TOOLS[0]).read_text()).body)
 
 
 def integrator_class(tree: ast.AST, callee: str) -> str:
@@ -96,7 +105,7 @@ def calls_with(tree: ast.AST, keywords: set[str]) -> list[dict[str, str]]:
     式の中の openmc_depletion から取っていない裸の名前（`local`。並べて文字列にする）"""
     aliases = depletion_aliases(tree)
     imported = imported_from_depletion(tree)
-    assigned = module_assigned(tree) if isinstance(tree, ast.Module) else set()
+    redefined = defined(ast.walk(tree))
     found = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
@@ -113,8 +122,7 @@ def calls_with(tree: ast.AST, keywords: set[str]) -> list[dict[str, str]]:
         # `f()(...)` の f は同じファイルの関数で、比べるのはそれが返すクラス（`callee`）
         if not callee.endswith("()"):
             names |= resolve.bare
-        # 呼び出しの先の `openmc.deplete...` の `openmc` は比べる対象でない
-        local = {n for n in names - {"openmc"} if n not in imported or n in assigned}
+        local = {n for n in names & SHARED if n not in imported or n in redefined}
         call["local"] = ",".join(sorted(local))
         found.append(call)
     return found
@@ -157,6 +165,20 @@ class SameSettings(unittest.TestCase):
 
     def test_a_copy_that_defines_its_own_cutoff_is_caught(self):
         source = (HERE / TOOLS[3]).read_text() + "\nYIELD_CUTOFF = 1.0e3\n"
+        operators = calls_with(ast.parse(source), OPERATOR_KEYWORDS)
+        self.assertEqual(operators[0]["local"], "YIELD_CUTOFF")
+
+    def test_a_copy_that_redefines_the_cutoff_in_a_function_is_caught(self):
+        # openmc_depletion_mox.py の solve の中で、import した名前を定義し直す
+        source = (
+            (HERE / TOOLS[3])
+            .read_text()
+            .replace(
+                "    operator = TimedOperator(",
+                "    YIELD_CUTOFF = 1.0e3\n    operator = TimedOperator(",
+                1,
+            )
+        )
         operators = calls_with(ast.parse(source), OPERATOR_KEYWORDS)
         self.assertEqual(operators[0]["local"], "YIELD_CUTOFF")
 
