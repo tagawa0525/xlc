@@ -368,11 +368,20 @@ class Inputs(unittest.TestCase):
     def test_json_inputs_must_match_the_locked_deps(self):
         stage = rp.parse_stage(lock(), "b")
         ok = {"inputs": [{"path": "a.out", "md5": H["2"]}]}
-        self.assertEqual(rp.input_problems(ok, stage), [])
+        self.assertEqual(rp.input_problems(ok, stage, rp.ROOT), [])
         bad = {"inputs": [{"path": "a.out", "md5": H["9"]}]}
-        self.assertEqual(len(rp.input_problems(bad, stage)), 1)
+        self.assertEqual(len(rp.input_problems(bad, stage, rp.ROOT)), 1)
         missing = {"inputs": [{"path": "zzz", "md5": H["9"]}]}
-        self.assertEqual(len(rp.input_problems(missing, stage)), 1)
+        self.assertEqual(len(rp.input_problems(missing, stage, rp.ROOT)), 1)
+
+    def test_toml_inputs_match_the_locked_forms(self):
+        # deps の TOML は toml-values の正規形で、JSON はその md5 を書く（ADR-0254）
+        base = rp.ROOT / "examples" / "x"
+        stage = {"deps": [("../../toml-values/examples/x/a.toml.json", H["2"])]}
+        ok = {"inputs": [{"path": "a.toml", "md5": H["2"]}]}
+        self.assertEqual(rp.input_problems(ok, stage, base), [])
+        bad = {"inputs": [{"path": "a.toml", "md5": H["9"]}]}
+        self.assertEqual(len(rp.input_problems(bad, stage, base)), 1)
 
 
 if __name__ == "__main__":
