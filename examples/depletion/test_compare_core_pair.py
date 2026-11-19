@@ -4,11 +4,14 @@
 """
 
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
+import msgpack
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from compare_core_pair import ITEMS, compare, parse, report
+from compare_core_pair import ITEMS, compare, pair_runs, parse, report
 
 GUESS = ITEMS["initial-guess"]
 XENON_BORON = ITEMS["xenon-boron"]
@@ -51,6 +54,78 @@ def log(iterations, midpoints=((1.0, 900.0, 1),), total=5.0):
     ]
     lines.append(f"2026-11-06T00:00:00Z  INFO core: core seconds={total}")
     return "\n".join(lines) + "\n"
+
+
+def write_run(
+    directory: Path, name: str, top: str = "", depletion: str = "", history=None
+) -> Path:
+    """core の入力 `<name>.toml` と、それが名前を書く履歴 `<name>.msgpack`、そのログ `<name>.log`。`top` と `depletion` は
+    ケースと `[depletion]` に足す行"""
+    source = directory / f"{name}.toml"
+    source.write_text(
+        f'cycle = "cycle.toml"\n{top}\n[depletion]\nspecific-power = 40.0\n'
+        f'history = "{name}.msgpack"\n{depletion}\n'
+    )
+    (directory / f"{name}.msgpack").write_bytes(msgpack.packb(history or core()))
+    (directory / f"{name}.log").write_text(log([1] * 4))
+    return source
+
+
+class Inputs(unittest.TestCase):
+    """2 本の燃焼の役は、引数の順でなく、入力の項目の値で決まる"""
+
+    def test_reads_the_history_and_the_log_that_each_input_names(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            nested = write_run(
+                tmp, "nested", depletion='xenon-boron = "nested"', history=core(k=0.9)
+            )
+            joint = write_run(tmp, "joint")
+            base_core, base_log, other, _, files = pair_runs(XENON_BORON, nested, joint)
+        self.assertEqual(base_core["points"][0]["k"], 0.9)
+        self.assertEqual(other["points"][0]["k"], 1.0)
+        self.assertEqual(base_log, log([1] * 4))
+        self.assertEqual(
+            [f.name for f in files],
+            [
+                "nested.toml",
+                "nested.msgpack",
+                "nested.log",
+                "joint.toml",
+                "joint.msgpack",
+                "joint.log",
+            ],
+        )
+
+    def test_inputs_given_in_the_other_order_are_errors(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            nested = write_run(tmp, "nested", depletion='xenon-boron = "nested"')
+            joint = write_run(tmp, "joint")
+            with self.assertRaises(SystemExit) as stop:
+                pair_runs(XENON_BORON, joint, nested)
+        self.assertIn("xenon-boron", str(stop.exception))
+
+    def test_inputs_with_the_same_value_of_the_item_are_errors(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            a = write_run(tmp, "a")
+            b = write_run(tmp, "b")
+            with self.assertRaises(SystemExit):
+                pair_runs(GUESS, a, b)
+
+    def test_a_case_item_is_read_from_the_top_of_the_input(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            none = write_run(tmp, "none", top='acceleration = "none"')
+            cmfd = write_run(tmp, "cmfd")
+            pair_runs(ACCELERATION, none, cmfd)
+            with self.assertRaises(SystemExit):
+                pair_runs(ACCELERATION, cmfd, none)
+            # `[depletion]` に書いた `acceleration` は core の入力の項目でない
+            misplaced = write_run(tmp, "misplaced", depletion='acceleration = "none"')
+            with self.assertRaises(SystemExit):
+                pair_runs(ACCELERATION, misplaced, cmfd)
 
 
 class InitialGuess(unittest.TestCase):
@@ -186,7 +261,14 @@ class Acceleration(unittest.TestCase):
 class Parse(unittest.TestCase):
     def test_an_empty_path_in_the_list_is_rejected(self):
         with self.assertRaises(SystemExit):
-            parse("case=a,a,a,")
+            parse("case=a,")
+
+    def test_a_case_names_two_inputs(self):
+        self.assertEqual(
+            parse("case=a.toml,b.toml"), ("case", [Path("a.toml"), Path("b.toml")])
+        )
+        with self.assertRaises(SystemExit):
+            parse("case=a.msgpack,a.log,b.msgpack,b.log")
 
 
 if __name__ == "__main__":
