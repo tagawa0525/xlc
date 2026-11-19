@@ -6,7 +6,7 @@ opened: 2026-11-07
 closed: 2026-11-19
 milestone:
 blocked-by: []
-resolution: コミット e52e5c828
+resolution: コミット 419b549ae
 ---
 
 # ADR-0234 の検討した案の時間に、割り込まれうるジョブの印が無い

@@ -6,7 +6,7 @@ opened: 2026-10-31
 closed: 2026-11-19
 milestone:
 blocked-by: []
-resolution: コミット b06377510
+resolution: コミット bb6da57f5
 ---
 
 # examples の手順と文言に生の dvc checkout が残る
