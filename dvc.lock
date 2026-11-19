@@ -340,8 +340,8 @@ stages:
     deps:
     - path: examples/openmc_resume.py
       hash: md5
-      md5: a827e0c068abc172fa89c101811ed749
-      size: 6138
+      md5: 0fd3ee9771df8b99232a5bcda232c9f0
+      size: 8062
     - path: scripts/normalize_python.py
       hash: md5
       md5: fd9af7824aa61cfbfdf49a801a2b4ab4
@@ -349,8 +349,8 @@ stages:
     outs:
     - path: python-ast/examples/openmc_resume.py.ast
       hash: md5
-      md5: 55369bad203ab972d84ce099023352e2
-      size: 3518
+      md5: fcb36a62438bba276021c415049b0244
+      size: 4593
   python-ast@examples/openmc_run.py:
     cmd: python3 scripts/normalize_python.py examples/openmc_run.py 
       python-ast/examples/openmc_run.py.ast
@@ -530,8 +530,8 @@ stages:
     deps:
     - path: examples/vera/openmc_core_2d.py
       hash: md5
-      md5: 624d13bdd2aba11b33ae3faad3b516cc
-      size: 18178
+      md5: ac65613edbb3a3dfabbdf053bc71b7a4
+      size: 18477
     - path: scripts/normalize_python.py
       hash: md5
       md5: fd9af7824aa61cfbfdf49a801a2b4ab4
@@ -539,8 +539,8 @@ stages:
     outs:
     - path: python-ast/examples/vera/openmc_core_2d.py.ast
       hash: md5
-      md5: 32869ba087afec5f25cb4a3b496ec5b1
-      size: 10685
+      md5: 7d181c436c2cdf42deecf7ad11484521
+      size: 10832
   python-ast@examples/vera/openmc_library.py:
     cmd: python3 scripts/normalize_python.py examples/vera/openmc_library.py 
       python-ast/examples/vera/openmc_library.py.ast

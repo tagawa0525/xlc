@@ -79,6 +79,7 @@ from openmc_model import (
 from openmc_resume import (
     OPTIONAL,
     Options,
+    check_model,
     run_model,
     run_or_extract,
     set_statepoints,
@@ -313,10 +314,9 @@ def read_run(source: Path) -> dict[str, Any]:
     return common_read_run(source, list(RODS), OPTIONAL | openmc_tallies.OPTIONAL)
 
 
-def solve(source: Path, work: Path, options: Options) -> None:
-    run = read_run(source)
+def model_of(run: dict[str, Any], options: Options) -> openmc.Model:
+    """入力 `run` のモデル。run と extract（`check_model`）が同じ順に作る（OpenMC の ID は作った順に振られる）。"""
     problem = run["problem"]
-    work.mkdir(parents=True, exist_ok=True)
     m = {
         **{
             f"fuel {e}": material(f"fuel {e}", d, TEMPERATURE) for e, d in FUELS.items()
@@ -358,8 +358,13 @@ def solve(source: Path, work: Path, options: Options) -> None:
             openmc_tallies.core_2d(list(materials), assembly_mesh(), HALF_GAP)
         )
         openmc_tallies.quiet(settings)
-    model = openmc.Model(geometry, materials, settings, tallies)
-    run_model(model, run, work, options)
+    return openmc.Model(geometry, materials, settings, tallies)
+
+
+def solve(source: Path, work: Path, options: Options) -> None:
+    run = read_run(source)
+    work.mkdir(parents=True, exist_ok=True)
+    run_model(model_of(run, options), run, work, options)
 
 
 def unfold(quarter: np.ndarray) -> np.ndarray:
@@ -370,6 +375,7 @@ def unfold(quarter: np.ndarray) -> np.ndarray:
 
 def extract(source: Path, work: Path, results: Path) -> None:
     run = read_run(source)
+    check_model(model_of(run, Options()), work)
     problem = run["problem"]
     edges, pins = pin_edges()
     cells = len(edges) - 1
