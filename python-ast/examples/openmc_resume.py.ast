@@ -52,6 +52,7 @@ def run_model(model: openmc.Model, run: dict[str, Any], work: Path, options: Opt
     restart_file = None
     found = statepoints(work)
     if options.restart:
+        check_model(model, work)
         restart_file = latest_readable(found)
         print(f'restart from {restart_file}', flush=True)
     elif found:
@@ -90,7 +91,8 @@ def check_model(model: openmc.Model, work: Path) -> None:
     got = model_form(ran)
     if got != want:
         differ = sorted({tag for tag, _ in set(got) ^ set(want)})
-        raise SystemExit(f'{ran} differs from the model of the input in {differ}; run it again or fix the input')
+        where = f'in {differ}' if differ else 'in the order or the count of its top-level elements'
+        raise SystemExit(f'{ran} differs from the model of the input {where}; run it again or fix the input')
 
 def run_or_extract(solve: Callable[[Path, Path, Options], None], extract: Callable[[Path, Path, Path], None], usage: str) -> None:
     args = sys.argv[1:]

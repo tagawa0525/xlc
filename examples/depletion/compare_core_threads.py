@@ -6,7 +6,8 @@
 
 - 入力から読む履歴とログ、差の取り方は compare_core_pair.py と同じ（差は最初の色の順の燃焼 − 直方体の並びの順の燃焼）。燃焼の順は
   入力の `node-order` で、最初の入力が `lexicographic`、ほかが `red-black`（書かなければ core の既定の `red-black`）でなければ止まる。
-  スレッドの数はログの `thread pool threads=` の行から読み、行が無いか、入力の `threads` と違えば止まる
+  スレッドの数はログの `thread pool threads=` の行から読み、行が無いか、入力の `threads` と違えば止まる。入力どうしが `node-order`、
+  `threads`、`history` のほかでも違えば止まる
 - `--json`: 名前ごとに `points`、`midpoints`（compare_core_pair.py と同じ形）と、`runs` の燃焼ごとの順（`lexicographic` か `red-black`）、
   スレッドの数、最初の色の順の履歴とバイトで同じか（`same_bytes`。直方体の並びの順と最初の色の順は null）、固有値計算（span `nem`）の数、外側の反復の
   回数の和、固有値計算の時間の和（フィールド `seconds`）、core の全体の時間（`core seconds=`）、`per_solve` の固有値計算 1 回の外側の
@@ -22,13 +23,15 @@ from pathlib import Path
 
 import compare_core_pair
 import msgpack
-from core_history import core_run, setting
+from core_history import core_run, differing_keys, setting
 
 POOL = re.compile(r"thread pool threads=(\d+) from=")
 
 ORDERS = {
     "lexicographic": "直方体の並びの順",
     "red-black": "色の順",
+    # #0236 の前のツールが、スレッドのプールの行の無いログの燃焼に付けた順（trial-0234/compare-threads.json。今のツールは書かない）
+    "before": "ADR-0234 の前の bin/core",
 }
 
 
@@ -58,6 +61,7 @@ def thread_runs(sources: list[Path]) -> tuple[list[tuple[bytes, str]], list[Path
     また入力の `threads` がログのスレッドの数と違えば止まる"""
     runs = []
     files = []
+    inputs = []
     for i, source in enumerate(sources):
         run, history, log_path = core_run(source)
         want = "lexicographic" if i == 0 else "red-black"
@@ -73,6 +77,11 @@ def thread_runs(sources: list[Path]) -> tuple[list[tuple[bytes, str]], list[Path
             )
         runs.append((history.read_bytes(), log))
         files += [source, history, log_path]
+        inputs.append(run)
+    allowed = {(None, "node-order"), (None, "threads"), ("depletion", "history")}
+    for source, run in zip(sources[1:], inputs[1:]):
+        if others := differing_keys(inputs[0], run, allowed):
+            raise SystemExit(f"{sources[0]} and {source} also differ in {others}")
     return runs, files
 
 

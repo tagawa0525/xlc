@@ -95,6 +95,8 @@ def run_model(
     restart_file = None
     found = statepoints(work)
     if options.restart:
+        # model.run は model.xml を書き換えるので、前の区切りのモデルと比べるのはここが最後（extract は最後の区切りの model.xml しか見ない）
+        check_model(model, work)
         restart_file = latest_readable(found)
         print(f"restart from {restart_file}", flush=True)
     elif found:
@@ -153,8 +155,13 @@ def check_model(model: openmc.Model, work: Path) -> None:
     got = model_form(ran)
     if got != want:
         differ = sorted({tag for tag, _ in set(got) ^ set(want)})
+        where = (
+            f"in {differ}"
+            if differ
+            else "in the order or the count of its top-level elements"
+        )
         raise SystemExit(
-            f"{ran} differs from the model of the input in {differ}; run it again or fix the input"
+            f"{ran} differs from the model of the input {where}; run it again or fix the input"
         )
 
 

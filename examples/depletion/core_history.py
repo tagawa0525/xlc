@@ -53,15 +53,38 @@ def single_state(core: dict) -> dict:
 
 
 def core_run(source: Path) -> tuple[dict, Path, Path]:
-    """core の入力 `source` と、それが書く燃焼の履歴（`[depletion]` の `history`。入力のディレクトリから）と、そのログ（履歴の
-    拡張子を `.log` にしたパス。core の標準エラーをそこに書く）。履歴は入力の項目の一部（`initial-guess` など）を書かないので、
-    比べるツールは入力から項目を読み、入力が名前を書く履歴を読む"""
+    """core の入力 `source` と、それが書く燃焼の履歴（`[depletion]` の `history`。入力のディレクトリから）と、そのログ（入力の
+    拡張子を `.log` にしたパス。記録のコマンドは core の標準エラーをそこに書く）。履歴は入力の項目の一部（`initial-guess` など）を
+    書かないので、比べるツールは入力から項目を読み、入力が名前を書く履歴を読む"""
     run = tomllib.loads(source.read_text())
     depletion = run.get("depletion")
     if not isinstance(depletion, dict) or "history" not in depletion:
         raise SystemExit(f"{source} has no [depletion] history")
-    history = source.parent / depletion["history"]
-    return run, history, history.with_suffix(".log")
+    return run, source.parent / depletion["history"], source.with_suffix(".log")
+
+
+def differing_keys(a: dict, b: dict, allowed: set[tuple[str | None, str]]) -> list[str]:
+    """2 つの入力の、`allowed`（(表か None, 項目)）のほかで値の違う項目の名前（表の項目は `<表>.<項目>`）"""
+
+    def strip(run: dict) -> dict:
+        run = {k: dict(v) if isinstance(v, dict) else v for k, v in run.items()}
+        for section, key in allowed:
+            (run if section is None else run.get(section, {})).pop(key, None)
+        return run
+
+    a, b = strip(a), strip(b)
+    keys = []
+    for key in sorted(a.keys() | b.keys()):
+        x, y = a.get(key), b.get(key)
+        if isinstance(x, dict) and isinstance(y, dict) and key == "depletion":
+            keys += [
+                f"{key}.{k}"
+                for k in sorted(x.keys() | y.keys())
+                if x.get(k) != y.get(k)
+            ]
+        elif x != y:
+            keys.append(key)
+    return keys
 
 
 def setting(run: dict, section: str | None, key: str, default: str) -> str:

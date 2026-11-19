@@ -6,9 +6,10 @@
 
 - <項目> は `ITEMS` の鍵（`initial-guess`、`xenon-boron`、`acceleration`）。基準と比べる燃焼の項目の値、要約の `format` と `runs` の鍵は
   その表の行
-- 燃焼の履歴は入力の `[depletion]` の `history`（msgpack）、ログはその拡張子を `.log` にしたファイル（core の標準エラー。tracing）。
-  入力の項目の値が表の基準の値と比べる値の順でなければ止まる（履歴はこれらの項目を書かないので、入力で 2 本を見分ける）。同じ入力を
-  別の版の bin/core で解いた燃焼は、項目の値が同じなので比べない
+- 燃焼の履歴は入力の `[depletion]` の `history`（msgpack）、ログは入力の拡張子を `.log` にしたファイル（core の標準エラー。tracing）。
+  入力の項目の値が表の基準の値と比べる値の順でないか、2 つの入力が項目と `history` のほかでも違えば止まる（履歴はこれらの項目を
+  書かないので、入力で 2 本を見分ける）。同じ入力を別の版の bin/core で解いた燃焼や、出力の名前を付け替えた燃焼は、入力で見分けられ
+  ないので比べない
 - 2 つの燃焼は、同じ燃焼点（EFPD と日数）、状態、定格の出力密度、軸方向のメッシュ、集合体を持つこと。差は比べる燃焼 − 基準の燃焼
 - `--json`: 名前ごとに次を書く
   - `points`: 燃焼点ごとの EFPD、日数、状態と、k とホウ素の差、ノードの燃焼度の相対差の絶対値の最大、出力の割合の相対差の絶対値の
@@ -28,7 +29,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import msgpack
-from core_history import core_run, setting
+from core_history import core_run, differing_keys, setting
 
 # span `nem` の閉じる行のフィールド
 NEM = re.compile(r"nem\{iterations=(\d+) seconds=([0-9.eE+-]+)\}")
@@ -187,8 +188,10 @@ def pair_runs(
     """基準の入力 `base` と比べる入力 `other` の、履歴とログと、読んだファイル。入力の項目の値が `item.values` の順でなければ止まる"""
     loaded: list = []
     files = []
+    runs = []
     for source, want, role in zip((base, other), item.values, ("first", "second")):
         run, history, log = core_run(source)
+        runs.append(run)
         got = setting(run, item.section, item.key, item.default)
         if got != want:
             raise SystemExit(
@@ -196,6 +199,11 @@ def pair_runs(
             )
         loaded += [msgpack.unpackb(history.read_bytes()), log.read_text()]
         files += [source, history, log]
+    others = differing_keys(*runs, {(item.section, item.key), ("depletion", "history")})
+    if others:
+        raise SystemExit(
+            f"{base} and {other} also differ in {others}; compare runs that change only {item.key}"
+        )
     base_core, base_log, core, log = loaded
     return base_core, base_log, core, log, files
 

@@ -340,8 +340,8 @@ stages:
     deps:
     - path: examples/openmc_resume.py
       hash: md5
-      md5: 0fd3ee9771df8b99232a5bcda232c9f0
-      size: 8062
+      md5: 7015d7b0b71a39d3d96b6745ffc25e16
+      size: 8425
     - path: scripts/normalize_python.py
       hash: md5
       md5: fd9af7824aa61cfbfdf49a801a2b4ab4
@@ -349,8 +349,8 @@ stages:
     outs:
     - path: python-ast/examples/openmc_resume.py.ast
       hash: md5
-      md5: fcb36a62438bba276021c415049b0244
-      size: 4593
+      md5: c8a3f8f9a2235d5ec4475beb203a449f
+      size: 4722
   python-ast@examples/openmc_run.py:
     cmd: python3 scripts/normalize_python.py examples/openmc_run.py 
       python-ast/examples/openmc_run.py.ast
