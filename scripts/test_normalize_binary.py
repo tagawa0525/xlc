@@ -1,4 +1,4 @@
-"""normalize_binary.py の検査（bin/ の実行ファイルから行と列の番号を除くコピー）。
+"""normalize_binary.py の検査（実行ファイルの行と列の番号を 0 にしたコピーの md5 を正規形にする）と、ステージの deps の検査。
 
 実行: python3 -m unittest discover -s scripts -p 'test_normalize_binary.py'
 
@@ -7,7 +7,7 @@ tracing 0.1.44 のもの（ADR-0255 の「背景」）: Location は（ファイ
 Option<u32>、8 バイト目に名前の &str、名前から 0x50 バイト後ろにファイルの &str。
 """
 
-import os
+import hashlib
 import struct
 import subprocess
 import sys
@@ -17,6 +17,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import normalize_binary as norm
+import test_normalize_toml as toml_tests
+
+ROOT = Path(__file__).resolve().parent.parent
 
 RODATA_ADDR, RODATA_OFFSET = 0x1000, 0x1000
 # .data.rel.ro はアドレスとファイルの位置を違えて、アドレスからファイルの位置への読み替えも確かめる
@@ -276,21 +279,115 @@ class NormalizeTest(unittest.TestCase):
             norm.normalize(bytes(data))
 
 
+class FormTest(unittest.TestCase):
+    def test_form_is_the_md5_of_the_copy(self):
+        data = stage_image()[0].build()
+        self.assertEqual(
+            norm.form(data), hashlib.md5(norm.normalize(data)[0]).hexdigest()
+        )
+
+    def test_form_keeps_the_line_numbers_out(self):
+        first, _ = stage_image()
+        shifted = Image()
+        shifted.location(b"crates/a/src/x.rs", 130, 9)
+        shifted.metadata(b"event crates/a/src/x.rs", b"crates/a/src/x.rs", 50)
+        shifted.metadata(b"sweep", b"crates/a/src/x.rs", 87)
+        shifted.metadata(b"enabled crates/a/src/y.rs:863", b"crates/a/src/y.rs", 863)
+        self.assertEqual(norm.form(first.build()), norm.form(shifted.build()))
+
+    def test_every_other_byte_changes_the_form(self):
+        # 行と列の番号の外のバイトを 1 つ変えると、正規形が変わるか、整合が崩れてエラーで止まる（同じとみなさない）
+        image, at = stage_image()
+        data = image.build()
+        base = norm.form(data)
+        masked = {RELRO_OFFSET + at["location"] + i for i in range(16, 24)}
+        for kind in ("event", "span", "enabled"):
+            masked |= {RELRO_OFFSET + at[kind] + i for i in range(4, 8)}
+        name = data.index(b"enabled crates/a/src/y.rs:853")
+        masked |= set(range(name + 26, name + 29))
+        used = [
+            *range(RODATA_OFFSET, RODATA_OFFSET + len(image.rodata)),
+            *range(RELRO_OFFSET, RELRO_OFFSET + len(image.relro)),
+        ]
+        same = []
+        for i in used:
+            if i in masked:
+                continue
+            changed = bytearray(data)
+            changed[i] ^= 0x01
+            try:
+                if norm.form(bytes(changed)) == base:
+                    same.append(i)
+            except ValueError:
+                pass
+        self.assertEqual(same, [])
+
+    def test_unnamed_events_of_an_old_binary_have_their_digits_zeroed_on_request(
+        self,
+    ):
+        image, _ = stage_image()
+        image.metadata(b"event crates/a/src/x.rs:12", b"crates/a/src/x.rs", 12)
+        shifted, _ = stage_image()
+        shifted.metadata(b"event crates/a/src/x.rs:13", b"crates/a/src/x.rs", 13)
+        with self.assertRaisesRegex(ValueError, "xlc_log"):
+            norm.form(image.build())
+        self.assertEqual(
+            norm.form(image.build(), unnamed_events=True),
+            norm.form(shifted.build(), unnamed_events=True),
+        )
+
+
 class MainTest(unittest.TestCase):
-    def test_writes_the_copy_with_the_mode_of_the_built_file(self):
+    def test_writes_the_form_on_one_line_creating_parent_directories(self):
         with tempfile.TemporaryDirectory() as tmp:
-            src, dst = Path(tmp, "built"), Path(tmp, "bin")
+            src, dst = Path(tmp, "built"), Path(tmp, "forms", "xs.md5")
             src.write_bytes(stage_image()[0].build())
-            src.chmod(0o755)
             result = subprocess.run(
                 [sys.executable, str(Path(norm.__file__)), str(src), str(dst)],
                 capture_output=True,
                 text=True,
                 check=True,
             )
-            self.assertEqual(dst.read_bytes(), norm.normalize(src.read_bytes())[0])
-            self.assertEqual(os.stat(dst).st_mode & 0o777, 0o755)
+            self.assertEqual(
+                dst.read_text(encoding="utf-8"), norm.form(src.read_bytes()) + "\n"
+            )
             self.assertIn("location=1 metadata=3 enabled=1", result.stdout)
+
+
+BINARIES = ("xs", "lattice", "core", "chain")
+
+
+def binary_forms_items() -> list[str]:
+    """リポジトリの直下の dvc.yaml の binary-forms の foreach の並び"""
+    text = (ROOT / "dvc.yaml").read_text(encoding="utf-8")
+    stages = toml_tests.yaml.safe_load(text)["stages"]
+    if "binary-forms" not in stages:
+        raise AssertionError("dvc.yaml has no binary-forms stage")
+    return stages["binary-forms"]["foreach"]
+
+
+class RepositoryDepsTest(unittest.TestCase):
+    def test_example_stages_depend_on_the_form_not_the_binary(self):
+        bare = [
+            f"{stage['stage']}: {dep}"
+            for stage in toml_tests.example_stages()
+            for dep in stage["deps"]
+            if dep.startswith("bin/")
+        ]
+        self.assertEqual(bare, [])
+
+    def test_binary_forms_writes_the_form_of_every_built_binary(self):
+        self.assertEqual(sorted(binary_forms_items()), sorted(BINARIES))
+
+    def test_every_form_a_stage_depends_on_is_written_by_binary_forms(self):
+        written = {f"binary-forms/{item}.md5" for item in binary_forms_items()}
+        unknown = [
+            f"{stage['stage']}: {dep}"
+            for stage in toml_tests.example_stages()
+            for dep in stage["deps"]
+            if dep.startswith("binary-forms/") and dep not in written
+        ]
+        self.assertEqual(unknown, [])
 
 
 if __name__ == "__main__":
