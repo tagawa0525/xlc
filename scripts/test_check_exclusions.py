@@ -41,6 +41,20 @@ class TextlintIgnore(unittest.TestCase):
         self.assertEqual(len(found), 1)
         self.assertIn(".textlintignore:4", found[0])
 
+    def test_a_comment_after_entries_starts_a_new_block(self):
+        files = {".textlintignore": "# 後で直す（#0001）\na.toml\n# 理由だけ\nb.toml\n"}
+        found = problems(files)
+        self.assertEqual(len(found), 1)
+        self.assertIn(".textlintignore:4", found[0])
+
+    def test_an_issue_file_may_stay_excluded_on_its_own_number_after_it_closes(self):
+        files = {
+            ".textlintignore": "# 語の表は直す対象の語を含む（#0002）\ndocs/issues/0002-terms.md\nb.toml\n"
+        }
+        found = problems(files)
+        self.assertEqual(len(found), 1)
+        self.assertIn(".textlintignore:3", found[0])
+
     def test_entries_whose_only_issue_is_closed_are_reported(self):
         files = {".textlintignore": "# 直るまで（#0002）\na.toml\n"}
         found = problems(files)
@@ -73,12 +87,18 @@ class SkippedTests(unittest.TestCase):
                     SKIP + '("後で")',
                     SKIP + '("後で（#0001）")',
                     SKIP + 'Unless(SPEC.exists(), "参照がない")',
+                    SKIP + 'If(True, "条件つき")',
+                    SKIP,
+                    "@" + "pytest.mark.skipif(True)",
+                    "@" + "pytest.mark.xfail",
+                    "@" + "unittest.expectedFailure",
                 ]
             )
         }
         found = problems(files)
-        self.assertEqual(len(found), 1)
-        self.assertIn("examples/test_a.py:1", found[0])
+        self.assertEqual(len(found), 4)
+        for found_line, line in zip(found, (1, 5, 7, 8)):
+            self.assertIn(f"examples/test_a.py:{line}:", found_line)
 
 
 class InputComments(unittest.TestCase):
@@ -92,6 +112,29 @@ class InputComments(unittest.TestCase):
         self.assertEqual(len(found), 2)
         self.assertIn("examples/a/xs.toml:2", found[0])
         self.assertIn("examples/c/xs.toml:1", found[1])
+
+    def test_an_issue_elsewhere_in_the_comment_block_does_not_cover_a_premise(self):
+        files = {
+            "examples/a/xs.toml": "# 温度は履歴の点（#0001）\n# 別の話\n# 核種の組は暫定\nx = 1\n",
+            "examples/b/xs.toml": "# 核種の組は暫定で、決めるのは\n# 寄与を測ってから（#0001）\nx = 1\n",
+        }
+        found = problems(files)
+        self.assertEqual(len(found), 1)
+        self.assertIn("examples/a/xs.toml:3", found[0])
+
+    def test_an_exclusion_is_a_dropping_word_next_to_an_issue(self):
+        lines = [
+            "# 除いた 10 核種（#0002）: xs が扱わない",
+            "# H-1 を除く全核種に、燃料の温度を足す（吸収体を燃焼させる履歴の #0002 の温度）",
+            "# 残す点から除いた点を内挿する。点の決め方は #0002",
+            "# #0002 のために外してある",
+            "x = 1",
+        ]
+        files = {"examples/a/xs.toml": "\n".join(lines)}
+        found = problems(files)
+        self.assertEqual(len(found), 2)
+        self.assertIn("examples/a/xs.toml:1", found[0])
+        self.assertIn("examples/a/xs.toml:4", found[1])
 
     def test_an_exclusion_that_cites_only_closed_issues_is_reported(self):
         files = {
@@ -116,10 +159,25 @@ class InputComments(unittest.TestCase):
 
 
 class Statuses(unittest.TestCase):
-    def test_an_unknown_issue_is_an_error(self):
+    def test_an_unknown_issue_is_reported(self):
         files = {".textlintignore": "# 後で（#0999）\na.toml\n"}
-        with self.assertRaises(ValueError):
-            problems(files)
+        found = problems(files)
+        self.assertEqual(len(found), 1)
+        self.assertIn("#0999", found[0])
+
+    def test_statuses_come_from_the_given_issue_files_only(self):
+        issues = {
+            "docs/issues/0001-a.md": "---\nstatus: open\n---\n",
+            "docs/issues/0002-b-review-leftovers.md": "---\nstatus: closed\n---\n",
+            "docs/issues/README.md": "# issues\n",
+        }
+        self.assertEqual(
+            exc.issue_statuses(issues),
+            (
+                {"0001": "open", "0002": "closed"},
+                {"0001": "0001-a.md", "0002": "0002-b-review-leftovers.md"},
+            ),
+        )
 
     def test_listing_counts_markers_by_kind(self):
         files = {
