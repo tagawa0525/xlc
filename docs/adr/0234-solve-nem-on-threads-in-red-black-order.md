@@ -94,7 +94,7 @@ NEM のスイープ（`nem::Core::sweep_group`）と粗メッシュの固有値�
 - 既定のスレッドの数は、前の rayon の既定（論理 CPU の数。r995 の排他のジョブで 32）から物理コアの数（16）になり、燃焼のミクロ燃焼と平衡 Xe の並列（`depletion.rs`）
   も 16 スレッドで解く。全炉心の燃焼でミクロ燃焼は 1.9 s、平衡 Xe は 1.6 s（「確認」）
 - 小さな炉心（1 色 64 ノード）は、ノードを並列に解く塊の下限（64 ノード、粗メッシュの 256 セル）を超えず、色の中は並列にならない（「確認」の小さな炉心）
-- スレッドの数の規則は lattice、xs、core の 3 つの実行ファイルに分かれる（docs/plans/upstream-error-budget.md の「作り直しのときに入れる xs と lattice の修正」）
+- スレッドの数の規則は lattice、xs、core の 3 つの実行ファイルに分かれる（docs/plans/upstream-error-budget.md の「結果を変えない xs と lattice の修正」）
 
 ### 確認
 
