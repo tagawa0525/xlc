@@ -60,7 +60,7 @@ pub struct CoreHistory {
     /// ミクロ燃焼（ADR-0216）で追う核種の名前（テーブルの順）。ミクロ燃焼しなければ `None`
     #[serde(skip_serializing_if = "Option::is_none")]
     pub nuclides: Option<Vec<String>>,
-    /// 探索の状態のステップの中点を解いたホウ素濃度（ADR-0191。ケースの `midpoint-boron`）
+    /// 探索の状態のステップの中点を解いたホウ素濃度の決め方（ADR-0191。ケースの `midpoint-boron`）
     pub midpoint_boron: MidpointBoron,
     /// ミクロ燃焼の Xe-135 と I-135 の扱い（ケースの `micro` の `xenon`）。ミクロ燃焼しなければ `None`
     #[serde(skip_serializing_if = "Option::is_none")]
