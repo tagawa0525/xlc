@@ -63,10 +63,10 @@ stages:
       md5: 528c1361afed7122fa619130226950ac.dir
       size: 8269842
       nfiles: 35
-    - path: chain.toml
+    - path: ../../toml-values/examples/depletion/chain.toml.json
       hash: md5
-      md5: a07dcbed851d5633ff92f6abe21b69fd
-      size: 355
+      md5: 7fdf7f8c6f14e0213d7d1fdb8970429a
+      size: 227
     outs:
     - path: chain.msgpack
       hash: md5
@@ -85,10 +85,10 @@ stages:
       md5: dde810c1fe3594b1ab0b8236de7b51dc.dir
       size: 1212542189
       nfiles: 561
-    - path: xs.toml
+    - path: ../../toml-values/examples/depletion/xs.toml.json
       hash: md5
-      md5: aa74d963cd4970c99dd3fc832de00388
-      size: 6821
+      md5: f1ac56d6e5ada197098bdeaf2f436119
+      size: 7544
     outs:
     - path: xs-range.toml
       hash: md5
@@ -2904,6 +2904,10 @@ stages:
       md5: f98234e2f601b6afcaf2b4e2a2c2a2b0
       size: 3072016
       isexec: true
+    - path: ../../toml-values/examples/depletion/xs.toml.json
+      hash: md5
+      md5: f1ac56d6e5ada197098bdeaf2f436119
+      size: 7544
     - path: xs-nuclides
       hash: md5
       md5: c5746e02987b8040e51dc9a8962587cf.dir
@@ -2913,10 +2917,6 @@ stages:
       hash: md5
       md5: 74fbedef2186ca159d4e33c92bd3d4ff
       size: 35
-    - path: xs.toml
-      hash: md5
-      md5: aa74d963cd4970c99dd3fc832de00388
-      size: 6821
     outs:
     - path: depletion.msgpack
       hash: md5
@@ -4848,10 +4848,10 @@ stages:
       hash: md5
       md5: 9d2f53ffbbdab6514418cef40a7e4a79
       size: 2936
-    - path: openmc-library.toml
+    - path: ../../toml-values/examples/depletion/openmc-library.toml.json
       hash: md5
-      md5: 8ae58a2ee53f9c656467c71fac658061
-      size: 8542
+      md5: a437b0ec856dda4af81cc9404f9e9d40
+      size: 8757
     - path: openmc-library/neutron
       hash: md5
       md5: e9ad673c90ba5c8545f1d7ee2d23a55c.dir
@@ -4891,10 +4891,10 @@ stages:
       hash: md5
       md5: d2087eee703094c47e2ab1b028fe93c5
       size: 17391
-    - path: openmc-1C-rings4.toml
+    - path: ../../toml-values/examples/depletion/openmc-1C-rings4.toml.json
       hash: md5
-      md5: 4d1d56853b1330f6d674965f10ac35ae
-      size: 1027
+      md5: f6e1c5088aedc0cf9cba9507c1429a89
+      size: 279
     - path: openmc-chain.xml
       hash: md5
       md5: 2a2bc167be1a6ba81a132ab5c25204bf
@@ -4922,15 +4922,15 @@ stages:
       hash: md5
       md5: b98b611a4c9b98ae08db96eac383ffad
       size: 7461
+    - path: ../../toml-values/examples/depletion/openmc-1C-rings4.toml.json
+      hash: md5
+      md5: f6e1c5088aedc0cf9cba9507c1429a89
+      size: 279
     - path: openmc-1C-rings4
       hash: md5
       md5: bff325a2a1eaf97796dc5f2c3017e759.dir
       size: 26256443
       nfiles: 13
-    - path: openmc-1C-rings4.toml
-      hash: md5
-      md5: 4d1d56853b1330f6d674965f10ac35ae
-      size: 1027
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4960,10 +4960,10 @@ stages:
       hash: md5
       md5: d2087eee703094c47e2ab1b028fe93c5
       size: 17391
-    - path: openmc-1C-rings1.toml
+    - path: ../../toml-values/examples/depletion/openmc-1C-rings1.toml.json
       hash: md5
-      md5: 2b236a748ca0caea8f755abb62fcb4bd
-      size: 1027
+      md5: ab42305fa1cf4420e32a845c17713ddc
+      size: 279
     - path: openmc-chain.xml
       hash: md5
       md5: 2a2bc167be1a6ba81a132ab5c25204bf
@@ -4991,6 +4991,10 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../toml-values/examples/depletion/lattice-2A.toml.json
+      hash: md5
+      md5: 73dba9c8e34d1086df9ac58959280a1a
+      size: 3838
     - path: chain.msgpack
       hash: md5
       md5: 1f1de1800363a19f23af2f7b4417c426
@@ -4999,10 +5003,6 @@ stages:
       hash: md5
       md5: 58a25945674d076ea3e648a9786a2527
       size: 319648491
-    - path: lattice-2A.toml
-      hash: md5
-      md5: acd4725a69467811883b0f659fc596f3
-      size: 3709
     outs:
     - path: lattice-2A.log
       hash: md5
@@ -5025,6 +5025,10 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../toml-values/examples/depletion/lattice-1C-rings1.toml.json
+      hash: md5
+      md5: 383b6ea286d03a22ccfbee8b2fac8747
+      size: 1925
     - path: chain.msgpack
       hash: md5
       md5: 1f1de1800363a19f23af2f7b4417c426
@@ -5033,10 +5037,6 @@ stages:
       hash: md5
       md5: 58a25945674d076ea3e648a9786a2527
       size: 319648491
-    - path: lattice-1C-rings1.toml
-      hash: md5
-      md5: 3001059b51b4f2f7720f4dd0b8be7dbc
-      size: 1909
     outs:
     - path: lattice-1C-rings1.log
       hash: md5
@@ -5058,15 +5058,15 @@ stages:
       hash: md5
       md5: b98b611a4c9b98ae08db96eac383ffad
       size: 7461
+    - path: ../../toml-values/examples/depletion/openmc-1C-rings1.toml.json
+      hash: md5
+      md5: ab42305fa1cf4420e32a845c17713ddc
+      size: 279
     - path: openmc-1C-rings1
       hash: md5
       md5: ced0348b13b2b42ca65868460e0a9af5.dir
       size: 24918651
       nfiles: 13
-    - path: openmc-1C-rings1.toml
-      hash: md5
-      md5: 2b236a748ca0caea8f755abb62fcb4bd
-      size: 1027
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -5106,6 +5106,10 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../toml-values/examples/depletion/lattice-1C-rings4.toml.json
+      hash: md5
+      md5: 2aa9b9588b306fc6902a9d876a798d60
+      size: 2819
     - path: chain.msgpack
       hash: md5
       md5: 1f1de1800363a19f23af2f7b4417c426
@@ -5114,10 +5118,6 @@ stages:
       hash: md5
       md5: 58a25945674d076ea3e648a9786a2527
       size: 319648491
-    - path: lattice-1C-rings4.toml
-      hash: md5
-      md5: cab71052332b1b7c10e5aeed590ebea5
-      size: 2786
     outs:
     - path: lattice-1C-rings4.log
       hash: md5
@@ -5551,6 +5551,10 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../toml-values/examples/depletion/lattice-mox1-rings1.toml.json
+      hash: md5
+      md5: a49d9ea9224ea6ef9757ebf410c8fcb0
+      size: 1410
     - path: chain.msgpack
       hash: md5
       md5: 1f1de1800363a19f23af2f7b4417c426
@@ -5559,10 +5563,6 @@ stages:
       hash: md5
       md5: 58a25945674d076ea3e648a9786a2527
       size: 319648491
-    - path: lattice-mox1-rings1.toml
-      hash: md5
-      md5: 77f568eba80ba839f229681583686d50
-      size: 1515
     outs:
     - path: lattice-mox1-rings1.log
       hash: md5
@@ -5612,6 +5612,10 @@ stages:
       hash: md5
       md5: a96a3978071877b65e870a65d8be4f00
       size: 6083
+    - path: ../../toml-values/examples/depletion/openmc-mox1-rings1.toml.json
+      hash: md5
+      md5: a06224bf779e65c7a935708c1216ba19
+      size: 339
     - path: openmc-chain.xml
       hash: md5
       md5: 2a2bc167be1a6ba81a132ab5c25204bf
@@ -5621,10 +5625,6 @@ stages:
       md5: 09fa81bf0a6c05bc58967e223c9e53a7.dir
       size: 451672617
       nfiles: 70
-    - path: openmc-mox1-rings1.toml
-      hash: md5
-      md5: d0f0a4a51a00dea91e8d3eff017b7ca2
-      size: 853
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -5647,15 +5647,15 @@ stages:
       hash: md5
       md5: 07d5fa8ff26b4bca83de15c1f34270d6
       size: 4896
+    - path: ../../toml-values/examples/depletion/openmc-mox1-rings1.toml.json
+      hash: md5
+      md5: a06224bf779e65c7a935708c1216ba19
+      size: 339
     - path: openmc-mox1-rings1
       hash: md5
       md5: b648f46dd964b92854bb9872ce1a6f92.dir
       size: 24917803
       nfiles: 13
-    - path: openmc-mox1-rings1.toml
-      hash: md5
-      md5: d0f0a4a51a00dea91e8d3eff017b7ca2
-      size: 853
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e

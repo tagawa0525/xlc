@@ -19,14 +19,15 @@ stages:
       hash: md5
       md5: 966df2466ff82607590ba264dad24057
       size: 12370
+    - path: 
+        ../../../toml-values/examples/depletion/p9-fuel-points/fuel-points-2A.toml.json
+      hash: md5
+      md5: 098f4c88c93cacc18b68f5323fd2a406
+      size: 1068
     - path: ../p9-product/table-2A.msgpack
       hash: md5
       md5: e0b2a95adc7d3046e3c15b88dfe93eb8
       size: 1374380
-    - path: fuel-points-2A.toml
-      hash: md5
-      md5: f39b53a4c2a073e7e4b5fb80fc33d631
-      size: 1488
     outs:
     - path: fuel-points-2A.json
       hash: md5
@@ -51,14 +52,15 @@ stages:
       hash: md5
       md5: 966df2466ff82607590ba264dad24057
       size: 12370
+    - path: 
+        ../../../toml-values/examples/depletion/p9-fuel-points/fuel-points-2O.toml.json
+      hash: md5
+      md5: a0fc44ea965351b139de6a9f2fc5dd5d
+      size: 1062
     - path: ../p9-gd/fuel-2O.msgpack
       hash: md5
       md5: 5ad37b4af4620c98cfb67c4f00b355fc
       size: 2232552
-    - path: fuel-points-2O.toml
-      hash: md5
-      md5: a777294611c9dcf3fdc82cccd4af4cb6
-      size: 1482
     outs:
     - path: fuel-points-2O.json
       hash: md5

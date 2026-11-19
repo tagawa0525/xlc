@@ -14,10 +14,10 @@ stages:
       hash: md5
       md5: 1fbba180eddd60cc40f8e3c467dc578a
       size: 9792
-    - path: compare-2O.toml
+    - path: ../../../toml-values/examples/depletion/p9-gd/compare-2O.toml.json
       hash: md5
-      md5: 46b58a26187a07679e96fb41ee880c60
-      size: 4544
+      md5: fb0ed74cd24def70f1b88db8ca8eb65b
+      size: 4434
     - path: table-2O.msgpack
       hash: md5
       md5: 17001a1068929de2e5206cc9fd16e886
@@ -46,14 +46,14 @@ stages:
       hash: md5
       md5: 966df2466ff82607590ba264dad24057
       size: 12370
+    - path: ../../../toml-values/examples/depletion/p9-gd/grid-2O.toml.json
+      hash: md5
+      md5: fce20a69e40bf0386cfb7a2ac624d9a6
+      size: 964
     - path: fuel-2O.msgpack
       hash: md5
       md5: 5ad37b4af4620c98cfb67c4f00b355fc
       size: 2232552
-    - path: grid-2O.toml
-      hash: md5
-      md5: b4ca53e081889f178764d7075f3f379b
-      size: 1727
     outs:
     - path: grid-2O.json
       hash: md5
@@ -73,10 +73,11 @@ stages:
       hash: md5
       md5: 1fbba180eddd60cc40f8e3c467dc578a
       size: 9792
-    - path: compare-2O-all.toml
+    - path: 
+        ../../../toml-values/examples/depletion/p9-gd/compare-2O-all.toml.json
       hash: md5
-      md5: aeb8f3bbf5040c550286f1f143f2a2e2
-      size: 10471
+      md5: 2c60d65ca2c4fa97d3f6a1b28a2930d9
+      size: 12389
     - path: table-2O-all.msgpack
       hash: md5
       md5: 5122d921942e6ff2864009739c1cf4a8
@@ -105,14 +106,14 @@ stages:
       hash: md5
       md5: 966df2466ff82607590ba264dad24057
       size: 12370
+    - path: ../../../toml-values/examples/depletion/p9-gd/grid-2P.toml.json
+      hash: md5
+      md5: 0f35741ab7244109f786b3077c70aac8
+      size: 964
     - path: fuel-2P.msgpack
       hash: md5
       md5: 34f33ede1e0d4aed6d133c26e5844941
       size: 2232552
-    - path: grid-2P.toml
-      hash: md5
-      md5: 4f1bf341cee2093ab88f2127badc24cc
-      size: 1727
     outs:
     - path: grid-2P.json
       hash: md5
@@ -132,10 +133,11 @@ stages:
       hash: md5
       md5: 1fbba180eddd60cc40f8e3c467dc578a
       size: 9792
-    - path: compare-2P-all.toml
+    - path: 
+        ../../../toml-values/examples/depletion/p9-gd/compare-2P-all.toml.json
       hash: md5
-      md5: 414f199c261f92648ff0bc2dd3f37902
-      size: 10624
+      md5: 1ec014a1a4c68f2d0c91c65c383b9d77
+      size: 12544
     - path: table-2P-all.msgpack
       hash: md5
       md5: 4c883b4afbb3dc420071d08e858eb087

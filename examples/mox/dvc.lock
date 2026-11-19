@@ -72,10 +72,10 @@ stages:
       hash: md5
       md5: ff8fb554e0893e672e95bf060817f087
       size: 17400580
-    - path: xs.toml
+    - path: ../../toml-values/examples/mox/xs.toml.json
       hash: md5
-      md5: 0ceb6174c2af05e5b411cc8c5c996841
-      size: 1374
+      md5: 9f17eb7ae167ce06eb4cc5e9e7c6fdb4
+      size: 1577
     outs:
     - path: mox.msgpack
       hash: md5
@@ -101,6 +101,10 @@ stages:
       hash: md5
       md5: ef54b70b3fdc8fb2859025ed83c1d6ab
       size: 2408
+    - path: ../../toml-values/examples/mox/openmc-mox2.toml.json
+      hash: md5
+      md5: 2a81ddfba7564ba1815fa51292ca19c8
+      size: 212
     - path: ../vera/references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -109,10 +113,6 @@ stages:
       hash: md5
       md5: 49520cdc25604f9a6f2575d59078307e
       size: 36630980
-    - path: openmc-mox2.toml
-      hash: md5
-      md5: d2b56ba4aed0d401ba8389f1188e815e
-      size: 600
     outs:
     - path: openmc-mox2-model
       hash: md5
@@ -166,6 +166,10 @@ stages:
       hash: md5
       md5: ef54b70b3fdc8fb2859025ed83c1d6ab
       size: 2408
+    - path: ../../toml-values/examples/mox/openmc-mox2.toml.json
+      hash: md5
+      md5: 2a81ddfba7564ba1815fa51292ca19c8
+      size: 212
     - path: ../vera/references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -179,10 +183,6 @@ stages:
       md5: 690f55f985c1a822bb32ed9b86a92ce9.dir
       size: 104317769
       nfiles: 3
-    - path: openmc-mox2.toml
-      hash: md5
-      md5: d2b56ba4aed0d401ba8389f1188e815e
-      size: 600
     outs:
     - path: openmc-mox2-results
       hash: md5
@@ -193,40 +193,20 @@ stages:
     cmd: cargo run --release -p xlc-lattice --example fuel_xs -- 
       pincell-mox2.toml xlc-mox2.msgpack
     deps:
-    - path: ../../.cargo/config.toml
-      hash: md5
-      md5: dd35e0d8e730a58e8362dfbc16785c72
-      size: 653
     - path: ../../Cargo.lock
       hash: md5
       md5: 63ca82c0dac0ca39bcb14fc086d0e7d4
       size: 29543
-    - path: ../../Cargo.toml
-      hash: md5
-      md5: 683e6ade069d2e592a845971523eb150
-      size: 1422
-    - path: ../../crates/depletion/Cargo.toml
-      hash: md5
-      md5: e04ff5ed3c0ab6ae60a8810b70eb17d7
-      size: 355
     - path: ../../crates/depletion/src
       hash: md5
       md5: bbcbe7e06604c0b67c85f49ecfb917b2.dir
       size: 73551
       nfiles: 8
-    - path: ../../crates/format/Cargo.toml
-      hash: md5
-      md5: 27e5dbce41ebc5a30c5ed0c9861db610
-      size: 221
     - path: ../../crates/format/src
       hash: md5
       md5: 60a751466d2021e67629f6a650a3759d.dir
       size: 312496
       nfiles: 14
-    - path: ../../crates/lattice/Cargo.toml
-      hash: md5
-      md5: f3437662f9aab415559f3ead36d0af1f
-      size: 797
     - path: ../../crates/lattice/examples/fuel_xs.rs
       hash: md5
       md5: ce9ead8f51869a8b23877841734851dd
@@ -236,10 +216,6 @@ stages:
       md5: 5717d39ed5f2c644b801a7c91a1178e8.dir
       size: 2692861
       nfiles: 70
-    - path: ../../crates/numeric/Cargo.toml
-      hash: md5
-      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
-      size: 150
     - path: ../../crates/numeric/src
       hash: md5
       md5: 1baf98d9356842e3f653d7c4d3bb7d12.dir
@@ -249,18 +225,42 @@ stages:
       hash: md5
       md5: 83437230048eadb7a5c2f626d4ea10aa
       size: 1108
-    - path: ../../rust-toolchain.toml
+    - path: ../../toml-values/.cargo/config.toml.json
       hash: md5
-      md5: 87a81bbb3d955b97621800bbd7d234b7
-      size: 98
+      md5: 4a32f64d431cbf654b7ab7cfa1503fb3
+      size: 156
+    - path: ../../toml-values/Cargo.toml.json
+      hash: md5
+      md5: aa93af49081107cb3c027c0809178587
+      size: 1050
+    - path: ../../toml-values/crates/depletion/Cargo.toml.json
+      hash: md5
+      md5: 3c4a38f33b251926ab0444bac4b51270
+      size: 545
+    - path: ../../toml-values/crates/format/Cargo.toml.json
+      hash: md5
+      md5: 4dfd9ea0f0ae886a3370856cef33ef96
+      size: 347
+    - path: ../../toml-values/crates/lattice/Cargo.toml.json
+      hash: md5
+      md5: 1c29f5691c69a89bb5760c2ec0cf8700
+      size: 909
+    - path: ../../toml-values/crates/numeric/Cargo.toml.json
+      hash: md5
+      md5: c93e4d9a307573c3eaf73ce9657e6f19
+      size: 228
+    - path: ../../toml-values/examples/mox/pincell-mox2.toml.json
+      hash: md5
+      md5: 8909fa4e44e1d6454467cde0ae25b9fd
+      size: 1119
+    - path: ../../toml-values/rust-toolchain.toml.json
+      hash: md5
+      md5: 74573c8fc394fee5251831f882dcf201
+      size: 133
     - path: mox.msgpack
       hash: md5
       md5: 49520cdc25604f9a6f2575d59078307e
       size: 36630980
-    - path: pincell-mox2.toml
-      hash: md5
-      md5: 21750e97093c2feec9e94393a4d44526
-      size: 1229
     outs:
     - path: xlc-mox2.msgpack
       hash: md5
@@ -274,14 +274,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../toml-values/examples/mox/pincell-mox2.toml.json
+      hash: md5
+      md5: 8909fa4e44e1d6454467cde0ae25b9fd
+      size: 1119
     - path: mox.msgpack
       hash: md5
       md5: 49520cdc25604f9a6f2575d59078307e
       size: 36630980
-    - path: pincell-mox2.toml
-      hash: md5
-      md5: 21750e97093c2feec9e94393a4d44526
-      size: 1229
     outs:
     - path: lattice-mox2.out
       hash: md5
@@ -332,6 +332,10 @@ stages:
       hash: md5
       md5: 93b74d0b81ef08f5588a4767920fef9c
       size: 2069860
+    - path: ../../toml-values/examples/mox/xs.toml.json
+      hash: md5
+      md5: 9f17eb7ae167ce06eb4cc5e9e7c6fdb4
+      size: 1577
     - path: mox.msgpack
       hash: md5
       md5: 49520cdc25604f9a6f2575d59078307e
@@ -344,10 +348,6 @@ stages:
       hash: md5
       md5: 0889a3c92b9c964c2dbc8ca24946fd51
       size: 22823
-    - path: xs.toml
-      hash: md5
-      md5: 0ceb6174c2af05e5b411cc8c5c996841
-      size: 1374
     outs:
     - path: compare-capture-mox2.out
       hash: md5
@@ -373,6 +373,10 @@ stages:
       hash: md5
       md5: ef54b70b3fdc8fb2859025ed83c1d6ab
       size: 2408
+    - path: ../../toml-values/examples/mox/openmc-mox1.toml.json
+      hash: md5
+      md5: 33906b91e0c2ec66ab63d1548e22930a
+      size: 212
     - path: ../vera/references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -381,10 +385,6 @@ stages:
       hash: md5
       md5: 49520cdc25604f9a6f2575d59078307e
       size: 36630980
-    - path: openmc-mox1.toml
-      hash: md5
-      md5: 339ee3e928b9f28c1173ac304106bea0
-      size: 600
     outs:
     - path: openmc-mox1-model
       hash: md5
@@ -438,6 +438,10 @@ stages:
       hash: md5
       md5: ef54b70b3fdc8fb2859025ed83c1d6ab
       size: 2408
+    - path: ../../toml-values/examples/mox/openmc-mox1.toml.json
+      hash: md5
+      md5: 33906b91e0c2ec66ab63d1548e22930a
+      size: 212
     - path: ../vera/references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -451,10 +455,6 @@ stages:
       md5: 5ed91458491892a4f9c668f75614ca5f.dir
       size: 104317721
       nfiles: 3
-    - path: openmc-mox1.toml
-      hash: md5
-      md5: 339ee3e928b9f28c1173ac304106bea0
-      size: 600
     outs:
     - path: openmc-mox1-results
       hash: md5
@@ -469,14 +469,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../toml-values/examples/mox/pincell-mox1.toml.json
+      hash: md5
+      md5: 1c06d5113d8ce20dbab4f12fd290e01b
+      size: 1119
     - path: mox.msgpack
       hash: md5
       md5: 49520cdc25604f9a6f2575d59078307e
       size: 36630980
-    - path: pincell-mox1.toml
-      hash: md5
-      md5: 466aa5af13bc5772cd8f8a0df9995faa
-      size: 1229
     outs:
     - path: lattice-mox1.out
       hash: md5
@@ -507,40 +507,20 @@ stages:
     cmd: cargo run --release -p xlc-lattice --example fuel_xs -- 
       pincell-mox1.toml xlc-mox1.msgpack
     deps:
-    - path: ../../.cargo/config.toml
-      hash: md5
-      md5: dd35e0d8e730a58e8362dfbc16785c72
-      size: 653
     - path: ../../Cargo.lock
       hash: md5
       md5: 63ca82c0dac0ca39bcb14fc086d0e7d4
       size: 29543
-    - path: ../../Cargo.toml
-      hash: md5
-      md5: 683e6ade069d2e592a845971523eb150
-      size: 1422
-    - path: ../../crates/depletion/Cargo.toml
-      hash: md5
-      md5: e04ff5ed3c0ab6ae60a8810b70eb17d7
-      size: 355
     - path: ../../crates/depletion/src
       hash: md5
       md5: bbcbe7e06604c0b67c85f49ecfb917b2.dir
       size: 73551
       nfiles: 8
-    - path: ../../crates/format/Cargo.toml
-      hash: md5
-      md5: 27e5dbce41ebc5a30c5ed0c9861db610
-      size: 221
     - path: ../../crates/format/src
       hash: md5
       md5: 60a751466d2021e67629f6a650a3759d.dir
       size: 312496
       nfiles: 14
-    - path: ../../crates/lattice/Cargo.toml
-      hash: md5
-      md5: f3437662f9aab415559f3ead36d0af1f
-      size: 797
     - path: ../../crates/lattice/examples/fuel_xs.rs
       hash: md5
       md5: ce9ead8f51869a8b23877841734851dd
@@ -550,10 +530,6 @@ stages:
       md5: 5717d39ed5f2c644b801a7c91a1178e8.dir
       size: 2692861
       nfiles: 70
-    - path: ../../crates/numeric/Cargo.toml
-      hash: md5
-      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
-      size: 150
     - path: ../../crates/numeric/src
       hash: md5
       md5: 1baf98d9356842e3f653d7c4d3bb7d12.dir
@@ -563,18 +539,42 @@ stages:
       hash: md5
       md5: 83437230048eadb7a5c2f626d4ea10aa
       size: 1108
-    - path: ../../rust-toolchain.toml
+    - path: ../../toml-values/.cargo/config.toml.json
       hash: md5
-      md5: 87a81bbb3d955b97621800bbd7d234b7
-      size: 98
+      md5: 4a32f64d431cbf654b7ab7cfa1503fb3
+      size: 156
+    - path: ../../toml-values/Cargo.toml.json
+      hash: md5
+      md5: aa93af49081107cb3c027c0809178587
+      size: 1050
+    - path: ../../toml-values/crates/depletion/Cargo.toml.json
+      hash: md5
+      md5: 3c4a38f33b251926ab0444bac4b51270
+      size: 545
+    - path: ../../toml-values/crates/format/Cargo.toml.json
+      hash: md5
+      md5: 4dfd9ea0f0ae886a3370856cef33ef96
+      size: 347
+    - path: ../../toml-values/crates/lattice/Cargo.toml.json
+      hash: md5
+      md5: 1c29f5691c69a89bb5760c2ec0cf8700
+      size: 909
+    - path: ../../toml-values/crates/numeric/Cargo.toml.json
+      hash: md5
+      md5: c93e4d9a307573c3eaf73ce9657e6f19
+      size: 228
+    - path: ../../toml-values/examples/mox/pincell-mox1.toml.json
+      hash: md5
+      md5: 1c06d5113d8ce20dbab4f12fd290e01b
+      size: 1119
+    - path: ../../toml-values/rust-toolchain.toml.json
+      hash: md5
+      md5: 74573c8fc394fee5251831f882dcf201
+      size: 133
     - path: mox.msgpack
       hash: md5
       md5: 49520cdc25604f9a6f2575d59078307e
       size: 36630980
-    - path: pincell-mox1.toml
-      hash: md5
-      md5: 466aa5af13bc5772cd8f8a0df9995faa
-      size: 1229
     outs:
     - path: xlc-mox1.msgpack
       hash: md5
@@ -625,6 +625,10 @@ stages:
       hash: md5
       md5: 93b74d0b81ef08f5588a4767920fef9c
       size: 2069860
+    - path: ../../toml-values/examples/mox/xs.toml.json
+      hash: md5
+      md5: 9f17eb7ae167ce06eb4cc5e9e7c6fdb4
+      size: 1577
     - path: mox.msgpack
       hash: md5
       md5: 49520cdc25604f9a6f2575d59078307e
@@ -637,10 +641,6 @@ stages:
       hash: md5
       md5: d7b2d9d2a6323678f96062aed71338b9
       size: 22823
-    - path: xs.toml
-      hash: md5
-      md5: 0ceb6174c2af05e5b411cc8c5c996841
-      size: 1374
     outs:
     - path: compare-capture-mox1.out
       hash: md5

@@ -124,10 +124,10 @@ stages:
       hash: md5
       md5: 87091f7ae230f821493b49030bc4681b
       size: 185972
-    - path: xs.toml
+    - path: ../../toml-values/examples/m3-nuclides/xs.toml.json
       hash: md5
-      md5: 5f7d7bb74411f516b883439c2bc38f00
-      size: 3019
+      md5: a6ffba4f79c38b5375a8ce83194ba69b
+      size: 3443
     outs:
     - path: m3-nuclides.msgpack
       hash: md5

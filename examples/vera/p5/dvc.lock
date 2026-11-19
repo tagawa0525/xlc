@@ -9,14 +9,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/assembly-21.toml.json
+      hash: md5
+      md5: f460b410b8ddfabff063a7a81e9f4018
+      size: 4306
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: assembly-21.toml
-      hash: md5
-      md5: 33e459a8e64c029c04ce0e4267533cd4
-      size: 4317
     outs:
     - path: assembly-21.out
       hash: md5
@@ -35,14 +35,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/assembly-26-p16.toml.json
+      hash: md5
+      md5: 22c9827560916a7906b10f09cc3bee64
+      size: 5882
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: assembly-26-p16.toml
-      hash: md5
-      md5: 55ece6c24139276fc74226037b3d3d1e
-      size: 5657
     outs:
     - path: assembly-26-p16.out
       hash: md5
@@ -61,14 +61,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/assembly-26-p20.toml.json
+      hash: md5
+      md5: fb33129a50d2e7e9d4e34c1135e86a69
+      size: 5882
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: assembly-26-p20.toml
-      hash: md5
-      md5: 2964dfaba3d5c514beccfc94f12a5755
-      size: 5657
     outs:
     - path: assembly-26-p20.out
       hash: md5
@@ -87,14 +87,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/assembly-26-p24.toml.json
+      hash: md5
+      md5: 8e41a2e8b6edb3027a44ea7985d0050d
+      size: 5882
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: assembly-26-p24.toml
-      hash: md5
-      md5: 995a79aebf66edca4a55e352c5523703
-      size: 5657
     outs:
     - path: assembly-26-p24.out
       hash: md5
@@ -113,14 +113,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/assembly-26.toml.json
+      hash: md5
+      md5: 5df204f78dfa55bbc0ae2b405a0739c5
+      size: 4306
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: assembly-26.toml
-      hash: md5
-      md5: 339cac9a53d0ee3740d8952a5629bc65
-      size: 4318
     outs:
     - path: assembly-26.out
       hash: md5
@@ -139,14 +139,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/assembly-31-p12.toml.json
+      hash: md5
+      md5: cedb63deebb7d0933a46e282984b4618
+      size: 5882
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: assembly-31-p12.toml
-      hash: md5
-      md5: 4f641e3e99dc5b702e43e8e900a1e598
-      size: 5656
     outs:
     - path: assembly-31-p12.out
       hash: md5
@@ -165,14 +165,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/assembly-31-p16.toml.json
+      hash: md5
+      md5: 8b896f809e92d57a082d0c2ab92df98e
+      size: 5882
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: assembly-31-p16.toml
-      hash: md5
-      md5: b2cb5082c4034b17cbac20ecc665c42c
-      size: 5656
     outs:
     - path: assembly-31-p16.out
       hash: md5
@@ -191,14 +191,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/assembly-31-p24.toml.json
+      hash: md5
+      md5: 21a0b000deaa64b24de39abc2c499bc4
+      size: 5882
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: assembly-31-p24.toml
-      hash: md5
-      md5: 13cc3c099abd329a54c692923bce01bb
-      size: 5656
     outs:
     - path: assembly-31-p24.out
       hash: md5
@@ -217,14 +217,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/assembly-31.toml.json
+      hash: md5
+      md5: 1fb319507b2cc4676b914ceb8fe6ad5c
+      size: 4306
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: assembly-31.toml
-      hash: md5
-      md5: b00721671c70d2f7c367d227372b206f
-      size: 4317
     outs:
     - path: assembly-31.out
       hash: md5
@@ -243,14 +243,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/assembly-26-aic.toml.json
+      hash: md5
+      md5: fc7b5bc72d0695cd19ebe1bbdfe69542
+      size: 5818
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: assembly-26-aic.toml
-      hash: md5
-      md5: 784546c8dbb57259064714c53f5fbaa9
-      size: 5640
     outs:
     - path: assembly-26-aic.out
       hash: md5
@@ -269,14 +269,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/assembly-21-b4c.toml.json
+      hash: md5
+      md5: 38ac761a06dd59715c1ffaf075e0d661
+      size: 5596
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: assembly-21-b4c.toml
-      hash: md5
-      md5: 54ab70d01d2ef5d4ac409877e72d6559
-      size: 5463
     outs:
     - path: assembly-21-b4c.out
       hash: md5
@@ -295,14 +295,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/assembly-21-aic.toml.json
+      hash: md5
+      md5: 36c2465834ada1466295bc2437d2f8e9
+      size: 5818
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: assembly-21-aic.toml
-      hash: md5
-      md5: 432913d8396b9274e58642a419f8d806
-      size: 5639
     outs:
     - path: assembly-21-aic.out
       hash: md5
@@ -321,14 +321,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/assembly-26-b4c.toml.json
+      hash: md5
+      md5: 19780aa0e58c9f9d3aa03e721b536a29
+      size: 5596
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: assembly-26-b4c.toml
-      hash: md5
-      md5: 6c8c61a2cecf0cf23520aa0a98adb307
-      size: 5464
     outs:
     - path: assembly-26-b4c.out
       hash: md5
@@ -347,14 +347,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/reflector-I.toml.json
+      hash: md5
+      md5: 123776f7448cc755bb748b8b3487b081
+      size: 9187
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: reflector-I.toml
-      hash: md5
-      md5: 530acf75250f88bf443d50f8080fc3ac
-      size: 9553
     outs:
     - path: lattice/reflector-I-fuel.msgpack
       hash: md5
@@ -377,14 +377,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/reflector-corner.toml.json
+      hash: md5
+      md5: 485b5ec3356cc3eef6d77b25c6873c12
+      size: 17564
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: reflector-corner.toml
-      hash: md5
-      md5: 8c1e0525161c9506e07427ba1ecbc534
-      size: 18019
     outs:
     - path: lattice/reflector-corner-fuel.msgpack
       hash: md5
@@ -414,14 +414,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/small-moc.toml.json
+      hash: md5
+      md5: 3ba188de7a48bb1879c3bd6cbe00ccaa
+      size: 80878
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: small-moc.toml
-      hash: md5
-      md5: f3d0792b5b5af09612f047e313cf032c
-      size: 80779
     outs:
     - path: small-moc-pins.msgpack
       hash: md5
@@ -440,22 +440,22 @@ stages:
       md5: d6b0932c73b2aac6e70f1adee0065a71
       size: 7443832
       isexec: true
-    - path: core-5A-Ly-cycle.toml
+    - path: ../../../toml-values/examples/vera/p5/core-5A-Ly-cycle.toml.json
       hash: md5
-      md5: 71098123840b7300d1de04faea9ff368
-      size: 2447
-    - path: core-5A-Ly.toml
+      md5: 9d1c54114456cf22a5a500a4815e1c55
+      size: 2388
+    - path: ../../../toml-values/examples/vera/p5/core-5A-Ly.toml.json
       hash: md5
-      md5: b3e0c67e4d708b6c2447a5a22a814b2a
-      size: 601
-    - path: core-5A-assemblies.toml
+      md5: 8609150a00c88804e67c022761b7657b
+      size: 301
+    - path: ../../../toml-values/examples/vera/p5/core-5A-assemblies.toml.json
       hash: md5
-      md5: 78e7d3b278c863965998d402c5d36aa7
-      size: 7761
-    - path: core-plant-Ly.toml
+      md5: aa5ee9855eaf21f3c347e6860a1b1c03
+      size: 8457
+    - path: ../../../toml-values/examples/vera/p5/core-plant-Ly.toml.json
       hash: md5
-      md5: be6fcc663bb2104bfc62509c9057131d
-      size: 2902
+      md5: a2244b2b0a7d990c6755297434a3c22b
+      size: 2280
     - path: lattice/21.msgpack
       hash: md5
       md5: 37f468be37df553dfcebdf10a4397c16
@@ -571,22 +571,22 @@ stages:
       md5: d6b0932c73b2aac6e70f1adee0065a71
       size: 7443832
       isexec: true
-    - path: core-5A-assemblies.toml
+    - path: ../../../toml-values/examples/vera/p5/core-5A-assemblies.toml.json
       hash: md5
-      md5: 78e7d3b278c863965998d402c5d36aa7
-      size: 7761
-    - path: core-5A-cycle.toml
+      md5: aa5ee9855eaf21f3c347e6860a1b1c03
+      size: 8457
+    - path: ../../../toml-values/examples/vera/p5/core-5A-cycle.toml.json
       hash: md5
-      md5: fb364bf49bad559068d32e2a28164a1d
-      size: 2444
-    - path: core-5A.toml
+      md5: 7be2f56c51c3dcc8210bdbde74213d1b
+      size: 2385
+    - path: ../../../toml-values/examples/vera/p5/core-5A.toml.json
       hash: md5
-      md5: 25de12ef2fe9770faad20b85aee62100
-      size: 595
-    - path: core-plant.toml
+      md5: 60def2561a1fd70cb2999bfda1510992
+      size: 295
+    - path: ../../../toml-values/examples/vera/p5/core-plant.toml.json
       hash: md5
-      md5: 801bbac849271c5666c56dbfba2049a3
-      size: 2913
+      md5: 05fefa5d52e0ca1b9df605ab7f13cd14
+      size: 2280
     - path: lattice/21.msgpack
       hash: md5
       md5: 37f468be37df553dfcebdf10a4397c16
@@ -673,22 +673,23 @@ stages:
       md5: d6b0932c73b2aac6e70f1adee0065a71
       size: 7443832
       isexec: true
-    - path: core-small-I-cycle.toml
+    - path: ../../../toml-values/examples/vera/p5/core-small-I-cycle.toml.json
       hash: md5
-      md5: 5d4b20f8dce41957ec2d699686ecfa21
-      size: 355
-    - path: core-small-I-plant.toml
+      md5: 1028ca5da0ca16c2ce6246f6b36c857a
+      size: 296
+    - path: ../../../toml-values/examples/vera/p5/core-small-I-plant.toml.json
       hash: md5
-      md5: 48b79ec155c39ecf8ebb04f049bb412f
-      size: 692
-    - path: core-small-I.toml
+      md5: bef354d9fbfc93f224d42cb86eeb809a
+      size: 446
+    - path: ../../../toml-values/examples/vera/p5/core-small-I.toml.json
       hash: md5
-      md5: 1ec703fa6f33826310cde5433f40e9cc
-      size: 410
-    - path: core-small-assemblies.toml
+      md5: 48275d3f85680f85a622aadcbb494e33
+      size: 282
+    - path: 
+        ../../../toml-values/examples/vera/p5/core-small-assemblies.toml.json
       hash: md5
-      md5: 537a66f2f75f021df89741d26bf0e183
-      size: 1055
+      md5: 7fda545709b00c1c91b7d13d062ab1c0
+      size: 718
     - path: lattice/31.msgpack
       hash: md5
       md5: 480b2eec1bcf3c26629d5e90cf09f992
@@ -731,22 +732,25 @@ stages:
       md5: d6b0932c73b2aac6e70f1adee0065a71
       size: 7443832
       isexec: true
-    - path: core-small-step-Lx-cycle.toml
+    - path: 
+        ../../../toml-values/examples/vera/p5/core-small-step-Lx-cycle.toml.json
       hash: md5
-      md5: e42357a5d1f5e4b28fd4481235f3a872
-      size: 556
-    - path: core-small-step-Lx-plant.toml
+      md5: 5c240fa4cdbf4af15704d035aa115cca
+      size: 497
+    - path: 
+        ../../../toml-values/examples/vera/p5/core-small-step-Lx-plant.toml.json
       hash: md5
-      md5: efb186f923584647902f63d46fe04079
-      size: 1294
-    - path: core-small-step-Lx.toml
+      md5: d270a5af977c9760aaedd68422d28dbd
+      size: 830
+    - path: ../../../toml-values/examples/vera/p5/core-small-step-Lx.toml.json
       hash: md5
-      md5: b038671fa58e09b24861a6aa3aee8500
-      size: 410
-    - path: core-small-step-assemblies.toml
+      md5: c889730abefc044c36ff31e91b67ee89
+      size: 317
+    - path: 
+        ../../../toml-values/examples/vera/p5/core-small-step-assemblies.toml.json
       hash: md5
-      md5: 74621a8999b2655d1326f129d92c4dac
-      size: 1443
+      md5: 72d791ae0e8e7b25b4deb5a3be698b1d
+      size: 1154
     - path: lattice/31.msgpack
       hash: md5
       md5: 480b2eec1bcf3c26629d5e90cf09f992
@@ -851,22 +855,25 @@ stages:
       md5: d6b0932c73b2aac6e70f1adee0065a71
       size: 7443832
       isexec: true
-    - path: core-small-step-Ly-cycle.toml
+    - path: 
+        ../../../toml-values/examples/vera/p5/core-small-step-Ly-cycle.toml.json
       hash: md5
-      md5: a0ff23190edfe358918389b566df374f
-      size: 556
-    - path: core-small-step-Ly-plant.toml
+      md5: ef26d701512ed931ebaf824b61bdca0a
+      size: 497
+    - path: 
+        ../../../toml-values/examples/vera/p5/core-small-step-Ly-plant.toml.json
       hash: md5
-      md5: 2209447d11eebe19b967ce753339c29c
-      size: 1294
-    - path: core-small-step-Ly.toml
+      md5: 61ff9eea1e61de11631a108472c58806
+      size: 830
+    - path: ../../../toml-values/examples/vera/p5/core-small-step-Ly.toml.json
       hash: md5
-      md5: 97e62b5007f6a006379da0f5a5f350f6
-      size: 410
-    - path: core-small-step-assemblies.toml
+      md5: 27ae6f3a3e4d7d59c43cba441ff6f093
+      size: 317
+    - path: 
+        ../../../toml-values/examples/vera/p5/core-small-step-assemblies.toml.json
       hash: md5
-      md5: 74621a8999b2655d1326f129d92c4dac
-      size: 1443
+      md5: 72d791ae0e8e7b25b4deb5a3be698b1d
+      size: 1154
     - path: lattice/31.msgpack
       hash: md5
       md5: 480b2eec1bcf3c26629d5e90cf09f992
@@ -975,22 +982,23 @@ stages:
       md5: d6b0932c73b2aac6e70f1adee0065a71
       size: 7443832
       isexec: true
-    - path: core-small-E-cycle.toml
+    - path: ../../../toml-values/examples/vera/p5/core-small-E-cycle.toml.json
       hash: md5
-      md5: 0d09e18f4093ec9bfe5451ad05a39ad8
-      size: 355
-    - path: core-small-E-plant.toml
+      md5: 8978a6d7333bf43dda7271696a9db5d1
+      size: 296
+    - path: ../../../toml-values/examples/vera/p5/core-small-E-plant.toml.json
       hash: md5
-      md5: aca5cb9855192dee500752dfaebf0aed
-      size: 1025
-    - path: core-small-E.toml
+      md5: 40f69b097d5060da480327862204e489
+      size: 684
+    - path: ../../../toml-values/examples/vera/p5/core-small-E.toml.json
       hash: md5
-      md5: 72654f45a92d0a43d6a08b344c2b34c8
-      size: 410
-    - path: core-small-assemblies.toml
+      md5: bfba60edf9a3950f806fd0d974768556
+      size: 282
+    - path: 
+        ../../../toml-values/examples/vera/p5/core-small-assemblies.toml.json
       hash: md5
-      md5: 537a66f2f75f021df89741d26bf0e183
-      size: 1055
+      md5: 7fda545709b00c1c91b7d13d062ab1c0
+      size: 718
     - path: lattice/31.msgpack
       hash: md5
       md5: 480b2eec1bcf3c26629d5e90cf09f992
@@ -1074,22 +1082,22 @@ stages:
       md5: d6b0932c73b2aac6e70f1adee0065a71
       size: 7443832
       isexec: true
-    - path: core-5B-assemblies.toml
+    - path: ../../../toml-values/examples/vera/p5/core-5B-assemblies.toml.json
       hash: md5
-      md5: 940fc32a1f741a4f21f2245be1ffb6cb
-      size: 7879
-    - path: core-5B-cycle.toml
+      md5: db0b2b1de8959b7920fcb4c1992c92c1
+      size: 8608
+    - path: ../../../toml-values/examples/vera/p5/core-5B-cycle.toml.json
       hash: md5
-      md5: c562600cfbbc07a43619dab6c10f0dd2
-      size: 2444
-    - path: core-5B.toml
+      md5: 62f229123b11fe64806cebf37bae30d8
+      size: 2385
+    - path: ../../../toml-values/examples/vera/p5/core-5B.toml.json
       hash: md5
-      md5: 76fbd8fb192fb86237b078ea9680ce1c
-      size: 664
-    - path: core-plant.toml
+      md5: d7d62513d02aaa900ee058d97554025f
+      size: 295
+    - path: ../../../toml-values/examples/vera/p5/core-plant.toml.json
       hash: md5
-      md5: 801bbac849271c5666c56dbfba2049a3
-      size: 2913
+      md5: 05fefa5d52e0ca1b9df605ab7f13cd14
+      size: 2280
     - path: lattice/21-aic.msgpack
       hash: md5
       md5: 8a634c8e8980f592ce73020ba206f8f1
@@ -1180,22 +1188,22 @@ stages:
       md5: d6b0932c73b2aac6e70f1adee0065a71
       size: 7443832
       isexec: true
-    - path: core-5C-assemblies.toml
+    - path: ../../../toml-values/examples/vera/p5/core-5C-assemblies.toml.json
       hash: md5
-      md5: c5226cd5a085637bb89f75c54f193b7b
-      size: 7879
-    - path: core-5C-cycle.toml
+      md5: 7c9b817bdede4d157f02743b3d3b2599
+      size: 8608
+    - path: ../../../toml-values/examples/vera/p5/core-5C-cycle.toml.json
       hash: md5
-      md5: 1de1856fb0dea5423c5ba9e46169b40c
-      size: 2444
-    - path: core-5C.toml
+      md5: 796c4040dd14b1d11664dee52d59cc9d
+      size: 2385
+    - path: ../../../toml-values/examples/vera/p5/core-5C.toml.json
       hash: md5
-      md5: f3a9805210519499b5a2349d11e089ca
-      size: 664
-    - path: core-plant.toml
+      md5: 59d297142d069bd4526fb186084109b5
+      size: 295
+    - path: ../../../toml-values/examples/vera/p5/core-plant.toml.json
       hash: md5
-      md5: 801bbac849271c5666c56dbfba2049a3
-      size: 2913
+      md5: 05fefa5d52e0ca1b9df605ab7f13cd14
+      size: 2280
     - path: lattice/21-b4c.msgpack
       hash: md5
       md5: 9dc8d7b2b3c17143ea73a3357535b03c
@@ -1286,22 +1294,22 @@ stages:
       md5: d6b0932c73b2aac6e70f1adee0065a71
       size: 7443832
       isexec: true
-    - path: core-5A-Inext-cycle.toml
+    - path: ../../../toml-values/examples/vera/p5/core-5A-Inext-cycle.toml.json
       hash: md5
-      md5: a16156bddbaeed556a3823138457a007
-      size: 2450
-    - path: core-5A-Inext.toml
+      md5: cb0fc59737171a29c346aeecbdf4805b
+      size: 2391
+    - path: ../../../toml-values/examples/vera/p5/core-5A-Inext.toml.json
       hash: md5
-      md5: e4b056d0677b05b4ea2ac276ce22451b
-      size: 607
-    - path: core-5A-assemblies.toml
+      md5: 514768beb8c3c7b4879d24101bda7789
+      size: 307
+    - path: ../../../toml-values/examples/vera/p5/core-5A-assemblies.toml.json
       hash: md5
-      md5: 78e7d3b278c863965998d402c5d36aa7
-      size: 7761
-    - path: core-plant-Inext.toml
+      md5: aa5ee9855eaf21f3c347e6860a1b1c03
+      size: 8457
+    - path: ../../../toml-values/examples/vera/p5/core-plant-Inext.toml.json
       hash: md5
-      md5: b718fb28dac61e0e2847204e05c43328
-      size: 2569
+      md5: f0414169127a98f22f890ed37a40cc7e
+      size: 2042
     - path: lattice/21.msgpack
       hash: md5
       md5: 37f468be37df553dfcebdf10a4397c16
@@ -1468,22 +1476,24 @@ stages:
       md5: d6b0932c73b2aac6e70f1adee0065a71
       size: 7443832
       isexec: true
-    - path: core-lattice-I-fstar-cycle.toml
+    - path: 
+        ../../../toml-values/examples/vera/p5/core-lattice-I-fstar-cycle.toml.json
       hash: md5
-      md5: 84c88725cf3f823c289c924dab77a492
-      size: 174
-    - path: core-lattice-I-fstar.toml
+      md5: b1d1e5796f6ddc0e74753f95192692d0
+      size: 115
+    - path: ../../../toml-values/examples/vera/p5/core-lattice-I-fstar.toml.json
       hash: md5
-      md5: ab03e7b3d42421dc84549e669490f0fc
-      size: 450
-    - path: core-lattice-I-plant.toml
+      md5: 9e4753a21d1dbb38956935324622dd75
+      size: 310
+    - path: ../../../toml-values/examples/vera/p5/core-lattice-I-plant.toml.json
       hash: md5
-      md5: abaf5b82a0166353c4e486c1c3191851
-      size: 368
-    - path: core-lattice-assemblies.toml
+      md5: 27a5c6c048baf525b5b178071b5778e5
+      size: 184
+    - path: 
+        ../../../toml-values/examples/vera/p5/core-lattice-assemblies.toml.json
       hash: md5
-      md5: 66e6ddc9dc284eeac012c92bdcb0b626
-      size: 673
+      md5: dd47c2b0c977bf4ed0795d79ef840861
+      size: 565
     - path: lattice/31.msgpack
       hash: md5
       md5: 480b2eec1bcf3c26629d5e90cf09f992
@@ -1522,22 +1532,25 @@ stages:
       md5: d6b0932c73b2aac6e70f1adee0065a71
       size: 7443832
       isexec: true
-    - path: core-lattice-I-equivalence-cycle.toml
+    - path: 
+        ../../../toml-values/examples/vera/p5/core-lattice-I-equivalence-cycle.toml.json
       hash: md5
-      md5: fcdf7d1e625e710a4db512f6f8e061e7
-      size: 188
-    - path: core-lattice-I-equivalence.toml
+      md5: 8a13f6a6fac9655d853825ec5849cc89
+      size: 129
+    - path: 
+        ../../../toml-values/examples/vera/p5/core-lattice-I-equivalence.toml.json
       hash: md5
-      md5: 50c2c1866483ab2e6f461e700d4856b5
-      size: 471
-    - path: core-lattice-I-plant.toml
+      md5: a8b92001600ce0bada1576d49120352b
+      size: 322
+    - path: ../../../toml-values/examples/vera/p5/core-lattice-I-plant.toml.json
       hash: md5
-      md5: abaf5b82a0166353c4e486c1c3191851
-      size: 368
-    - path: core-lattice-assemblies.toml
+      md5: 27a5c6c048baf525b5b178071b5778e5
+      size: 184
+    - path: 
+        ../../../toml-values/examples/vera/p5/core-lattice-assemblies.toml.json
       hash: md5
-      md5: 66e6ddc9dc284eeac012c92bdcb0b626
-      size: 673
+      md5: dd47c2b0c977bf4ed0795d79ef840861
+      size: 565
     - path: lattice/31.msgpack
       hash: md5
       md5: 480b2eec1bcf3c26629d5e90cf09f992
@@ -1601,22 +1614,26 @@ stages:
       md5: d6b0932c73b2aac6e70f1adee0065a71
       size: 7443832
       isexec: true
-    - path: core-lattice-assemblies.toml
+    - path: 
+        ../../../toml-values/examples/vera/p5/core-lattice-assemblies.toml.json
       hash: md5
-      md5: 66e6ddc9dc284eeac012c92bdcb0b626
-      size: 673
-    - path: core-lattice-corner-fstar-cycle.toml
+      md5: dd47c2b0c977bf4ed0795d79ef840861
+      size: 565
+    - path: 
+        ../../../toml-values/examples/vera/p5/core-lattice-corner-fstar-cycle.toml.json
       hash: md5
-      md5: f6d85d7b414e443df51c15e94c8b5f6c
-      size: 189
-    - path: core-lattice-corner-fstar.toml
+      md5: 0ca5b8acfe4313b17de54380175aefaf
+      size: 130
+    - path: 
+        ../../../toml-values/examples/vera/p5/core-lattice-corner-fstar.toml.json
       hash: md5
-      md5: f5cfa54c68f3d1050c321262cebd16ef
-      size: 461
-    - path: core-lattice-corner-plant.toml
+      md5: 528049ec99a235a911b33636457fb7dd
+      size: 316
+    - path: 
+        ../../../toml-values/examples/vera/p5/core-lattice-corner-plant.toml.json
       hash: md5
-      md5: 0466be5d72960c57432af32918fe3cfc
-      size: 728
+      md5: 09a96ce2c7d70e81018ef1a99c868544
+      size: 432
     - path: lattice/31.msgpack
       hash: md5
       md5: 480b2eec1bcf3c26629d5e90cf09f992
@@ -1688,22 +1705,26 @@ stages:
       md5: d6b0932c73b2aac6e70f1adee0065a71
       size: 7443832
       isexec: true
-    - path: core-lattice-assemblies.toml
+    - path: 
+        ../../../toml-values/examples/vera/p5/core-lattice-assemblies.toml.json
       hash: md5
-      md5: 66e6ddc9dc284eeac012c92bdcb0b626
-      size: 673
-    - path: core-lattice-corner-equivalence-cycle.toml
+      md5: dd47c2b0c977bf4ed0795d79ef840861
+      size: 565
+    - path: 
+        ../../../toml-values/examples/vera/p5/core-lattice-corner-equivalence-cycle.toml.json
       hash: md5
-      md5: a466790f678e91c7ad3814a2f90c30e3
-      size: 227
-    - path: core-lattice-corner-equivalence.toml
+      md5: 3107cbdf2f096d1fe79b0b24034be6b8
+      size: 168
+    - path: 
+        ../../../toml-values/examples/vera/p5/core-lattice-corner-equivalence.toml.json
       hash: md5
-      md5: 52a1ca66a0d763310eae60d36a9102dc
-      size: 482
-    - path: core-lattice-corner-plant.toml
+      md5: 699b86399e711f1c6556a4584b2832f3
+      size: 328
+    - path: 
+        ../../../toml-values/examples/vera/p5/core-lattice-corner-plant.toml.json
       hash: md5
-      md5: 0466be5d72960c57432af32918fe3cfc
-      size: 728
+      md5: 09a96ce2c7d70e81018ef1a99c868544
+      size: 432
     - path: lattice/31.msgpack
       hash: md5
       md5: 480b2eec1bcf3c26629d5e90cf09f992
@@ -1801,14 +1822,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/reflector-I-31-p12.toml.json
+      hash: md5
+      md5: 9a9a64af274db0d23da725c439ab38c7
+      size: 10207
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: reflector-I-31-p12.toml
-      hash: md5
-      md5: 82a81c8b9e06e26455b4aa7a25bdbd67
-      size: 10306
     outs:
     - path: lattice/reflector-I-31-p12-fuel.msgpack
       hash: md5
@@ -1831,14 +1852,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/reflector-I-31-p8.toml.json
+      hash: md5
+      md5: a999da5f179adb45ab9ad5a509b7eca6
+      size: 10205
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: reflector-I-31-p8.toml
-      hash: md5
-      md5: b95767b5e5bdb35c0c82deb173bfbbc6
-      size: 10303
     outs:
     - path: lattice/reflector-I-31-p8-fuel.msgpack
       hash: md5
@@ -2011,6 +2032,23 @@ stages:
       md5: d6b0932c73b2aac6e70f1adee0065a71
       size: 7443832
       isexec: true
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/core-hzp-assemblies.toml.json
+      hash: md5
+      md5: caf5b1563e0bccab21999b0374267ee9
+      size: 26633
+    - path: ../../../toml-values/examples/vera/p5/hzp/core-hzp-cycle.toml.json
+      hash: md5
+      md5: c399466a510f72a23050f7772f1f9625
+      size: 2390
+    - path: ../../../toml-values/examples/vera/p5/hzp/core-hzp-plant.toml.json
+      hash: md5
+      md5: e9ad7ec7a3ae0f3ec1c77a5ee80a1701
+      size: 6133
+    - path: ../../../toml-values/examples/vera/p5/hzp/core-hzp.toml.json
+      hash: md5
+      md5: 3b3efa63177420e3a666b52a29b62e27
+      size: 8754
     - path: hzp/axial-21
       hash: md5
       md5: c3a2c290a9d0fdab2e49224c8dada03a.dir
@@ -2071,22 +2109,6 @@ stages:
       md5: 49055308e0b36d564757f95299af6fd5.dir
       size: 219888
       nfiles: 61
-    - path: hzp/core-hzp-assemblies.toml
-      hash: md5
-      md5: 8e7df0158fd3a0c08615cf44813e50bc
-      size: 23874
-    - path: hzp/core-hzp-cycle.toml
-      hash: md5
-      md5: 38f313d3f350c985c5941f2d010dd340
-      size: 2449
-    - path: hzp/core-hzp-plant.toml
-      hash: md5
-      md5: a6b2125964584172e70506f4309e8595
-      size: 6320
-    - path: hzp/core-hzp.toml
-      hash: md5
-      md5: 6b49804e7ff872f02ecd46d8f3a6f584
-      size: 6841
     - path: hzp/lattice/21-fuel.msgpack
       hash: md5
       md5: 4258926d3408fc1169d06b2fabbf1680
@@ -2348,14 +2370,14 @@ stages:
       hash: md5
       md5: de9def92d813fd95954b01ec5512fff4
       size: 551223
+    - path: ../../../toml-values/examples/vera/p5/hzp/core-hzp.toml.json
+      hash: md5
+      md5: 3b3efa63177420e3a666b52a29b62e27
+      size: 8754
     - path: hzp/core-hzp.out
       hash: md5
       md5: 30714faa57e207aa57775b241ed52f1f
       size: 150197
-    - path: hzp/core-hzp.toml
-      hash: md5
-      md5: b5bbce2e34fa617616e82b56233b3513
-      size: 6853
     outs:
     - path: hzp/compare-hzp.out
       hash: md5
@@ -2370,14 +2392,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/21-fuel.toml.json
+      hash: md5
+      md5: 360f9415668f3c83e0a99fae6f1f4d4a
+      size: 7041
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/21-fuel.toml
-      hash: md5
-      md5: 3c171492cce206d4fdcd55c0ef1df846
-      size: 6528
     outs:
     - path: hzp/21-fuel.out
       hash: md5
@@ -2400,14 +2422,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/21-igrid.toml.json
+      hash: md5
+      md5: b5ba6477fb5ec454bd14db63d186ba97
+      size: 5477
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/21-igrid.toml
-      hash: md5
-      md5: 6f9be3d385f6c620a57c103cec9af8aa
-      size: 5298
     outs:
     - path: hzp/21-igrid.out
       hash: md5
@@ -2426,14 +2448,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/21-zgrid.toml.json
+      hash: md5
+      md5: 101129d267a8e82ef5813e629bee7937
+      size: 7376
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/21-zgrid.toml
-      hash: md5
-      md5: d1d8f8f109016b3a0786466e4300b5f0
-      size: 7011
     outs:
     - path: hzp/21-zgrid.out
       hash: md5
@@ -2452,14 +2474,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/26-fuel.toml.json
+      hash: md5
+      md5: 6428d90fccbfad2596a6ed5589a40b66
+      size: 7041
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/26-fuel.toml
-      hash: md5
-      md5: 632a0f2c301a1db2603f61bcd1f527e8
-      size: 6529
     outs:
     - path: hzp/26-fuel.out
       hash: md5
@@ -2482,14 +2504,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/26-igrid.toml.json
+      hash: md5
+      md5: 1aa4711e16f26901d8932aaadf2ae8ac
+      size: 5477
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/26-igrid.toml
-      hash: md5
-      md5: e7e2b641619798ab286723aba79ed0c0
-      size: 5299
     outs:
     - path: hzp/26-igrid.out
       hash: md5
@@ -2508,14 +2530,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/26-zgrid.toml.json
+      hash: md5
+      md5: 74a0162b1baab3f395f710bc72b84972
+      size: 7376
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/26-zgrid.toml
-      hash: md5
-      md5: 61959b3748254167a48ad7e4c984d209
-      size: 7012
     outs:
     - path: hzp/26-zgrid.out
       hash: md5
@@ -2534,14 +2556,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/26-p16-empty.toml.json
+      hash: md5
+      md5: 69068d50346bb9ebe2961cf4c46f3ced
+      size: 4691
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/26-p16-empty.toml
-      hash: md5
-      md5: 3b01d9dfc0f134a6eb5e6bb6d255845c
-      size: 4573
     outs:
     - path: hzp/26-p16-empty.out
       hash: md5
@@ -2564,14 +2586,15 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/26-p16-empty-igrid.toml.json
+      hash: md5
+      md5: 195c6dc9699b40ea78db2678439819bc
+      size: 5487
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/26-p16-empty-igrid.toml
-      hash: md5
-      md5: 9426d58d50e0f635e839d46b018deb60
-      size: 5396
     outs:
     - path: hzp/26-p16-empty-igrid.out
       hash: md5
@@ -2590,14 +2613,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/26-p16-plenum.toml.json
+      hash: md5
+      md5: 8e8dacd8e263d158aae8ead415de24bf
+      size: 5763
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/26-p16-plenum.toml
-      hash: md5
-      md5: 7043374c47e463ecca8681a46e5f2f70
-      size: 5406
     outs:
     - path: hzp/26-p16-plenum.out
       hash: md5
@@ -2620,14 +2643,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/26-p16-plug.toml.json
+      hash: md5
+      md5: 426a714b77eb5c68801502824339cb61
+      size: 5683
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/26-p16-plug.toml
-      hash: md5
-      md5: f1ed5f47e2020b3af16b363c70b582d0
-      size: 5393
     outs:
     - path: hzp/26-p16-plug.out
       hash: md5
@@ -2650,14 +2673,15 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/26-p16-plug-igrid.toml.json
+      hash: md5
+      md5: bcaa89f3fb969273b205d3ea1b503cd6
+      size: 6553
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/26-p16-plug-igrid.toml
-      hash: md5
-      md5: 8053fe9a5220fc509ca4e0273c4682cd
-      size: 6269
     outs:
     - path: hzp/26-p16-plug-igrid.out
       hash: md5
@@ -2676,14 +2700,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/26-p16-poison.toml.json
+      hash: md5
+      md5: c543a133aa46bd5ad68adca61152786f
+      size: 6291
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/26-p16-poison.toml
-      hash: md5
-      md5: 4a6f8eb6155116e3a9d5bc7708b7a19a
-      size: 5825
     outs:
     - path: hzp/26-p16-poison.out
       hash: md5
@@ -2706,14 +2730,15 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/26-p16-poison-zgrid.toml.json
+      hash: md5
+      md5: 3fbaac453493adf9239e4871aa065a03
+      size: 6551
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/26-p16-poison-zgrid.toml
-      hash: md5
-      md5: 273165f5be4ff6052b9aebd0ce903fdb
-      size: 6226
     outs:
     - path: hzp/26-p16-poison-zgrid.out
       hash: md5
@@ -2732,14 +2757,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/26-p20-empty.toml.json
+      hash: md5
+      md5: b878730e0d93b6b496dfa02cf39a890b
+      size: 4691
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/26-p20-empty.toml
-      hash: md5
-      md5: da220041b291b33ea906699f1569ad0d
-      size: 4573
     outs:
     - path: hzp/26-p20-empty.out
       hash: md5
@@ -2762,14 +2787,15 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/26-p20-empty-igrid.toml.json
+      hash: md5
+      md5: 5f2d7022e1327da1d39734f28ee4b67c
+      size: 5487
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/26-p20-empty-igrid.toml
-      hash: md5
-      md5: 08879930bcf3736a331445b0e268cc4d
-      size: 5396
     outs:
     - path: hzp/26-p20-empty-igrid.out
       hash: md5
@@ -2788,14 +2814,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/26-p20-plenum.toml.json
+      hash: md5
+      md5: e9597b6ddeb59c515b71009deeb595ce
+      size: 5763
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/26-p20-plenum.toml
-      hash: md5
-      md5: 7f285d2c47f11daceaa4d487e11c8c20
-      size: 5406
     outs:
     - path: hzp/26-p20-plenum.out
       hash: md5
@@ -2818,14 +2844,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/26-p20-plug.toml.json
+      hash: md5
+      md5: 63958370ee966d9b23e10add77ddb854
+      size: 5683
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/26-p20-plug.toml
-      hash: md5
-      md5: 85c40a3265413ec6757ead89ce23dcf4
-      size: 5393
     outs:
     - path: hzp/26-p20-plug.out
       hash: md5
@@ -2848,14 +2874,15 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/26-p20-plug-igrid.toml.json
+      hash: md5
+      md5: 5dcef94409c22b70403a3a285fa94197
+      size: 6553
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/26-p20-plug-igrid.toml
-      hash: md5
-      md5: 77b17631e192ccedecd4475bfb14f898
-      size: 6269
     outs:
     - path: hzp/26-p20-plug-igrid.out
       hash: md5
@@ -2874,14 +2901,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/26-p20-poison.toml.json
+      hash: md5
+      md5: 0de8551b66e3dd7cd814b1e456260c5b
+      size: 6291
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/26-p20-poison.toml
-      hash: md5
-      md5: 7fefc14ab7aba55be2b39138c9e8ec2c
-      size: 5825
     outs:
     - path: hzp/26-p20-poison.out
       hash: md5
@@ -2904,14 +2931,15 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/26-p20-poison-zgrid.toml.json
+      hash: md5
+      md5: d895a3c7bdb48920eef8940b4c6e68eb
+      size: 6551
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/26-p20-poison-zgrid.toml
-      hash: md5
-      md5: 8df3762c3591601ff1b873ad3620008a
-      size: 6226
     outs:
     - path: hzp/26-p20-poison-zgrid.out
       hash: md5
@@ -2930,14 +2958,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/26-p24-empty.toml.json
+      hash: md5
+      md5: e316a6bbcad176889bbd203201e06c3e
+      size: 4691
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/26-p24-empty.toml
-      hash: md5
-      md5: f5507a3d4525da000929cedd25c89e74
-      size: 4573
     outs:
     - path: hzp/26-p24-empty.out
       hash: md5
@@ -2960,14 +2988,15 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/26-p24-empty-igrid.toml.json
+      hash: md5
+      md5: 5674865de0beb8168d5ca6ae58a07ec6
+      size: 5487
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/26-p24-empty-igrid.toml
-      hash: md5
-      md5: ad590955dd5e550b24023464e072892a
-      size: 5396
     outs:
     - path: hzp/26-p24-empty-igrid.out
       hash: md5
@@ -2986,14 +3015,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/26-p24-plenum.toml.json
+      hash: md5
+      md5: 7c00f22671716c5315cde4da738d2c62
+      size: 5763
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/26-p24-plenum.toml
-      hash: md5
-      md5: c0369acdeee328ba87185032da0bc812
-      size: 5406
     outs:
     - path: hzp/26-p24-plenum.out
       hash: md5
@@ -3016,14 +3045,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/26-p24-plug.toml.json
+      hash: md5
+      md5: e8d73557127c619259add7772d5eb3d3
+      size: 5683
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/26-p24-plug.toml
-      hash: md5
-      md5: ac27e89cd29e645abca795348398ec16
-      size: 5393
     outs:
     - path: hzp/26-p24-plug.out
       hash: md5
@@ -3046,14 +3075,15 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/26-p24-plug-igrid.toml.json
+      hash: md5
+      md5: 1dd2651dd15a37be4ba6eeb1ae3d81b5
+      size: 6553
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/26-p24-plug-igrid.toml
-      hash: md5
-      md5: a05d3d036e2d510ac3406b1734c9ddef
-      size: 6269
     outs:
     - path: hzp/26-p24-plug-igrid.out
       hash: md5
@@ -3072,14 +3102,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/26-p24-poison.toml.json
+      hash: md5
+      md5: b17abe3c4c81e46e56e14169ccbcbd16
+      size: 6291
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/26-p24-poison.toml
-      hash: md5
-      md5: 2ce0523d7c3b72cbe673ff37a8ef047c
-      size: 5825
     outs:
     - path: hzp/26-p24-poison.out
       hash: md5
@@ -3102,14 +3132,15 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/26-p24-poison-zgrid.toml.json
+      hash: md5
+      md5: 8efced3ff1f0fa4ba259e0388a9c03ca
+      size: 6551
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/26-p24-poison-zgrid.toml
-      hash: md5
-      md5: b1dfdcd0be8f24794539727e7fbb2bd1
-      size: 6226
     outs:
     - path: hzp/26-p24-poison-zgrid.out
       hash: md5
@@ -3128,14 +3159,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/31-fuel.toml.json
+      hash: md5
+      md5: b3f168853077c719192a970bfd4f5249
+      size: 7041
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/31-fuel.toml
-      hash: md5
-      md5: 4a70b861dcdd699291c1e0b13f3031df
-      size: 6528
     outs:
     - path: hzp/31-fuel.out
       hash: md5
@@ -3158,14 +3189,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/31-igrid.toml.json
+      hash: md5
+      md5: 6d07ce0995c43360d126d5458da148fa
+      size: 5477
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/31-igrid.toml
-      hash: md5
-      md5: b58afb43e20047076e9f14c0dc61bee2
-      size: 5298
     outs:
     - path: hzp/31-igrid.out
       hash: md5
@@ -3184,14 +3215,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/31-zgrid.toml.json
+      hash: md5
+      md5: 481b292b59814e5408f45774f019c09d
+      size: 7376
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/31-zgrid.toml
-      hash: md5
-      md5: 95027b36f10b1352dce6fdc99bc13b13
-      size: 7011
     outs:
     - path: hzp/31-zgrid.out
       hash: md5
@@ -3210,14 +3241,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/31-p12-empty.toml.json
+      hash: md5
+      md5: 04e537fd0c4b2a54d3a20d74cf9337be
+      size: 4691
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/31-p12-empty.toml
-      hash: md5
-      md5: 061698246b313d0756bb6bafb3a3abf7
-      size: 4572
     outs:
     - path: hzp/31-p12-empty.out
       hash: md5
@@ -3240,14 +3271,15 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/31-p12-empty-igrid.toml.json
+      hash: md5
+      md5: b3d5c49a40faa020607a15b2c7652d1f
+      size: 5487
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/31-p12-empty-igrid.toml
-      hash: md5
-      md5: 5be48df013e2ea74d35b8af61da10cfa
-      size: 5395
     outs:
     - path: hzp/31-p12-empty-igrid.out
       hash: md5
@@ -3266,14 +3298,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/31-p12-plenum.toml.json
+      hash: md5
+      md5: a00ceb94f4e8409064753429ea306790
+      size: 5763
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/31-p12-plenum.toml
-      hash: md5
-      md5: 380f3a79737ce1f628fe4ec2a059eb9d
-      size: 5405
     outs:
     - path: hzp/31-p12-plenum.out
       hash: md5
@@ -3296,14 +3328,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/31-p12-plug.toml.json
+      hash: md5
+      md5: 2f7accdbd8b3ff554e62cb50b2623b40
+      size: 5683
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/31-p12-plug.toml
-      hash: md5
-      md5: a2c93db1cc9dc3497bb19a53e5de3421
-      size: 5392
     outs:
     - path: hzp/31-p12-plug.out
       hash: md5
@@ -3326,14 +3358,15 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/31-p12-plug-igrid.toml.json
+      hash: md5
+      md5: 7fed1c0e546677acfc8576ace3c6935b
+      size: 6553
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/31-p12-plug-igrid.toml
-      hash: md5
-      md5: 90139680ae741f6fd070cbac80e3668a
-      size: 6268
     outs:
     - path: hzp/31-p12-plug-igrid.out
       hash: md5
@@ -3352,14 +3385,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/31-p12-poison.toml.json
+      hash: md5
+      md5: bfce1f8df6c1a73eada7a29d4d08676b
+      size: 6291
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/31-p12-poison.toml
-      hash: md5
-      md5: 31055fb0c0a023af77feb038d284b13b
-      size: 5824
     outs:
     - path: hzp/31-p12-poison.out
       hash: md5
@@ -3382,14 +3415,15 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/31-p12-poison-zgrid.toml.json
+      hash: md5
+      md5: 97ce1205fc742b22fd0380b339134826
+      size: 6551
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/31-p12-poison-zgrid.toml
-      hash: md5
-      md5: 66a0d91d86cd629f751de4cda7fc5757
-      size: 6225
     outs:
     - path: hzp/31-p12-poison-zgrid.out
       hash: md5
@@ -3408,14 +3442,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/31-p16-empty.toml.json
+      hash: md5
+      md5: 7c2a4ae3601665e31a0b68034236e476
+      size: 4691
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/31-p16-empty.toml
-      hash: md5
-      md5: ab247875adba1129c916b95c8b8f7bd4
-      size: 4572
     outs:
     - path: hzp/31-p16-empty.out
       hash: md5
@@ -3438,14 +3472,15 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/31-p16-empty-igrid.toml.json
+      hash: md5
+      md5: 60d0d5f7d81351eb56925b2a0ac792b8
+      size: 5487
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/31-p16-empty-igrid.toml
-      hash: md5
-      md5: 011c42869fcee4c544b2baf43a24cb39
-      size: 5395
     outs:
     - path: hzp/31-p16-empty-igrid.out
       hash: md5
@@ -3464,14 +3499,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/31-p16-plenum.toml.json
+      hash: md5
+      md5: b6e680b10bf22e31bb070aaf14b6b204
+      size: 5763
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/31-p16-plenum.toml
-      hash: md5
-      md5: d71762c61ce549cd36744b80464b1073
-      size: 5405
     outs:
     - path: hzp/31-p16-plenum.out
       hash: md5
@@ -3494,14 +3529,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/31-p16-plug.toml.json
+      hash: md5
+      md5: 69cfda14799a4a4c93945c001164e8a7
+      size: 5683
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/31-p16-plug.toml
-      hash: md5
-      md5: a6f2f63d290f3fd3c0efe405ce2ca53a
-      size: 5392
     outs:
     - path: hzp/31-p16-plug.out
       hash: md5
@@ -3524,14 +3559,15 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/31-p16-plug-igrid.toml.json
+      hash: md5
+      md5: c4b9b8bf1bd6e749c2289c999f422932
+      size: 6553
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/31-p16-plug-igrid.toml
-      hash: md5
-      md5: 0c6dff836a82a3b50479b8d8c4b88177
-      size: 6268
     outs:
     - path: hzp/31-p16-plug-igrid.out
       hash: md5
@@ -3550,14 +3586,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/31-p16-poison.toml.json
+      hash: md5
+      md5: 0de03baf73038546a27b86e5dc04d0c4
+      size: 6291
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/31-p16-poison.toml
-      hash: md5
-      md5: fe87e4dcb9cea8a5f727fe0cf4449e92
-      size: 5824
     outs:
     - path: hzp/31-p16-poison.out
       hash: md5
@@ -3580,14 +3616,15 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/31-p16-poison-zgrid.toml.json
+      hash: md5
+      md5: 60b652bdb917ff83a2856a03ca994e4c
+      size: 6551
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/31-p16-poison-zgrid.toml
-      hash: md5
-      md5: a44abed007bac83174a71066207f6611
-      size: 6225
     outs:
     - path: hzp/31-p16-poison-zgrid.out
       hash: md5
@@ -3606,14 +3643,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/31-p24-empty.toml.json
+      hash: md5
+      md5: 7424778c9015f864b898bf303089171b
+      size: 4691
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/31-p24-empty.toml
-      hash: md5
-      md5: ed46770af456e92dee1b41e2e36f2fdc
-      size: 4572
     outs:
     - path: hzp/31-p24-empty.out
       hash: md5
@@ -3636,14 +3673,15 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/31-p24-empty-igrid.toml.json
+      hash: md5
+      md5: d17722df3e7a8a6825426455dda6e0c3
+      size: 5487
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/31-p24-empty-igrid.toml
-      hash: md5
-      md5: 87a467bfcaea847679408a0f423221ee
-      size: 5395
     outs:
     - path: hzp/31-p24-empty-igrid.out
       hash: md5
@@ -3662,14 +3700,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/31-p24-plenum.toml.json
+      hash: md5
+      md5: ec7b199a6042eb874cce792734aad7bd
+      size: 5763
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/31-p24-plenum.toml
-      hash: md5
-      md5: 2fffa7c61e74ad591b9ea4885e2c1019
-      size: 5405
     outs:
     - path: hzp/31-p24-plenum.out
       hash: md5
@@ -3692,14 +3730,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/31-p24-plug.toml.json
+      hash: md5
+      md5: b9226d126b1d5dd8174a849db5be161b
+      size: 5683
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/31-p24-plug.toml
-      hash: md5
-      md5: 7cd0981c1e43664100a5337b65a6b7c7
-      size: 5392
     outs:
     - path: hzp/31-p24-plug.out
       hash: md5
@@ -3722,14 +3760,15 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/31-p24-plug-igrid.toml.json
+      hash: md5
+      md5: cab41229c3ddb28dd24bd264bb0d8700
+      size: 6553
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/31-p24-plug-igrid.toml
-      hash: md5
-      md5: 401977d9c14190c9de48d4b7f09a5597
-      size: 6268
     outs:
     - path: hzp/31-p24-plug-igrid.out
       hash: md5
@@ -3748,14 +3787,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/31-p24-poison.toml.json
+      hash: md5
+      md5: fe8d180d9dccf05c288359fbf6896c30
+      size: 6291
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/31-p24-poison.toml
-      hash: md5
-      md5: 09afbc182e391a81c4529acc204c144e
-      size: 5824
     outs:
     - path: hzp/31-p24-poison.out
       hash: md5
@@ -3778,14 +3817,15 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/31-p24-poison-zgrid.toml.json
+      hash: md5
+      md5: 5faac79b462e408083ad89f2db1533b8
+      size: 6551
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/31-p24-poison-zgrid.toml
-      hash: md5
-      md5: 1ed61b4779281a575fe078652846af7d
-      size: 6225
     outs:
     - path: hzp/31-p24-poison-zgrid.out
       hash: md5
@@ -3804,14 +3844,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/31-p8-empty.toml.json
+      hash: md5
+      md5: 40148856abc767e6a0401fa61d10cb71
+      size: 4689
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/31-p8-empty.toml
-      hash: md5
-      md5: 07b092e2cf3d44a0dc4cb04b6956321b
-      size: 4569
     outs:
     - path: hzp/31-p8-empty.out
       hash: md5
@@ -3834,14 +3874,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/31-p8-plenum.toml.json
+      hash: md5
+      md5: fefcf76e39d41d5c1af299a8fb8e3b46
+      size: 5761
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/31-p8-plenum.toml
-      hash: md5
-      md5: 1d01d50363347ef1f54db23bb027fa72
-      size: 5402
     outs:
     - path: hzp/31-p8-plenum.out
       hash: md5
@@ -3864,14 +3904,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/31-p8-plug.toml.json
+      hash: md5
+      md5: 1ee50fe6c0bc46c059a5e018be605a13
+      size: 5681
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/31-p8-plug.toml
-      hash: md5
-      md5: abc0944294a3a96909b18e345e40c1d2
-      size: 5389
     outs:
     - path: hzp/31-p8-plug.out
       hash: md5
@@ -3894,14 +3934,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/31-p8-poison.toml.json
+      hash: md5
+      md5: 5fef2f25db1ed01f98712c74f699fdc1
+      size: 6289
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/31-p8-poison.toml
-      hash: md5
-      md5: b91d4384a9c1385333acd3530f288d3b
-      size: 5821
     outs:
     - path: hzp/31-p8-poison.out
       hash: md5
@@ -3924,14 +3964,15 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/reflector-I-31-fuel.toml.json
+      hash: md5
+      md5: 36d2ad946d87364a6ec2f0cdbed982d9
+      size: 11331
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/reflector-I-31-fuel.toml
-      hash: md5
-      md5: 60f59c2cd9bc50a5cd82001e3675989e
-      size: 11348
     outs:
     - path: hzp/lattice/reflector-I-31-fuel-fuel.msgpack
       hash: md5
@@ -3954,14 +3995,15 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/reflector-I-31-igrid.toml.json
+      hash: md5
+      md5: 414f552fa3389e9d945447f6547bbf34
+      size: 10383
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/reflector-I-31-igrid.toml
-      hash: md5
-      md5: 6d0045ffec727c0b0991ba0f8708b4c3
-      size: 10367
     outs:
     - path: hzp/lattice/reflector-I-31-igrid-fuel.msgpack
       hash: md5
@@ -3984,14 +4026,15 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/reflector-I-31-zgrid.toml.json
+      hash: md5
+      md5: f5b2aa7d16fb6d0b2d10306ec39ab131
+      size: 11703
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/reflector-I-31-zgrid.toml
-      hash: md5
-      md5: d499d67ab7b35339c99cfb83d8e443b0
-      size: 11865
     outs:
     - path: hzp/lattice/reflector-I-31-zgrid-fuel.msgpack
       hash: md5
@@ -4014,14 +4057,15 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/reflector-I-31-p12-empty-igrid.toml.json
+      hash: md5
+      md5: 4775a98915162e49403afbc6bc82ede9
+      size: 10403
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/reflector-I-31-p12-empty-igrid.toml
-      hash: md5
-      md5: 9eeb3bd640c9ab8ff28ca9b93a3adbbe
-      size: 10474
     outs:
     - path: hzp/lattice/reflector-I-31-p12-empty-igrid-fuel.msgpack
       hash: md5
@@ -4044,14 +4088,15 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/reflector-I-31-p12-plenum.toml.json
+      hash: md5
+      md5: 3e534b1df7b2ef06d3efb6eb10d1c74e
+      size: 10053
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/reflector-I-31-p12-plenum.toml
-      hash: md5
-      md5: b91d5f06dbc6626f6ca6580c6febb20f
-      size: 9971
     outs:
     - path: hzp/lattice/reflector-I-31-p12-plenum-fuel.msgpack
       hash: md5
@@ -4074,14 +4119,15 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/reflector-I-31-p12-plug-igrid.toml.json
+      hash: md5
+      md5: 4a0e798949d5ac20522d072121f38ac7
+      size: 10889
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/reflector-I-31-p12-plug-igrid.toml
-      hash: md5
-      md5: 3a5b0046a637c0f7e8e5b15edc1f009c
-      size: 10877
     outs:
     - path: hzp/lattice/reflector-I-31-p12-plug-igrid-fuel.msgpack
       hash: md5
@@ -4104,14 +4150,15 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/reflector-I-31-p12-poison.toml.json
+      hash: md5
+      md5: 0761eef58d9838ba5e26ca4726a8b77a
+      size: 10581
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/reflector-I-31-p12-poison.toml
-      hash: md5
-      md5: fc824ae4cd5e552f0bde399164be7629
-      size: 10390
     outs:
     - path: hzp/lattice/reflector-I-31-p12-poison-fuel.msgpack
       hash: md5
@@ -4134,14 +4181,15 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/reflector-I-31-p12-poison-zgrid.toml.json
+      hash: md5
+      md5: 0b53144959eaebbd301e92fd9270d03c
+      size: 10889
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/reflector-I-31-p12-poison-zgrid.toml
-      hash: md5
-      md5: 2362b5d7cd45d669e4a2674f545b2818
-      size: 10836
     outs:
     - path: hzp/lattice/reflector-I-31-p12-poison-zgrid-fuel.msgpack
       hash: md5
@@ -4164,14 +4212,15 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/reflector-I-31-p8-empty-igrid.toml.json
+      hash: md5
+      md5: 211876bb8a6e260968b7ff23859f106a
+      size: 10401
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/reflector-I-31-p8-empty-igrid.toml
-      hash: md5
-      md5: b62714608bcda6a8c023d5a8b17b6f16
-      size: 10471
     outs:
     - path: hzp/lattice/reflector-I-31-p8-empty-igrid-fuel.msgpack
       hash: md5
@@ -4194,14 +4243,15 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/reflector-I-31-p8-plenum.toml.json
+      hash: md5
+      md5: e2745ac6f8ea65b222a3ab23b25e0016
+      size: 10051
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/reflector-I-31-p8-plenum.toml
-      hash: md5
-      md5: 11f6023ac0846dcf17a9fc60c9fd838f
-      size: 9968
     outs:
     - path: hzp/lattice/reflector-I-31-p8-plenum-fuel.msgpack
       hash: md5
@@ -4224,14 +4274,15 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/reflector-I-31-p8-plug-igrid.toml.json
+      hash: md5
+      md5: 59b2c417d7f70432bc4bb456cef72096
+      size: 10887
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/reflector-I-31-p8-plug-igrid.toml
-      hash: md5
-      md5: 1bc463bbe928b4ac29ad97c2a2bd9f5d
-      size: 10874
     outs:
     - path: hzp/lattice/reflector-I-31-p8-plug-igrid-fuel.msgpack
       hash: md5
@@ -4254,14 +4305,15 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/reflector-I-31-p8-poison.toml.json
+      hash: md5
+      md5: 991b06ba130d831255aad7381acf139a
+      size: 10579
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/reflector-I-31-p8-poison.toml
-      hash: md5
-      md5: 19e6a0b224795f571e2237cef38203fc
-      size: 10387
     outs:
     - path: hzp/lattice/reflector-I-31-p8-poison-fuel.msgpack
       hash: md5
@@ -4284,14 +4336,15 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/reflector-I-31-p8-poison-zgrid.toml.json
+      hash: md5
+      md5: 5fecc4f29b69d843acb1b4a385994028
+      size: 10887
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/reflector-I-31-p8-poison-zgrid.toml
-      hash: md5
-      md5: 40a02cbb32b42f8e7670083b034571d0
-      size: 10833
     outs:
     - path: hzp/lattice/reflector-I-31-p8-poison-zgrid-fuel.msgpack
       hash: md5
@@ -4314,14 +4367,15 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/reflector-corner-31-fuel.toml.json
+      hash: md5
+      md5: 1590c4e99505d4cb8d8a6ff1875c5436
+      size: 17943
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/reflector-corner-31-fuel.toml
-      hash: md5
-      md5: 4c51693c59cef7b2418b4c00c6b45169
-      size: 17793
     outs:
     - path: hzp/lattice/reflector-corner-31-fuel-fuel.msgpack
       hash: md5
@@ -4352,14 +4406,15 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/reflector-corner-31-igrid.toml.json
+      hash: md5
+      md5: 07616bf731d0c76c869fda852f8ebf3e
+      size: 18778
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/reflector-corner-31-igrid.toml
-      hash: md5
-      md5: 7fd2b41e9a2b3f896760cb08c6dc82e3
-      size: 18701
     outs:
     - path: hzp/lattice/reflector-corner-31-igrid-fuel.msgpack
       hash: md5
@@ -4390,14 +4445,15 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/reflector-corner-31-zgrid.toml.json
+      hash: md5
+      md5: a8b8fc2d157d3565d5f8236c943abd4e
+      size: 18169
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/reflector-corner-31-zgrid.toml
-      hash: md5
-      md5: 88024fc4ea4b98e86310c06ec557a4c2
-      size: 18200
     outs:
     - path: hzp/lattice/reflector-corner-31-zgrid-fuel.msgpack
       hash: md5
@@ -4428,14 +4484,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/axial-21.toml.json
+      hash: md5
+      md5: 2fcd465093d736dabcd0ee6e05fb7206
+      size: 24049
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/axial-21.toml
-      hash: md5
-      md5: a2f02a9f630796e50abbce0ed9882e4e
-      size: 21631
     - path: hzp/media/21-fuel.msgpack
       hash: md5
       md5: 0f5f996198b2652108c985aedca889e8
@@ -4463,14 +4519,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/axial-21-rcca.toml.json
+      hash: md5
+      md5: 5d5df680e9d00d3bb4590841565f7c5a
+      size: 23341
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/axial-21-rcca.toml
-      hash: md5
-      md5: 1b4da7a3dd4e37d0db77af607792df72
-      size: 21212
     - path: hzp/media/21-fuel.msgpack
       hash: md5
       md5: 0f5f996198b2652108c985aedca889e8
@@ -4498,14 +4554,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/axial-26-rcca.toml.json
+      hash: md5
+      md5: b248174722de3bd6cd32493e5f2a9007
+      size: 23341
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/axial-26-rcca.toml
-      hash: md5
-      md5: f30f2edce6ba1d1cb8ff91475e9a285f
-      size: 21213
     - path: hzp/media/26-fuel.msgpack
       hash: md5
       md5: 3716ea90d3285f27a23984178b23cc0b
@@ -4533,14 +4589,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/axial-26-p16.toml.json
+      hash: md5
+      md5: d20670c7034974046e02b8375bcf8d73
+      size: 25998
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/axial-26-p16.toml
-      hash: md5
-      md5: c12a5a4a61288db1b244884773458c2f
-      size: 23478
     - path: hzp/media/26-p16-empty.msgpack
       hash: md5
       md5: 3716ea90d3285f27a23984178b23cc0b
@@ -4580,14 +4636,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/axial-26-p20.toml.json
+      hash: md5
+      md5: 5a31e5d6eac1a5131bfd1cf9902c1f60
+      size: 25998
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/axial-26-p20.toml
-      hash: md5
-      md5: 375ed15b8e219323415cb16c6850bb9b
-      size: 23478
     - path: hzp/media/26-p20-empty.msgpack
       hash: md5
       md5: 3716ea90d3285f27a23984178b23cc0b
@@ -4627,14 +4683,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/axial-26-p24.toml.json
+      hash: md5
+      md5: ef04a90425f3486b35339c2c6940b61f
+      size: 25042
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/axial-26-p24.toml
-      hash: md5
-      md5: b8d33eed511261f0cb155c0882d0dca3
-      size: 22731
     - path: hzp/media/26-p24-empty.msgpack
       hash: md5
       md5: 3716ea90d3285f27a23984178b23cc0b
@@ -4674,14 +4730,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/axial-31.toml.json
+      hash: md5
+      md5: 13e68c53da30c4c1607597814e099087
+      size: 24049
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/axial-31.toml
-      hash: md5
-      md5: 354337070774f7fb3b6c865624eba5ae
-      size: 21631
     - path: hzp/media/31-fuel.msgpack
       hash: md5
       md5: 5a159bc20da7916a72d791dd63f93bcb
@@ -4709,14 +4765,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/axial-31-rcca.toml.json
+      hash: md5
+      md5: 810a93616adcfc1093196446577c09ed
+      size: 23341
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/axial-31-rcca.toml
-      hash: md5
-      md5: 0ce07d0c551da95b25e18d83d8b5cd20
-      size: 21212
     - path: hzp/media/31-fuel.msgpack
       hash: md5
       md5: 5a159bc20da7916a72d791dd63f93bcb
@@ -4744,14 +4800,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/axial-31-p12.toml.json
+      hash: md5
+      md5: 3ca49ecdb38d75258fdecb7035e72e05
+      size: 25991
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/axial-31-p12.toml
-      hash: md5
-      md5: 37c11260aa2c3189457af05d5be8e040
-      size: 23478
     - path: hzp/media/31-p12-empty.msgpack
       hash: md5
       md5: 5a159bc20da7916a72d791dd63f93bcb
@@ -4791,14 +4847,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/axial-31-p16.toml.json
+      hash: md5
+      md5: 52ba61a03c1491ad0b3e337f3483489b
+      size: 25998
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/axial-31-p16.toml
-      hash: md5
-      md5: 93d445cca56b502eedc9912952f441bb
-      size: 23477
     - path: hzp/media/31-p16-empty.msgpack
       hash: md5
       md5: 5a159bc20da7916a72d791dd63f93bcb
@@ -4838,14 +4894,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/axial-31-p24.toml.json
+      hash: md5
+      md5: 97fb79c11bf69c8f0f33075d9f7f19ca
+      size: 25042
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/axial-31-p24.toml
-      hash: md5
-      md5: c805b487289b403e79dfbc8edd2b42b9
-      size: 22730
     - path: hzp/media/31-p24-empty.msgpack
       hash: md5
       md5: 5a159bc20da7916a72d791dd63f93bcb
@@ -4885,14 +4941,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/axial-31-p8.toml.json
+      hash: md5
+      md5: 80d53b0996c445ae68bd8ba7cc2dadc1
+      size: 25933
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/axial-31-p8.toml
-      hash: md5
-      md5: 6b947bb98116ccb8120d158f9ee09cb7
-      size: 23412
     - path: hzp/media/31-p8-empty.msgpack
       hash: md5
       md5: 5a159bc20da7916a72d791dd63f93bcb
@@ -4932,22 +4988,23 @@ stages:
       md5: d6b0932c73b2aac6e70f1adee0065a71
       size: 7443832
       isexec: true
-    - path: hzp/interp-31-assemblies.toml
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/interp-31-assemblies.toml.json
       hash: md5
-      md5: d212ad8c212378b7c2301dfa6cdfc073
-      size: 169
-    - path: hzp/interp-31-cycle.toml
+      md5: 1b1b85bd12524b4d0785502a44480206
+      size: 173
+    - path: ../../../toml-values/examples/vera/p5/hzp/interp-31-cycle.toml.json
       hash: md5
-      md5: ed9dc0f44bbf467b66bb7135f03fd58d
-      size: 163
-    - path: hzp/interp-31-plant.toml
+      md5: 5daee16dc1879095b0a91d8f46ece827
+      size: 104
+    - path: ../../../toml-values/examples/vera/p5/hzp/interp-31-plant.toml.json
       hash: md5
-      md5: de746f6c431c765b977b66fea0b4734a
-      size: 155
-    - path: hzp/interp-31.toml
+      md5: 1b5d6e1906372f770492e1b3bca958af
+      size: 56
+    - path: ../../../toml-values/examples/vera/p5/hzp/interp-31.toml.json
       hash: md5
-      md5: 28cfbe6d55712e8e92a281ece5229265
-      size: 447
+      md5: 7cebcafc342d9cf6a01288347e1d68f0
+      size: 353
     - path: hzp/lattice/31-fuel.msgpack
       hash: md5
       md5: 9f305cb2e203006823c5991bb34427e4
@@ -4969,6 +5026,22 @@ stages:
       md5: d6b0932c73b2aac6e70f1adee0065a71
       size: 7443832
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/small-assemblies.toml.json
+      hash: md5
+      md5: 2b8a7791dae06409ebace6dca7223c0b
+      size: 4346
+    - path: ../../../toml-values/examples/vera/p5/hzp/small-cycle.toml.json
+      hash: md5
+      md5: d173ccf84ef768a35038c5cec3333776
+      size: 284
+    - path: ../../../toml-values/examples/vera/p5/hzp/small-plant.toml.json
+      hash: md5
+      md5: e4839e00c6090186db87f05f975c4947
+      size: 3416
+    - path: ../../../toml-values/examples/vera/p5/hzp/small.toml.json
+      hash: md5
+      md5: c0ea016fd6175eaab6f067b71492f8bc
+      size: 1460
     - path: hzp/axial-31
       hash: md5
       md5: dba78584066a61cca9f3daadce1aa566.dir
@@ -5031,22 +5104,6 @@ stages:
       hash: md5
       md5: 23d62d951b27286f181f2e1aaaa5e17d
       size: 60328
-    - path: hzp/small-assemblies.toml
-      hash: md5
-      md5: 00a4acaf5239b5c5caca6c2849842959
-      size: 4179
-    - path: hzp/small-cycle.toml
-      hash: md5
-      md5: 55282ed4b9cafe550a12b25d230654e1
-      size: 343
-    - path: hzp/small-plant.toml
-      hash: md5
-      md5: 7ef410d175271c3826a40c073442dde7
-      size: 3533
-    - path: hzp/small.toml
-      hash: md5
-      md5: 2367dda5e3c47eeb148c9579372b89e6
-      size: 1263
     outs:
     - path: hzp/small.log
       hash: md5
@@ -5065,6 +5122,22 @@ stages:
       md5: d6b0932c73b2aac6e70f1adee0065a71
       size: 7443832
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/small-assemblies.toml.json
+      hash: md5
+      md5: 2b8a7791dae06409ebace6dca7223c0b
+      size: 4346
+    - path: ../../../toml-values/examples/vera/p5/hzp/small-cycle.toml.json
+      hash: md5
+      md5: d173ccf84ef768a35038c5cec3333776
+      size: 284
+    - path: ../../../toml-values/examples/vera/p5/hzp/small-half.toml.json
+      hash: md5
+      md5: a4121a386d6c8b766a1dbc0392a68337
+      size: 1029
+    - path: ../../../toml-values/examples/vera/p5/hzp/small-plant.toml.json
+      hash: md5
+      md5: e4839e00c6090186db87f05f975c4947
+      size: 3416
     - path: hzp/axial-31
       hash: md5
       md5: dba78584066a61cca9f3daadce1aa566.dir
@@ -5127,22 +5200,6 @@ stages:
       hash: md5
       md5: 23d62d951b27286f181f2e1aaaa5e17d
       size: 60328
-    - path: hzp/small-assemblies.toml
-      hash: md5
-      md5: 00a4acaf5239b5c5caca6c2849842959
-      size: 4179
-    - path: hzp/small-cycle.toml
-      hash: md5
-      md5: 55282ed4b9cafe550a12b25d230654e1
-      size: 343
-    - path: hzp/small-half.toml
-      hash: md5
-      md5: fb701acefa0250190ff69fbf15b2451e
-      size: 967
-    - path: hzp/small-plant.toml
-      hash: md5
-      md5: 7ef410d175271c3826a40c073442dde7
-      size: 3533
     outs:
     - path: hzp/small-half-pins.msgpack
       hash: md5
@@ -5165,6 +5222,25 @@ stages:
       md5: d6b0932c73b2aac6e70f1adee0065a71
       size: 7443832
       isexec: true
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/small-2d-aic-cycle.toml.json
+      hash: md5
+      md5: 02b9811284844ccae298b97555591d23
+      size: 294
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/small-2d-aic-plant.toml.json
+      hash: md5
+      md5: d218602295b1af160ea60ddcd3139858
+      size: 1052
+    - path: ../../../toml-values/examples/vera/p5/hzp/small-2d-aic.toml.json
+      hash: md5
+      md5: 79457fa6772283c0c29e8088783a2d0f
+      size: 488
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/small-2d-assemblies.toml.json
+      hash: md5
+      md5: ca2dcd978a4f949d656a3c09f9475417
+      size: 749
     - path: hzp/lattice/31-fuel.msgpack
       hash: md5
       md5: 9f305cb2e203006823c5991bb34427e4
@@ -5193,22 +5269,6 @@ stages:
       hash: md5
       md5: 5db47991adda876044ba227b3aea7169
       size: 123256
-    - path: hzp/small-2d-aic-cycle.toml
-      hash: md5
-      md5: afe4a4d16c3bd5997000cf7a73ce9066
-      size: 353
-    - path: hzp/small-2d-aic-plant.toml
-      hash: md5
-      md5: 30e1b13d05308d734f0415e5dd0bbd21
-      size: 1011
-    - path: hzp/small-2d-aic.toml
-      hash: md5
-      md5: 3138d7d935196960688c8f8f857b5f56
-      size: 521
-    - path: hzp/small-2d-assemblies.toml
-      hash: md5
-      md5: 8fe4ba42fd4e22f5fe5ee4593233fa78
-      size: 730
     outs:
     - path: hzp/small-2d-aic.log
       hash: md5
@@ -5227,6 +5287,25 @@ stages:
       md5: d6b0932c73b2aac6e70f1adee0065a71
       size: 7443832
       isexec: true
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/small-2d-assemblies.toml.json
+      hash: md5
+      md5: ca2dcd978a4f949d656a3c09f9475417
+      size: 749
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/small-2d-b4c-cycle.toml.json
+      hash: md5
+      md5: 39227d9eb316c62bcf5db5d253b25af5
+      size: 294
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/small-2d-b4c-plant.toml.json
+      hash: md5
+      md5: 084ad0a5866a70cd443dbb48312be9a2
+      size: 1052
+    - path: ../../../toml-values/examples/vera/p5/hzp/small-2d-b4c.toml.json
+      hash: md5
+      md5: f0c3e4f0262dafe65261dd2070d234e2
+      size: 488
     - path: hzp/lattice/31-fuel.msgpack
       hash: md5
       md5: 9f305cb2e203006823c5991bb34427e4
@@ -5255,22 +5334,6 @@ stages:
       hash: md5
       md5: 5db47991adda876044ba227b3aea7169
       size: 123256
-    - path: hzp/small-2d-assemblies.toml
-      hash: md5
-      md5: 8fe4ba42fd4e22f5fe5ee4593233fa78
-      size: 730
-    - path: hzp/small-2d-b4c-cycle.toml
-      hash: md5
-      md5: cb415287a3c7abc06f3ba33891c2077e
-      size: 353
-    - path: hzp/small-2d-b4c-plant.toml
-      hash: md5
-      md5: f0d162067968e6ba995d286c4fcc5cc2
-      size: 1011
-    - path: hzp/small-2d-b4c.toml
-      hash: md5
-      md5: facce14a375013b538aa06ef1ed924b6
-      size: 521
     outs:
     - path: hzp/small-2d-b4c.log
       hash: md5
@@ -5441,14 +5504,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/rodless-31-fuel.toml.json
+      hash: md5
+      md5: 2c609cb9c75189cb8738558100c0e2dc
+      size: 4697
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/rodless-31-fuel.toml
-      hash: md5
-      md5: 0fc43a618a6f1bd2105438884b34afd8
-      size: 4595
     outs:
     - path: hzp/rodless-31-fuel.out
       hash: md5
@@ -5471,14 +5534,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/rodless-31-zgrid.toml.json
+      hash: md5
+      md5: 6bbbb492ac09ccb61bea7c9769c27f92
+      size: 4876
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/rodless-31-zgrid.toml
-      hash: md5
-      md5: 275b1140ea114ef4f861894bcde67cc1
-      size: 4958
     outs:
     - path: hzp/rodless-31-zgrid.out
       hash: md5
@@ -5497,14 +5560,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/rodless-21-fuel.toml.json
+      hash: md5
+      md5: e2e7df1f501029cb2bbf11ef2867e1c1
+      size: 4697
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/rodless-21-fuel.toml
-      hash: md5
-      md5: 28f745bd8c853a1bef0fdcb9cb9f8d79
-      size: 4595
     outs:
     - path: hzp/rodless-21-fuel.out
       hash: md5
@@ -5527,14 +5590,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/rodless-21-zgrid.toml.json
+      hash: md5
+      md5: aaae1edeeb472442a487b5448be8596d
+      size: 4876
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/rodless-21-zgrid.toml
-      hash: md5
-      md5: cfa04f3a23ccd24a5c7265c164ac38b5
-      size: 4958
     outs:
     - path: hzp/rodless-21-zgrid.out
       hash: md5
@@ -5553,14 +5616,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/rodless-26-fuel.toml.json
+      hash: md5
+      md5: 10642b2017bc9bf41d494eb185bec3da
+      size: 4697
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/rodless-26-fuel.toml
-      hash: md5
-      md5: eb286f7621cd852e75835b78b97d96c4
-      size: 4596
     outs:
     - path: hzp/rodless-26-fuel.out
       hash: md5
@@ -5583,14 +5646,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/vera/p5/hzp/rodless-26-zgrid.toml.json
+      hash: md5
+      md5: 3adb24047f8bcffa906b7840c8f38935
+      size: 4876
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/rodless-26-zgrid.toml
-      hash: md5
-      md5: 91be6f2220e382027b6876c13a96c7e8
-      size: 4959
     outs:
     - path: hzp/rodless-26-zgrid.out
       hash: md5
@@ -5610,14 +5673,15 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/rodless-reflector-I-31-fuel.toml.json
+      hash: md5
+      md5: 973138d36f8bb9038562696e1b31e8b5
+      size: 9566
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/rodless-reflector-I-31-fuel.toml
-      hash: md5
-      md5: 609ad5249d4e87a1e712c3c4935120ff
-      size: 9630
     outs:
     - path: hzp/rodless-reflector-I-31-fuel.out
       hash: md5
@@ -5641,14 +5705,15 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: 
+        ../../../toml-values/examples/vera/p5/hzp/rodless-reflector-I-31-zgrid.toml.json
+      hash: md5
+      md5: 3be188acde8d5621c8a7a053b2d2d2ce
+      size: 9790
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: hzp/rodless-reflector-I-31-zgrid.toml
-      hash: md5
-      md5: d1f7aacbbf89f1cc453b2fb87d67f181
-      size: 10035
     outs:
     - path: hzp/rodless-reflector-I-31-zgrid.out
       hash: md5
