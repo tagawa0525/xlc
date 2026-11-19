@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: closed
 labels: [core, depletion]
 opened: 2026-11-06

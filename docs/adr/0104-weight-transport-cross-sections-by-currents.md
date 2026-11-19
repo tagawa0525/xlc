@@ -1,4 +1,5 @@
 ---
+type: ADR
 status: accepted
 date: 2026-10-09
 supersedes: [ADR-0098]

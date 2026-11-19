@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: open
 labels: [depletion, lattice, branches]
 opened: 2026-10-24

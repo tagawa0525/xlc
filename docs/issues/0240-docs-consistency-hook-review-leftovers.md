@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: open
 labels: [tooling, docs]
 opened: 2026-11-06

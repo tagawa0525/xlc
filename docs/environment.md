@@ -1,3 +1,8 @@
+---
+type: Guide
+description: 検証に使う環境（DVC、NJOY、OpenMC、評価済み核データ、外部の計算機）と、その作り方。
+---
+
 # 検証用の環境
 
 xlc の計算は、NJOY（核データ処理）と OpenMC（モンテカルロ計算）の結果と比べて検証する。ツール（NJOY、OpenMC と

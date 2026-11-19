@@ -1,3 +1,8 @@
+---
+type: Plan
+description: 零出力（HZP）の炉心を 3 次元の NEM で解くマイルストーン M3 の計画。
+---
+
 # M3 炉心 HZP
 
 ## 目的

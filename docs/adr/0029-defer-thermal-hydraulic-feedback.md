@@ -1,4 +1,5 @@
 ---
+type: ADR
 status: superseded
 date: 2026-11-06
 supersedes: []

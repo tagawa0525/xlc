@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: open
 labels: [refactor, lattice, core, xs]
 opened: 2026-10-12

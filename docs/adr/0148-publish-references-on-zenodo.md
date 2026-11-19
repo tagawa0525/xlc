@@ -1,4 +1,5 @@
 ---
+type: ADR
 status: proposed
 date: 2026-10-12
 requires: [ADR-0122, ADR-0123, ADR-0124, ADR-0130]

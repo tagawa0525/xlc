@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: open
 labels: [verification, openmc]
 opened: 2026-10-12

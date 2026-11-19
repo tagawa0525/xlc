@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: open
 labels: [numeric]
 opened: 2026-10-12

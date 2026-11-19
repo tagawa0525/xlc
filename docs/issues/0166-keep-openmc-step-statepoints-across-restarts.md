@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: open
 labels: [aws, openmc, verification]
 opened: 2026-10-23

@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: open
 labels: [dvc, slurm]
 opened: 2026-11-07

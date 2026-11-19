@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: closed
 labels: [lattice, test]
 opened: 2026-11-14

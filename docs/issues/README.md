@@ -1,3 +1,8 @@
+---
+type: Guide
+description: issue（未解決の問題とやること）の書式と運用。
+---
+
 # issues
 
 未解決の問題とやることを、1件1ファイルで管理する。何をなぜ決めたかは ADR（docs/adr/）に書き、ここには

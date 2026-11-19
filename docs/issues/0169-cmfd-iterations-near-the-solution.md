@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: open
 labels: [lattice, cmfd, performance]
 opened: 2026-10-23

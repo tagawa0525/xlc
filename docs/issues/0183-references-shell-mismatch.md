@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: closed
 labels: [dvc, openmc, tooling]
 opened: 2026-10-28

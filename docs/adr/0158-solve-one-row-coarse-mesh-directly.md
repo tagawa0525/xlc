@@ -1,4 +1,5 @@
 ---
+type: ADR
 status: accepted
 date: 2026-10-14
 requires: [ADR-0062, ADR-0110, ADR-0128]

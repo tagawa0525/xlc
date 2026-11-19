@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: closed
 labels: [build, dvc]
 opened: 2026-10-14

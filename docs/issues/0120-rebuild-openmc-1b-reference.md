@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: open
 labels: [vera, openmc]
 opened: 2026-10-14

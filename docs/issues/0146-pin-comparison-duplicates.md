@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: closed
 labels: [depletion, examples, maintenance]
 opened: 2026-10-22

@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: closed
 labels: [lattice, shielding, performance, depletion]
 opened: 2026-10-14

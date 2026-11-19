@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: closed
 labels: [lattice, branches, shielding, performance]
 opened: 2026-10-24

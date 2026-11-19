@@ -1,3 +1,8 @@
+---
+type: Plan
+description: xs、lattice、core の 3 ステージを最小の構成で端から端までつなぐマイルストーン M0 の計画。
+---
+
 # M0 縦切り計画
 
 ## 目的

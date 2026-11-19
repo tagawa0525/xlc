@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: closed
 labels: [aws, tooling]
 opened: 2026-10-13

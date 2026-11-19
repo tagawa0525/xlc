@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: closed
 labels: [refactor]
 opened: 2026-10-12

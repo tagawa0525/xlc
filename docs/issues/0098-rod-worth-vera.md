@@ -1,4 +1,5 @@
 ---
+type: Issue
 status: open
 labels: [core, verification]
 opened: 2026-10-12
