@@ -42,8 +42,8 @@ description: examples/*/verification.md に測定の結果を書く・直す手�
     main のジョブなら、その時間が入る）
   - ログに格子計算のステージの `Running stage` が出たことを確かめる。`is cached - skipping run, checking out outputs` は
     実行せずに前の出力を戻したもので、`seconds` は前のジョブのまま。DVC 3.67.1 の `StageCache.restore`（dvc/stage/cache.py）は、
-    ステージの cmd と deps が dvc.lock と同じで、dvc.lock に outs の hash があれば（出力を消しても）、`--no-run-cache` を付けても dvc.lock から
-    前の出力を戻す（#0218）。2026-11-03 の 1C の再実行では、`dvc repro --no-run-cache <yaml>:compare-1C` の Slurm 657 が
+    ステージの cmd と deps が dvc.lock と同じで、dvc.lock に outs の hash があり、DVC のキャッシュにその出力の実体があれば（作業ツリーの
+    出力を消しても。`always_changed` のステージと `persist` の出力は除く）、`--no-run-cache` を付けても dvc.lock から前の出力を戻す（#0218）。2026-11-03 の 1C の再実行では、`dvc repro --no-run-cache <yaml>:compare-1C` の Slurm 657 が
     格子計算を戻すだけで終わり、depletion の dvc.lock を戻して changed にしてから流した Slurm 658 で走った（#0152）
   - 比較のステージだけが走る再実行（上流が走らない）は、同じ `seconds` をコピーするだけなので、どのジョブで流してもよい。上流が
     走らないことは、CLAUDE.md の「計算」の数え方（`scripts/count-changed-stages.py` と、目標の上流のうち changed の下流にあるもの）で
