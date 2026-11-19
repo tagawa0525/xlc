@@ -13,8 +13,8 @@ resolution:
 
 ## 問題
 
-出典は examples/vera/verification-endfb70.md の「燃料の温度による変化（1B と 1D）」（xlc は d6cc90d9、OpenMC の ENDF/B-VII.0 は 53be609d、
-上限の試行は 45e0a205 と c4c0b7ff、2026-11-20）。値はそこに書き、ここには未解決の点だけを並べる。
+出典は examples/vera/verification-endfb70.md の「燃料の温度による変化（1B と 1D）」（xlc は d6cc90d9、OpenMC の ENDF/B-VII.0 は ff985ca4、
+上限の試行は 7375887d と f2ef4f7d、2026-11-20）。値はそこに書き、ここには未解決の点だけを並べる。
 
 - 1B（燃料 600 K）から 1D（1200 K）への xlc − OpenMC の変化は、核データの版（ENDF/B-VII.0 と VIII.0）によらず同じ大きさで、手法の差である。
   その約 3/4 は、自己遮蔽の減速計算で分離共鳴を持つ核種を自由ガスにする上限の違い（xlc は 31 eV、OpenMC は 400 kT。ADR-0243）による。
