@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [docs, dvc]
 opened: 2026-11-06
-closed:
+closed: 2026-11-19
 milestone:
 blocked-by: []
-resolution:
+resolution: コミット ba2f32bd6
 ---
 
 # topic-start の後片付けの節と説明の、dvc-relock の後半との食い違い
@@ -38,3 +38,6 @@ resolution:
 ## 経緯
 
 - 2026-11-06: `docs/topic-start-drop-library-copy` の `/code-review`（high）の 1 周目の指摘から起こした
+- 2026-11-19: 閉じた。「後片付け」の項を dvc-relock の後半の節を指す形にし、「main の作業ツリーでは dvc を実行しない」に dvc-relock の段の
+  例外を書き、description を本文（生成物を戻す、マージが止まったとき）に合わせた。コピーの項を消した理由（ユーザーの 2026-11-06 の判断）は、
+  この issue の上の記述に残る

@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [tooling, dvc]
 opened: 2026-11-03
-closed:
+closed: 2026-11-19
 milestone:
 blocked-by: []
-resolution:
+resolution: "wontfix: /topic-start からマージが止まったときの段を指し、消すことと git merge --abort を許可に入れない理由を書いた。ほかの点は、手順のとおりに実行して失敗する再現の無いレビューの指摘で、その指摘を集める issue はやめた（ユーザー 2026-11-07）"
 ---
 
 # dvc-relock のマージの直前の段を、手順の入口と許可に通す
@@ -88,3 +88,7 @@ main とブランチの dvc.lock の outs を比べる案は、`.dvc` ファイ�
   /retro の docs/dvc-relock-removed-stage-outs で dvc-relock の節を hook の一覧を使う形に直し、残りをここに書いた
 - 2026-11-03: nixfiles #569 で hook が `.gitignore` から外れた生成物を分けて示すようになったので、節を hook の一覧を受けて
   DVC の記録で決める形に作り直し、解いた点と残る点を分けた
+- 2026-11-19: 閉じた。完了の条件の 1 つ目は、スキル topic-start の「マージ」に dvc-relock の「マージが止まったら」を指す項を足し、`rm` と
+  `git merge --abort` を allowed-tools に入れない理由（`rm` を入れると、ほかの場面の削除も確認なしに通る）を書いた。2 つ目の点（手で直した
+  dvc.yaml、`cache: false` の上書き、読み分けのスクリプト、ADR）と修正の周の指摘は、どれも手順のとおりに実行して失敗する再現が無い
+  レビューの指摘で、そうした指摘を集める issue はやめると決めた（親の案をユーザーが採った。2026-11-07）ので、直さずに閉じる
