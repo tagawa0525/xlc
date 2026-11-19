@@ -19,7 +19,7 @@ xlc のチェーンと OpenMC のチェーンを比べるのは compare_chain.py
     収率は 0、片方の版だけにある入射エネルギーの表の項目は、もう片方を値なしにする
   - `reactions`: （核種、MT）ごとの経路（生成物の状態と生まれる核種）の集合。片方だけの反応も違いに数える
   数値は値が等しいかで比べ（ENDF の書き方と、チェーンの中の並びには依らない）、相対差は |a − b| / max(|a|, |b|)（片方が 0 なら 1）。
-  あわせて、（核分裂する核種、入射エネルギー）ごとの収率の差の絶対値の和と最大（`yield_tables`。片方の版だけにある表は、その側と生成物の数だけ）と、`WATCHED_PARENTS` と
+  あわせて、（核分裂する核種、入射エネルギー）ごとの収率の差の絶対値の和と最大（`yield_tables`）、片方の版だけにある表の側と生成物の数（`one_sided_tables`）と、`WATCHED_PARENTS` と
   `WATCHED_NUCLIDES` の半減期、分岐比、核分裂の Q 値、`WATCHED_PARENTS` から `WATCHED_NUCLIDES` への収率の両方の値（等しくても。
   `watched`）を書く。`inputs` は読んだファイルのパス（ステージの cwd から）と md5
 - `--report`: 要約の JSON を文章で描く
@@ -146,7 +146,9 @@ def channel_text(channels) -> str:
     return "; ".join(parts)
 
 
-NO_FISSION = {"q": None, "yield_source": None, "energies": None, "tables": {}}
+def no_fission() -> dict:
+    """片方の版だけで核分裂する核種の、もう片方の核分裂（どれも値なし。核種ごとに作る）"""
+    return {"q": None, "yield_source": None, "energies": None, "tables": {}}
 
 
 def energies_text(energies) -> str | None:
@@ -207,8 +209,8 @@ def collect(a: dict, b: dict) -> dict:
         if xf is None and yf is None:
             continue
         # 片方の版だけで核分裂する核種は、もう片方の Q、収率を取った核種、入射エネルギー、表を値なしにする
-        xf = xf or NO_FISSION
-        yf = yf or NO_FISSION
+        xf = xf or no_fission()
+        yf = yf or no_fission()
         items["fission_q"].append({"nuclide": name, "a": xf["q"], "b": yf["q"]})
         items["yield_sources"].append(
             {"nuclide": name, "a": xf["yield_source"], "b": yf["yield_source"]}
@@ -276,11 +278,16 @@ def summarize(a: dict, b: dict) -> dict:
     for i in items["fission_yields"]:
         by_table.setdefault((i["nuclide"], i["energy"]), []).append(i)
     tables = []
+    one_sided_tables = []
     for (name, e), ys in by_table.items():
-        if any(i["a"] is None for i in ys) or any(i["b"] is None for i in ys):
-            # 片方の版だけにある表は、その側と生成物の数だけを書く
-            only = "b" if ys[0]["a"] is None else "a"
-            tables.append(
+        missing_a = [i["a"] is None for i in ys]
+        missing_b = [i["b"] is None for i in ys]
+        if any(missing_a) or any(missing_b):
+            # 値なしは表の単位で入る（collect）。生成物ごとに混ざれば、片方を決められない
+            if not (all(missing_a) or all(missing_b)):
+                raise ValueError(f"{name} E={e}: a table partly in one chain")
+            only = "b" if all(missing_a) else "a"
+            one_sided_tables.append(
                 {"nuclide": name, "energy": e, "only": only, "products": len(ys)}
             )
             continue
@@ -289,7 +296,6 @@ def summarize(a: dict, b: dict) -> dict:
             {
                 "nuclide": name,
                 "energy": e,
-                "only": None,
                 "products": len(ys),
                 "differ": sum(1 for i in ys if differs(i)),
                 "sum_a": sum(i["a"] for i in ys),
@@ -317,7 +323,7 @@ def summarize(a: dict, b: dict) -> dict:
                     {"a": None, "b": None},
                 ),
                 "modes": [i for i in items["decay_modes"] if i["nuclide"] == name],
-                # 両方で核分裂する核種だけが fission_q の項目を持つ
+                # どちらかの版で核分裂する核種だけが fission_q の項目を持つ（片方だけなら、もう片方は None）
                 "fission_q": next(
                     (
                         {"a": i["a"], "b": i["b"]}
@@ -344,6 +350,7 @@ def summarize(a: dict, b: dict) -> dict:
         },
         "quantities": quantities,
         "yield_tables": tables,
+        "one_sided_tables": one_sided_tables,
         "watched": {"nuclides": watched_nuclides, "yields": watched_yields},
     }
 
@@ -415,13 +422,11 @@ def report(summary: dict) -> list[str]:
     )
     lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- |")
     for t in summary["yield_tables"]:
-        if t["only"] is not None:
-            continue
         lines.append(
             f"| {t['nuclide']} | {t['energy']:g} | {t['products']} | {t['differ']} | {t['sum_a']:.6f} | "
             f"{t['sum_b']:.6f} | {t['sum_abs']:.3e} | {t['max_abs']:.3e} | {t['max_product']} |"
         )
-    only = [t for t in summary["yield_tables"] if t["only"] is not None]
+    only = summary["one_sided_tables"]
     if only:
         lines.append("")
         lines.append("片方の版だけにある収率の表:")
