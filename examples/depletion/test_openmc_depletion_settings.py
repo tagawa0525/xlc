@@ -29,29 +29,94 @@ OPERATOR_KEYWORDS = {
 INTEGRATOR_KEYWORDS = {"timestep_units", "solver"}
 
 
-class _StripModule(ast.NodeTransformer):
-    """`pin.YIELD_CUTOFF` のような、import したモジュール越しの名前を `YIELD_CUTOFF` にそろえる。"""
+class _ResolveDepletion(ast.NodeTransformer):
+    """`pin.YIELD_CUTOFF`（`import openmc_depletion as pin`）を `YIELD_CUTOFF` にそろえ、式の中の裸の名前を `bare` に集める。"""
+
+    def __init__(self, aliases: set[str]):
+        self.aliases = aliases
+        self.bare: set[str] = set()
 
     def visit_Attribute(self, node: ast.Attribute) -> ast.AST:
-        if isinstance(node.value, ast.Name) and node.attr.isupper():
+        if isinstance(node.value, ast.Name) and node.value.id in self.aliases:
             return ast.Name(id=node.attr, ctx=node.ctx)
         return self.generic_visit(node)
 
+    def visit_Name(self, node: ast.Name) -> ast.AST:
+        self.bare.add(node.id)
+        return node
+
+
+def depletion_aliases(tree: ast.AST) -> set[str]:
+    """`import openmc_depletion as <名前>` の名前（関数の中の import を含む）"""
+    return {
+        alias.asname or alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Import)
+        for alias in node.names
+        if alias.name == "openmc_depletion"
+    }
+
+
+def imported_from_depletion(tree: ast.AST) -> set[str]:
+    """`from openmc_depletion import ...` で取った名前"""
+    return {
+        alias.asname or alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.module == "openmc_depletion"
+        for alias in node.names
+    }
+
+
+def module_assigned(tree: ast.Module) -> set[str]:
+    names = set()
+    for node in tree.body:
+        targets = node.targets if isinstance(node, ast.Assign) else []
+        if isinstance(node, ast.AnnAssign):
+            targets = [node.target]
+        names |= {t.id for t in targets if isinstance(t, ast.Name)}
+    return names
+
+
+def integrator_class(tree: ast.AST, callee: str) -> str:
+    """積分器の呼び出しの先のクラス。`f()(...)` の形は、関数 f の中で定義して返すクラスの基底"""
+    if not callee.endswith("()"):
+        return callee
+    (function,) = [
+        n
+        for n in ast.walk(tree)
+        if isinstance(n, ast.FunctionDef) and n.name == callee[:-2]
+    ]
+    (cls,) = [n for n in ast.walk(function) if isinstance(n, ast.ClassDef)]
+    (base,) = cls.bases
+    return ast.unparse(base)
+
 
 def calls_with(tree: ast.AST, keywords: set[str]) -> list[dict[str, str]]:
-    """`keywords` のどれかを引数に持つ呼び出しごとに、その引数の名前と式（ソースの形）。"""
+    """`keywords` のどれかを引数に持つ呼び出しごとに、その引数の名前と式（ソースの形）、呼び出しの先（`callee`）、
+    式の中の openmc_depletion から取っていない裸の名前（`local`。並べて文字列にする）"""
+    aliases = depletion_aliases(tree)
+    imported = imported_from_depletion(tree)
+    assigned = module_assigned(tree) if isinstance(tree, ast.Module) else set()
     found = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
         args = {k.arg: k.value for k in node.keywords if k.arg in keywords}
-        if args:
-            found.append(
-                {
-                    name: ast.unparse(_StripModule().visit(value))
-                    for name, value in args.items()
-                }
-            )
+        if not args:
+            continue
+        resolve = _ResolveDepletion(aliases)
+        call = {name: ast.unparse(resolve.visit(value)) for name, value in args.items()}
+        names = resolve.bare
+        resolve.bare = set()
+        callee = ast.unparse(resolve.visit(node.func))
+        call["callee"] = integrator_class(tree, callee)
+        # `f()(...)` の f は同じファイルの関数で、比べるのはそれが返すクラス（`callee`）
+        if not callee.endswith("()"):
+            names |= resolve.bare
+        # 呼び出しの先の `openmc.deplete...` の `openmc` は比べる対象でない
+        local = {n for n in names - {"openmc"} if n not in imported or n in assigned}
+        call["local"] = ",".join(sorted(local))
+        found.append(call)
     return found
 
 
@@ -67,14 +132,44 @@ class SameSettings(unittest.TestCase):
                 operators, integrators = settings(HERE / name)
                 self.assertEqual(len(operators), 1, operators)
                 self.assertEqual(len(integrators), 1, integrators)
-                self.assertEqual(set(operators[0]), OPERATOR_KEYWORDS)
-                self.assertEqual(set(integrators[0]), INTEGRATOR_KEYWORDS)
+                self.assertEqual(
+                    set(operators[0]), OPERATOR_KEYWORDS | {"callee", "local"}
+                )
+                self.assertEqual(
+                    set(integrators[0]), INTEGRATOR_KEYWORDS | {"callee", "local"}
+                )
 
     def test_copies_match_the_pincell_solve(self):
-        expected = settings(HERE / TOOLS[0])
+        # 名前（YIELD_CUTOFF、TimedOperator）は openmc_depletion.py のものを使い、コピーの側で定義し直さない
+        operators, integrators = settings(HERE / TOOLS[0])
+        expected = (
+            [{**operators[0], "local": ""}],
+            [{**integrators[0], "local": ""}],
+        )
         for name in TOOLS[1:]:
             with self.subTest(tool=name):
                 self.assertEqual(settings(HERE / name), expected)
+
+    def test_the_pincell_solve_uses_cecm_and_the_timed_operator(self):
+        operators, integrators = settings(HERE / TOOLS[0])
+        self.assertEqual(operators[0]["callee"], "TimedOperator")
+        self.assertEqual(integrators[0]["callee"], "openmc.deplete.CECMIntegrator")
+
+    def test_a_copy_that_defines_its_own_cutoff_is_caught(self):
+        source = (HERE / TOOLS[3]).read_text() + "\nYIELD_CUTOFF = 1.0e3\n"
+        operators = calls_with(ast.parse(source), OPERATOR_KEYWORDS)
+        self.assertEqual(operators[0]["local"], "YIELD_CUTOFF")
+
+    def test_a_copy_with_another_integrator_is_caught(self):
+        source = (
+            (HERE / TOOLS[2])
+            .read_text()
+            .replace(
+                "openmc.deplete.CECMIntegrator(", "openmc.deplete.PredictorIntegrator("
+            )
+        )
+        (integrator,) = calls_with(ast.parse(source), INTEGRATOR_KEYWORDS)
+        self.assertEqual(integrator["callee"], "openmc.deplete.PredictorIntegrator")
 
     def test_a_changed_copy_is_caught(self):
         source = (
