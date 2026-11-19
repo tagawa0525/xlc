@@ -2394,7 +2394,7 @@ fn red_black_errors_name_the_first_node_in_order() {
 }
 
 #[test]
-#[ignore = "survey of #0244 / #0245: solves six problems for nine ratio pairs and two orders (minutes in release)"]
+#[ignore = "survey of the coarse-mesh ratios of #0244 (stopping rule in #0242): solves six problems for nine ratio pairs and two orders (minutes in release)"]
 fn coarse_mesh_ratio_survey_stops_within_the_tolerance_at_the_default_ratios() {
     // ADR-0232 の粗メッシュの許容の比を選んだ比べた形（#0244）。比の組ごとに、厳密な解（加速なし、k 1e-14、中性子束 1e-13）との
     // 中性子束の相対差の最大と外側の反復の回数を、ノードを解く順ごとに表の行で出す。既定の比では、どの問題も許容の中で止まる。

@@ -21,7 +21,8 @@ deps にするステージ（15 の dvc.yaml の dvc.lock に約 380 行。う�
 
 移すときに合わせるもの:
 
-- 変化の見積もり（`Remaining`）: lattice は丸めの水準の扱いがなく（変化 0 だけを収束とみなす）、`xlc-cmfd` は相対 1e-14 以下を収束とみなす
+- 変化の見積もり（`Remaining`）: lattice は丸めの水準の扱いがなく（変化 0 だけを収束とみなす）、`xlc-cmfd` は相対 1e-14 以下を収束とみなす。
+  core の NEM の外側の反復（crates/core/src/nem.rs）にも 3 つ目の複製があり、`xlc-cmfd` のものを公開して core と lattice が使う形にまとめる
 - 負の解の確認: `xlc-cmfd` は生成率で割る前に確かめる。lattice の Gauss-Seidel の形は割った後に確かめる
 - 対角のブロック: `xlc-cmfd` は逆行列を平らな配列に持ち、lattice はセルごとの LU 分解を持つ（結果の丸めの桁が変わりうる）
 - 組の重み（`sizes`。対称性の代表のセルの数）: `xlc-cmfd` には無い

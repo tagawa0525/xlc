@@ -24,6 +24,9 @@ examples/depletion/compare_core_xenon_boron.py（ADR-0219 の `xenon-boron` の 
 examples/depletion の比較のツールの `rho_pcm`（compare_core_cycle.py、compare_core_micro.py、compare_core_partial_rods.py、compare_core_b10.py、
 compare_core_restart.py）と、燃焼度の一致の許容 `BURNUP_TOLERANCE`（compare_core_depletion.py、compare_depletion.py、compare_depletion_assembly.py、
 compare_core_micro.py、compare_core_partial_rods.py）と `same_burnup` は、3 つを超える複製で、examples/depletion/core_history.py にまとめられる。
+compare_core_acceleration.py の `main`、`parse`、`report` の前半と verification_tables.py の `core_acceleration_runs` は、compare_core_guess.py と
+compare_core_xenon_boron.py に続く 3 つ目のコピーで、まとめる時に当たる。compare_core_threads.py も燃焼の順（直方体の並びの順か色の順か）を引数の
+位置で決め、ログで確かめない（core のログは `node-order` を出さない）ので、上と同じく取り違えを見分けられない。
 
 関係する ADR: なし
 
