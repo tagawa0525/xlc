@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [docs]
 opened: 2026-10-14
-closed:
+closed: 2026-11-19
 milestone:
 blocked-by: []
-resolution:
+resolution: コミット 18b7b1e51
 ---
 
 # 再測定の記録の残り（depletion の relock、本文の誤り、規則の扱い）
@@ -38,3 +38,4 @@ resolution:
 ## 経緯
 
 - 2026-10-14: 再測定のレビュー 15 周目で見つかり、起こした
+- 2026-11-19: issue の棚卸しで閉じた。1 は depletion の `chain` をその後の bin で再実行して relock した（以後も再実行が続く）。2 は記録だけ。3 は、記録は今の結果だけ（CLAUDE.md の「文書」、ADR-0117）と、読めなくなった出力の再実行の後回し（CLAUDE.md の「計算」）が規則として書かれた

@@ -31,14 +31,13 @@ ADR-0136）。ADR-0136 は OpenMC のステージを `openmc-1B-model`（model.x
 
 関係する ADR: なし
 
-xs のステージも ADR-0167 と ADR-0170 の後で古い（#0124）。`dvc repro -P` は両方を実行するので、2 つの issue は同じジョブで閉じる。
 同じく main の OpenMC のスクリプトの変更（openmc_core_2d.py、openmc_model.py など）で、`openmc-5A-2D-extract` の deps も古い。
 抽出だけのステージ（statepoint は `references/openmc/vera-5A-2D/`）なので、同じ機会に走らせ直し、5-2D の OpenMC との比較の値が
 変わらないことを確かめる。
 
 ## 完了の条件
 
-- #0124 と同じ `dvc repro -P` で古いステージ（ここでは `openmc-1B`、`openmc-1B-extract`、`openmc-5A-2D-extract`。続けて `compare-1B`）を
+- `dvc repro` で古いステージ（ここでは `openmc-1B`、`openmc-1B-extract`、`openmc-5A-2D-extract`。続けて `compare-1B`）を
   実行し、`dvc.lock` をコミットする（Slurm で排他、スキル openmc-reference）
 - 5-2D の OpenMC との比較の値が変わらないことを確かめる
 - examples/vera/verification.md の「参照解」の 1B の行と、「OpenMC との比較」の 1B の差を、新しい参照解で書き直す。

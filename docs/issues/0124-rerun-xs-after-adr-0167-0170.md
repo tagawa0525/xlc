@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [verification]
 opened: 2026-10-14
-closed:
+closed: 2026-11-19
 milestone:
 blocked-by: []
-resolution:
+resolution: "wontfix: 前提が変わった。ADR-0167 と ADR-0170 の後のステージは、その後のライブラリの作り直しで何度も再実行した。残る記録の本文は #0224、OpenMC の 1B は #0120 が扱う"
 ---
 
 # ADR-0167 と ADR-0170 の後に xs のステージとその下流を再実行する
@@ -40,3 +40,4 @@ ADR-0167 は NRO=1 の MLBW の評価だけに効き、VERA の核種はそれ�
 ## 経緯
 
 - 2026-10-14: 再測定のブランチの rebase で、xs のステージが古くなったことが分かり、#0120 から分けた
+- 2026-11-19: issue の棚卸しで閉じた。xs とその下流は、その後のライブラリの作り直し（ADR-0177 など）と新しい既定の後の再実行で何度も再実行した。表の外の本文（vera の「OpenMC との比較」と mox を含む）は #0224 が、OpenMC の 1B の参照解は #0120 が受け持つ

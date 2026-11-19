@@ -36,8 +36,6 @@ non-blocking）。
 7. 燃焼のテスト `eigenvalue_solves_from_the_previous_solution_keep_the_flat_start_results` は点ごとの固有値計算の回数が平らな初期値と同じことを
    確かめる。探索や平衡 Xe の打ち切りの境にある値が丸めの桁で動くと、正しい結果でも回数が 1 回違いうる
 
-8. 全炉心の試行の燃焼の履歴 `examples/depletion/p9-timing/trial-0231/core-p9.msgpack`（md5 792c2a19）は、`trial-0231/compare-guess.json` が md5 で引くが
-   `dvc add` していない（小さな炉心の `branches/compare-core-small-*.json` が引く履歴と同じ扱い）。worktree を消すと戻らない
 9. 全炉心の初期値の比較（`trial-0231/compare-guess.json`）は、記録に表とコマンドが無く、ADR-0231 の「確認」に値をコピーしただけ（小さな炉心の節は
    `core_guess_runs` と `core_guess_differences` で表を描く）
 10. `trial-0231/core-p9.toml` の注の相対パス（`../../vera/p5/hzp/core-hzp.toml`、`../p2/lattice-2A.toml`）は、移す前の置き場のままで、無いファイルを指す
@@ -61,3 +59,4 @@ non-blocking）。
 - 2026-11-06: 8 は、マージの前に親が `dvc add` して `trial-0231/core-p9.msgpack.dvc` をコミットした（examples/depletion/branches の履歴と同じ扱い）
 - 2026-11-06: 2 周目（HEAD 37d6062c）の指摘から 8〜14 を足した。記録の「全炉心の燃焼の時間の内訳（Problem 9 の形）」を書き直したので、#0076、#0156、
   ADR-0231 の背景がその節から引く平らな初期値の値は今の節に無い、という指摘は前提が誤り: どれも 35e6eead の版（Slurm 697）を出典に書いている
+- 2026-11-19: issue の棚卸しで、済んだ指摘を消した（8 の `dvc add`。上の 2026-11-06 の項）

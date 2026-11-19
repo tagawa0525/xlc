@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [vera, dvc]
 opened: 2026-11-06
-closed:
+closed: 2026-11-19
 milestone:
 blocked-by: []
-resolution:
+resolution: コミット a8a860120
 ---
 
 # p5 の格子計算のステージの dvc.lock が今の vera.msgpack に追いついていない
@@ -34,3 +34,4 @@ p5 の格子計算のステージを今のライブラリで流し直し（そ�
 ## 経緯
 
 - 2026-11-06: #0156 の全炉心の測定を p9-timing のステージで流そうとして、p5 の格子計算が巻き込まれると分かった（ブランチ perf/0156-warm-start-nem）
+- 2026-11-19: issue の棚卸しで閉じた。新しい既定の後の再実行で、p5 の dvc.lock の `../vera.msgpack` の 109 行がすべて今の examples/vera/dvc.lock の出力（31bac92b）になり、p9-timing も同じ実行で記録した。その後の `bin/lattice` の変更による changed は、ほかのステージと同じ別の原因

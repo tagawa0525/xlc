@@ -25,7 +25,6 @@ core のミクロ燃焼（ADR-0216、ブランチ feat/0153-core-micro-depletion
 - 格子計算の燃焼との複製: 収率の点の選び方（`yield_weights`）、熱と高速の点、境界、`ELECTRON_VOLT`、`BARN`、負の数密度の許容は
   crates/lattice/src/depletion.rs と同じ値を core に複製した（core のブランチは lattice を変えない範囲）。片方だけを直すと、基準条件の
   再現（ADR-0216 の確認 (b)）が崩れる。xlc-depletion に置けば 1 つになる（lattice の実行ファイルが変わるので、ステージの付け直しの費用を数える）
-- コミット f30f09ac の本文は、2A のミクロ燃焼の履歴が変わらないと書いたが、丸めの水準で変わった（訂正は b3f920f2 の本文と記録）
 
 関係する ADR: ADR-0216
 
@@ -46,3 +45,4 @@ core のミクロ燃焼（ADR-0216、ブランチ feat/0153-core-micro-depletion
   - σ_f の群の和が 0 以下の核分裂性の核種は `thermal_fission` を nil にし、`rates()` が核分裂しない核種として扱う（黙ったフォールバック）
   - `deplete_nodes` がノードごとに `solve_with` と同じ σᵢ の内挿を繰り返す（予測子と修正子で 2 回。上の重複の項と同じ）
   - `MicroNodes::new` が核分裂のあるテーブルのファイルごとに `MicroChain` 全体（3,820 核種の親のクロージャ）を作り、最初のものだけ使う
+- 2026-11-19: issue の棚卸しで、済んだ指摘を消した（コミットの本文の誤りの記録。訂正は済んでいる）
