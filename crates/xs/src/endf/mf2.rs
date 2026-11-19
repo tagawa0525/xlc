@@ -1,6 +1,7 @@
 //! MF2 MT151（共鳴パラメータ）セクション。
 //!
-//! 分離共鳴の Reich-Moore 形式（LRU=1, LRF=3）、MLBW 形式（LRU=1, LRF=2。散乱半径のエネルギーの表 NRO=1 は NAPS=0 だけ）、R-matrix limited 形式
+//! 分離共鳴の Reich-Moore 形式（LRU=1, LRF=3）、SLBW 形式（LRU=1, LRF=1）、MLBW 形式（LRU=1, LRF=2。散乱半径のエネルギーの表 NRO=1 は
+//! MLBW の NAPS=0 だけ）、R-matrix limited 形式
 //! （LRU=1, LRF=7。Reich-Moore で幅を与えるものだけ）、
 //! 非分離共鳴（LRU=2 の LRF=1, 2）を扱う。それ以外の形式はエラーにする。
 
@@ -134,7 +135,7 @@ pub struct RmlResonance {
     pub widths: Vec<f64>,
 }
 
-/// Breit-Wigner 形式の共鳴パラメータ（MLBW）。
+/// Breit-Wigner 形式（SLBW、MLBW）の共鳴パラメータ。ENDF-6 では 2 つの形式が同じ並びで与える。
 #[derive(Debug, Clone, PartialEq)]
 pub struct BreitWigner {
     pub spi: f64,
@@ -146,7 +147,7 @@ pub struct BreitWigner {
     pub l_values: Vec<BwLValue>,
 }
 
-/// MLBW の1つの l に属する共鳴。競合反応の幅（LRX≠0）は扱わない。
+/// Breit-Wigner の1つの l に属する共鳴。競合反応の幅（LRX≠0）は扱わない。
 #[derive(Debug, Clone, PartialEq)]
 pub struct BwLValue {
     pub awri: f64,
@@ -154,7 +155,8 @@ pub struct BwLValue {
     pub resonances: Vec<BwResonance>,
 }
 
-/// MLBW の共鳴1つ。幅は共鳴エネルギーでの値 (eV)。全幅は Γn + Γγ + Γf とする（GT は使わない）。
+/// Breit-Wigner の共鳴1つ。幅は共鳴エネルギーでの値 (eV)。全幅は Γn + Γγ + Γf とする（GT は使わない。競合反応の幅を扱わないので、
+/// GT との差はパラメータの丸め）。
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct BwResonance {
     pub er: f64,
@@ -271,9 +273,18 @@ impl Mf2 {
                     ));
                 }
                 1 if lrf == 3 => RangeKind::ReichMoore(read_reich_moore(&mut r, range.n2)?),
-                1 if lrf == 2 => {
-                    RangeKind::Mlbw(read_mlbw(&mut r, range.n2, nro, (range.c1, range.c2))?)
-                }
+                1 if lrf == 1 => RangeKind::Slbw(read_breit_wigner(
+                    &mut r,
+                    range.n2,
+                    nro,
+                    (range.c1, range.c2),
+                )?),
+                1 if lrf == 2 => RangeKind::Mlbw(read_breit_wigner(
+                    &mut r,
+                    range.n2,
+                    nro,
+                    (range.c1, range.c2),
+                )?),
                 1 if lrf == 7 => RangeKind::RMatrixLimited(read_r_matrix_limited(&mut r)?),
                 1 => return unsupported(format!("resolved LRF={lrf} is not supported")),
                 2 if lrf == 1 || lrf == 2 => {
@@ -752,8 +763,8 @@ fn read_reich_moore(r: &mut Reader<'_>, naps: i64) -> Result<ReichMoore, Error> 
     })
 }
 
-/// MLBW の範囲 [el, eh] のパラメータ。`nro` が 1 なら、先に散乱半径の TAB1 を読む。
-fn read_mlbw(
+/// SLBW か MLBW の範囲 [el, eh] のパラメータ。`nro` が 1 なら、先に散乱半径の TAB1 を読む。
+fn read_breit_wigner(
     r: &mut Reader<'_>,
     naps: i64,
     nro: i64,

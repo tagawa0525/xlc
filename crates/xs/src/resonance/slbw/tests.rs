@@ -35,7 +35,7 @@ fn hard_sphere(l: OrbitalL, rho: f64) -> (f64, f64, f64) {
             -1.0 / (1.0 + rho * rho),
             rho - rho.atan(),
         ),
-        _ => unreachable!("only s and p waves"),
+        _ => panic!("only s and p waves"),
     }
 }
 

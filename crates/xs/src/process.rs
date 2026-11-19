@@ -385,8 +385,7 @@ fn s_wave_radius(kind: &RangeKind, top: f64) -> Result<f64, ProcessError> {
             .find(|lv| lv.l == OrbitalL::S && lv.apl != 0.0)
             .map_or(rm.ap, |lv| lv.apl),
         // 表は範囲を覆い、不連続を持たない（MF2 を読むときに確かめる）
-        RangeKind::Slbw(_) => return Err(ProcessError::NoSWaveRadius),
-        RangeKind::Mlbw(bw) => bw
+        RangeKind::Slbw(bw) | RangeKind::Mlbw(bw) => bw
             .scattering_radius(top)
             .ok_or(ProcessError::RadiusTable { energy: top })?,
         RangeKind::RMatrixLimited(rml) => {
