@@ -111,14 +111,14 @@ impl Docs {
             .collect()
     }
 
-    /// `dir` の直下の番号つきの文書（README.md を除く）。
+    /// `dir` の直下の番号つきの文書（README.md と、OKF の索引と履歴の `index.md`、`log.md` を除く。ADR-0256）。
     fn numbered(&self, dir: &str, out: &mut Violations) -> Vec<Doc<'_>> {
         let mut docs = Vec::new();
         for (path, text) in &self.texts {
             let Some(name) = path.strip_prefix(dir) else {
                 continue;
             };
-            if name.contains('/') || !name.ends_with(".md") || name == "README.md" {
+            if name.contains('/') || !name.ends_with(".md") || NOT_RECORDS.contains(&name) {
                 continue;
             }
             let Some(number) = numbered_file(name) else {
@@ -185,6 +185,8 @@ impl Docs {
     }
 }
 
+/// ADR と issue の置き場にある、番号つきの記録でない文書。
+const NOT_RECORDS: [&str; 3] = ["README.md", "index.md", "log.md"];
 const ADR_DIR: &str = "docs/adr/";
 const ISSUE_DIR: &str = "docs/issues/";
 const ADR_KEYS: [&str; 6] = [
