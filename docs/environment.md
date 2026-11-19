@@ -163,10 +163,11 @@ OpenMC のライブラリ `references/openmc/endfb80/`（600 K だけ）と `end
 
 コマンドはリポジトリ（worktree）の直下で実行し、作業のディレクトリを引数で渡す。worktree の `references` は main の
 `references/` への symlink なので、`references/openmc` に `cd` してから `../..` で flake やスクリプトを指すと、
-worktree でなく main の flake とスクリプトが使われる。たとえば C5G7 の参照解は、DVC のステージ（`openmc-model`、`openmc`、`openmc-extract`）で作る:
+worktree でなく main の flake とスクリプトが使われる。たとえば C5G7 の参照解は、DVC のステージ（`openmc-model`、`openmc`、`openmc-extract`）で作る
+（ジョブは `scripts/dvc-repro.py` で、実行してよい参照解のステージを `--allow-reference` に挙げる。ADR-0257）:
 
 ```sh
-~/.claude/scripts/slurm-run.sh --class trial --ref '- C5G7 の参照解の例' --purpose 'C5G7 の参照解のステージを作る' -t 50 dvc-c5g7 'nix develop -c dvc repro examples/c5g7/dvc.yaml'
+~/.claude/scripts/slurm-run.sh --class trial --ref '- C5G7 の参照解の例' --purpose 'C5G7 の参照解のステージを作る' -t 50 dvc-c5g7 'nix develop -c scripts/dvc-repro.py --max-stages <見込む本数> --allow-reference examples/c5g7/dvc.yaml:openmc-model --allow-reference examples/c5g7/dvc.yaml:openmc --allow-reference examples/c5g7/dvc.yaml:openmc-extract examples/c5g7/dvc.yaml'
 ```
 
 ## 外部の計算機（AWS）
