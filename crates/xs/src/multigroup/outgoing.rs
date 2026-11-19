@@ -6,7 +6,7 @@ use crate::endf::{
 use crate::pointwise::linearize;
 use crate::special::{exp_e1, gamma_p_2, gamma_p_3_2};
 use xlc_format::group::GroupStructure;
-use xlc_numeric::quadrature::GAUSS_LEGENDRE_4;
+use xlc_numeric::quadrature::{GAUSS_LEGENDRE_4, GAUSS_LEGENDRE_8};
 
 /// 出射エネルギーの確率密度の表を、群ごとに積分する。
 ///
@@ -364,16 +364,24 @@ impl Cumulative {
     }
 }
 
+/// E'/T_M が E_F/T_M のこの倍より小さいところは、閉じた式でなく数値積分で累積を求める（`madland_nix_fraction`）。
+/// 閉じた式は 1 程度の項の差で、累積（x^(3/2) で 0 に近づく）の絶対誤差が 1e-16 ほど残る。E_F/T_M = 0.5 の 1e-2 倍の x では
+/// 累積が 1e-4 ほどで、相対誤差は 1e-12 ほどに収まる。
+const MADLAND_NIX_SMALL: f64 = 1.0e-2;
+
 /// ENDF-102 の 5.1.1.6 の g(E', E_F) の、E'/T_M < x の割合（0〜∞ で 1）。`fragment` は E_F/T_M。
 ///
 /// NJOY GROUPR の anased の LF=12 の 3 つの領域（ENDF-102 の 5.4.10）の式を、1 つの原始関数 H(√E') にまとめたもの:
 /// A = (√E' + √E_F)²/T_M、B = (√E' - √E_F)²/T_M、σ = sgn(√E' - √E_F) として、領域 I と II の式は H(b) - H(a) で、
 /// B の項の符号が σ で替わる。領域 III の定数 -2 は、σ e^(-B)(1 + B) の項を σ (e^(-B)(1 + B) - 1) に替えて H を
-/// E' = E_F で連続にしたもの。H(∞) = 1/2、H(0) = -1/2 なので、割合は H + 1/2。式の正しさは、ENDF-102 の g の数値積分との
-/// 比較（テスト）で確かめる。
+/// E' = E_F で連続にしたもの。H(∞) = 1/2、H(0) = -1/2 なので、割合は H + 1/2。小さい x（`MADLAND_NIX_SMALL`）は
+/// `madland_nix_small_fraction`。式の正しさは、ENDF-102 の g の数値積分との比較（テスト）で確かめる。
 fn madland_nix_fraction(x: f64, fragment: f64) -> f64 {
     if x == f64::INFINITY {
         return 1.0;
+    }
+    if x < MADLAND_NIX_SMALL * fragment {
+        return madland_nix_small_fraction(x, fragment);
     }
     let r = 1.0 / fragment.sqrt();
     let signed = x.sqrt() - fragment.sqrt();
@@ -381,26 +389,56 @@ fn madland_nix_fraction(x: f64, fragment: f64) -> f64 {
     let a = (x.sqrt() + fragment.sqrt()).powi(2);
     let b = signed * signed;
     let gamma_3_2 = |u: f64| 0.5 * std::f64::consts::PI.sqrt() * gamma_p_3_2(u);
-    let gamma_5_2 = |u: f64| 1.5 * gamma_3_2(u) - u.powf(1.5) * (-u).exp();
-    // u^n E1(u) は u → 0 で 0（n ≥ 2）。u は正の有限の値で、そこで exp_e1 は収束する。万一の失敗は NaN にして、χ を
-    // 有限の値に限るライブラリの検査（xlc_format の NuclideData の check）で止める（`accumulate` はエラーを返さない）
-    let e1 = |u: f64| {
-        if u == 0.0 {
-            0.0
-        } else {
-            exp_e1(u).map_or(f64::NAN, |scaled| scaled * (-u).exp())
-        }
-    };
+    let (gamma_a, gamma_b) = (gamma_3_2(a), gamma_3_2(b));
+    // γ(5/2, u) = 3/2 γ(3/2, u) - u^(3/2) e^(-u)
+    let gamma_5_2 = |u: f64, gamma: f64| 1.5 * gamma - u.powf(1.5) * (-u).exp();
     let decay = |u: f64| (-u).exp() * (1.0 + u);
-    let upper = (2.0 / 15.0 * r * a.powf(2.5) - a * a / 6.0) * e1(a)
-        + (r / 3.0 * a - 2.0 / 3.0 * a.sqrt()) * gamma_3_2(a)
-        - r / 5.0 * gamma_5_2(a)
+    // u^n E1(u) は u → 0 で 0（n ≥ 2）
+    let e1_b = if b == 0.0 { 0.0 } else { madland_nix_e1(b) };
+    let upper = (2.0 / 15.0 * r * a.powf(2.5) - a * a / 6.0) * madland_nix_e1(a)
+        + (r / 3.0 * a - 2.0 / 3.0 * a.sqrt()) * gamma_a
+        - r / 5.0 * gamma_5_2(a, gamma_a)
         - 0.5 * decay(a);
-    let lower = (2.0 / 15.0 * r * b.powf(2.5) + sigma * b * b / 6.0) * e1(b)
-        + (r / 3.0 * b + sigma * 2.0 / 3.0 * b.sqrt()) * gamma_3_2(b)
-        - r / 5.0 * gamma_5_2(b)
+    let lower = (2.0 / 15.0 * r * b.powf(2.5) + sigma * b * b / 6.0) * e1_b
+        + (r / 3.0 * b + sigma * 2.0 / 3.0 * b.sqrt()) * gamma_b
+        - r / 5.0 * gamma_5_2(b, gamma_b)
         + 0.5 * sigma * (decay(b) - 1.0);
     0.5 + upper - lower
+}
+
+/// x < `MADLAND_NIX_SMALL` E_F/T_M での `madland_nix_fraction`。項が打ち消し合わない形の数値積分で求める:
+/// φ(u) = u^(3/2) E1(u) + γ(3/2, u) の導関数は (3/2) √u E1(u) なので、g = (1/(2√E_F)) ∫_{u1}^{u2} √u E1(u) du
+/// （T_M を単位とする）で、累積は E' = s² と置いた ∫_0^√x 2s g(s²) ds。u は [u1, u2] ⊂ [(√ε - √x)², (√ε + √x)²]
+/// （ε = E_F/T_M）の狭い範囲で、被積分関数はどちらも滑らかなので、8 点の Gauss-Legendre を重ねて足りる。
+fn madland_nix_small_fraction(x: f64, fragment: f64) -> f64 {
+    let root = fragment.sqrt();
+    let density = |s: f64| {
+        let (u1, u2) = ((root - s).powi(2), (root + s).powi(2));
+        let (mid, half) = (0.5 * (u1 + u2), 0.5 * (u2 - u1));
+        let inner: f64 = GAUSS_LEGENDRE_8
+            .iter()
+            .map(|&(t, w)| {
+                let u = mid + half * t;
+                w * u.sqrt() * madland_nix_e1(u)
+            })
+            .sum();
+        half * inner / (2.0 * root)
+    };
+    let half = 0.5 * x.sqrt();
+    GAUSS_LEGENDRE_8
+        .iter()
+        .map(|&(t, w)| {
+            let s = half * (1.0 + t);
+            w * 2.0 * s * density(s)
+        })
+        .sum::<f64>()
+        * half
+}
+
+/// E1(u)（u > 0）。u は正の有限の値で、そこで exp_e1 は収束する。万一の失敗は NaN にして、χ を有限の値に限るライブラリの
+/// 検査（xlc_format の NuclideData の check）で止める（`accumulate` はエラーを返さない）
+fn madland_nix_e1(u: f64) -> f64 {
+    exp_e1(u).map_or(f64::NAN, |scaled| scaled * (-u).exp())
 }
 
 impl AnalyticSpectrum {
