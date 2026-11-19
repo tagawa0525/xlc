@@ -13,7 +13,11 @@
 
 2 本が規格化のほかの前提を共有しないもの（燃焼度の点、輸送する核種、決めた出力）は止める。
 
-使い方: python3 compare_normalization.py <fission-q の msgpack> <energy-deposition の msgpack> [--json <出力>]
+`--kappa`（normalization/casl-kappa.toml）と `--chain`（OpenMC のチェーンの XML）を渡すと、VERA の燃焼のベンチマークの仕様書の
+核種ごとの Kappa / Kappa0 − 1 を、fission-q の履歴の核種ごとの核分裂の出力（率 × チェーンの Q）で重み付けた割合（`kappa_delta`）と、
+表に無い核種の核分裂の出力の割合（`kappa_uncovered`）も書く。核種ごとの定数で規格化したときに足す割合で、`delta` と並べる。
+
+使い方: python3 compare_normalization.py <fission-q の msgpack> <energy-deposition の msgpack> [--kappa <toml> --chain <xml>] [--json <出力>]
 """
 
 import argparse
@@ -23,6 +27,7 @@ import sys
 from pathlib import Path
 
 import msgpack
+import tomllib
 
 NUCLIDES = ["U235", "Pu239", "Pu240", "Pu241", "Xe135", "Sm149"]
 # fission-q の決めた出力とチェーンの Q の核分裂の出力の相対差の許容（extract の和の丸めだけが残る）
@@ -85,13 +90,53 @@ def compare(fission_q: dict, deposition: dict) -> list[dict]:
     return rows
 
 
+def kappa_delta(run: dict, kappa: dict, q: dict[str, float]) -> list[dict]:
+    """燃焼点ごとの、核分裂の出力（率 × `q`）で重み付けた Kappa / Kappa0 − 1 と、`kappa` に無い核種の出力の割合。"""
+    rates = run["fission-rates"]
+    rows = []
+    for i in range(len(run["burnup"])):
+        total = covered = extra = 0.0
+        for name, rate in rates.items():
+            if name not in q:
+                sys.exit(f"{name} fissions but has no fission Q in the chain")
+            power = rate[i] * q[name]
+            total += power
+            if name in kappa:
+                covered += power
+                extra += power * (kappa[name]["kappa"] / kappa[name]["kappa0"] - 1)
+        rows.append({"delta": extra / covered, "uncovered": 1 - covered / total})
+    return rows
+
+
+def chain_q(chain: Path) -> dict[str, float]:
+    """OpenMC のチェーンの XML の核種ごとの核分裂の Q (eV)。"""
+    import xml.etree.ElementTree as ET
+
+    q = {}
+    for nuclide in ET.parse(chain).getroot().iter("nuclide"):
+        for reaction in nuclide.iter("reaction"):
+            if reaction.get("type") == "fission":
+                q[nuclide.get("name")] = float(reaction.get("Q"))
+    return q
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("fission_q", type=Path)
     parser.add_argument("deposition", type=Path)
+    parser.add_argument("--kappa", type=Path)
+    parser.add_argument("--chain", type=Path)
     parser.add_argument("--json", type=Path)
     args = parser.parse_args()
-    rows = compare(read(args.fission_q), read(args.deposition))
+    if (args.kappa is None) != (args.chain is None):
+        sys.exit("--kappa and --chain go together")
+    fission_q = read(args.fission_q)
+    rows = compare(fission_q, read(args.deposition))
+    if args.kappa is not None:
+        kappa = tomllib.loads(args.kappa.read_text())
+        for r, k in zip(rows, kappa_delta(fission_q, kappa, chain_q(args.chain))):
+            r["kappa_delta"] = k["delta"]
+            r["kappa_uncovered"] = k["uncovered"]
     for r in rows:
         shift = (
             ""
@@ -106,7 +151,13 @@ def main() -> None:
         )
         print(
             f"{r['burnup']:5.1f} MWd/kg delta {r['delta'] * 100:.2f}%{shift}"
-            f" measured {r['measured_pcm']:+.0f} ± {r['measured_std_pcm']:.0f} pcm | {dens}"
+            f" measured {r['measured_pcm']:+.0f} ± {r['measured_std_pcm']:.0f} pcm"
+            + (
+                f" kappa {r['kappa_delta'] * 100:.2f}% (uncovered {r['kappa_uncovered']:.1e})"
+                if "kappa_delta" in r
+                else ""
+            )
+            + f" | {dens}"
         )
     if args.json:
         args.json.write_text(json.dumps({"rows": rows}, indent=1) + "\n")
