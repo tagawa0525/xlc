@@ -2,7 +2,7 @@
 type: ADR
 status: proposed
 date: 2026-11-19
-requires: [ADR-0122, ADR-0126, ADR-0222]
+requires: [ADR-0122, ADR-0126, ADR-0159, ADR-0193, ADR-0222]
 supersedes: []
 superseded-by:
 issues: []
@@ -52,24 +52,25 @@ rebase のあとの relock（スキル dvc-relock）、生の `dvc checkout` を
 
 ## 棚卸し
 
-main d17396374（2026-11-19）で数えた。数えたコマンドは、このブランチをマージに出した報告にある。
+main d17396374（2026-11-19）で数えた。数え方は「## 補足」にある。
 
 - `dvc.yaml` は 24（リポジトリの直下の 1 と examples の 23）。ステージの定義は 354（うち foreach が 30）、`dvc.lock` の
   ステージは展開して 1,897。lock の cmd で分けると xs 745、正規形 476、参照解（cmd が references の devShell で包まれた NJOY と
   OpenMC）281、lattice 207、core 98、比較 75、ほか 15
 - `dvc.lock` の outs は 2,326。git で追跡しないものが 1,768（すべてキャッシュにある）、`cache: false` で git が追跡するものが
-  558（正規形の 480 = python-ast 40、toml-values 436、binary-forms 4。ほかは比較の JSON、`references-shell.txt` 4 など）。追跡しない
-  outs の大きさの和は 9.5 GB
+  558（正規形の 480 = python-ast 40、toml-values 436、binary-forms 4。`references-shell.txt` 4、比較の JSON 63、ほかの JSON 7、
+  `xs-range.toml` 4）。追跡しない outs の大きさの和は 9.5 GB
 - `.dvc` のファイル（ADR-0222）は 765（examples/depletion 749、examples/vera 12、examples/mox 2、examples/branches 2）。
   outs は 765（ディレクトリ 8）、大きさの和は 9.5 GB。拡張子は msgpack 408、log 263、out 91、ほか 3
 - キャッシュ `references/dvc-cache`（reflink。ADR-0123、ADR-0126）は 36 GB で、うち run-cache は 37 MB
-- 比較の JSON（追跡する `compare-*.json`）は 103 で、73 が読んだ入力の md5（`inputs`）を持つ。検証の記録は 14 本で、表の目印は 222
+- 比較の JSON（examples の下の追跡する `compare-*.json`）は 101 で、71 が読んだ入力の md5（`inputs`）を持つ。検証の記録は 14 本で、表の目印は 222
 - ADR: 番号のある 64 本が `dvc` の語を含む（大小を区別しなければ 71 本）。決定が DVC のステージの仕組みそのものなのは
-  ADR-0159、ADR-0184、ADR-0193、ADR-0210、ADR-0223、ADR-0254、ADR-0255、ADR-0257 の 8 本（ADR-0123 は既に superseded）。決定の
-  一部が DVC のステージに拠るのは ADR-0130、ADR-0136、ADR-0160、ADR-0163、ADR-0176、ADR-0212、ADR-0222 の 7 本。ほかは、確認や
+  ADR-0184、ADR-0210、ADR-0223、ADR-0254、ADR-0255、ADR-0257 の 6 本（ADR-0123 は既に superseded）。決定の一部が DVC の
+  ステージに拠るのは ADR-0130、ADR-0136、ADR-0159、ADR-0160、ADR-0163、ADR-0176、ADR-0193、ADR-0212、ADR-0222 の 9 本。ほかは、確認や
   帰結に `dvc repro` で流した経緯を書くだけで、凍結した記録として変えない
-- script、hook、テスト、設定: `dvc` の語（大小を区別しない）を含む追跡したファイルは、`scripts/` 21、`examples/` 27、`.claude/` 11
-  （hook 5、`settings.json`、スキル 5）、`crates/` 4（コメントと ignore の理由）、`flake.nix`、`.pre-commit-config.yaml`。pre-commit
+- script、hook、テスト、設定: `dvc` の語（大小を区別しない）を含む追跡したファイルは、`scripts/` 21、`.claude/` 11（hook 5、
+  `settings.json`、スキル 5）、`crates/` 4（コメントと ignore の理由）、`flake.nix`、`.pre-commit-config.yaml`。`examples/` では
+  検証の記録の外の 74（`dvc.yaml` 23 を含む yaml 24、py 21、入力の TOML 21、sh 6、`.gitignore` 2）と検証の記録 12。pre-commit
   の hook のうち `dvc-lock`、`python-ast`、`toml-values`、`binary-forms`、`references-shell` の 5 つと、`verification-tables` の
   lock の md5 の照合が dvc.lock に拠る
 - 文書: スキル dvc-relock（259 行）の全体と、compute、topic-start、openmc-reference、verification-record の DVC の項。
@@ -145,23 +146,31 @@ DVC の古さの判定を残すので、(c) を妨げる仕組みのどれかが
   この一覧を書く）。tomllib で読むので、#0268 の tomlkit の遅さは無い
 - runner（`examples/run_steps.py <steps.toml> <手順か組>...`）は、指定した手順だけを、指定した順に実行する。上流を自動で
   実行しない。古さも判定しない（入力の一覧は出どころの md5 を取るためだけに使う）
-- 追跡しているファイルに変更がある作業ツリーでは止まる（出どころのコミットで出し直せることを保つため。ADR-0122）
-- 実行の前後で入力の md5 を取り、食い違えば止まる（ADR-0193 の案 D1 と同じ）。成功したら出力を `dvc add` し、`.dvc` の
-  `meta` に出どころを書く
-- 核種ごとの xs の組は、ADR-0193 の同時実行（前回の CPU 時間の長い順、予算、SIGTERM の扱い）を runner に移す。`dvc status` と
-  `dvc commit` の部分は要らなくなる
-- `bin/` は `scripts/build-binaries.sh` で作るビルドの生成物のまま残し、DVC の出力にしない。ADR-0160 と ADR-0163（同じソースから
-  worktree によらず同じ実行ファイル）は残し、出どころの実行ファイルの md5 を worktree の間で比べられるようにする
+- 追跡しているファイルに変更がある作業ツリーでは止まる（出どころのコミットで出し直せることを保つため。ADR-0122）。runner 自身が
+  書く追跡したファイル（一覧の出力の `.dvc` と出どころのファイル、`dvc add` が足す `.gitignore` の行、`stage-cpu-seconds.json`）は
+  除く。前の手順の出力をコミットせずに次の手順の入力にしたときは、その入力の md5 と、それを書いた手順の出どころで辿る
+- 始めに `scripts/build-binaries.sh` を実行し、`bin/` を HEAD のソースから作る。`bin/` は追跡しないので、作業ツリーの検査では
+  古い実行ファイルを見分けられない（今は `dvc repro` が `build` のステージで作り直している）
+- 実行の前後で入力の md5 を取り、食い違えば止まる（ADR-0193 の案 D1 と同じ）。成功したら、git で追跡しない出力は `dvc add` して
+  `.dvc` の `meta` に出どころを書き、git で追跡する出力（比較の JSON など、今の `cache: false`）は隣の出どころのファイル
+  （`<出力>.provenance.json`）に同じ中身を書く。`dvc add` は git が追跡するファイルを受けない
+- 核種ごとの xs の組は、ADR-0193 の同時実行（前回の CPU 時間の長い順、予算、SIGTERM の扱い、CPU 時間の記録）を runner に移す。
+  `dvc status` と `dvc commit` の部分は要らなくなる
+- `bin/` は `scripts/build-binaries.sh` で作るビルドの生成物のまま残し、DVC の出力にしない。同じソースから worktree によらず同じ
+  実行ファイルを作る決まり（ADR-0159 の案 P1 と T1、それを補う ADR-0160 の strip と ADR-0163 の 1 回の cargo）は残し、出どころの
+  実行ファイルの md5 を worktree の間で比べられるようにする
 
 ### 出どころ
 
 - `.dvc` の `meta`（DVC が読まない欄）に、実行したコミット、日付、コマンド、入力ごとの（パス、md5）、実行ファイルの md5、
   参照解の手順では references の devShell の store のパス（今の `references-shell.txt` の中身。ADR-0212）、Slurm のジョブの番号を書く
 - 記録は今までどおり、数値を出したコミットと日付を書く（ADR-0122）。`examples/record_provenance.py` は `dvc.lock` の履歴の
-  代わりに `.dvc` の `meta` を読む
+  代わりに `.dvc` の `meta` と出どころのファイルを読む
 - 比較の JSON は git で追跡したまま、読んだ入力の md5（`inputs`）を持つ。`verification_tables.py --check` は表と JSON の一致を
-  確かめ続ける。JSON の md5 を `dvc.lock` と照らす部分は、照らす相手が無くなるので外す。JSON の `inputs` の md5 は、今の出力と
-  一致するかでなく、キャッシュにあって戻せるかを確かめる（記録が引く版を出し直せることの検査で、古さの検査にしない）
+  確かめ続ける。JSON の md5 を `dvc.lock` と照らす部分は、照らす相手が無くなるので外す。JSON の `inputs` のうち `.dvc` で追う
+  出力の md5 は、今の出力と一致するかでなく、キャッシュにあって戻せるかを確かめる（記録が引く版を出し直せることの検査で、古さの
+  検査にしない）。git で追跡する入力（入力の TOML など）はコミットから戻り、`references/` の入力（AWS の結果など。ADR-0174）は
+  ADR-0124 の固定に任せるので、この検査に入れない
 
 ### 移行の順と見積もり
 
@@ -175,7 +184,9 @@ DVC の古さの判定を残すので、(c) を妨げる仕組みのどれかが
 2. 例の `dvc.lock` の outs を `.dvc` に移し、例の `dvc.yaml` と `dvc.lock` を消す。追跡しない outs の 1,768 は、同じパスと
    md5 の `.dvc` にし、`meta` に lock の cmd、deps、その md5 を lock に入れたコミット（record_provenance.py の求め方）を移す。
    md5 が同じなのでキャッシュの中身はそのまま使え、再実行は要らない。changed のステージの出力も、lock の deps が実際に
-   作った入力なので、そのまま移す。lock に hash の無い参照解（未実行）は手順の一覧にだけ載る。同じブランチで
+   作った入力なので、そのまま移す。git で追跡する outs のうち正規形と `references-shell.txt` を除く 74（比較の JSON 63、ほかの
+   JSON 7、`xs-range.toml` 4）は、lock の同じ欄を出どころのファイルに移す。lock に hash の無い参照解（未実行）は手順の一覧に
+   だけ載る。同じブランチで
    `verification_tables.py`、`record_provenance.py`、#0295 の JSON の入力の照合（`scripts/test_normalize_toml.py` の
    `JsonInputsTest`）を `.dvc` に向け、`dvc.yaml` を書くスクリプト（p3、p5、p6 の inputs、`rods_cases.py`）を steps.toml を
    書く形にし、スキル compute、topic-start、openmc-reference、verification-record の該当の項を直す。目安は担当 1〜2 本、
@@ -183,18 +194,20 @@ DVC の古さの判定を残すので、(c) を妨げる仕組みのどれかが
 3. 直下の `dvc.yaml` と `dvc.lock`（`build`、正規形 3 種）と、正規形を守る仕組みを消す（下の一覧）。スキル dvc-relock を消し、
    CLAUDE.md の 3 行と docs/environment.md の DVC の項を直す。段 2 の後に例の `dvc.yaml` が無いと正規形の検査が空で通るか
    落ちるかは確かめていない。落ちるなら段 2 と 3 を 1 本にする。目安は担当 1 本、レビュー 2 周
-4. ADR と issue を今の状態に合わせる: 決定がステージの仕組みそのものの 8 本を、この ADR で置き換える（superseded）。一部が
-   拠る 7 本は「## 変更」で直す。#0150、#0268 など、ステージがあるために開いている issue を閉じるか書き直す。目安は担当 1 本
+4. ADR と issue を今の状態に合わせる: 決定がステージの仕組みそのものの 6 本を、この ADR で置き換える（superseded）。一部が
+   拠る 9 本は「## 変更」で直す。#0150、#0268 など、ステージがあるために開いている issue を閉じるか書き直す。目安は担当 1 本
 
 段 2 は、`dvc.lock` を変えるマージしていないブランチ（今は 3 本）と衝突する。段 2 は、それらがマージされるか、段 2 の後に
 rebase して lock の差を `.dvc` に移すかを決めてから始める。走っているジョブ（961、962）の worktree は変えない。
 
 ### 要らなくなるもの
 
-- ADR（置き換え）: ADR-0159 のステージの部分、ADR-0184、ADR-0193 の DVC の部分、ADR-0210、ADR-0223、ADR-0254、ADR-0255、ADR-0257
-- ADR（一部の変更）: ADR-0130（参照解をステージで作る部分。references の devShell で包むことと入力の TOML の決まりは残す）、
-  ADR-0136（model.xml で分けることは手順の分け方として残る）、ADR-0176 の 4 と 6（lock の md5 の照合）、ADR-0212 の (b)（付け直し）、
-  ADR-0222（対象を記録が引く生成物から重い出力のすべてに広げる）、ADR-0160 と ADR-0163（`bin/` が DVC の出力でなくなる）
+- ADR（置き換え）: ADR-0184、ADR-0210、ADR-0223、ADR-0254、ADR-0255、ADR-0257
+- ADR（一部の変更）: ADR-0159（DVC で駆動し `bin/` を deps にする部分。案 P1 と T1 のビルドの決まりは残す）、ADR-0193（`dvc status`
+  と `dvc commit` の部分。同時実行の順、予算、CPU 時間の記録、失敗の扱いは残す）、ADR-0130（参照解をステージで作る部分。
+  references の devShell で包むことと入力の TOML の決まりは残す）、ADR-0136（model.xml で分けることは手順の分け方として残る）、
+  ADR-0176 の 4 と 6（lock の md5 の照合）、ADR-0212 の (b)（付け直し）、ADR-0222（対象を記録が引く生成物から重い出力のすべてに
+  広げる）、ADR-0160 と ADR-0163（`bin/` が DVC の出力でなくなる）
 - スキル: dvc-relock の全体と、compute、topic-start、openmc-reference、verification-record の DVC のステージの項
 - hook: `.claude/hooks/block-raw-dvc-checkout.py`、`block-raw-dvc-repro-in-slurm.py`、両者が共有する `shell_words.py` と、それぞれの
   テスト（`.claude/settings.json` の 2 つの項）。pre-commit の `dvc-lock`、`python-ast`、`toml-values`、`binary-forms`、`references-shell`
@@ -225,12 +238,34 @@ rebase して lock の差を `.dvc` に移すかを決めてから始める。�
 
 段ごとに、次を通してからマージする。
 
-- 段 1: runner のテスト（手順の実行、汚れた作業ツリーで止まる、入力の md5 の食い違いで止まる、`meta` の中身、組の同時実行と
+- 段 1: runner のテスト（手順の実行、汚れた作業ツリーで止まり runner 自身が書くファイルでは止まらない、始めに `bin/` を作る、
+  入力の md5 の食い違いで止まる、`meta` と出どころのファイルの中身、git で追跡する出力を `dvc add` しない、組の同時実行と
   SIGTERM）。DVC 3.67.1 が `meta` のある `.dvc` を `dvc checkout` で戻すこと。約 2,500 の `.dvc` での `dvc checkout` と `dvc add` の時間
 - 段 2: 移す前の 2,326 の outs のうち追跡しない 1,768 のすべてが、同じパスと md5 の `.dvc` にあること（移す前の lock と比べる
   スクリプト）。新しい worktree で `scripts/worktree-restore-outputs.sh` が MISSING なしで終わること。記録が引くステージの
   `record_provenance.py` の出力（コミットと md5）が、移す前と同じこと。`verification_tables.py --check`、`cargo test`、
   `scripts/run-python-tests.sh`。キャッシュの大きさが増えないこと（中身は同じ md5）
-- 段 3: run-checks.sh、`cargo test`（`linked_worktrees_share_references` を含む）、pre-commit の全部の hook。`git grep -i dvc` に
-  残るのが、保管（`.dvc`、キャッシュ、戻し）と凍結した ADR の経緯だけであること
+- 段 3: run-checks.sh、`cargo test`（`linked_worktrees_share_references` を含む）、pre-commit の全部の hook。消した script、hook、
+  正規形の名前と `dvc repro`、`dvc.lock` を `git grep` して、残る箇所が保管（`.dvc`、キャッシュ、戻し）、凍結した ADR と検証の記録の
+  経緯、閉じた issue だけであること（入力の TOML と例のスクリプトの注釈は、この段で直す）
 - 段 4: `design-records check`、docs の整合性の検査（ADR と issue の両方向）
+
+## 補足
+
+棚卸しの数え方（main d17396374 の worktree の直下。2026-11-19）:
+
+- `dvc.yaml`: `git ls-files '*dvc.yaml'`。ステージの定義と foreach は各 `dvc.yaml` の `stages` を YAML で読み、lock のステージは
+  各 `dvc.lock` の `stages` の数。cmd の分け方は、`#references` を含むものを参照解、`bin/xs` などを含むものをその実行ファイル、
+  `normalize` を含むものを正規形とした
+- lock の outs: 各 `dvc.lock` の outs を、パスが `git ls-files` にあるかと、`references/dvc-cache/files/md5/<md5 の先頭 2 文字>/<残り>`
+  があるかで分けた
+- `.dvc`: `git ls-files '*.dvc'`（`find . -name '*.dvc'` の 766 は `.dvc` のディレクトリを含む）。大きさは各ファイルの `size` の和
+- キャッシュ: `du -sh references/dvc-cache references/dvc-cache/runs`
+- 比較の JSON: `git ls-files 'examples/**/compare-*.json'` と、そのうち `"inputs"` を含むもの
+- ADR: `grep -l dvc docs/adr/[0-9]*.md`（`-i` で 71）。決定の分け方は各 ADR の「決定と理由」を読んで決めた
+- ファイル: `git ls-files 'scripts/*' '.claude/*' '*.rs' flake.nix .pre-commit-config.yaml | xargs grep -li dvc` と、
+  `git ls-files examples | xargs grep -li dvc` を拡張子と検証の記録で分けたもの
+- 開いた issue: `grep -lis dvc docs/issues/[0-9]*.md` のうち `status: open` のもの
+- 履歴: `git log --no-merges -i --grep=relock main` と `git log --no-merges main -- '*dvc.lock'` の行の数
+- ブランチ: マージしていないブランチごとに `git diff --name-only $(git merge-base main <ブランチ>) <ブランチ>` が `dvc.lock`、
+  `dvc.yaml`、`.dvc` を含むか
