@@ -282,6 +282,18 @@ class Step(unittest.TestCase):
             step["u238_flux_ratio_pcm"], step["parts"]["u238_resonance"], places=9
         )
 
+    def test_the_flux_ratio_part_is_zero_when_o16_does_not_change(self):
+        form = base_nuclides()
+        form["U-238"]["total"] = form["U-238"]["total"] - np.array([0.0, 2.0, 0.0])
+        step = compare_background.step(case(base_nuclides(), {}), case(form, {}))
+        self.assertAlmostEqual(step["u238_flux_ratio_pcm"], 0.0, places=12)
+
+    def test_the_flux_ratio_part_needs_the_same_u238_density(self):
+        form = base_nuclides()
+        form["U-238"]["density"] = 0.021
+        step = compare_background.step(case(base_nuclides(), {}), case(form, {}))
+        self.assertIsNone(step["u238_flux_ratio_pcm"])
+
     def test_states_split_on_other_ranges_are_an_error(self):
         a = case(base_nuclides(), {})
         branch, history, library = build(base_nuclides(), {})
