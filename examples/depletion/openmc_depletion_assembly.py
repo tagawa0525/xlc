@@ -10,11 +10,11 @@
 <入力> は p2/openmc-2A.toml の形の TOML で、計算の条件をすべて書く（既定値はない。ADR-0130）: 問題（`problem`。下の CASES）、
 openmc_library.py で作った `cross-sections`、燃焼チェーン（`chain`）、初めの重金属の出力密度（`power`、W/g）、燃焼度の点（`burnup`、
 MWd/kg、0 より大きく増える列）、1 世代の粒子数（`particles`）、世代数（`batches`）、非アクティブバッチ数（`inactive`）、乱数のシード（`seed`）、
-スレッド数（`threads`）。Gd の問題には Gd 燃料のリングの数（`gd-rings`。ほかの問題には書けない）。時間の倍率を測る入力にだけ、
+スレッド数（`threads`）、出力の規格化（`normalization`。openmc_depletion.py と同じ選択肢で、xlc と揃えるのは "fission-q"）。Gd の問題には Gd 燃料のリングの数（`gd-rings`。ほかの問題には書けない）。時間の倍率を測る入力にだけ、
 燃料の初めの組成を別の燃焼の結果からコピーする `start-from`（openmc_depletion.py の extract の msgpack）と `start-point`（その燃焼度の
 点の番号）。パスは入力のファイルからの相対。
 
-方式は openmc_depletion.py と同じ（CE/CM、CRAM48、一定の出力密度、チェーンの核分裂の Q、連続エネルギーの反応率、収率は 112.47 eV（ADR-0183）で
+方式は openmc_depletion.py と同じ（CE/CM、CRAM48、一定の出力密度、入力の規格化、連続エネルギーの反応率、収率は 112.47 eV（ADR-0183）で
 熱と速。ADR-0173）。違いは燃焼する物質: 集合体の 289 のセルを、中央からの距離で決まる対称操作の組（`orbit`。xlc が自己遮蔽と MOC で
 1 つにまとめるピンの組。ADR-0112）に分け、組と物質の対ごとに 1 つの燃焼する物質にする（ADR-0173 の案 R1）。燃料のほか、
 Pyrex、IFBA の被覆、WABA の吸収体も燃焼する物質にする。Gd 燃料はリング（等しい面積）ごとの物質にする。制御棒（AIC）は燃焼しない。
@@ -47,7 +47,12 @@ sys.path.insert(0, str(HERE.parent / "vera"))
 sys.path.insert(0, str(HERE))
 from compare_depletion_assembly import cell_kinds, compared_openmc_names, orbit_std_rms
 from openmc_common import eigenvalue_settings, material
-from openmc_depletion import TRANSPORT_SECONDS, YIELD_CUTOFF, TimedOperator
+from openmc_depletion import (
+    NORMALIZATIONS,
+    TRANSPORT_SECONDS,
+    YIELD_CUTOFF,
+    TimedOperator,
+)
 from openmc_input import input_path, read_input
 from openmc_model import (
     AIC,
@@ -91,6 +96,7 @@ KEYS = {
     "inactive",
     "seed",
     "threads",
+    "normalization",
 }
 OPTIONAL = {"gd-rings", "start-from", "start-point"}
 
@@ -540,6 +546,11 @@ def read(source: Path) -> dict:
     problem = run["problem"]
     if problem not in CASES:
         raise SystemExit(f"unknown problem {problem}; expected one of {list(CASES)}")
+    if run["normalization"] not in NORMALIZATIONS:
+        raise SystemExit(
+            f"unknown normalization {run['normalization']}; "
+            f"expected one of {NORMALIZATIONS}"
+        )
     has_gd = bool(CASES[problem].gd)
     if has_gd != ("gd-rings" in run):
         raise SystemExit(
@@ -584,7 +595,7 @@ def operator(run: dict, model: openmc.Model, prev=None) -> TimedOperator:
         model,
         chain_file=run["chain"],
         prev_results=prev,
-        normalization_mode="fission-q",
+        normalization_mode=run["normalization"],
         fission_yield_mode="cutoff",
         fission_yield_opts={"cutoff": YIELD_CUTOFF},
         reaction_rate_mode="direct",

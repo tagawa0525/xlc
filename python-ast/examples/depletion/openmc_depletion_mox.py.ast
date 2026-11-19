@@ -14,7 +14,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 sys.path.insert(0, str(HERE))
 from openmc_common import eigenvalue_settings, material
-from openmc_depletion import TRANSPORT_SECONDS, YIELD_CUTOFF, TimedOperator
+from openmc_depletion import NORMALIZATIONS, TRANSPORT_SECONDS, YIELD_CUTOFF, TimedOperator
 from openmc_input import input_path, read_input
 
 def load_mox_model():
@@ -23,12 +23,14 @@ def load_mox_model():
     spec.loader.exec_module(module)
     return module
 MOX = load_mox_model()
-KEYS = {'problem', 'rings', 'fuel-temperature', 'moderator-temperature', 'cross-sections', 'chain', 'power', 'burnup', 'particles', 'batches', 'inactive', 'seed', 'threads'}
+KEYS = {'problem', 'rings', 'fuel-temperature', 'moderator-temperature', 'cross-sections', 'chain', 'power', 'burnup', 'particles', 'batches', 'inactive', 'seed', 'threads', 'normalization'}
 
 def read(source: Path) -> dict:
     run = read_input(source, KEYS, set())
     if run['problem'] not in MOX.FUEL:
         raise SystemExit(f"unknown problem {run['problem']}; expected one of {list(MOX.FUEL)}")
+    if run['normalization'] not in NORMALIZATIONS:
+        raise SystemExit(f"unknown normalization {run['normalization']}; expected one of {NORMALIZATIONS}")
     if not (isinstance(run['rings'], int) and run['rings'] > 0):
         raise SystemExit(f"rings must be a positive integer, got {run['rings']}")
     for key in ('fuel-temperature', 'moderator-temperature'):
@@ -90,7 +92,7 @@ def solve(source: Path, work: Path) -> None:
     openmc.config['cross_sections'] = run['cross-sections']
     model, _ = build(run)
     TimedOperator.fuel_temperature = float(run['fuel-temperature'])
-    operator = TimedOperator(model, chain_file=run['chain'], normalization_mode='fission-q', fission_yield_mode='cutoff', fission_yield_opts={'cutoff': YIELD_CUTOFF}, reaction_rate_mode='direct')
+    operator = TimedOperator(model, chain_file=run['chain'], normalization_mode=run['normalization'], fission_yield_mode='cutoff', fission_yield_opts={'cutoff': YIELD_CUTOFF}, reaction_rate_mode='direct')
     check_transportable(run, TimedOperator.transportable)
     burnup = run['burnup']
     steps = [b - a for a, b in itertools.pairwise([0.0, *burnup])]

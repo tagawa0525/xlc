@@ -20,4 +20,5 @@ batches = 100
 inactive = 40
 seed = 1
 threads = 16
+normalization = "fission-q"
 gd-rings = 8

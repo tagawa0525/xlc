@@ -18,5 +18,6 @@
  "batches": 130,
  "inactive": 30,
  "seed": 1,
- "threads": 16
+ "threads": 16,
+ "normalization": "fission-q"
 }
