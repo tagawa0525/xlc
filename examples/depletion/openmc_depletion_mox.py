@@ -15,6 +15,8 @@ MOX-2）、燃料のリングの数（`rings`、等しい面積に分け、リ�
 形状と組成は examples/mox/openmc_model.py の問題のもの（ギャップのない被覆管、ホウ素のない減速材）。燃焼の方式、輸送する核種の
 規則、run と extract の出力の形は openmc_depletion.py と同じ（ADR-0173、ADR-0183）で、extract の msgpack は compare_depletion.py が読む。
 `read`、`ring_radii`、`solve`、`extract` は openmc_depletion.py の同じ名前の関数のコピー（問題、形状、温度の扱いだけが違う）。
+ただし、規格化はチェーンの核分裂の Q に固定で、ピンセルの入力の `normalization` と、ピンセルの extract の出力の `power`、
+`fission-power`、`fission-rates`、`fission-q-values`、`normalization`（#0293 の項目 3 の比較が読む）は持たない。
 共通の関数にすると、そちらを deps にする openmc-1C が古くなるのでコピーしている（#0132）。
 """
 
