@@ -1041,6 +1041,59 @@ class DrawFissionableAbsorbers(unittest.TestCase):
             vt.depletion_fissionable_absorbers([{"format": "other"}])
 
 
+# compare_background.py の段の分け方（U の ref-69 → form）
+BACKGROUND_PARTS = {
+    "u238_resonance": 95.94,
+    "resonance_other": 0.1,
+    "absorption_other_ranges": -1.2,
+    "transported_scattering_production": 0.0,
+    "moved_absorption": -27.4,
+    "moved_scattering_fast": 156.8,
+    "moved_scattering_below": -7.8,
+    "moved_production": 0.0,
+    "rest": 2.2,
+}
+
+
+class DrawBackgroundSplit(unittest.TestCase):
+    def summary(self) -> dict:
+        """compare_background.py の要約（2 段）"""
+        return {
+            "format": "xlc-compare-background",
+            "steps": [
+                {
+                    "from": "ref-69",
+                    "to": "form",
+                    "total_pcm": 218.66,
+                    "parts": BACKGROUND_PARTS,
+                },
+                {
+                    "from": "form",
+                    "to": "own-13",
+                    "total_pcm": -100.3,
+                    "parts": {k: 0.0 for k in BACKGROUND_PARTS},
+                },
+            ],
+        }
+
+    def rows(self, table: str) -> list[list[str]]:
+        return [
+            [c.strip() for c in line.strip("|").split("|")]
+            for line in table.split("\n")
+        ]
+
+    def test_columns_are_the_steps_and_rows_the_parts(self):
+        rows = self.rows(vt.depletion_background_split([self.summary()]))
+        self.assertEqual(rows[0][1:], ["ref-69 → form", "form → own-13"])
+        self.assertEqual(rows[2][1:], ["+218.7", "−100.3"])
+        self.assertEqual(len(rows), 2 + 1 + len(BACKGROUND_PARTS))
+        self.assertEqual(rows[3][1:], ["+95.9", "0.0"])
+
+    def test_another_summary_is_an_error(self):
+        with self.assertRaisesRegex(vt.TableError, "xlc-compare-background"):
+            vt.depletion_background_split([{"format": "other"}])
+
+
 class DrawAssemblyPins(unittest.TestCase):
     def summary(self) -> dict:
         """compare_depletion_assembly.py の要約（2 点）"""
