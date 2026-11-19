@@ -53,14 +53,15 @@ ADR-0159 は ADR-0123 から、DVC のステージを実行する形を引き継
   changed のステージは DVC が実行するので、ジョブの時間にそれが入る
 - 比較のステージなどが参照解の待ちで失敗する例では、全体を流せないので、目標のステージを指定する
 - `-s` は次の 2 つの例外だけにする
-  - /dvc-relock の rebase のあとに数秒で終わり、上流が changed でないと分かっているステージ
+  - /dvc-relock の rebase のあとに再実行するステージ。再実行するかは、その結果が要るかと時間の見積もりで、流す側が決める。
+    `scripts/dvc-relock.py --run <yaml>:<ステージ>` に挙げたものだけを、2 つ目の例外と同じ確かめ方（`scripts/dvc-repro.py -s`）で実行する
   - 下流のステージを、上流の出力を `dvc.lock` の記録のまま使って実行するとき（ステージの重さによらない）。上流の changed が deps
     （`bin/` の実行ファイルなど）だけで、作業ツリーの上流の outs が `dvc.lock` の記録と同じときに限る。確かめ方は、
     `dvc status --with-deps --json <yaml>:<ステージ>` の出力で、目標の上流のステージがどれも `changed deps` だけを持ち、ほかの種類
     （`changed outs`、`changed command`、`changed checksum`）を持たないこと。目標のステージ自身の `changed deps` は再実行の理由
     なので数えない。`always_changed` のステージ（`references-shell`）がいつも出す `always changed` の項目は、deps と outs の
     差を表さないので数えないが、同じステージの `changed outs` は数える。`references-shell.txt` は devShell が変わっても
-    `dvc status` に出ないので、`scripts/check-references-shell.sh` で確かめる（/dvc-relock の 3 と同じ）。正規形のステージ
+    `dvc status` に出ないので、`scripts/check-references-shell.sh` で確かめる（`scripts/dvc-relock.py` も同じものを呼ぶ）。正規形のステージ
     （`python-ast`、`toml-values`、`binary-forms`）は、下流の cmd が出力（正規形）でなく元の .py、TOML、`bin/` を読むので、changed なら
     先に実行して changed でなくする（ADR-0210、ADR-0254、ADR-0255）。例のステージを目標にした `-s` は
     `scripts/dvc-repro.py -s <yaml>:<ステージ>` で実行し、このラッパーがこれらを確かめてから目標だけを実行する（`dvc status` で
@@ -79,7 +80,8 @@ ADR-0159 は ADR-0123 から、DVC のステージを実行する形を引き継
 
 ## 確認
 
-1 つ目から 3 つ目の項と `-s` の 1 つ目の例外は、確かめるものがない約束事である。DVC が目標の上流の changed を実行することは、ADR-0159 の確認 (d) と、2026-10-22 の
+1 つ目から 3 つ目の項は、確かめるものがない約束事である。`-s` の 1 つ目の例外は、`scripts/test_dvc_relock.py`（挙げたステージだけを
+`scripts/dvc-repro.py -s` で実行し、挙げなければ計算のステージを実行しないこと）で確かめる。DVC が目標の上流の changed を実行することは、ADR-0159 の確認 (d) と、2026-10-22 の
 lattice@2A のジョブ 421（docs/plans/m4-depletion.md）の実行で見ている。
 
 2 つ目の `-s` の例外の前提は、2026-11-03 に次で見ている（`-s` で実行した時点の作業ツリーの `dvc status` は残っていない）:
@@ -103,6 +105,12 @@ lattice@2A のジョブ 421（docs/plans/m4-depletion.md）の実行で見てい
 
 ## 変更
 
+- 2026-11-20: 決定と理由の `-s` の 1 つ目の例外を、時間の線で決めない形にし、確かめ方を 2 つ目の例外と同じにした。
+  `references-shell.txt` の確かめ方の注の指す先を、スキルの手順から `scripts/dvc-relock.py` に替えた。前は「/dvc-relock の
+  rebase のあとに数秒で終わり、上流が changed でないと分かっているステージ」「（/dvc-relock の 3 と同じ）」。「数秒」の線は
+  過去のセッションが置いたもので、ユーザーの発言に出どころが無い（#0300 の 1）。rebase の後の付け直しは `scripts/dvc-relock.py`
+  になり、呼ぶ側が名前で挙げたステージだけを `scripts/dvc-repro.py -s` の経路で実行するので、上流の確かめ方は 2 つ目の例外と
+  同じになる（ADR-0258 の決定と理由の「rebase の後の付け直し」と、案 T4）
 - 2026-11-20: 決定と理由の `-s` の 2 つ目の例外から、数秒で終わる下流に限る条件を外し、確かめ方を `scripts/dvc-repro.py -s` に
   移した。最後の段落の、数秒に限る理由を、重い下流の作り直しの費用の注意に替えた。前は「数秒で終わる下流のステージを、上流の
   出力を `dvc.lock` の記録のまま使って再実行するとき」「`dvc status` で分かる部分は scripts/check-skip-upstream.py が判定する」
