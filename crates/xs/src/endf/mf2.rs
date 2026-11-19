@@ -1,6 +1,7 @@
 //! MF2 MT151（共鳴パラメータ）セクション。
 //!
-//! 分離共鳴の Reich-Moore 形式（LRU=1, LRF=3）、MLBW 形式（LRU=1, LRF=2。散乱半径のエネルギーの表 NRO=1 は NAPS=0 だけ）、R-matrix limited 形式
+//! 分離共鳴の Reich-Moore 形式（LRU=1, LRF=3）、SLBW 形式（LRU=1, LRF=1）、MLBW 形式（LRU=1, LRF=2。散乱半径のエネルギーの表 NRO=1 は
+//! MLBW の NAPS=0 だけ）、R-matrix limited 形式
 //! （LRU=1, LRF=7。Reich-Moore で幅を与えるものだけ）、
 //! 非分離共鳴（LRU=2 の LRF=1, 2）を扱う。それ以外の形式はエラーにする。
 
@@ -29,8 +30,10 @@ pub enum RangeKind {
     ScatteringRadius { ap: f64 },
     /// LRU=1, LRF=3
     ReichMoore(ReichMoore),
+    /// LRU=1, LRF=1
+    Slbw(BreitWigner),
     /// LRU=1, LRF=2
-    Mlbw(Mlbw),
+    Mlbw(BreitWigner),
     /// LRU=1, LRF=7
     RMatrixLimited(RMatrixLimited),
     /// LRU=2（LRF=1 も LRF=2 と同じ形にして持つ）
@@ -57,7 +60,7 @@ pub fn scattering_radius_at(ap: f64, table: Option<&Tab1>, e: f64) -> Option<f64
     }
 }
 
-impl Mlbw {
+impl BreitWigner {
     /// エネルギー e (eV) で位相シフトに使う散乱半径（[`scattering_radius_at`]）。
     pub fn scattering_radius(&self, e: f64) -> Option<f64> {
         scattering_radius_at(self.ap, self.ap_energy.as_ref(), e)
@@ -68,7 +71,7 @@ impl RangeKind {
     /// 分離共鳴の範囲か。
     pub fn is_resolved(&self) -> bool {
         match self {
-            Self::ReichMoore(_) | Self::Mlbw(_) | Self::RMatrixLimited(_) => true,
+            Self::ReichMoore(_) | Self::Slbw(_) | Self::Mlbw(_) | Self::RMatrixLimited(_) => true,
             Self::ScatteringRadius { .. } | Self::Unresolved(_) => false,
         }
     }
@@ -132,9 +135,9 @@ pub struct RmlResonance {
     pub widths: Vec<f64>,
 }
 
-/// 多準位 Breit-Wigner（MLBW）の共鳴パラメータ。
+/// Breit-Wigner 形式（SLBW、MLBW）の共鳴パラメータ。ENDF-6 では 2 つの形式が同じ並びで与える。
 #[derive(Debug, Clone, PartialEq)]
-pub struct Mlbw {
+pub struct BreitWigner {
     pub spi: f64,
     /// 散乱半径 (10^-12 cm)
     pub ap: f64,
@@ -144,7 +147,7 @@ pub struct Mlbw {
     pub l_values: Vec<BwLValue>,
 }
 
-/// MLBW の1つの l に属する共鳴。競合反応の幅（LRX≠0）は扱わない。
+/// Breit-Wigner の1つの l に属する共鳴。競合反応の幅（LRX≠0）は扱わない。
 #[derive(Debug, Clone, PartialEq)]
 pub struct BwLValue {
     pub awri: f64,
@@ -152,7 +155,8 @@ pub struct BwLValue {
     pub resonances: Vec<BwResonance>,
 }
 
-/// MLBW の共鳴1つ。幅は共鳴エネルギーでの値 (eV)。全幅は Γn + Γγ + Γf とする（GT は使わない）。
+/// Breit-Wigner の共鳴1つ。幅は共鳴エネルギーでの値 (eV)。全幅は Γn + Γγ + Γf とする（GT は使わない。競合反応の幅を扱わないので、
+/// GT との差はパラメータの丸め）。
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct BwResonance {
     pub er: f64,
@@ -269,9 +273,20 @@ impl Mf2 {
                     ));
                 }
                 1 if lrf == 3 => RangeKind::ReichMoore(read_reich_moore(&mut r, range.n2)?),
-                1 if lrf == 2 => {
-                    RangeKind::Mlbw(read_mlbw(&mut r, range.n2, nro, (range.c1, range.c2))?)
-                }
+                1 if lrf == 1 => RangeKind::Slbw(read_breit_wigner(
+                    &mut r,
+                    Levels::Single,
+                    range.n2,
+                    nro,
+                    (range.c1, range.c2),
+                )?),
+                1 if lrf == 2 => RangeKind::Mlbw(read_breit_wigner(
+                    &mut r,
+                    Levels::Multi,
+                    range.n2,
+                    nro,
+                    (range.c1, range.c2),
+                )?),
                 1 if lrf == 7 => RangeKind::RMatrixLimited(read_r_matrix_limited(&mut r)?),
                 1 => return unsupported(format!("resolved LRF={lrf} is not supported")),
                 2 if lrf == 1 || lrf == 2 => {
@@ -750,8 +765,26 @@ fn read_reich_moore(r: &mut Reader<'_>, naps: i64) -> Result<ReichMoore, Error> 
     })
 }
 
-/// MLBW の範囲 [el, eh] のパラメータ。`nro` が 1 なら、先に散乱半径の TAB1 を読む。
-fn read_mlbw(r: &mut Reader<'_>, naps: i64, nro: i64, (el, eh): (f64, f64)) -> Result<Mlbw, Error> {
+/// Breit-Wigner の式が準位の間の干渉を数えるか。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Levels {
+    /// SLBW（LRF=1）。J は統計因子 g にだけ使う
+    Single,
+    /// MLBW（LRF=2）。同じ J の準位どうしが干渉する
+    Multi,
+}
+
+/// SLBW か MLBW の範囲 [el, eh] のパラメータ。`nro` が 1 なら、先に散乱半径の TAB1 を読む。
+///
+/// 標的スピンと l から作れない J は、MLBW ではどの J の系列にも入らないのでエラーにする。SLBW は J を g にだけ使うので
+/// そのまま読み、数を warn で出す（J の分からない共鳴に J = I（g = 1/2）を置いた古い評価がある。ENDF-102 の 2.4.7）。
+fn read_breit_wigner(
+    r: &mut Reader<'_>,
+    levels: Levels,
+    naps: i64,
+    nro: i64,
+    (el, eh): (f64, f64),
+) -> Result<BreitWigner, Error> {
     let ap_energy = if nro == 1 {
         let table_line = r.line() + 1;
         // 補間の区切りと x の並びは TAB1 を読むときに確かめる。範囲の外へ外挿しないので、範囲を覆うことを確かめる
@@ -797,6 +830,7 @@ fn read_mlbw(r: &mut Reader<'_>, naps: i64, nro: i64, (el, eh): (f64, f64)) -> R
         let fl = f64::from(l.number());
         let (ajmin, ajmax) = (((spi - fl).abs() - 0.5).abs(), spi + fl + 0.5);
         let mut resonances = Vec::new();
+        let mut disallowed = Vec::new();
         for (i, p) in list.values.as_chunks::<6>().0.iter().enumerate() {
             let line = header_line + 1 + i;
             if p[0] == 0.0 {
@@ -807,10 +841,15 @@ fn read_mlbw(r: &mut Reader<'_>, naps: i64, nro: i64, (el, eh): (f64, f64)) -> R
             }
             let steps = p[1] - ajmin;
             if p[1] > ajmax + 1e-6 || (steps - steps.round()).abs() > 1e-6 || steps < -1e-6 {
-                return Err(Error::new(
-                    line,
-                    format!("J={} is not allowed for L={l}", p[1]),
-                ));
+                match levels {
+                    Levels::Multi => {
+                        return Err(Error::new(
+                            line,
+                            format!("J={} is not allowed for L={l}", p[1]),
+                        ));
+                    }
+                    Levels::Single => disallowed.push(p[1]),
+                }
             }
             resonances.push(BwResonance {
                 er: p[0],
@@ -820,13 +859,23 @@ fn read_mlbw(r: &mut Reader<'_>, naps: i64, nro: i64, (el, eh): (f64, f64)) -> R
                 gf: p[5],
             });
         }
+        if !disallowed.is_empty() {
+            let count = disallowed.len();
+            disallowed.sort_by(f64::total_cmp);
+            disallowed.dedup();
+            xlc_log::warn!(
+                "line {header_line}: {count} of {} SLBW resonances with L={l} have J {disallowed:?}, not allowed for \
+                 the target spin {spi}; using their statistical factor g = (2J+1)/(2(2I+1)) as NJOY does",
+                resonances.len()
+            );
+        }
         l_values.push(BwLValue {
             awri: list.c1,
             l,
             resonances,
         });
     }
-    Ok(Mlbw {
+    Ok(BreitWigner {
         spi,
         ap: cont.c2,
         ap_energy,

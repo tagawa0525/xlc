@@ -1,11 +1,11 @@
 use super::*;
-use crate::endf::{BwLValue, BwResonance, Tab1};
+use crate::endf::{BwLValue, BwResonance, OrbitalL, Tab1};
 use crate::physics::wave_number_factor;
 use crate::resonance::reich_moore_tests::{AP, AWRI, single_level_exact};
 use std::f64::consts::PI;
 
-fn single(l: OrbitalL, spi: f64, aj: f64, er: f64, (gn, gg, gf): (f64, f64, f64)) -> Mlbw {
-    Mlbw {
+fn single(l: OrbitalL, spi: f64, aj: f64, er: f64, (gn, gg, gf): (f64, f64, f64)) -> BreitWigner {
+    BreitWigner {
         spi,
         ap: AP,
         ap_energy: None,
@@ -141,7 +141,7 @@ fn energy_dependent_radius_keeps_the_awri_channel_radius_near_a_p_wave_resonance
     let xs = MlbwXs::new(bw);
     for e in [19.0, 19.9, 20.0, 20.1, 21.0] {
         let radius = 0.70 + (0.60 - 0.70) * (e - 1.0e-5) / (50.0 - 1.0e-5);
-        let constant = MlbwXs::new(&Mlbw {
+        let constant = MlbwXs::new(&BreitWigner {
             ap: radius,
             ap_energy: None,
             ..bw.clone()
@@ -159,7 +159,7 @@ fn energy_dependent_radius_keeps_the_awri_channel_radius_near_a_p_wave_resonance
 #[test]
 fn energy_outside_the_radius_table_is_error() {
     // 散乱半径の表は範囲を覆うものだけを MF2 から読むが、表の外のエネルギーを外挿しない
-    let data = Mlbw {
+    let data = BreitWigner {
         ap_energy: Some(Tab1::linear(vec![1.0, 10.0], vec![0.7, 0.6])),
         ..single(OrbitalL::S, 0.0, 0.5, 6.674, (1.5e-3, 2.3e-2, 0.0))
     };
@@ -167,6 +167,6 @@ fn energy_outside_the_radius_table_is_error() {
     assert!(xs.cross_sections(5.0).is_ok());
     assert!(matches!(
         xs.cross_sections(20.0),
-        Err(MlbwError::RadiusTable { energy }) if energy == 20.0
+        Err(BreitWignerError::RadiusTable { energy }) if energy == 20.0
     ));
 }

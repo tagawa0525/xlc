@@ -455,6 +455,92 @@ fn reads_mlbw_range() {
     );
 }
 
+#[test]
+fn reads_slbw_range_in_the_form_of_mlbw() {
+    // SLBW（LRF=1）のパラメータは MLBW と同じ並び。AWRI QX L LRX 6*NRS NRS、値は ER AJ GT GN GG GF
+    let data = mf2(&[
+        ["5.413500+4", "1.337480+2", "0", "0", "1", "0"],
+        ["5.413500+4", "1.0", "0", "0", "1", "0"],
+        ["1.0-5", "1.9+2", "1", "1", "0", "0"],
+        ["1.5", "5.31-1", "0", "0", "1", "0"],
+        ["1.337480+2", "0.0", "0", "0", "12", "2"],
+        ["-1.0", "1.0", "0.1", "0.06", "0.04", "0.0"],
+        ["8.2-2", "2.0", "1.2-1", "2.5-2", "9.0-2", "5.0-3"],
+    ])
+    .unwrap();
+    let RangeKind::Slbw(bw) = &data.ranges[0].kind else {
+        panic!("expected SLBW");
+    };
+    assert!(data.ranges[0].kind.is_resolved());
+    assert_eq!(
+        (bw.spi, bw.ap, bw.naps, bw.ap_energy.as_ref()),
+        (1.5, 0.531, 0, None)
+    );
+    assert_eq!(bw.l_values[0].l, OrbitalL::S);
+    assert_eq!(
+        bw.l_values[0].resonances,
+        [
+            BwResonance {
+                er: -1.0,
+                aj: 1.0,
+                gn: 0.06,
+                gg: 0.04,
+                gf: 0.0
+            },
+            BwResonance {
+                er: 8.2e-2,
+                aj: 2.0,
+                gn: 2.5e-2,
+                gg: 9.0e-2,
+                gf: 5.0e-3
+            }
+        ]
+    );
+}
+
+/// 標的スピン 2.5 の s 波に、J = I = 2.5 の共鳴（ENDF/B-VII.0 の Am-241 と同じ形）を置いた範囲。`lrf` は 1 か 2
+fn spin_equal_to_target(lrf: &str) -> Result<Mf2, Error> {
+    mf2(&[
+        ["9.524100+4", "2.389500+2", "0", "0", "1", "0"],
+        ["9.524100+4", "1.0", "0", "0", "1", "0"],
+        ["1.0-5", "1.5+2", "1", lrf, "0", "0"],
+        ["2.5", "9.37-1", "0", "0", "1", "0"],
+        ["2.389500+2", "0.0", "0", "0", "12", "2"],
+        ["3.07-1", "3.0", "4.5-2", "5.5-5", "4.4-2", "4.3-4"],
+        ["1.27", "2.5", "4.6-2", "1.1-4", "4.5-2", "4.5-4"],
+    ])
+}
+
+#[test]
+fn slbw_reads_resonances_whose_spin_equals_the_target_spin() {
+    // J = I は J の分からない共鳴に置いた古い慣習で、g = 1/2 を表す（ENDF-102 の 2.4.7）。SLBW は J を g にだけ使い、
+    // 準位の系列を分けないので、その g のまま読む
+    let data = spin_equal_to_target("1").unwrap();
+    let RangeKind::Slbw(bw) = &data.ranges[0].kind else {
+        panic!("expected SLBW");
+    };
+    assert_eq!(bw.l_values[0].resonances[1].aj, 2.5);
+}
+
+#[test]
+fn mlbw_rejects_resonances_whose_spin_equals_the_target_spin() {
+    // MLBW は J ごとの系列の中で干渉させるので、作れない J はどの系列にも入らない
+    let err = spin_equal_to_target("2").unwrap_err();
+    assert_eq!(err.line, 7);
+}
+
+#[test]
+fn energy_dependent_radius_in_slbw_is_error() {
+    // NRO≠0 は MLBW の NAPS=0 だけを読む（ADR-0167）
+    let err = mf2(&[
+        HEAD,
+        ["9.223800+4", "1.0", "0", "0", "1", "0"],
+        ["1.0-5", "2.0+4", "1", "1", "1", "0"],
+    ])
+    .unwrap_err();
+    assert_eq!(err.line, 3);
+}
+
 /// MLBW の範囲（1e-5〜50 eV、NRO=1）。`naps` は範囲の見出しの NAPS、`radius` は AP(E) の TAB1 の (E, AP) の 2 点
 fn mlbw_with_radius(naps: &str, radius: [&str; 4]) -> Result<Mf2, Error> {
     mf2(&[
@@ -556,11 +642,11 @@ fn reads_scattering_radius_only_range() {
 
 #[test]
 fn unsupported_formalism_is_error() {
-    // LRF=1 (SLBW)
+    // LRF=4 (Adler-Adler)
     let err = mf2(&[
         HEAD,
         ["9.223800+4", "1.0", "0", "0", "1", "0"],
-        ["1.0-5", "2.0+4", "1", "1", "0", "0"],
+        ["1.0-5", "2.0+4", "1", "4", "0", "0"],
     ])
     .unwrap_err();
     assert_eq!(err.line, 3);

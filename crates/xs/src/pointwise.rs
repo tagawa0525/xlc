@@ -7,9 +7,11 @@ use std::collections::BTreeMap;
 use std::convert::Infallible;
 
 use crate::doppler::{broaden, broadening_limit};
-use crate::endf::{Error, Interpolation, Mf2, Mf3, RangeKind, Tab1, Tape, Unresolved};
+use crate::endf::{
+    BreitWigner, Error, Interpolation, Mf2, Mf3, RangeKind, ResonanceRange, Tab1, Tape, Unresolved,
+};
 use crate::resonance::{
-    MlbwXs, RMatrixLimitedXs, ReichMooreXs, Sigma, UnresolvedXs, unresolved_grid,
+    MlbwXs, RMatrixLimitedXs, ReichMooreXs, Sigma, SlbwXs, UnresolvedXs, unresolved_grid,
     unresolved_interpolation,
 };
 
@@ -686,6 +688,7 @@ fn add_resonances(
                     .filter(|&(mt, _)| mt != 1)
                     .collect()
             }
+            RangeKind::Slbw(bw) => slbw_contributions(tables.get(&2), bw, range, fission_mt, tol)?,
             RangeKind::Mlbw(bw) => {
                 let peaks = bw
                     .l_values
@@ -715,6 +718,85 @@ fn add_resonances(
         }
     }
     Ok(())
+}
+
+/// SLBW の範囲の弾性散乱・核分裂・捕獲の寄与。`background` は MF3 の弾性散乱（lin-lin）。
+///
+/// SLBW の弾性散乱は準位の間の干渉を持たないので負になりうる。MF3 のバックグラウンドとの和が負になるところは、和を 0 にする
+/// （ENDF-102 の 2.4.9.1。全断面積は部分反応の和で作り直すので、0 にした分だけ全断面積も変わる）。
+/// NJOY RECONR は共鳴の部分だけを 0 にしてからバックグラウンドを足すが、ENDF-102 は負を MF3 で打ち消す評価を認めるので、
+/// その打ち消しを消さないよう和で判断する（ADR-0265）。共鳴の部分が負の点があれば warn を出す。
+fn slbw_contributions(
+    background: Option<&Tab1>,
+    bw: &BreitWigner,
+    range: &ResonanceRange,
+    fission_mt: u32,
+    tol: f64,
+) -> Result<Vec<(u32, Tab1)>, String> {
+    let (el, eh) = (range.el, range.eh);
+    // 和の表は、MF3 の段差の左右の両方の値を持つ（`add`）。範囲の下端では右、上端では左の値だけが和に入り、範囲の中の段差では
+    // 両側で負にならないよう小さい方に対して切る
+    let background_at = |e: f64| {
+        background.map_or(0.0, |t| {
+            let (left, right) = (left_limit(t, e), right_limit(t, e));
+            if e <= el {
+                right
+            } else if e >= eh {
+                left
+            } else {
+                left.min(right)
+            }
+        })
+    };
+    let peaks = bw
+        .l_values
+        .iter()
+        .flat_map(|lv| &lv.resonances)
+        .map(|r| (r.er, 0.5 * (r.gn + r.gg + r.gf)));
+    // 和を 0 で切ると、バックグラウンドの表の点で折れるので、その点も格子に入れる
+    let breaks = background.iter().flat_map(|t| t.x.iter().copied());
+    let nodes: Vec<f64> = resonance_nodes(peaks).into_iter().chain(breaks).collect();
+    let xs = SlbwXs::new(bw);
+    let f = |e: f64| {
+        xs.cross_sections(e).map(|sigma| {
+            let elastic = sigma.elastic.max(-background_at(e));
+            Sigma {
+                elastic,
+                total: elastic + sigma.fission + sigma.capture,
+                ..sigma
+            }
+            .components()
+        })
+    };
+    // ENDF の読み込みのエラー（行番号つき）にまとめるので、ここでは文にする
+    let tables = resonance_tables(f, &nodes, el, eh, tol).map_err(|e| e.to_string())?;
+    // 共鳴の部分が負の点を、和が負で 0 にしたもの（raised）と、バックグラウンドが打ち消したもの（compensated）に分ける。
+    // NJOY はどちらでも共鳴の部分を 0 にするので、compensated の点は NJOY より小さく、raised の点は同じになる
+    let (mut raised, mut compensated, mut lowest) = (0, 0, 0.0_f64);
+    for &e in &tables[1].x {
+        let resonance = xs.cross_sections(e).map_err(|e| e.to_string())?.elastic;
+        if resonance >= 0.0 {
+            continue;
+        }
+        let sum = resonance + background_at(e);
+        if sum < 0.0 {
+            raised += 1;
+            lowest = lowest.min(sum);
+        } else {
+            compensated += 1;
+        }
+    }
+    if raised + compensated > 0 {
+        xlc_log::warn!(
+            "SLBW range {el}..{eh} eV: the resonance elastic is negative at {} of {} points; the sum with the MF3 \
+             background is negative at {raised} of them (down to {lowest:.3e} b) and is raised to 0, and the background \
+             compensates the other {compensated} (NJOY RECONR raises the resonance part alone to 0 before adding the \
+             background, ADR-0265)",
+            raised + compensated,
+            tables[1].x.len()
+        );
+    }
+    Ok(sigma_contributions(tables, fission_mt))
 }
 
 /// LSSF=0 の非分離共鳴の範囲 [el, eh] で、弾性散乱・核分裂・捕獲を、平均断面積と MF3 のバックグラウンド断面積の和に

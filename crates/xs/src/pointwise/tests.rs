@@ -657,6 +657,98 @@ fn r_matrix_limited_adds_level_inelastic_scattering() {
     assert!(tables[&2].eval(2.0e3).unwrap() > 1.0);
 }
 
+/// 分離共鳴の SLBW の範囲 [1, 50] eV だけの MF2
+fn slbw_mf2(data: crate::endf::BreitWigner) -> Mf2 {
+    Mf2 {
+        za: 0.0,
+        awr: AWRI,
+        ranges: vec![ResonanceRange {
+            el: 1.0,
+            eh: 50.0,
+            kind: RangeKind::Slbw(data),
+        }],
+    }
+}
+
+#[test]
+fn slbw_range_adds_the_single_level_formula_to_the_background() {
+    use crate::resonance::SlbwXs;
+    let bw = crate::resonance::slbw_tests::cooperating_levels();
+    let mut tables = BTreeMap::from([(2, linear(&[1.0e-5, 2.0e7], &[30.0, 30.0]))]);
+    add_resonances(&mut tables, &slbw_mf2(bw.clone()), 18, 1.0e-3).unwrap();
+    let xs = SlbwXs::new(&bw);
+    for e in [2.0, 9.0, 10.0, 10.5, 30.0] {
+        let sigma = xs.cross_sections(e).unwrap();
+        let (elastic, capture) = (tables[&2].eval(e).unwrap(), tables[&102].eval(e).unwrap());
+        assert!(
+            (elastic - (30.0 + sigma.elastic)).abs() <= 2.0e-3 * elastic,
+            "elastic at {e}: {elastic} vs 30 + {}",
+            sigma.elastic
+        );
+        assert!(
+            (capture - sigma.capture).abs() <= 2.0e-3 * capture,
+            "capture at {e}: {capture} vs {}",
+            sigma.capture
+        );
+    }
+    // バックグラウンドが打ち消すので、SLBW の負の弾性散乱（9 eV）はそのまま残る
+    assert!(xs.cross_sections(9.0).unwrap().elastic < 0.0);
+}
+
+#[test]
+fn negative_slbw_elastic_with_its_background_is_raised_to_zero() {
+    // SLBW の弾性散乱と MF3 のバックグラウンドの和が負になるところは 0 にする（ENDF-102 の 2.4.9.1）。
+    // 全断面積は部分反応の和で作り直すので、0 にした分だけ全断面積も変わる
+    use crate::resonance::SlbwXs;
+    let bw = crate::resonance::slbw_tests::cooperating_levels();
+    let xs = SlbwXs::new(&bw);
+    let background = 0.5 * -xs.cross_sections(9.0).unwrap().elastic;
+    let mut tables = BTreeMap::from([(2, linear(&[1.0e-5, 2.0e7], &[background, background]))]);
+    add_resonances(&mut tables, &slbw_mf2(bw), 18, 1.0e-3).unwrap();
+    let elastic = &tables[&2];
+    assert_eq!(elastic.eval(9.0), Some(0.0));
+    assert!(elastic.y.iter().all(|&v| v >= 0.0), "{:?}", elastic.y);
+    // 負になる区間の外では、和はそのまま
+    let e = 10.0;
+    let expected = background + xs.cross_sections(e).unwrap().elastic;
+    let actual = elastic.eval(e).unwrap();
+    assert!(
+        (actual - expected).abs() <= 2.0e-3 * expected,
+        "{actual} vs {expected}"
+    );
+}
+
+#[test]
+fn negative_slbw_elastic_is_raised_against_both_sides_of_a_background_step() {
+    // MF3 の弾性散乱が段差を持つ点では、和の表は段差の左右の両方の値を持つ。SLBW の弾性散乱が負になる 9 eV で、範囲の上端に
+    // 段差がある範囲（[1, 9] eV）と、範囲の中に段差がある範囲（[1, 50] eV）のどちらでも、和は両側で負にならない
+    let bw = crate::resonance::slbw_tests::cooperating_levels();
+    let step = linear(&[1.0e-5, 9.0, 9.0, 2.0e7], &[0.0, 0.0, 30.0, 30.0]);
+    for eh in [9.0, 50.0] {
+        let mf2 = Mf2 {
+            ranges: vec![ResonanceRange {
+                el: 1.0,
+                eh,
+                kind: RangeKind::Slbw(bw.clone()),
+            }],
+            ..slbw_mf2(bw.clone())
+        };
+        let mut tables = BTreeMap::from([(2, step.clone())]);
+        add_resonances(&mut tables, &mf2, 18, 1.0e-3).unwrap();
+        let elastic = &tables[&2];
+        assert!(
+            elastic.y.iter().all(|&v| v >= 0.0),
+            "range up to {eh} eV: {:?}",
+            elastic
+                .x
+                .iter()
+                .zip(&elastic.y)
+                .filter(|(_, v)| **v < 0.0)
+                .collect::<Vec<_>>()
+        );
+    }
+}
+
 #[test]
 fn mlbw_tables_have_points_at_the_breaks_of_the_radius_table() {
     use crate::endf::rec;

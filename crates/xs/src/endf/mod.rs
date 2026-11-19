@@ -19,7 +19,7 @@ use std::fmt;
 
 pub use mf1::{DelayedNubar, parse_delayed, parse_nubar};
 pub use mf2::{
-    BwLValue, BwResonance, Mf2, Mlbw, OrbitalL, ParticlePair, RMatrixLimited, RangeKind,
+    BreitWigner, BwLValue, BwResonance, Mf2, OrbitalL, ParticlePair, RMatrixLimited, RangeKind,
     ReichMoore, ResonanceRange, RmLValue, RmResonance, RmlChannel, RmlResonance, SpinGroup,
     Unresolved, UrrJValue, UrrLValue, UrrPoint, WidthDof, scattering_radius_at,
 };

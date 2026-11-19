@@ -22,7 +22,11 @@ resolution:
 - 基準に置かれる VII.1 も、高い燃焼度で k を低く見積もるとされる（ADR-0264 の背景）。どの版が実測に近いかは、Problem 9 の臨界ホウ素濃度と
   比べるまで分からない
 - VII.0、VII.1、VIII.1 の中性子のファイルを、燃焼チェーンの全核種で xs が読めるか。1B の主な 16 核種は VII.1 と VIII.1 で読めた
-  （ADR-0264 の背景）。ADR-0167 は、VIII.1 が使いうる共鳴の表現に未対応のものがあると書いている
+  （ADR-0264 の背景）。ADR-0167 は、VIII.1 が使いうる共鳴の表現に未対応のものがあると書いている。分離共鳴の SLBW などの読めない
+  形式と、それで止まる核種（燃焼のライブラリの 65 核種では VII.0 が 7、VII.1 が 2）は #0305
+- 版ごとのピンセルの燃焼の入力とステージ（examples/depletion/endfb70、endfb71、endfb80、endfb81 の dvc.yaml、比べるのは
+  examples/depletion/dvc.yaml の compare-depletion-versions）はあるが、VII.0 と VII.1 のライブラリは #0305 で作れず、4 つの版の燃焼は
+  まだ解いていない
 - 核分裂収率と崩壊データの版ごとの値の違い（examples/depletion/verification.md の「版ごとの燃焼チェーン」）が、燃焼の反応度にどれだけ
   効くか。VIII.0 の崩壊データと収率を VII.1 に替えても影響は無いという報告はあるが、VII.0 については無い（ADR-0264 の背景）
 - 読めていない文献が 3 つある（ADR-0264 の背景。U-238 の共鳴領域の捕獲を原因に置く IAEA の報告を含む）
@@ -48,3 +52,6 @@ resolution:
 - 2026-11-20: 版ごとのチェーンを DVC のステージにし、核分裂収率と崩壊データを値で比べるツール（examples/depletion/compare_chain_versions.py）で
   隣り合う版を比べた。文字で比べると 31 核種のすべてが違った VIII.0 と VIII.1 の収率は、値では Pu-241 の 0.0253 eV の表のほかは
   15 項目だけが違う（ADR-0264 の背景）
+- 2026-11-20: 版ごとのピンセルの燃焼（1C、60 MWd/kg まで）の入力、ステージ、比べるツール（examples/depletion/compare_depletion_versions.py）と、
+  チェーンとライブラリの天然の元素の評価の検査（examples/depletion/check_natural_isotopes.py）を足した。VII.1 と VIII.1 の熱散乱のファイルを
+  固定した（docs/environment.md）。VII.0 と VII.1 のライブラリは分離共鳴の SLBW で止まる（#0305）

@@ -101,6 +101,25 @@ fn resolved_range_has_its_top_and_potential_scattering() {
     .concat();
     let rm = resolved(&Tape::parse(&text).unwrap(), 1).unwrap().unwrap();
     assert!((rm.potential - expected).abs() < 1e-12 * expected);
+    // SLBW: MLBW と同じく AP（Xe-135 の ENDF/B-VII.1 と同じ形）
+    let text = [
+        rec(["5.413500+4", "1.337480+2", "0", "0", "1", "0"], 1, 2, 151),
+        rec(["5.413500+4", "1.0", "0", "0", "1", "0"], 1, 2, 151),
+        rec(["1.0-5", "1.9+2", "1", "1", "0", "0"], 1, 2, 151),
+        rec(["1.5", "0.948", "0", "0", "1", "0"], 1, 2, 151),
+        rec(["1.337480+2", "0.0", "0", "0", "6", "1"], 1, 2, 151),
+        rec(
+            ["8.2-2", "2.0", "1.2-1", "2.5-2", "9.0-2", "5.0-3"],
+            1,
+            2,
+            151,
+        ),
+        rec(["", "", "", "", "", ""], 1, 2, 0),
+    ]
+    .concat();
+    let slbw = resolved(&Tape::parse(&text).unwrap(), 1).unwrap().unwrap();
+    assert_eq!(slbw.top, 190.0);
+    assert!((slbw.potential - expected).abs() < 1e-12 * expected);
     // 分離共鳴がなければ持たない
     assert!(resolved(&unresolved_tape(), 1).unwrap().is_none());
 }
