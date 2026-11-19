@@ -21,11 +21,7 @@ const BARN: f64 = 1.0e-24;
 
 /// ライブラリが核種 `name` の放射化の断面積を温度 `temperature` (K) そのもので持つか
 pub fn has_data_at(library: &Library, name: &str, temperature: f64) -> bool {
-    library
-        .activation
-        .iter()
-        .find(|n| n.name == name)
-        .is_some_and(|n| n.temperatures.iter().any(|t| t.temperature == temperature))
+    library.activation(name, temperature).is_ok()
 }
 
 /// 無限希釈の吸収体 `nuclides`（名前と数密度 (1/(barn cm))）の、温度 `temperature` (K) の群ごとの巨視的な吸収断面積 (1/cm)。

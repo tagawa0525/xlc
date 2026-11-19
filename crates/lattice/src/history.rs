@@ -382,7 +382,7 @@ pub fn history_branches(
             .nuclides
             .iter()
             .filter(|n| {
-                !history.transportable.contains(n)
+                !library.nuclides.iter().any(|d| &d.name == *n)
                     && nominal
                         .iter()
                         .all(|&t| crate::dilute::has_data_at(library, n, t))

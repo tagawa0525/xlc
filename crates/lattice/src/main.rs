@@ -428,6 +428,17 @@ fn run(path: &Path) -> anyhow::Result<()> {
                     format!("{}: shielding history {}", shown(path), shown(&file))
                 })?;
             }
+            // 一般化摂動と k の感度は、物質を自己遮蔽から作り直す経路を持ち、重ねた物質で確かめていない。最初の状態を自己遮蔽する
+            // 前に止める
+            if branches.has_dilute_absorbers()
+                && (branches.generalized().is_some() || input.sensitivity.is_some())
+            {
+                return Err(anyhow!(
+                    "{}: a history with dilute absorbers takes neither generalized derivatives nor [sensitivity] \
+                     (ADR-0261)",
+                    shown(path)
+                ));
+            }
             Some(branches)
         }
         (Some(_), Source::Macroscopic(_)) => {
@@ -689,14 +700,6 @@ fn run(path: &Path) -> anyhow::Result<()> {
         // 履歴が数えた無限希釈の吸収体の吸収を、自己遮蔽した燃焼の領域の物質に重ねる（ADR-0261）
         let overlaid = match (&history_branches, &source) {
             (Some(h), Source::Library(library)) if h.has_dilute_absorbers() => {
-                // 一般化摂動と k の感度は、物質を自己遮蔽から作り直す経路を持ち、重ねた物質で確かめていない
-                if h.generalized().is_some() || input.sensitivity.is_some() {
-                    return Err(anyhow!(
-                        "a history with dilute absorbers takes neither generalized derivatives nor [sensitivity] \
-                         (ADR-0261)"
-                    ))
-                    .with_context(context);
-                }
                 let Some(shielded) = &held else {
                     return Err(anyhow!(
                         "a history with dilute absorbers needs the self-shielding (ADR-0261)"

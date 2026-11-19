@@ -1564,11 +1564,12 @@ pub(crate) fn run_with_moc(
                     .all(|&t| has_data_at(library, &n.name, t))
         })
         .collect();
-    // 無限希釈の吸収体（ADR-0261）: 輸送しないチェーンの核種のうち、ライブラリの放射化の断面積をすべての燃焼の領域の温度で持つもの
+    // 無限希釈の吸収体（ADR-0261）: ライブラリの輸送する核種にないチェーンの核種のうち、ライブラリの放射化の断面積をすべての
+    // 燃焼の領域の温度で持つもの（輸送する核種で温度のデータがないものは、警告して崩壊だけで追う）
     let dilute: Vec<usize> = if depletion.dilute_absorbers {
         (0..chain.nuclides.len())
             .filter(|&i| {
-                !transportable[i]
+                !in_library[i]
                     && temperatures
                         .iter()
                         .all(|&t| dilute::has_data_at(library, &chain.nuclides[i].name, t))
