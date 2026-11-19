@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [dvc, performance]
 opened: 2026-11-15
-closed:
+closed: 2026-11-19
 milestone:
 blocked-by: []
-resolution:
+resolution: "wontfix: #0268 に寄せた（同じ runner の dvc commit と上流の確認の固定費。Slurm 887 の内訳と、やることの 3 つを #0268 に足した）"
 ---
 
 # stage_runner と dvc repro の固定費が p2 の計算より長い
