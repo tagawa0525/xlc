@@ -108,7 +108,7 @@ def largest(burnup: list[float], values: list[float], upto: float) -> dict:
         ((b, x) for b, x in zip(burnup, values) if b <= upto + TOLERANCE),
         key=lambda bx: abs(bx[1]),
     )
-    return {"burnup": b, "pcm": x}
+    return {"upto": upto, "burnup": b, "pcm": x}
 
 
 def summarize(histories: dict[str, dict], base: str) -> dict:
@@ -201,7 +201,7 @@ def report(summary: dict) -> list[str]:
     for v in others:
         big = summary["versions"][v]["largest_reactivity_pcm"]
         lines.append(
-            f"{v} − {base} の反応度の差の絶対値の最大: {big['problem9']['burnup']:g} MWd/kg までで "
+            f"{v} − {base} の反応度の差の絶対値の最大: {big['problem9']['upto']:g} MWd/kg までで "
             f"{big['problem9']['pcm']:+.0f} pcm（{big['problem9']['burnup']:g} MWd/kg）、全体で "
             f"{big['all']['pcm']:+.0f} pcm（{big['all']['burnup']:g} MWd/kg）"
         )
