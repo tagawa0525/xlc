@@ -10,7 +10,7 @@ dvc.lock の指す古い上流の出力をまだ読めるか（changed をため
 
 - 読むのは、deps に `binary-forms/` の実行ファイルの正規形を持つステージ（xlc の実行ファイルを呼ぶステージ）の deps の
   うち、例の dvc.lock のステージの outs（ディレクトリの outs の中のファイルと、deps のディレクトリの下にある outs を含む）と
-  `.dvc` の生成物であるもののうち、xlc の形式のもの（`.msgpack` と、xlc の実行ファイルを呼ぶステージが書く TOML）。
+  `.dvc` の生成物であるもののうち、xlc の形式のもの（`.msgpack` と、`xs range` の書く範囲の TOML）。
   直下の dvc.lock（build と正規形）の出力、md5 の無い（流していない）出力、xlc の形式でない出力は読まない
 - 中身は作業ツリーでなく DVC のキャッシュから md5 で読む。出力を戻していない worktree でも同じ結果になり、走っている
   ジョブが書いている途中の出力には当たらない。キャッシュに無い出力は `MISSING:` で止める
@@ -46,6 +46,8 @@ BINARY_FORMS = "binary-forms/"
 PACKAGE = ["--quiet", "--locked", "-p", "xlc-outputs", "--bin", "read-outputs"]
 ISSUE = re.compile(r"^#(\d{4})$")
 MD5 = re.compile(r"^[0-9a-f]{32}(\.dir)?$")
+# xs の範囲のファイルを書くコマンド（`xs [--threads <数>] range <入力> <範囲>`）
+XS_RANGE = re.compile(r"(^|[\s/])bin/xs(\s+--threads\s+\S+)?\s+range(\s|$)")
 
 
 class Stop(Exception):
@@ -61,8 +63,8 @@ class Output:
     # dvc.lock の `hash: md5`（キャッシュの files/md5 の下）。無ければ DVC 2 の置き場（キャッシュの直下）
     hash: str | None
     writer: str
-    # 書いたのが xlc の実行ファイルを呼ぶステージか
-    by_xlc: bool
+    # 書いたのが `xs range` のステージか
+    by_xs_range: bool
 
 
 @dataclass(frozen=True)
@@ -103,6 +105,7 @@ def tracked(root, pattern):
 class Stage:
     lock: str
     name: str
+    cmd: str
     # deps のパス（リポジトリの直下から）
     deps: tuple
     outs: tuple
@@ -122,11 +125,13 @@ def stages(root):
         d = posixpath.dirname(lock)
         for name, stage in (load_yaml(root, lock).get("stages") or {}).items():
             deps = tuple(join(d, dep["path"]) for dep in stage.get("deps") or [])
-            found.append(Stage(lock, name, deps, tuple(stage.get("outs") or [])))
+            cmd = stage.get("cmd") or ""
+            cmd = " && ".join(cmd) if isinstance(cmd, list) else cmd
+            found.append(Stage(lock, name, cmd, deps, tuple(stage.get("outs") or [])))
     return found
 
 
-def locked(out, where, writer, by_xlc, found):
+def locked(out, where, writer, by_xs_range, found):
     """md5 のある outs を found に足す"""
     md5 = out.get("md5")
     if md5 is None:
@@ -134,7 +139,7 @@ def locked(out, where, writer, by_xlc, found):
     if not isinstance(md5, str) or not MD5.match(md5):
         raise Stop(f"{where} の {out.get('path')} の md5 を読めない: {md5!r}")
     path = join(posixpath.dirname(where), out["path"])
-    found[path] = Output(path, md5, out.get("hash"), writer, by_xlc)
+    found[path] = Output(path, md5, out.get("hash"), writer, by_xs_range)
 
 
 def outputs(root, all_stages):
@@ -143,18 +148,23 @@ def outputs(root, all_stages):
     for stage in all_stages:
         writer = f"{posixpath.dirname(stage.lock) or '.'}/dvc.yaml:{stage.name}"
         for out in stage.outs:
-            locked(out, stage.lock, writer, stage.by_xlc, found)
+            locked(out, stage.lock, writer, bool(XS_RANGE.search(stage.cmd)), found)
     for dvc_file in tracked(root, "*.dvc"):
         for out in load_yaml(root, dvc_file).get("outs") or []:
             locked(out, dvc_file, dvc_file, False, found)
     return found
 
 
-def kind_of(path, by_xlc):
-    """読み手に渡す種類。xlc の形式は、形式の名前を持つ MessagePack と、xlc が書く TOML（`xs range` の範囲）だけ"""
+def kind_of(path, by_xs_range):
+    """読み手に渡す種類。xlc の形式は、形式の名前を持つ MessagePack と、`xs range` の書く範囲の TOML だけ。
+
+    MessagePack は書き手（Python のステージを含む）によらず読む: xlc の読み手は xlc の形式の MessagePack しか受けないので、
+    xlc のステージが deps にする MessagePack は xlc の形式のはずである。ほかの TOML（xlc の書く要約、Python が書く入力）に
+    Rust の形式の読み手は無い
+    """
     if path.endswith(".msgpack"):
         return "msgpack"
-    if path.endswith(".toml") and by_xlc:
+    if path.endswith(".toml") and by_xs_range:
         return "xs-range"
     return None
 
@@ -168,7 +178,7 @@ def expand(out, cache, inside, targets, missing):
     """`out` のファイル（ディレクトリなら、その中で `inside` の下にあるもの）を targets に足す"""
     if not out.md5.endswith(".dir"):
         file = cache_file(cache, out.md5, out.hash)
-        kind = kind_of(out.path, out.by_xlc)
+        kind = kind_of(out.path, out.by_xs_range)
         targets[out.path] = Target(out.path, out.md5, None, out.writer, file, kind)
         return
     manifest = cache_file(cache, out.md5, out.hash)
@@ -180,7 +190,7 @@ def expand(out, cache, inside, targets, missing):
         if inside is None or relpath == inside or relpath.startswith(inside + "/"):
             path = f"{out.path}/{relpath}"
             file = cache_file(cache, entry["md5"], out.hash)
-            kind = kind_of(path, out.by_xlc)
+            kind = kind_of(path, out.by_xs_range)
             targets[path] = Target(path, entry["md5"], out.md5, out.writer, file, kind)
 
 
@@ -253,6 +263,10 @@ def exemptions(root):
             state = "無い" if status is None else f"閉じている（status: {status}）"
             raise Stop(
                 f"{where} の {entry['issue']} が {state}。上流を作り直したなら、その項を消す"
+            )
+        if entry["md5"] in allowed:
+            raise Stop(
+                f"{where} の md5 {entry['md5']} は前の項にもある（issue は 1 つにする）"
             )
         allowed[entry["md5"]] = entry["issue"]
     return allowed
