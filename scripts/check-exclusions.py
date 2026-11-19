@@ -20,6 +20,7 @@ ADR（決めた除外）でもよい。excluded は issue を引く行だけを�
 issue を引くのは経緯の記録で、本番の形の入力ではない。
 
 `--list` は印の一覧と種類ごとの数を出して 0 で終わる（本番の形の計算を投げる前に、残っている除外を数えるため）。
+開いている issue の数と、そのうち名前に review か leftover を含むもの（レビューで直さずに残した指摘）の数も出す。
 """
 
 import re
@@ -37,6 +38,7 @@ RUST_IGNORE = re.compile(r"^\s*#\[ignore\b")
 PYTHON_SKIP = re.compile(r"^\s*@(unittest\.skip|pytest\.mark\.skip)\(")
 PROVISIONAL = re.compile(r"確かめていない|暫定|仮の|仮に")
 EXCLUDED = re.compile(r"外す|外した|外して")
+REVIEW_LEFTOVER = re.compile(r"review|leftover")
 # 開いている issue のほかに、ADR を理由にできる印（決めた除外。参照の出力が要るテストなど）
 ADR_ALLOWED = {"rust-ignore", "python-skip"}
 
@@ -141,7 +143,20 @@ def count_by_kind(markers):
     return counts
 
 
+def count_open_issues(statuses, names):
+    """issue の番号から状態とファイル名への dict を受け、開いている issue と、そのうちレビューの残りの数を返す。"""
+    opened = [names[number] for number, status in statuses.items() if status == "open"]
+    return {
+        "open-issues": len(opened),
+        "open-review-leftover-issues": sum(
+            1 for name in opened if REVIEW_LEFTOVER.search(name)
+        ),
+    }
+
+
 def issue_statuses(root):
+    """issue の番号から状態への dict と、番号からファイル名への dict を返す。"""
+    names = {}
     statuses = {}
     for path in sorted((root / "docs" / "issues").glob("[0-9][0-9][0-9][0-9]-*.md")):
         match = re.search(
@@ -150,7 +165,8 @@ def issue_statuses(root):
         if not match:
             raise ValueError(f"{path}: フロントマターに status がありません")
         statuses[path.name[:4]] = match.group(1)
-    return statuses
+        names[path.name[:4]] = path.name
+    return statuses, names
 
 
 def tracked_files(root):
@@ -181,7 +197,7 @@ def main(arguments):
         ).stdout.strip()
     )
     markers = find_markers(tracked_files(root))
-    statuses = issue_statuses(root)
+    statuses, names = issue_statuses(root)
     if arguments == ["--list"]:
         for marker in markers:
             cited = " ".join(
@@ -189,7 +205,8 @@ def main(arguments):
                 + list(marker.adrs)
             )
             print(f"{marker.path}:{marker.line}\t{marker.kind}\t{cited}")
-        for kind, count in sorted(count_by_kind(markers).items()):
+        counts = {**count_by_kind(markers), **count_open_issues(statuses, names)}
+        for kind, count in sorted(counts.items()):
             print(f"COUNT: {kind} {count}")
         return 0
     found = violations(markers, statuses)
