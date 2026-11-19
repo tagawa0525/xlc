@@ -125,11 +125,11 @@ def summarize(a: dict, b: dict) -> dict:
         worst = max(ys, key=lambda i: abs(i['a'] - i['b']))
         tables.append({'nuclide': name, 'energy': e, 'products': len(ys), 'differ': sum((1 for i in ys if differs(i))), 'sum_a': sum((i['a'] for i in ys)), 'sum_b': sum((i['b'] for i in ys)), 'sum_abs': sum((abs(i['a'] - i['b']) for i in ys)), 'max_abs': abs(worst['a'] - worst['b']), 'max_product': worst['product']})
     watched_nuclides = []
-    for name in WATCHED_NUCLIDES:
+    for name in WATCHED_PARENTS + WATCHED_NUCLIDES:
         if name not in na or name not in nb:
             watched_nuclides.append({'nuclide': name, 'missing': True})
             continue
-        watched_nuclides.append({'nuclide': name, 'half_life': next(({'a': i['a'], 'b': i['b']} for i in items['half_life'] if i['nuclide'] == name), {'a': None, 'b': None}), 'modes': [i for i in items['decay_modes'] if i['nuclide'] == name]})
+        watched_nuclides.append({'nuclide': name, 'half_life': next(({'a': i['a'], 'b': i['b']} for i in items['half_life'] if i['nuclide'] == name), {'a': None, 'b': None}), 'modes': [i for i in items['decay_modes'] if i['nuclide'] == name], 'fission_q': next(({'a': i['a'], 'b': i['b']} for i in items['fission_q'] if i['nuclide'] == name), None)})
     watched_yields = [i for i in items['fission_yields'] if i['nuclide'] in WATCHED_PARENTS and i['product'] in WATCHED_NUCLIDES]
     return {'format': 'xlc-compare-chain-versions', 'nuclides': {'a': len(na), 'b': len(nb), 'common': len(set(na) & set(nb)), 'only_a': sorted(set(na) - set(nb)), 'only_b': sorted(set(nb) - set(na))}, 'quantities': quantities, 'yield_tables': tables, 'watched': {'nuclides': watched_nuclides, 'yields': watched_yields}}
 
@@ -193,6 +193,9 @@ def report(summary: dict) -> list[str]:
             continue
         lines.append(f"- {w['nuclide']} 半減期: a {value(h['a'])} s、b {value(h['b'])} s（相対差 {value(relative(h['a'], h['b']))}）")
         lines.extend((f"  - 分岐 {describe('decay_modes', m)}" for m in w['modes']))
+        q = w['fission_q']
+        if q is not None:
+            lines.append(f"  - 核分裂の Q: a {value(q['a'])} eV、b {value(q['b'])} eV（相対差 {value(relative(q['a'], q['b']))}）")
     for y in summary['watched']['yields']:
         lines.append(f"- 収率 {describe('fission_yields', y)}")
     return lines

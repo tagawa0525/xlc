@@ -17,9 +17,9 @@ xlc のチェーンと OpenMC のチェーンを比べるのは compare_chain.py
   - `fission_yields`: （核分裂する核種、両方にある入射エネルギー、生成物）ごとの独立収率。片方に無い生成物の収率は 0
   - `reactions`: （核種、MT）ごとの経路（生成物の状態と生まれる核種）の集合。片方だけの反応も違いに数える
   数値は値が等しいかで比べ（ENDF の書き方と、チェーンの中の並びには依らない）、相対差は |a − b| / max(|a|, |b|)（片方が 0 なら 1）。
-  あわせて、（核分裂する核種、入射エネルギー）ごとの収率の差の絶対値の和と最大（`yield_tables`）、`WATCHED_PARENTS` の収率と
-  `WATCHED_NUCLIDES` の半減期、分岐比、収率の両方の値（等しくても。`watched`）を書く。`inputs` は読んだファイルのパス（ステージの
-  cwd から）と md5
+  あわせて、（核分裂する核種、入射エネルギー）ごとの収率の差の絶対値の和と最大（`yield_tables`）と、`WATCHED_PARENTS` と
+  `WATCHED_NUCLIDES` の半減期、分岐比、核分裂の Q 値、`WATCHED_PARENTS` から `WATCHED_NUCLIDES` への収率の両方の値（等しくても。
+  `watched`）を書く。`inputs` は読んだファイルのパス（ステージの cwd から）と md5
 - `--report`: 要約の JSON を文章で描く
 """
 
@@ -271,7 +271,7 @@ def summarize(a: dict, b: dict) -> dict:
             }
         )
     watched_nuclides = []
-    for name in WATCHED_NUCLIDES:
+    for name in WATCHED_PARENTS + WATCHED_NUCLIDES:
         if name not in na or name not in nb:
             watched_nuclides.append({"nuclide": name, "missing": True})
             continue
@@ -288,6 +288,15 @@ def summarize(a: dict, b: dict) -> dict:
                     {"a": None, "b": None},
                 ),
                 "modes": [i for i in items["decay_modes"] if i["nuclide"] == name],
+                # 両方で核分裂する核種だけが fission_q の項目を持つ
+                "fission_q": next(
+                    (
+                        {"a": i["a"], "b": i["b"]}
+                        for i in items["fission_q"]
+                        if i["nuclide"] == name
+                    ),
+                    None,
+                ),
             }
         )
     watched_yields = [
@@ -395,6 +404,11 @@ def report(summary: dict) -> list[str]:
             f"- {w['nuclide']} 半減期: a {value(h['a'])} s、b {value(h['b'])} s（相対差 {value(relative(h['a'], h['b']))}）"
         )
         lines.extend(f"  - 分岐 {describe('decay_modes', m)}" for m in w["modes"])
+        q = w["fission_q"]
+        if q is not None:
+            lines.append(
+                f"  - 核分裂の Q: a {value(q['a'])} eV、b {value(q['b'])} eV（相対差 {value(relative(q['a'], q['b']))}）"
+            )
     for y in summary["watched"]["yields"]:
         lines.append(f"- 収率 {describe('fission_yields', y)}")
     return lines

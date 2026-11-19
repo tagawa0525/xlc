@@ -8517,8 +8517,8 @@ stages:
     deps:
     - path: examples/depletion/compare_chain_versions.py
       hash: md5
-      md5: d615162b4e17817cf672190aa645b961
-      size: 17225
+      md5: 1ca65106997141a5cc2fea17e045993a
+      size: 17897
     - path: scripts/normalize_python.py
       hash: md5
       md5: fd9af7824aa61cfbfdf49a801a2b4ab4
@@ -8526,8 +8526,8 @@ stages:
     outs:
     - path: python-ast/examples/depletion/compare_chain_versions.py.ast
       hash: md5
-      md5: 25c286dba36f736d42ba57e795fe5fe7
-      size: 11255
+      md5: 950af420f9d874add309ddd3f1945a79
+      size: 11575
   toml-values@examples/depletion/endfb81/chain.toml:
     cmd: python3 scripts/normalize_toml.py examples/depletion/endfb81/chain.toml
       toml-values/examples/depletion/endfb81/chain.toml.json
