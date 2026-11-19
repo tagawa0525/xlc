@@ -56,6 +56,8 @@ control-rod（温度、密度、ホウ素）branch → 制御棒（温度、密�
   どれも直す前と同じ値に読める。.md の担当が決められなかった ADR-0215、ADR-0225、ADR-0250 と examples/depletion/verification.md
   の行も直した。docs/issues/0198 の「分岐が減る」はプログラムの条件分岐、ADR-0200 の「変更」の前の文の引用は辞書が止めない
   ので、どちらもそのまま。docs/issues/0279 と 0289 の 3 行は、測定の担当が直しているファイルなので残した
-  DVC のステージ: 直した入力を deps に持つ 192 のうち、OpenMC の参照解の openmc-1C@rings1、@rings4、openmc-mox1 は ADR-0212 の
-  (b) で付け直し、数秒のステージ（比較 13、OpenMC の extract 3、python-ast 6）は再実行した。残りの 167（lattice 110、core 53、
-  xs と xs-range 4）は main で既に bin の差で changed なので、(b) の条件 2 に当たらず changed のまま残した
+- 2026-11-19: 同じブランチの DVC のステージ。直したファイルを deps に持つステージは 192（dvc.lock の deps のパスと `git diff --name-only main`
+  の照合）。OpenMC の参照解の openmc-1C@rings1、@rings4、openmc-mox1 は ADR-0212 の (b) で付け直し、数秒のステージ（比較 13、
+  OpenMC の extract 3、python-ast 6）は再実行した（出力の md5 は extract、hzp-compare とも変わらず、比較の JSON は入力の md5 だけが
+  変わった）。残りの 167 は、lock の md5 と今のファイルが違う deps に bin/lattice（110）、bin/core（53）、bin/xs（4）があり、main で
+  既に changed なので、(b) の条件 2 に当たらず changed のまま残した。比較の JSON の入力の md5 の食い違いを止める検査は #0295
