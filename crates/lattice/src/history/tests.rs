@@ -1028,7 +1028,7 @@ fn pair_subgrid_states_shield_like_the_product_states() {
     let solved: Vec<usize> = (0..branches.len())
         .filter(|&i| branches.solved(0, i))
         .collect();
-    // 2 × 2 × 2 の 8 状態から、3 つの軸がどれもブランチ条件（ホウ素 500 ppm、650 K、650 K）を除く
+    // 2 × 2 × 2 の 8 状態から、3 つの軸がどれも基準値でない状態（ホウ素 500 ppm、650 K、650 K）を除く
     assert_eq!(solved.len(), 2 * 7);
     for (n, &i) in solved.iter().enumerate() {
         assert_eq!(pairs[n], all[i], "state {i}");

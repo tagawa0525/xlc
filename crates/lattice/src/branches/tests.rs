@@ -478,7 +478,7 @@ fn branches_without_a_history_solve_the_product_unless_told_the_subgrids() {
 
 #[test]
 fn pair_subgrids_solve_the_nominal_state_one_axis_branches_and_pairs() {
-    // 1 + Σ(nᵢ − 1) + Σᵢ<ⱼ(nᵢ − 1)(nⱼ − 1) = 1 + 6 + 12 状態（ADR-0200）。3 つの軸がどれもブランチ条件だけを解かない
+    // 1 + Σ(nᵢ − 1) + Σᵢ<ⱼ(nᵢ − 1)(nⱼ − 1) = 1 + 6 + 12 状態（ADR-0200）。3 つの軸がどれも基準値でない状態だけを解かない
     let input = LatticeInput::parse(&three_by_three(PAIRS)).unwrap();
     let branches = input.branches.as_ref().unwrap();
     assert!(!branches.is_product());
