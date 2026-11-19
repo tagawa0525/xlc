@@ -980,6 +980,36 @@ class DrawAwsDepletion(unittest.TestCase):
             self.assertEqual(vt.load(root, source, True)["burnup"], [0.1])
 
 
+class DrawDiluteAbsorbers(unittest.TestCase):
+    def summary(self) -> dict:
+        """compare_dilute.py の要約（1 点）"""
+        return {
+            "format": "xlc-compare-dilute-absorbers",
+            "points": [
+                {
+                    "burnup": 60.0,
+                    "dilute_pcm": -980.64,
+                    "shielded_dilute_pcm": -760.3,
+                    "rest_pcm": -194.8,
+                    "dilute_added_pcm": -785.7,
+                    "dilute_unshielded_pcm": 31.84,
+                }
+            ],
+        }
+
+    def test_row_has_the_differences_from_the_added_library_by_burnup(self):
+        table = vt.depletion_dilute_absorbers([self.summary()])
+        row = [c.strip() for c in table.split("\n")[2].strip("|").split("|")]
+        self.assertEqual(
+            row,
+            ["60", "\u2212980.6", "\u2212760.3", "\u2212194.8", "\u2212785.7", "+31.8"],
+        )
+
+    def test_another_summary_is_an_error(self):
+        with self.assertRaisesRegex(vt.TableError, "xlc-compare-dilute-absorbers"):
+            vt.depletion_dilute_absorbers([{"format": "other"}])
+
+
 class DrawAssemblyPins(unittest.TestCase):
     def summary(self) -> dict:
         """compare_depletion_assembly.py の要約（2 点）"""
