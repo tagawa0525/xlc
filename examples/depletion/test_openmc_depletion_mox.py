@@ -58,6 +58,7 @@ batches = 10
 inactive = 5
 seed = 1
 threads = 1
+normalization = "fission-q"
 """
 
 
@@ -73,6 +74,17 @@ class Read(unittest.TestCase):
         run = read_text(INPUT)
         self.assertEqual(run["problem"], "MOX-1")
         self.assertEqual(run["fuel-temperature"], 900)
+
+    def test_the_normalization_is_required_and_chosen_like_the_pincell(self):
+        self.assertEqual(read_text(INPUT)["normalization"], "fission-q")
+        chosen = INPUT.replace('"fission-q"', '"energy-deposition"')
+        self.assertEqual(read_text(chosen)["normalization"], "energy-deposition")
+        for text in (
+            INPUT.replace('normalization = "fission-q"\n', ""),
+            INPUT.replace('"fission-q"', '"source-rate"'),
+        ):
+            with self.subTest(text=text), self.assertRaises(SystemExit):
+                read_text(text)
 
     def test_an_unknown_problem_is_an_error(self):
         with self.assertRaises(SystemExit):

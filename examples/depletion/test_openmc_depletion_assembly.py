@@ -216,6 +216,7 @@ batches = 20
 inactive = 5
 seed = 1
 threads = 2
+normalization = "fission-q"
 """
 
     def test_reads_an_input_and_makes_the_paths_absolute(self):
@@ -231,6 +232,20 @@ threads = 2
         self.assertEqual(run["gd-rings"], 8)
         with self.assertRaises(SystemExit):
             asm.read(self.write(self.BASE.format(problem="2A") + "gd-rings = 8\n"))
+
+    def test_the_normalization_is_required_and_chosen_like_the_pincell(self):
+        base = self.BASE.format(problem="2A")
+        self.assertEqual(asm.read(self.write(base))["normalization"], "fission-q")
+        chosen = base.replace('"fission-q"', '"energy-deposition"')
+        self.assertEqual(
+            asm.read(self.write(chosen))["normalization"], "energy-deposition"
+        )
+        for text in (
+            base.replace('normalization = "fission-q"\n', ""),
+            base.replace('"fission-q"', '"source-rate"'),
+        ):
+            with self.subTest(text=text), self.assertRaises(SystemExit):
+                asm.read(self.write(text))
 
     def test_unknown_keys_and_problems_stop(self):
         with self.assertRaises(SystemExit):
