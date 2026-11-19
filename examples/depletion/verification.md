@@ -9068,7 +9068,7 @@ python3 examples/depletion/compare_core_restart.py --report $B/compare-core-smal
 ```
 
 「燃焼度の軸を持つテーブル（2A）」と同じ理由でステージにしていない。比較の JSON（`branches/compare-core-small-restart.json`）は git で追跡する。
-JSON が md5 で引く 5 本の restart の履歴と装荷替えの履歴は `.dvc` で追っておらず、手元にもキャッシュにも無い（同じ名前の履歴を書く燃焼で上書きされうる。#0238）
+JSON が md5 で引く 5 本の restart の履歴と装荷替えの履歴は `.dvc` で追っておらず、手元にもキャッシュにも無い（同じ名前の履歴を書く燃焼で上書きされうる。ADR-0222 の帰結の「失われたもの」）
 
 ### 計算
 
@@ -9154,7 +9154,7 @@ python3 examples/depletion/compare_core_guess.py --json $B/compare-core-small-gu
 `core-small-equilibrium-1` の名前の出力は CMFD の燃焼になる。この節の `core-small-search-1.msgpack`（md5 adc9e50d）は、同じバイトの加速なしの
 `core-small-search-none-1.msgpack` の `.dvc` で追い、`core-small-equilibrium-1.msgpack`（md5 0c3828ae）は
 `core-small-equilibrium-nested-1.msgpack` の `.dvc` で追う（「固有値計算の CMFD（小さな炉心と全炉心）」、「平衡 Xe と臨界ホウ素の同時の反復（小さな炉心）」）。
-この節の 4 本のログと、平らな初期値の 2 本の履歴（JSON の md5 058973f1 と d6762f89）は `.dvc` で追っておらず、手元にもキャッシュにも無い（#0238）
+この節の 4 本のログと、平らな初期値の 2 本の履歴（JSON の md5 058973f1 と d6762f89）は `.dvc` で追っておらず、手元にもキャッシュにも無い（ADR-0222 の帰結の「失われたもの」）
 
 ### 計算
 
