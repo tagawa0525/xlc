@@ -9,17 +9,17 @@ stages:
       size: 653
     - path: Cargo.lock
       hash: md5
-      md5: 63ca82c0dac0ca39bcb14fc086d0e7d4
-      size: 29543
+      md5: a1b9896436ea55313c52bd9390b86bfa
+      size: 29693
     - path: Cargo.toml
       hash: md5
       md5: 683e6ade069d2e592a845971523eb150
       size: 1422
     - path: crates
       hash: md5
-      md5: 8084307026302e53f8d04496489aff51.dir
-      size: 5637040
-      nfiles: 265
+      md5: f036564b048f725162069fd04a40c2c1.dir
+      size: 5644102
+      nfiles: 268
     - path: flake.lock
       hash: md5
       md5: 83437230048eadb7a5c2f626d4ea10aa
@@ -34,29 +34,33 @@ stages:
       size: 98
     - path: scripts/build-binaries.sh
       hash: md5
-      md5: 761f9572ae05e57656223201d9ccc0bc
-      size: 4667
+      md5: 753c92e01487b8740ad7f521000377ba
+      size: 5132
       isexec: true
+    - path: scripts/normalize_binary.py
+      hash: md5
+      md5: c0339d22009eaf025c1f0dfaf526fd97
+      size: 8530
     outs:
     - path: bin/chain
       hash: md5
-      md5: d14e59ff5da8009e90237f7320e4e488
-      size: 1953016
+      md5: 16a674a2d5888069249faef70eac2997
+      size: 1952952
       isexec: true
     - path: bin/core
       hash: md5
-      md5: 22e10bb8fd976913c4b1482dd6c0472a
-      size: 7443832
+      md5: e6fc72e31c152183f098b21d926b79c8
+      size: 7443448
       isexec: true
     - path: bin/lattice
       hash: md5
-      md5: c3b3bba1a9b0a22a3fa20b9e0a275f85
-      size: 11234944
+      md5: 98a772e08a6f51595140332dd4195bbc
+      size: 11232384
       isexec: true
     - path: bin/xs
       hash: md5
-      md5: 28e28365a6b065bc4d6b10b82f662fe6
-      size: 3072016
+      md5: b5c605b72d9d0269a54605d0f9315e40
+      size: 3071728
       isexec: true
   python-ast@examples/c5g7/compare.py:
     cmd: python3 scripts/normalize_python.py examples/c5g7/compare.py 
