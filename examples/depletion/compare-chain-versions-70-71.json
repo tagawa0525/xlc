@@ -2892,6 +2892,130 @@
  "watched": {
   "nuclides": [
    {
+    "nuclide": "U-235",
+    "half_life": {
+     "a": 2.22165e+16,
+     "b": 2.22102e+16
+    },
+    "modes": [
+     {
+      "nuclide": "U-235",
+      "mode": "alpha",
+      "products": "He-4 + Th-231",
+      "a": 0.999999999928,
+      "b": 0.999999999928,
+      "relative": 0.0
+     },
+     {
+      "nuclide": "U-235",
+      "mode": "sf",
+      "products": "なし",
+      "a": 7.1999999994816e-11,
+      "b": 7.1999999994816e-11,
+      "relative": 0.0
+     }
+    ],
+    "fission_q": {
+     "a": 193483400.0,
+     "b": 193405400.0
+    }
+   },
+   {
+    "nuclide": "U-238",
+    "half_life": {
+     "a": 1.40999e+17,
+     "b": 1.40999e+17
+    },
+    "modes": [
+     {
+      "nuclide": "U-238",
+      "mode": "alpha",
+      "products": "He-4 + Th-234",
+      "a": 0.9999454,
+      "b": 0.999999454000298,
+      "relative": 5.4054029811493614e-05
+     },
+     {
+      "nuclide": "U-238",
+      "mode": "sf",
+      "products": "なし",
+      "a": 5.46e-05,
+      "b": 5.459997018841628e-07,
+      "relative": 0.990000005459997
+     }
+    ],
+    "fission_q": {
+     "a": 198032000.0,
+     "b": 197786000.0
+    }
+   },
+   {
+    "nuclide": "Pu-239",
+    "half_life": {
+     "a": 760853000000.0,
+     "b": 760854000000.0
+    },
+    "modes": [
+     {
+      "nuclide": "Pu-239",
+      "mode": "alpha",
+      "products": "He-4 + U-235",
+      "a": 0.9999999999969,
+      "b": 0.00046267001387866616,
+      "relative": 0.9995373299861199
+     },
+     {
+      "nuclide": "Pu-239",
+      "mode": "alpha",
+      "products": "He-4 + U-235m",
+      "a": 0.0,
+      "b": 0.9995373299830214,
+      "relative": 1.0
+     },
+     {
+      "nuclide": "Pu-239",
+      "mode": "sf",
+      "products": "なし",
+      "a": 3.0999999999903902e-12,
+      "b": 3.1000000929903933e-12,
+      "relative": 3.0000000102397916e-08
+     }
+    ],
+    "fission_q": {
+     "a": 198843800.0,
+     "b": 198902000.0
+    }
+   },
+   {
+    "nuclide": "Pu-241",
+    "half_life": {
+     "a": 450958100.0,
+     "b": 450958100.0
+    },
+    "modes": [
+     {
+      "nuclide": "Pu-241",
+      "mode": "alpha",
+      "products": "He-4 + U-237",
+      "a": 2.45e-05,
+      "b": 2.4499987750006123e-05,
+      "relative": 4.999997500461681e-07
+     },
+     {
+      "nuclide": "Pu-241",
+      "mode": "beta-",
+      "products": "Am-241",
+      "a": 0.9999755,
+      "b": 0.9999755000122499,
+      "relative": 1.2250167915770463e-11
+     }
+    ],
+    "fission_q": {
+     "a": 201980100.0,
+     "b": 201980100.0
+    }
+   },
+   {
     "nuclide": "Xe-135",
     "half_life": {
      "a": 32904.0,
@@ -2906,7 +3030,8 @@
       "b": 1.0,
       "relative": 0.0
      }
-    ]
+    ],
+    "fission_q": null
    },
    {
     "nuclide": "I-135",
@@ -2931,7 +3056,8 @@
       "b": 0.1650891,
       "relative": 0.4030514977336668
      }
-    ]
+    ],
+    "fission_q": null
    },
    {
     "nuclide": "Sm-149",
@@ -2939,7 +3065,8 @@
      "a": null,
      "b": null
     },
-    "modes": []
+    "modes": [],
+    "fission_q": null
    },
    {
     "nuclide": "Pm-149",
@@ -2956,7 +3083,8 @@
       "b": 1.0,
       "relative": 0.0
      }
-    ]
+    ],
+    "fission_q": null
    },
    {
     "nuclide": "Nd-143",
@@ -2964,7 +3092,8 @@
      "a": null,
      "b": null
     },
-    "modes": []
+    "modes": [],
+    "fission_q": null
    },
    {
     "nuclide": "Rh-103",
@@ -2972,7 +3101,8 @@
      "a": null,
      "b": null
     },
-    "modes": []
+    "modes": [],
+    "fission_q": null
    },
    {
     "nuclide": "Cs-133",
@@ -2980,7 +3110,8 @@
      "a": null,
      "b": null
     },
-    "modes": []
+    "modes": [],
+    "fission_q": null
    }
   ],
   "yields": [
