@@ -62,3 +62,23 @@ resolution:
   終わるので、後半は 16 の枠の大半が commit を待つ。直す候補: commit を投入と回収から切り離す（確かめていない）
 - 2026-11-19: #0291 のブランチ（chore/0291-terms-in-example-inputs）で、全体の `scripts/count-changed-stages.py`（中は `dvc status --json`）が
   手元で 15 分の timeout（`timeout 900`）に収まらず、数を取れなかった。ステージ 1 本ずつの `dvc status <yaml>:<ステージ>` は返った（時間は測っていない）
+- 2026-11-19: DVC の tomlkit だけを 0.15.2 にした（8d5b23da3。flake.nix の `dvcTomlkit`）。2 乗の原因は tomlkit 0.15.0 の既知の誤り
+  （python-poetry/tomlkit の issue 479）で、0.15.1 が線形にした。DVC 3.67.1 は PyPI の最新で、tomlkit の指定は `>=0.11.1` だけなので、
+  古いのは固定した nixpkgs（2026-10-06）の tomlkit だった。このブランチの worktree（出力は戻していない、1 コア、手元）で測った値:
+  p2（xs.toml は 80,273 バイト、見出し 91、656 ステージ）の 1 ステージの `dvc status` は 4.3 秒から 1.3〜1.8 秒、p2 の `dvc.yaml` の全体の
+  `dvc status --json` は 590 秒の打ち切りで終わらなかったものが 171 秒。直す前の 1 ステージの cProfile は 12.1 秒のうち tomlkit の読みが
+  3 回で 10.2 秒、`dvc.lock`（837,390 バイト）の読みが 1.2 秒、ファイルのハッシュが 0.007 秒
+- 2026-11-19: 直した後の p2 の全体の `dvc status` の cProfile（504.5 秒）では、`dvc/dependency/param.py` の `read_param_file` が
+  636 回で 496.3 秒を占める。DVC は params を持つステージごとに同じ xs.toml を読み直し、読んだ結果を再利用しない（1 回の tomlkit の
+  読みが cProfile で 0.66 秒、うち `_validate_out_of_order_table` の deepcopy が全体で約 203 秒。`dpath` でキーを引くのが 66.4 秒）。
+  ファイルのハッシュと `dvc.lock` の読みは上位に出ない。残る固定費は、ステージの数 × params のファイルを 1 回読む時間である。
+  直す候補（確かめていない）: params のファイルを DVC が tomlkit を通さない形式（JSON、YAML）にする、核種ごとの params をやめて
+  ファイルの全体を deps にする、DVC に読んだ params のファイルを再利用させる（上流への提案か手元のパッチ）。同じ TOML の標準の読み手
+  （tomllib）での読みは 0.02 秒
+- 2026-11-19: 同じ worktree で `dvc --wait-for-lock status` を 4 本同時に流すと、4.2、8.3、12.2、16.3 秒に 1 本ずつ終わった
+  （`--wait-for-lock` が無いと 3 本が「Unable to acquire lock」で終了コード 255）。DVC は worktree ごとの排他を操作の間ずっと持ち、
+  ステージの cmd を実行する間だけ外す（`dvc/stage/run.py` の `unlocked_repo`）。DVC の中でステージを並列に実行する機能は上流の
+  issue（iterative/dvc の 755。2018-06 から開いたまま）にある。ファイルのハッシュは、ディレクトリの出力の中の 2 MiB を超える
+  ファイルが 2 つ以上のときだけ並列で（dvc-data 3.18.3 の `hashfile/build.py`）、ファイル 1 つずつの deps と outs は逐次に取る
+- 2026-11-19: `dvc commit` の 1 回約 100 秒（Slurm 887）が tomlkit の版で縮むかは測っていない。`dvc commit -f` は共有のキャッシュの
+  run-cache に項目を足すので、キャッシュを分けた使い捨ての複製で測る
