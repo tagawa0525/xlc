@@ -110,6 +110,10 @@ class _Parser:
                 end_command()
                 self.i += 1
             elif c in "<>":
+                # 間を空けずに続く数字だけの語は fd の番号（`2>&1`）で、コマンドの語でない（引用した数字 `'2'>x` も
+                # fd として外すが、bash では引数になる。読み分けない）
+                if word is not None and word.isdigit():
+                    word = None
                 end_word()
                 if s.startswith("<<<", self.i):
                     self.i += 3
