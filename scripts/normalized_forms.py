@@ -91,42 +91,56 @@ def stages(root: Path, names: list[str]) -> list[dict]:
     """dvc.yaml ごとのステージの、解決した cmd、deps と outs（deps と outs はリポジトリの直下からのパス）
 
     foreach の値は並び、`${名前}`（vars の並びか辞書）。辞書なら `${key}` と `${item.属性}`、並びなら `${item}` を埋める。
+    解けない dvc.yaml（知らない名前、do の無い foreach、壊れた YAML か TOML）は、その名前を挙げて Stop にする。
     """
     result = []
     for name in names:
-        base = (root / name).parent
-        doc = yaml.safe_load((root / name).read_text(encoding="utf-8"))
-        variables = load_vars(base, doc.get("vars", []))
-        for stage, body in (doc.get("stages") or {}).items():
-            if "foreach" in body:
-                items = body["foreach"]
-                if isinstance(items, str):
-                    items = lookup(
-                        variables, items.removeprefix("${").removesuffix("}")
-                    )
-                pairs = (
-                    [(key, {"key": key, "item": value}) for key, value in items.items()]
-                    if isinstance(items, dict)
-                    else [(item, {"item": item}) for item in items]
-                )
-                expanded = [
-                    (f"{stage}@{key}", body["do"], extra) for key, extra in pairs
-                ]
-            else:
-                expanded = [(stage, body, {})]
-            for label, spec, extra in expanded:
-                context = {**variables, **extra}
-                cmd = spec.get("cmd", "")
-                result.append(
-                    {
-                        "stage": f"{name}:{label}",
-                        "cmd": resolve(
-                            " ".join(cmd) if isinstance(cmd, list) else cmd, context
-                        ),
-                        "deps": stage_paths(root, base, spec, "deps", context),
-                        "outs": stage_paths(root, base, spec, "outs", context),
-                    }
-                )
+        try:
+            result += file_stages(root, name)
+        except (
+            KeyError,
+            TypeError,
+            AttributeError,
+            yaml.YAMLError,
+            tomllib.TOMLDecodeError,
+        ) as e:
+            raise Stop(
+                f"{name}: cannot resolve the stages ({type(e).__name__}: {e})"
+            ) from e
+    return result
+
+
+def file_stages(root: Path, name: str) -> list[dict]:
+    result = []
+    base = (root / name).parent
+    doc = yaml.safe_load((root / name).read_text(encoding="utf-8"))
+    variables = load_vars(base, doc.get("vars", []))
+    for stage, body in (doc.get("stages") or {}).items():
+        if "foreach" in body:
+            items = body["foreach"]
+            if isinstance(items, str):
+                items = lookup(variables, items.removeprefix("${").removesuffix("}"))
+            pairs = (
+                [(key, {"key": key, "item": value}) for key, value in items.items()]
+                if isinstance(items, dict)
+                else [(item, {"item": item}) for item in items]
+            )
+            expanded = [(f"{stage}@{key}", body["do"], extra) for key, extra in pairs]
+        else:
+            expanded = [(stage, body, {})]
+        for label, spec, extra in expanded:
+            context = {**variables, **extra}
+            cmd = spec.get("cmd", "")
+            result.append(
+                {
+                    "stage": f"{name}:{label}",
+                    "cmd": resolve(
+                        " ".join(cmd) if isinstance(cmd, list) else cmd, context
+                    ),
+                    "deps": stage_paths(root, base, spec, "deps", context),
+                    "outs": stage_paths(root, base, spec, "outs", context),
+                }
+            )
     return result
 
 
@@ -240,8 +254,8 @@ def main() -> int:
     try:
         write_forms(root)
         stop = None
-    # dvc を起動できない（devShell の外）ときの OSError も、止まる理由として出す
-    except (Stop, OSError) as e:
+    # dvc を起動できない（devShell の外）ときの OSError と、git ls-files の失敗も、止まる理由として出す
+    except (Stop, OSError, subprocess.CalledProcessError) as e:
         stop = e
     changed = rewritten(before, snapshot(root))
     for path in changed:
