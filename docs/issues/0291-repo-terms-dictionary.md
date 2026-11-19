@@ -34,7 +34,7 @@ control-rod（温度、密度、ホウ素）branch → 制御棒（温度、密�
 - 例の入力（TOML）は、ほかの入力のコピーやスクリプトが書いて手で直さないものが多く、元と一緒に直さないと食い違う。DVC の
   ステージの deps（入力の TOML と python-ast の対象の .py）は、直すとステージが changed になる。入力の TOML、それを書く
   スクリプト、deps の .py と、その出力の文を確かめるテストの 555 ファイルは `.textlintignore` で検査から外してあり、元ごとに
-  直し、deps はステージごとに付け直しの条件（ADR-0212 の (b)）か再実行を決める
+  直す。deps を直して changed になったステージは作り直しの残高で、再実行を待たない（ADR-0258 の「changed の扱い」）
 - 記録の見出しを新しい語に直したので、外した入力の注釈が引く見出し（例: examples/depletion/p9-gd/branch-2O-all.toml が
   ADR-0201 の自己遮蔽の節を引く旧い見出し、examples/depletion/branches/shielding-*.toml）は今の見出しと食い違う。入力を直すときに
   見出しの引用も直す
