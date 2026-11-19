@@ -298,3 +298,4 @@
 * [ユーザーの発言の記録が無いまま決まった計算と DVC の規則を見直す](0300-review-session-made-compute-rules.md)
 * [スキル openmc-reference の見積もりの表が、標準のタリーを入れる前の時間のままで、参照解の見積もりが 1/4〜1/3 になる](0301-openmc-estimates-predate-standard-tallies.md)
 * [KENO-VI との k の直接の比較は、処理かモデルの差を約 100〜180 pcm 含み、手法の差の物差しにならない](0302-keno-k-offset-as-method-yardstick.md)
+* [ADR-0258 の移行の段（正規形の hook、-s の経路、付け直しのコマンド、形式の検査、パスの付け替え）を実装する](0298-implement-adr-0258-migration-stages.md)
