@@ -1,2 +1,3 @@
-# 試行の燃焼の履歴（大きいので追跡しない。記録は timing-p9.json を引く）
+# 試行の燃焼の履歴（大きいので git では追跡せず、trial-0076 と trial-0244 の compare-acceleration.json が md5 で引くので
+# core-p9.msgpack.dvc で DVC に追う。ADR-0222。記録はこの置き場の timing-p9.json を引く）
 /core-p9.msgpack

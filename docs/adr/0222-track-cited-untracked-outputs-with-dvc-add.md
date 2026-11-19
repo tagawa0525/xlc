@@ -5,7 +5,7 @@ date: 2026-10-31
 requires: [ADR-0126, ADR-0130]
 supersedes: []
 superseded-by:
-issues: ["#0207", "#0209"]
+issues: ["#0207", "#0209", "#0238"]
 ---
 
 # ADR-0222: 記録と ADR が引く追跡しない生成物は dvc add で DVC に追う
@@ -113,8 +113,16 @@ worktree にだけあり、/git-merge の後片付け（`git worktree remove`）
   2026-10-31 に `dvc repro examples/mox/openmc-mox2.msgpack.dvc` で確かめた）。前の版はキャッシュに残る
 - 規則の 1 行は CLAUDE.md の「計算」にある。新しい生成物を追うのは記録を書く担当の 1 手に頼り、記録の md5 と `.dvc` を
   突き合わせる検査は無い（#0209）
-- 比較の JSON だけが md5 で引く生成物（2026-11-06 に対象に足した。「## 変更」）は、足す前に作った JSON の分を棚卸ししていない
-  （#0238。`trial-0231/core-p9.msgpack` は 2026-11-06 に追った）
+- 比較の JSON だけが md5 で引く生成物（2026-11-06 に対象に足した。「## 変更」）の棚卸し（2026-11-19、main 0500a720e。#0238）:
+  git で追跡する `.json`（`references/` の下を除く）の `path` と `md5` の組 449 のうち、git、`.dvc`（ディレクトリの `.dvc` を含む）、
+  dvc.lock の outs、`references/` のどれにも当たらないものは 74 組。2 組は名前を変えた `.dvc`（`trials/ufg-free-gas-assemblies/` の
+  2 件。上の追う生成物）、2 組は dvc.lock の前の版のステージの出力でキャッシュにあり（`lattice-2O-3d006d36.msgpack` と
+  issue-0133/ufg-free-gas-assemblies の `compare-2O-static.json` の `lattice-2O.msgpack`）、追う生成物は残っていない。`path` は JSON
+  ごとに基準の置き場が違うので、JSON の置き場からリポジトリの直下までの各階層で解いた
+- 失われたもの（比較の JSON が md5 で引くもの。上の棚卸しで、main の作業ツリーにも DVC のキャッシュにも無い 70 組）: examples/depletion/branches/
+  の比較の JSON 14 本（`compare-burnup-interpolation`、`compare-core-2A-{boron,cycle-decay,cycle-power,cycle-rods,micro,micro-macro,partial-rods}`、
+  `compare-core-2O-guide`、`compare-core-small-{guess,restart,steps}`、`compare-shielding`、`compare-shielding-boron`）が引く core の履歴とログ、
+  格子の履歴、テーブル。上の「失われたもの」と同じく、それを読む作業のときに再実行する
 
 ### 確認
 

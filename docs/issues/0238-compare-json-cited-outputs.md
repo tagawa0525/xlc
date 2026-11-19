@@ -17,7 +17,7 @@ ADR-0222 の対象に、比較のツールが書いて git で追跡する JSON 
 2026-11-06）。ブランチ docs/0222-compare-json-generated のローカルのレビュー（/code-review high）で、再現を書けず直さなかった
 指摘（/git-merge の「直す指摘の基準」の non-blocking）を残す。
 
-関係する ADR: なし
+関係する ADR: ADR-0222
 
 1. 対象を広げる前に作った比較の JSON が md5 で引く生成物は棚卸ししておらず、`.dvc` が無い。git で追跡する `.json` の
    `path` と `md5` の組のうち、git で追跡せず、`.dvc` が無く、`dvc.lock` の outs に無く、`references/` の下でもないパスを
