@@ -219,7 +219,8 @@ def input_problems(summary: dict, stage: dict, base: Path) -> list[str]:
     for item in summary.get("inputs", []):
         dep = item["path"]
         if dep.endswith(".toml"):
-            source = (base / dep).resolve().relative_to(ROOT)
+            # resolve でなく normpath: symlink（references/）の先や、ほかの worktree の ROOT の外に出て止まらない
+            source = os.path.relpath(os.path.normpath(base / dep), ROOT)
             dep = os.path.relpath(ROOT / "toml-values" / f"{source}.json", base)
         if dep not in deps:
             problems.append(f"input {item['path']} is not a dep of the stage ({dep})")
