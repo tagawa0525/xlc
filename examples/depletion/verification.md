@@ -16,7 +16,7 @@
 | `chain.toml`、`dvc.yaml`                                      | 全核種のチェーン `chain.msgpack`（`bin/chain`）と OpenMC のチェーン `openmc-chain.xml` を作るステージ                        |
 | `compare_chain.py`                                            | 2 つのチェーンの核種、半減期、崩壊の分岐、反応、収率を比べる                                                                 |
 | `compare_chain_versions.py`                                   | 版ごとのチェーン（`endfb70/` などと `chain.msgpack`）を値で比べた要約                                                        |
-| `endfb70/` などの `xs.toml`、`lattice-1C-60.toml`、`dvc.yaml` | 版ごとのライブラリと 60 MWd/kg までのピンセルの燃焼（`endfb80/` は VIII.0 の燃焼だけ）                                       |
+| `endfb70/` などの `xs.toml`、`dvc.yaml`、`lattice-1C-60.toml` | 版ごとのライブラリのステージと、60 MWd/kg までのピンセルの燃焼の入力（`endfb80/` は VIII.0 の燃焼の入力だけ）                |
 | `compare_depletion_versions.py`、`check_natural_isotopes.py`  | 版ごとの燃焼の履歴を VII.1 と比べた要約（`compare-depletion-versions.json`）と、チェーンとライブラリの天然の元素の評価の検査 |
 | `read_survey.py`、`read-survey/`                              | 中性子のファイルの読み込みの走査（`xs check`）の要約と、`xs nuclide` に通した評価の入力                                      |
 | `chain-cases.toml`、`compare_chain_depletion.py`              | 2 つのチェーンに同じ 1 群の反応率を与え、1 ステップを CRAM48 で解いて比べる                                                  |
@@ -347,7 +347,7 @@ cd examples/depletion/read-survey && ../../../bin/xs --threads 1 nuclide nine-VI
 
 - 評価の無い核種: どの版にも、65 核種のそれぞれの核種ごとの評価がある（天然の元素の評価を当てる核種は無い）。チェーンの
   `natural-isotopes`（VII.0 の C、V、Zn、VII.1 の C の同位体）は、どれもライブラリに無い。揃っていることはステージ `natural-isotopes`
-  （`check_natural_isotopes.py`。VII.0 では `../vera/endfb70/xs.toml` も）が確かめる
+  （`check_natural_isotopes.py`。比較のステージの deps。VII.0 の `../vera/endfb70/xs.toml` は `natural-isotopes-vera`）が確かめる
 - 熱散乱: H-1 の `tsl-HinH2O.endf` に 573.6 K の無い VII.0 と VII.1 は、H-1 を 550 K と 600 K で作る（ピンセルの減速材は 600 K）
 - 読めない評価: 分離共鳴の SLBW（LRF=1）の核種（VII.0 の Pu-238、Pu-242、Am-241、Am-243、Cm-242、Xe-135、Pm-148m、VII.1 の Xe-135、
   Pm-148m）は読める（ADR-0265、下の「版ごとのライブラリの分離共鳴の SLBW」）。核分裂スペクトルが MF5 の LF=12（Madland-Nix）の VII.0 と

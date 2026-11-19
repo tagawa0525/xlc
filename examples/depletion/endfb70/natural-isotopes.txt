@@ -1,4 +1,2 @@
-xs.toml: 天然の元素の評価を当てた核種: なし
-xs.toml: natural-isotopes のうちライブラリに無い核種: C-12, C-13, V-50, V-51, Zn-64, Zn-66, Zn-67, Zn-68, Zn-70
-../../vera/endfb70/xs.toml: 天然の元素の評価を当てた核種: C-12 ← n-006_C_000.endf, C-13 ← n-006_C_000.endf
-../../vera/endfb70/xs.toml: natural-isotopes のうちライブラリに無い核種: V-50, V-51, Zn-64, Zn-66, Zn-67, Zn-68, Zn-70
+endfb70/xs.toml: 天然の元素の評価を当てた核種: なし
+endfb70/xs.toml: natural-isotopes のうちライブラリに無い核種: C-12, C-13, V-50, V-51, Zn-64, Zn-66, Zn-67, Zn-68, Zn-70

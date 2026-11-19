@@ -1,2 +1,2 @@
-../xs.toml: 天然の元素の評価を当てた核種: なし
-../xs.toml: natural-isotopes のうちライブラリに無い核種: なし
+xs.toml: 天然の元素の評価を当てた核種: なし
+xs.toml: natural-isotopes のうちライブラリに無い核種: なし

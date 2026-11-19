@@ -5909,3 +5909,155 @@ stages:
       hash: md5
       md5: dffd4296a0e93f32674ceb1035270ffa
       size: 2690
+
+  natural-isotopes@endfb70:
+    cmd: python3 check_natural_isotopes.py endfb70/chain.toml 
+      endfb70/chain.msgpack endfb70/xs.toml > endfb70/natural-isotopes.txt
+    deps:
+    - path: ../../python-ast/examples/depletion/check_natural_isotopes.py.ast
+      hash: md5
+      md5: 086c8a36cb6de6cf0e122f89aa809ac0
+      size: 3187
+    - path: ../../references/endf/ENDF-B-VII.0_neutrons
+      hash: md5
+      md5: 48c057110a0cd8d1a04d52246e1d5fa6.dir
+      size: 408193809
+      nfiles: 393
+    - path: ../../toml-values/examples/depletion/endfb70/chain.toml.json
+      hash: md5
+      md5: cff385bafa10677bc93a2d2f7e518d8a
+      size: 395
+    - path: ../../toml-values/examples/depletion/endfb70/xs.toml.json
+      hash: md5
+      md5: 138fef44ed0debe336f090e01f017e0f
+      size: 7537
+    - path: endfb70/chain.msgpack
+      hash: md5
+      md5: 5c4c81940ae00f9e9cdcd561ac4610a3
+      size: 3650797
+    outs:
+    - path: endfb70/natural-isotopes.txt
+      hash: md5
+      md5: c49a41ea593205891ee4e78e97b82cf7
+      size: 201
+  natural-isotopes@endfb71:
+    cmd: python3 check_natural_isotopes.py endfb71/chain.toml 
+      endfb71/chain.msgpack endfb71/xs.toml > endfb71/natural-isotopes.txt
+    deps:
+    - path: ../../python-ast/examples/depletion/check_natural_isotopes.py.ast
+      hash: md5
+      md5: 086c8a36cb6de6cf0e122f89aa809ac0
+      size: 3187
+    - path: ../../references/endf/ENDF-B-VII.1_neutrons
+      hash: md5
+      md5: e480b32a811b36d4c1257a9c3fb7f68a.dir
+      size: 839330424
+      nfiles: 423
+    - path: ../../toml-values/examples/depletion/endfb71/chain.toml.json
+      hash: md5
+      md5: d88d56d62f646b5649ba83c55d597ace
+      size: 279
+    - path: ../../toml-values/examples/depletion/endfb71/xs.toml.json
+      hash: md5
+      md5: 6124fd70731b89c57e34415d9ad9e1f2
+      size: 7537
+    - path: endfb71/chain.msgpack
+      hash: md5
+      md5: 32ee4517036e5333f7c38a69b34adeed
+      size: 4380622
+    outs:
+    - path: endfb71/natural-isotopes.txt
+      hash: md5
+      md5: f209a1bdfbb5a8e83c25412005f8d4b8
+      size: 154
+  natural-isotopes@endfb80:
+    cmd: python3 check_natural_isotopes.py chain.toml chain.msgpack xs.toml > 
+      endfb80/natural-isotopes.txt
+    deps:
+    - path: ../../python-ast/examples/depletion/check_natural_isotopes.py.ast
+      hash: md5
+      md5: 086c8a36cb6de6cf0e122f89aa809ac0
+      size: 3187
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons
+      hash: md5
+      md5: dde810c1fe3594b1ab0b8236de7b51dc.dir
+      size: 1212542189
+      nfiles: 561
+    - path: ../../toml-values/examples/depletion/chain.toml.json
+      hash: md5
+      md5: 7fdf7f8c6f14e0213d7d1fdb8970429a
+      size: 227
+    - path: ../../toml-values/examples/depletion/xs.toml.json
+      hash: md5
+      md5: f1ac56d6e5ada197098bdeaf2f436119
+      size: 7544
+    - path: chain.msgpack
+      hash: md5
+      md5: 1f1de1800363a19f23af2f7b4417c426
+      size: 4613695
+    outs:
+    - path: endfb80/natural-isotopes.txt
+      hash: md5
+      md5: f2fca9f74a1f90befabcddc6b4c1a7e2
+      size: 134
+  natural-isotopes@endfb81:
+    cmd: python3 check_natural_isotopes.py endfb81/chain.toml 
+      endfb81/chain.msgpack endfb81/xs.toml > endfb81/natural-isotopes.txt
+    deps:
+    - path: ../../python-ast/examples/depletion/check_natural_isotopes.py.ast
+      hash: md5
+      md5: 086c8a36cb6de6cf0e122f89aa809ac0
+      size: 3187
+    - path: ../../references/endf/ENDF-B-VIII.1_neutrons
+      hash: md5
+      md5: e62a62fb1f8b3e076cd3f0744ae1c5f3.dir
+      size: 1342498390
+      nfiles: 562
+    - path: ../../toml-values/examples/depletion/endfb81/chain.toml.json
+      hash: md5
+      md5: 691bde4f5d49048014516a7a21092a93
+      size: 236
+    - path: ../../toml-values/examples/depletion/endfb81/xs.toml.json
+      hash: md5
+      md5: 6d5d9c56df1eaac963bdda66a352c3f0
+      size: 7550
+    - path: endfb81/chain.msgpack
+      hash: md5
+      md5: 4b08493286f1d7840d777ac2cbfa9877
+      size: 4613905
+    outs:
+    - path: endfb81/natural-isotopes.txt
+      hash: md5
+      md5: 7fd6a14fbd09747fe20b7e885996e1dd
+      size: 150
+  natural-isotopes-vera:
+    cmd: python3 check_natural_isotopes.py endfb70/chain.toml 
+      endfb70/chain.msgpack ../vera/endfb70/xs.toml > 
+      endfb70/natural-isotopes-vera.txt
+    deps:
+    - path: ../../python-ast/examples/depletion/check_natural_isotopes.py.ast
+      hash: md5
+      md5: 086c8a36cb6de6cf0e122f89aa809ac0
+      size: 3187
+    - path: ../../references/endf/ENDF-B-VII.0_neutrons
+      hash: md5
+      md5: 48c057110a0cd8d1a04d52246e1d5fa6.dir
+      size: 408193809
+      nfiles: 393
+    - path: ../../toml-values/examples/depletion/endfb70/chain.toml.json
+      hash: md5
+      md5: cff385bafa10677bc93a2d2f7e518d8a
+      size: 395
+    - path: ../../toml-values/examples/vera/endfb70/xs.toml.json
+      hash: md5
+      md5: 1a689f2fd240a52c795d29ecad80e462
+      size: 7168
+    - path: endfb70/chain.msgpack
+      hash: md5
+      md5: 5c4c81940ae00f9e9cdcd561ac4610a3
+      size: 3650797
+    outs:
+    - path: endfb70/natural-isotopes-vera.txt
+      hash: md5
+      md5: 8dfa80cf290469eb46514906622ab936
+      size: 251

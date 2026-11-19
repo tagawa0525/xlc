@@ -24,8 +24,8 @@ resolution:
 - VII.0、VII.1、VIII.1 の中性子のファイルを、燃焼チェーンの全核種で xs が読めるか。1B の主な 16 核種は VII.1 と VIII.1 で読めた
   （ADR-0264 の背景）。ADR-0167 は、VIII.1 が使いうる共鳴の表現に未対応のものがあると書いている。分離共鳴の SLBW などの読めない
   形式と、それで止まる核種（燃焼のライブラリの 65 核種では VII.0 が 7、VII.1 が 2）は #0305
-- 版ごとのピンセルの燃焼の入力とステージ（examples/depletion/endfb70、endfb71、endfb80、endfb81 の dvc.yaml、比べるのは
-  examples/depletion/dvc.yaml の compare-depletion-versions）はあるが、VII.0 と VII.1 のライブラリは #0305 で作れず、4 つの版の燃焼は
+- 版ごとのピンセルの燃焼の入力とステージ（examples/depletion/dvc.yaml の lattice-1C-version、比べるのは compare-depletion-versions。
+  ライブラリは examples/depletion/endfb70、endfb71、endfb81 の dvc.yaml）はあるが、VII.0 と VII.1 のライブラリは #0305 で作れず、4 つの版の燃焼は
   まだ解いていない
 - 核分裂収率と崩壊データの版ごとの値の違い（examples/depletion/verification.md の「版ごとの燃焼チェーン」）が、燃焼の反応度にどれだけ
   効くか。VIII.0 の崩壊データと収率を VII.1 に替えても影響は無いという報告はあるが、VII.0 については無い（ADR-0264 の背景）

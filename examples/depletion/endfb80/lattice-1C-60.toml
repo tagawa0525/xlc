@@ -1,7 +1,7 @@
 # 版ごとのピンセルの燃焼の比較（#0303、ADR-0264 の「確認」）の ENDF/B-VIII.0 の燃焼。../lattice-1C-rings1.toml（VERA Problem 1C のピンセル、
 # 燃料 1 リングの燃焼の領域、ブランチなしの 1 つの状態、38.41 W/g）と同じ体系と設定を 60 MWd/kg まで燃焼させる。4 つの版の入力は
-# library、chain、燃焼の出力のパスのほかは同じ（test_depletion_versions.py が確かめる）。出力は今の既定のとおりチェーンの核分裂の Q 値で
-# 規格化するので、版ごとの Q 値の差が燃焼度の軸に入る（#0293 の項目 3）
+# library、chain、燃焼の出力のパスのほかは同じ（test_depletion_versions.py が確かめる）。出力はチェーンの核分裂の Q 値で規格化する
+# （ADR-0173 の `fission-q`）ので、版ごとの Q 値の差が燃焼度の軸に入る（#0293 の項目 3）
 # VIII.0 のライブラリとチェーンは ../xs.toml と ../chain.toml のもの（本番の版）
 library = "../depletion.msgpack"
 pitch = 1.26
