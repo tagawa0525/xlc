@@ -12,7 +12,8 @@
   `skipif`）と、テストの本文の中の skip は集めない
 - provisional: 例の入力（examples の TOML と YAML）の注釈（値の後ろの注釈を含む）の「確かめていない」「暫定」「仮の」
   「仮に」「仮置き」「未確認」。同じ行が指す issue を見る（前後の行の issue は、別の話のことがある）
-- excluded: 例の入力の注釈で、「外す」「外した」「外して」を含むもの（issue の番号の有無によらない。否定は除く）と、
+- excluded: 例の入力の注釈で、「外す」の形と「外れた」「外れて」を含むもの（issue の番号の有無によらない。否定と、以外、
+  除外の中は除く。形は REMOVING の注釈）と、
   ほかの除外の語（除いた、省く など）のすぐ前後に issue の番号があるもの。語のすぐ前後（同じ文の NEAR 文字の中）の番号を
   見る（同じ行の離れた番号と、次の行の番号は数えない）
 
@@ -48,11 +49,11 @@ PYTHON_SKIP = re.compile(
     r"^\s*@((unittest|pytest\.mark|mark)\.)?(skip|xfail|expectedFailure)\b"
 )
 PROVISIONAL = re.compile(r"確かめていない|暫定|仮の|仮に|仮置き|未確認")
-# 番号の有無によらず集める除外の語（外す、外した、外して、外し、 など）。ほかの語の中（以外すべて、除外する）と、否定
-# （外さない、外して（は）いない、外してない、外しません、外しておらず）は含めない。ほかの言い方の否定は、文を替えるか
-# issue を引く（否定の言い回しを網羅しない）
+# 番号の有無によらず集める除外の語（外す、外した、外して、外しても、外れた、外れて など）。ほかの語の中（以外すべて、
+# 除外する）と、否定（外さない、外して（は）いない、外してない、外しません、外しておらず）は含めない。ほかの言い方の否定は、
+# 文を替えるか issue を引く（否定の言い回しを網羅しない）
 REMOVING = re.compile(
-    r"(?<![以除])外(?:す|し(?!(?:て(?:は?い)?)?(?:な|ませ)|ておらず))"
+    r"(?<![以除])外(?:す|し(?!て(?:は?い)?な(?:い|かっ)|ませ|ておらず)|れ[たてる])"
 )
 DROPPING = re.compile(rf"{REMOVING.pattern}|除[くいき]|省[くいき]|除外")
 # 除外の語の前後で、文をまたがずにこの文字数の中にある issue を、その除外の理由とする（16 文字の間と番号の 5 文字）。
@@ -269,13 +270,18 @@ def issue_statuses(files):
             raise ValueError(f"{path}: フロントマターに status の値がありません")
         statuses[number] = status.group(1)
         names[number] = path.rsplit("/", 1)[-1]
-        labels = re.search(
-            r"^labels:[ \t]*\[(.*)\]", front_matter.group(1), re.MULTILINE
-        )
-        if labels and LIST_LABEL in (
-            label.strip() for label in labels.group(1).split(",")
-        ):
-            lists.add(number)
+        labels = re.search(r"^labels:(.*)$", front_matter.group(1), re.MULTILINE)
+        if labels:
+            # 一覧の印を読み落とすと、一覧の issue が理由に数えられてしまうので、読めない形は止める
+            flow = re.fullmatch(r"[ \t]*\[(.*)\][ \t]*", labels.group(1))
+            if not flow:
+                raise ValueError(
+                    f"{path}: labels は 1 行の [a, b] の形で書いてください（{labels.group(0).strip()}）"
+                )
+            if LIST_LABEL in (
+                label.strip().strip("\"'") for label in flow.group(1).split(",")
+            ):
+                lists.add(number)
     return statuses, names, lists
 
 
