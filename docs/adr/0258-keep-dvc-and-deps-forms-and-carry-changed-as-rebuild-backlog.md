@@ -450,8 +450,9 @@ ADR-0257）は、上の段の実装のブランチで、その ADR の決定と�
   ログから人が出す
 - 実装は決定に一部だけ追いついている。移行の順の段 1（pre-commit の hook `normalized-forms`、`scripts/normalized_forms.py`）、
   段 2（`scripts/dvc-repro.py -s`）と段 3（付け直しのコマンド `scripts/dvc-relock.py`）は入り、ADR-0184 の 2 つの例外、ADR-0130 の
-  帰結、ADR-0257 の「使い方」を合わせた。スキル dvc-relock の前半は、コマンドを呼ぶことと、止まったときの調べ方になった。段 4、5 は
-  未着手で、#0298 にある。段 5 が入るまでは、形式を変える修正かは差分を読んで判断する
+  帰結、ADR-0257 の「使い方」を合わせた。スキル dvc-relock の前半は、コマンドを呼ぶことと、止まったときの調べ方になった。段 4 も入り、
+  「changed の扱い」をスキル compute と topic-start、CLAUDE.md の方針（依頼とレビューで changed を修正を見送る理由にしない）、
+  docs/plans/upstream-error-budget.md の「結果を変えない xs と lattice の修正」に書いた。段 5 は未着手で、#0298 にある。段 5 が入るまでは、形式を変える修正かは差分を読んで判断する
 - 段 1 の hook は、foreach の並びを、追跡しているすべての `dvc.yaml` のステージが deps にする正規形から決め、並びから外れた項の
   直下の lock の項と正規形のファイルも消す（`dvc repro` は、foreach から消えた項の lock を残すため）。付け直しのコマンドも、正規形を
   実行する前に同じ部品で並びを合わせる（rebase の pick は pre-commit の hook を通らない）。hook は .py、TOML、
