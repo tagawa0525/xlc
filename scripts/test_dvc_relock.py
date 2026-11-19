@@ -189,7 +189,8 @@ class Process(unittest.TestCase):
         )
 
     def test_the_build_and_normalized_forms_run_in_one_dvc_repro(self):
-        # dvc は目標を DAG の順に並べる（binary-forms は build の下流）
+        # dvc repro -s は目標を挙げた順に実行し、DAG で並べ直さない（dvc 3.67.1 の dvc/repo/reproduce.py）。binary-forms は
+        # build の bin/ と python-ast の normalize_binary.py.ast を読むので、その 2 つの後に挙げる
         self.run_script(DEPS)
         self.assertEqual(self.ran("dvc repro"), [FORMS_CALL])
 
@@ -317,6 +318,22 @@ class Process(unittest.TestCase):
         r = self.run_script(DEPS)
         self.assertEqual(r.returncode, 1)
         self.assertNotIn("COMMIT:", r.stdout)
+        self.assertIn("NEXT: nothing was written", r.stderr)
+
+    def test_a_stop_says_to_commit_only_after_a_rerun_passes(self):
+        self.exit_with("check-references-shell.sh")
+        r = self.run_script(DEPS)
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("COMMIT: python-ast/a.py.ast", r.stdout)
+        self.assertIn("after a rerun passes", r.stderr)
+
+    def test_a_part_that_cannot_start_still_reports_what_was_written(self):
+        (self.repo / "scripts" / "check-references-shell.sh").chmod(0o644)
+        r = self.run_script(DEPS)
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("RAN: none", r.stdout)
+        self.assertIn("COMMIT: python-ast/a.py.ast", r.stdout)
+        self.assertIn("STOP:", r.stderr)
 
     def test_locks_changed_since_the_fork_point_are_checked(self):
         # examples/v/dvc.lock はブランチのコミットで変わった（rebase の pick は pre-commit の hook を通らない）
@@ -374,6 +391,15 @@ class Process(unittest.TestCase):
         r = self.run_script(DEPS, V)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(self.ran("dvc status"), [f"dvc status --json --with-deps {V}"])
+
+    def test_a_scoped_status_also_covers_the_named_stages(self):
+        # 挙げたステージが範囲の外の例にあっても、実行の後に changed outs だけになっていないかを見る
+        other = "examples/m/dvc.yaml:foo"
+        r = self.run_script(DEPS, "--run", other, V)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(
+            self.ran("dvc status"), [f"dvc status --json --with-deps {V} {other}"] * 2
+        )
 
     def test_running_outside_the_repository_root_is_refused(self):
         r = self.run_script(DEPS, cwd=self.repo / "examples" / "v")
