@@ -32,7 +32,7 @@ ADR-0214 が入った（`git log --first-parent 13826a2b9..f86d7fda8 -- crates/l
 （#0215）。依頼が挙げた 2 つの bin の間の違いによるのではない（bin の二分は流していない）:
 
 - 間の bin（621c10a69 の 22cf3181 と c67424147 の 36667823）の lattice の差は history.rs、residual.rs、main.rs の摂動の解の `h.micro`
-  （分岐と履歴の経路）と format のテーブルで、自己遮蔽（shielding.rs、ufg/）と燃焼の経路に変更はない（`git diff 621c10a69 c67424147`）
+  （ブランチ計算と履歴の経路）と format のテーブルで、自己遮蔽（shielding.rs、ufg/）と燃焼の経路に変更はない（`git diff 621c10a69 c67424147`）
 - この入力は、Slurm 457 の後、644 まで流していない（dvc.lock の出力のログの時刻は 2026-10-22T17:46Z）
 
 ### 原因
