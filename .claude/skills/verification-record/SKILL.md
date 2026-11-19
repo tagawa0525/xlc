@@ -49,8 +49,8 @@ description: examples/*/verification.md に測定の結果を書く・直す手�
     走らないことは、CLAUDE.md の「計算」の数え方（`scripts/count-changed-stages.py` と、目標の上流のうち changed の下流にあるもの）で
     確かめる。`dvc status` だけでは、上流が出力を書き換えた後に走る下流が出ない
   - 描く関数が OpenMC の `seconds` も読む表の OpenMC の行は、上の項（OpenMC の total も `--timed`）と、
-    数時間の参照解を AWS に回していたとき（2026-11-19 までの CLAUDE.md の「計算」）の規則とが両立しなかった。今は参照解も r995 の Slurm で流す
-    ので、数時間の OpenMC も `--timed` で流せる。今の行は timed のパーティションができる前の main のジョブの値で、扱いは
+    数時間の参照解を AWS に回していたとき（2026-11-19 までの CLAUDE.md の「計算」）の規則とが両立しなかった。今は参照解も r995 の Slurm で流すが、
+    数時間の OpenMC を `--timed` にするかは決めていない。今の行は timed のパーティションができる前の main のジョブの値で、扱いは
     #0217 で決める
 - どの表が時間を描くかは、表の名前でなく描く関数から数える（一覧をここにコピーすると古くなる）。リポジトリの直下で、
   描く関数の本文が `"seconds"` を読む表の名前と出どころの JSON を出す（`TABLES` の値は `(JSON の一覧, 関数)` で、関数は
