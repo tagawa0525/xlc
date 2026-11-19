@@ -4722,7 +4722,6 @@ def endfb70_openmc(sources: list[dict]) -> str:
     )
 
 
-# 表の名前 → (JSON（リポジトリの直下から）, 描く関数)。JSON は dvc.yaml のステージの outs で、同じ場所の dvc.lock が md5 を持つ
 # 版ごとの燃焼チェーンの置き場（examples/depletion のステージの cwd から。#0303）
 CHAIN_VERSIONS = {
     "endfb70/chain.msgpack": "VII.0",
@@ -4739,13 +4738,20 @@ def chain_versions(sources: list[dict]) -> str:
     for s in sources:
         if s.get("format") != "xlc-compare-chain-versions":
             raise TableError("not an xlc-compare-chain-versions summary")
-        try:
-            a, b = (CHAIN_VERSIONS[i["path"]] for i in s["inputs"])
-        except KeyError as e:
-            raise TableError(f"a chain of no known version: {e}") from None
+        paths = [i["path"] for i in s.get("inputs", [])]
+        if len(paths) != 2:
+            raise TableError(f"a chain comparison of {len(paths)} inputs, not 2")
+        unknown = [p for p in paths if p not in CHAIN_VERSIONS]
+        if unknown:
+            raise TableError(f"a chain of no known version: {unknown}")
+        a, b = (CHAIN_VERSIONS[p] for p in paths)
         for q, c in s["quantities"].items():
             if thresholds is None:
                 thresholds = list(c["above"])
+            elif list(c["above"]) != thresholds:
+                raise TableError(
+                    f"{a} → {b} {q}: thresholds {list(c['above'])}, not {thresholds}"
+                )
             rows.append(
                 [
                     f"{a} → {b}",
@@ -4761,6 +4767,7 @@ def chain_versions(sources: list[dict]) -> str:
     return markdown_table(header, rows)
 
 
+# 表の名前 → (JSON（リポジトリの直下から）, 描く関数)。JSON は dvc.yaml のステージの outs で、同じ場所の dvc.lock が md5 を持つ
 TABLES = {
     "p3-reference-results": (
         [
