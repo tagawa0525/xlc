@@ -54,7 +54,8 @@ issues: []
 案 A にする。
 
 - 使い方: `scripts/dvc-repro.py --max-stages <N> [--allow-reference <yaml>:<ステージか foreach の組>]... [--count-only]
-  [--no-run-cache] (-P | <dvc repro の目標>...)`（default の devShell）。`-s` と、ほかの dvc repro のオプションは、走るステージの
+  [--no-run-cache] (-P | <dvc repro の目標>...)`（default の devShell で、リポジトリの直下から。目標は cwd からの相対で、ステージの名前は
+  直下からのパスなので、ほかの場所では止まる）。`-s` と、ほかの dvc repro のオプションは、走るステージの
   数え方を変えうるので受けない（`-s` は手元の数秒の再実行に使う）
 - 範囲: `dvc repro --dry -f <目標>` が並べるステージ（目標とその上流。`-f` で changed によらずすべてを並べる）と、その cmd
 - 走りうるステージ: 範囲のうち、`dvc status --json --with-deps <目標>` が changed と示すものと、`dvc dag --dot <目標>`（目標ごと）
@@ -70,7 +71,8 @@ issues: []
 - hook: `.claude/hooks/block-raw-dvc-repro-in-slurm.py`。Bash のコマンドのうち `slurm-run.sh` の呼び出しの最後の引数（ジョブの
   コマンド）を ADR-0223 と同じ読み方で読み、dvc の repro を直接呼べば終了コード 2 で止め、ラッパーの使い方を示す。`slurm-run.sh` の
   外の `dvc repro`（手元の `-s` と数秒のステージ）は止めない。stdin に `slurm-run` の文字列が無ければ python3 を起動しない
-- コマンドの読み方は ADR-0223 の hook から `.claude/hooks/shell_words.py` に移し、2 つの hook が共有する
+- コマンドの読み方は ADR-0223 の hook から `.claude/hooks/shell_words.py` に移し、2 つの hook が共有する。ジョブのコマンドを
+  最後の語で見分けるので、`slurm-run.sh … '<コマンド>' 2>&1` の fd の番号を語から外す
 
 理由:
 
@@ -84,7 +86,8 @@ issues: []
 - 数は上限なので、正規形（python-ast など）が古いまま数えると、正規形のバイトの変わらない変更でも下流を数えて止まる。その
   ときは /dvc-relock の前半のとおり正規形を手元で作り直してから数え直す
 - ジョブのコマンドの中の生の `dvc repro`（`a && dvc repro …` を含む）は hook が止める。`slurm-run.sh` を通さずに Slurm に渡す形
-  （直接の sbatch は claude-hooks が止める）と、ADR-0223 の帰結に挙げた読まない書き方は止め損なう
+  （直接の sbatch は claude-hooks が止める）、シェルにスクリプトとして渡す `bash ~/.claude/scripts/slurm-run.sh …`、ADR-0223 の帰結に
+  挙げた読まない書き方は止め損なう
 - 数えるのに dvc を 3 種類（dag は目標ごと）呼ぶので、ジョブの始めに 1 分ほどかかる（下の確認の examples/vera/dvc.yaml で 57 秒）
 
 ### 確認

@@ -93,8 +93,9 @@ issues: ["#0184", "#0210", "#0211"]
   オプションと `exec -a`、`function`、`coproc`、nix のグローバルオプションが先に来る `nix --offline develop -c …`、
   `nix-shell --run '…'`、`taskset --cpu-list=0 …`、インタプリタのオプションが `-m` の前に来る `python3 -u -m dvc checkout` など）、ヒアドキュメント、ヒア文字列かパイプで渡すシェル（`bash <<'EOF'`、`bash <<< '…'`、`… | bash`）、区切りの語を
   引用しないヒアドキュメント（`<<EOF`）の本文の `$(…)` とバッククォート、
-  fd の番号から始まるリダイレクト、`-o` が最後でない bash のオプションの束（`-oe pipefail`）、`$$'…'` は
-  読まず、止め損なう。普段の書き方（`cd … &&`、
+  `-o` が最後でない bash のオプションの束（`-oe pipefail`）、`$$'…'` は
+  読まず、止め損なう。fd の番号から始まるリダイレクト（`2>/dev/null dvc checkout`）は、読み方を共有する ADR-0257 の hook のために
+  `.claude/hooks/shell_words.py` が番号を語から外して読む（2026-11-19）。普段の書き方（`cd … &&`、
   前置きの `env` や `timeout`、`bash -c`、`nix develop -c`、`for … do`）を止めることを優先し、それ以外は塞がない
 - 引用の外の `$(…)`、バッククォート、`(` が単純なコマンドを区切るので、その後の語が `dvc checkout` で始まると、dvc を
   実行しないコマンド（`echo $(date) dvc checkout`）も止める。`dvc checkout --help` も止める（#0211）

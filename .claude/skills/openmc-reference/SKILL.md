@@ -48,7 +48,7 @@ scripts/dvc-checkout.py examples/vera/dvc.yaml
 ステージか組を `--allow-reference` に挙げる（ほかの参照解が入れば何も実行せずに止まる。ADR-0257）:
 
 ```sh
-~/.claude/scripts/slurm-run.sh --class record --ref '- VERA の参照解のステージの作り直し' --purpose 'VERA の OpenMC の参照解と核データのステージを作る' --timed -t 90 vera-reference-stages 'scripts/dvc-repro.py --max-stages <見込む本数> --allow-reference examples/vera/dvc.yaml:openmc-neutron --allow-reference examples/vera/dvc.yaml:openmc-thermal --allow-reference examples/vera/dvc.yaml:openmc-index --allow-reference examples/vera/dvc.yaml:openmc-1B-model --allow-reference examples/vera/dvc.yaml:openmc-1B --allow-reference examples/vera/dvc.yaml:openmc-1B-extract examples/vera/dvc.yaml'   # 時間を記録するなら --timed（付けなければ main で、止められうる）。区分と参照と目的、実行する参照解はその計算に合わせる
+~/.claude/scripts/slurm-run.sh --class record --ref '- VERA の参照解のステージの作り直し' --purpose 'VERA の OpenMC の参照解と核データのステージを作る' --timed -t 90 vera-reference-stages 'scripts/dvc-repro.py --max-stages <見込む本数> --allow-reference examples/vera/dvc.yaml:openmc-neutron --allow-reference examples/vera/dvc.yaml:openmc-thermal --allow-reference examples/vera/dvc.yaml:openmc-index --allow-reference examples/vera/dvc.yaml:openmc-1B-model --allow-reference examples/vera/dvc.yaml:openmc-1B --allow-reference examples/vera/dvc.yaml:openmc-1B-extract --allow-reference examples/vera/dvc.yaml:openmc-5A-2D-extract examples/vera/dvc.yaml'   # 時間を記録するなら --timed（付けなければ main で、止められうる）。区分と参照と目的、実行する参照解はその計算に合わせる
 ```
 
 終わったら `dvc.lock` をコミットする。
