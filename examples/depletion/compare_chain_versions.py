@@ -10,14 +10,16 @@ xlc のチェーンと OpenMC のチェーンを比べるのは compare_chain.py
   - `excitation`: 核種の励起エネルギー
   - `half_life`: 半減期。片方だけが安定なら、安定の側を null にして相対差を null（いちばん先に並べる）
   - `decay_energy`: 崩壊の平均のエネルギーの 3 成分（両方で不安定な核種）
-  - `decay_modes`: 崩壊の（型、生まれる核種）ごとの分岐比（両方で不安定な核種）。同じ型と生成物を 2 度書いたものは足す
+  - `decay_modes`: 崩壊の（型、生まれる核種）ごとの分岐比（両方で不安定な核種）。同じ型と生成物を 2 度書いたものは足す。
+    片方に無い分岐は値なし
   - `fission_q`: 核分裂の Q 値（両方で核分裂する核種）
   - `yield_sources`: 収率を取った核種（両方で核分裂する核種）
   - `yield_energies`: 収率の入射エネルギーの並び（両方で核分裂する核種）
-  - `fission_yields`: （核分裂する核種、両方にある入射エネルギー、生成物）ごとの独立収率。片方に無い生成物の収率は 0
+  - `fission_yields`: （核分裂する核種、入射エネルギー、生成物）ごとの独立収率。両方にある表で片方に無い生成物の
+    収率は 0、片方の版だけにある入射エネルギーの表の項目は、もう片方を値なしにする
   - `reactions`: （核種、MT）ごとの経路（生成物の状態と生まれる核種）の集合。片方だけの反応も違いに数える
   数値は値が等しいかで比べ（ENDF の書き方と、チェーンの中の並びには依らない）、相対差は |a − b| / max(|a|, |b|)（片方が 0 なら 1）。
-  あわせて、（核分裂する核種、入射エネルギー）ごとの収率の差の絶対値の和と最大（`yield_tables`）と、`WATCHED_PARENTS` と
+  あわせて、（核分裂する核種、入射エネルギー）ごとの収率の差の絶対値の和と最大（`yield_tables`。両方にある表だけ）と、`WATCHED_PARENTS` と
   `WATCHED_NUCLIDES` の半減期、分岐比、核分裂の Q 値、`WATCHED_PARENTS` から `WATCHED_NUCLIDES` への収率の両方の値（等しくても。
   `watched`）を書く。`inputs` は読んだファイルのパス（ステージの cwd から）と md5
 - `--report`: 要約の JSON を文章で描く
@@ -44,6 +46,8 @@ WATCHED_NUCLIDES = [
     "Nd-143",
     "Rh-103",
     "Cs-133",
+    # I-135 の β− の分岐の片方の娘（版で分岐比が違う。#0303）
+    "Xe-135m",
 ]
 ENERGY_PARTS = ["light", "electromagnetic", "heavy"]
 QUANTITIES = [
@@ -131,7 +135,13 @@ def products_text(products) -> str:
 def channel_text(channels) -> str:
     parts = []
     for state, products in channels:
-        where = "" if state is None else f"MF{state[0]} LFS {state[1]}: "
+        if state is None:
+            where = ""
+        elif state[1] is None:
+            # MF8 が基底状態を挙げない反応の、挙げた状態を除いた残り
+            where = f"MF{state[0]} の残り（基底状態）: "
+        else:
+            where = f"MF{state[0]} LFS {state[1]}: "
         parts.append(where + products_text(products))
     return "; ".join(parts)
 
@@ -170,8 +180,9 @@ def collect(a: dict, b: dict) -> dict:
                         "nuclide": name,
                         "mode": key[0],
                         "products": products_text(key[1]),
-                        "a": xd["modes"].get(key, 0.0),
-                        "b": yd["modes"].get(key, 0.0),
+                        # チェーンの分岐比は正なので、片方に無い分岐は 0 でなく値なし
+                        "a": xd["modes"].get(key),
+                        "b": yd["modes"].get(key),
                     }
                 )
         for mt in sorted(set(x["reactions"]) | set(y["reactions"])):
@@ -194,22 +205,22 @@ def collect(a: dict, b: dict) -> dict:
         items["yield_energies"].append(
             {
                 "nuclide": name,
-                "a": " ".join(f"{e:g}" for e in xf["energies"]),
-                "b": " ".join(f"{e:g}" for e in yf["energies"]),
+                # repr は float を往復できる桁で書くので、値が違えば文字も違う
+                "a": " ".join(repr(e) for e in xf["energies"]),
+                "b": " ".join(repr(e) for e in yf["energies"]),
             }
         )
-        for e in xf["energies"]:
-            if e not in yf["tables"]:
-                continue
-            xt, yt = xf["tables"][e], yf["tables"][e]
-            for product in sorted(set(xt) | set(yt)):
+        for e in sorted(set(xf["tables"]) | set(yf["tables"])):
+            xt, yt = xf["tables"].get(e), yf["tables"].get(e)
+            for product in sorted(set(xt or {}) | set(yt or {})):
                 items["fission_yields"].append(
                     {
                         "nuclide": name,
                         "energy": e,
                         "product": product,
-                        "a": xt.get(product, 0.0),
-                        "b": yt.get(product, 0.0),
+                        # 片方の版だけにある入射エネルギーの表は、もう片方を値なしにする
+                        "a": None if xt is None else xt.get(product, 0.0),
+                        "b": None if yt is None else yt.get(product, 0.0),
                     }
                 )
     for q in QUANTITIES:
@@ -241,7 +252,7 @@ def summarize(a: dict, b: dict) -> dict:
         quantities[q] = {
             "compared": len(items[q]),
             "differ": len(diff),
-            # 片方だけが値を持つ項目（片方だけの反応、片方だけ安定な核種）
+            # 片方だけが値を持つ項目（片方だけの反応、分岐、収率の表、片方だけ安定な核種）
             "one_sided": sum(1 for i in diff if i["a"] is None or i["b"] is None),
             "above": {
                 f"{t:g}": sum(
@@ -256,6 +267,8 @@ def summarize(a: dict, b: dict) -> dict:
         by_table.setdefault((i["nuclide"], i["energy"]), []).append(i)
     tables = []
     for (name, e), ys in by_table.items():
+        if any(i["a"] is None or i["b"] is None for i in ys):
+            continue
         worst = max(ys, key=lambda i: abs(i["a"] - i["b"]))
         tables.append(
             {
@@ -420,16 +433,13 @@ def main() -> None:
         print("\n".join(report(json.loads(Path(args[1]).read_text()))))
     elif len(args) == 4 and args[0] == "--json":
         files = [Path(args[2]), Path(args[3])]
-        a, b = (msgpack.unpackb(f.read_bytes(), raw=False) for f in files)
-        summary = {
-            "format": "xlc-compare-chain-versions",
-            # 読んだファイルのパス（ステージの cwd から）と md5。dvc.lock の deps と一致する（record_provenance.py が照合する）
-            "inputs": [
-                {"path": str(f), "md5": hashlib.md5(f.read_bytes()).hexdigest()}
-                for f in files
-            ],
-            **summarize(a, b),
-        }
+        data = [f.read_bytes() for f in files]
+        summary = summarize(*(msgpack.unpackb(d, raw=False) for d in data))
+        # 読んだファイルのパス（ステージの cwd から）と md5。dvc.lock の deps と一致する（record_provenance.py が照合する）
+        summary["inputs"] = [
+            {"path": str(f), "md5": hashlib.md5(d).hexdigest()}
+            for f, d in zip(files, data)
+        ]
         Path(args[1]).write_text(
             json.dumps(summary, indent=1, ensure_ascii=False) + "\n"
         )

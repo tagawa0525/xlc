@@ -6,7 +6,7 @@ import msgpack
 LARGEST = 30
 THRESHOLDS = [1e-06, 0.001, 0.01]
 WATCHED_PARENTS = ['U-235', 'U-238', 'Pu-239', 'Pu-241']
-WATCHED_NUCLIDES = ['Xe-135', 'I-135', 'Sm-149', 'Pm-149', 'Nd-143', 'Rh-103', 'Cs-133']
+WATCHED_NUCLIDES = ['Xe-135', 'I-135', 'Sm-149', 'Pm-149', 'Nd-143', 'Rh-103', 'Cs-133', 'Xe-135m']
 ENERGY_PARTS = ['light', 'electromagnetic', 'heavy']
 QUANTITIES = ['excitation', 'half_life', 'decay_energy', 'decay_modes', 'fission_q', 'yield_sources', 'yield_energies', 'fission_yields', 'reactions']
 
@@ -62,7 +62,12 @@ def products_text(products) -> str:
 def channel_text(channels) -> str:
     parts = []
     for state, products in channels:
-        where = '' if state is None else f'MF{state[0]} LFS {state[1]}: '
+        if state is None:
+            where = ''
+        elif state[1] is None:
+            where = f'MF{state[0]} の残り（基底状態）: '
+        else:
+            where = f'MF{state[0]} LFS {state[1]}: '
         parts.append(where + products_text(products))
     return '; '.join(parts)
 
@@ -79,7 +84,7 @@ def collect(a: dict, b: dict) -> dict:
             for part in ENERGY_PARTS:
                 items['decay_energy'].append({'nuclide': name, 'part': part, 'a': xd['energy'][part], 'b': yd['energy'][part]})
             for key in sorted(set(xd['modes']) | set(yd['modes'])):
-                items['decay_modes'].append({'nuclide': name, 'mode': key[0], 'products': products_text(key[1]), 'a': xd['modes'].get(key, 0.0), 'b': yd['modes'].get(key, 0.0)})
+                items['decay_modes'].append({'nuclide': name, 'mode': key[0], 'products': products_text(key[1]), 'a': xd['modes'].get(key), 'b': yd['modes'].get(key)})
         for mt in sorted(set(x['reactions']) | set(y['reactions'])):
             xr, yr = (x['reactions'].get(mt), y['reactions'].get(mt))
             items['reactions'].append({'nuclide': name, 'mt': mt, 'a': None if xr is None else channel_text(xr), 'b': None if yr is None else channel_text(yr)})
@@ -88,13 +93,11 @@ def collect(a: dict, b: dict) -> dict:
             continue
         items['fission_q'].append({'nuclide': name, 'a': xf['q'], 'b': yf['q']})
         items['yield_sources'].append({'nuclide': name, 'a': xf['yield_source'], 'b': yf['yield_source']})
-        items['yield_energies'].append({'nuclide': name, 'a': ' '.join((f'{e:g}' for e in xf['energies'])), 'b': ' '.join((f'{e:g}' for e in yf['energies']))})
-        for e in xf['energies']:
-            if e not in yf['tables']:
-                continue
-            xt, yt = (xf['tables'][e], yf['tables'][e])
-            for product in sorted(set(xt) | set(yt)):
-                items['fission_yields'].append({'nuclide': name, 'energy': e, 'product': product, 'a': xt.get(product, 0.0), 'b': yt.get(product, 0.0)})
+        items['yield_energies'].append({'nuclide': name, 'a': ' '.join((repr(e) for e in xf['energies'])), 'b': ' '.join((repr(e) for e in yf['energies']))})
+        for e in sorted(set(xf['tables']) | set(yf['tables'])):
+            xt, yt = (xf['tables'].get(e), yf['tables'].get(e))
+            for product in sorted(set(xt or {}) | set(yt or {})):
+                items['fission_yields'].append({'nuclide': name, 'energy': e, 'product': product, 'a': None if xt is None else xt.get(product, 0.0), 'b': None if yt is None else yt.get(product, 0.0)})
     for q in QUANTITIES:
         for item in items[q]:
             if isinstance(item['a'], str) or isinstance(item['b'], str):
@@ -122,6 +125,8 @@ def summarize(a: dict, b: dict) -> dict:
         by_table.setdefault((i['nuclide'], i['energy']), []).append(i)
     tables = []
     for (name, e), ys in by_table.items():
+        if any((i['a'] is None or i['b'] is None for i in ys)):
+            continue
         worst = max(ys, key=lambda i: abs(i['a'] - i['b']))
         tables.append({'nuclide': name, 'energy': e, 'products': len(ys), 'differ': sum((1 for i in ys if differs(i))), 'sum_a': sum((i['a'] for i in ys)), 'sum_b': sum((i['b'] for i in ys)), 'sum_abs': sum((abs(i['a'] - i['b']) for i in ys)), 'max_abs': abs(worst['a'] - worst['b']), 'max_product': worst['product']})
     watched_nuclides = []
@@ -206,8 +211,9 @@ def main() -> None:
         print('\n'.join(report(json.loads(Path(args[1]).read_text()))))
     elif len(args) == 4 and args[0] == '--json':
         files = [Path(args[2]), Path(args[3])]
-        a, b = (msgpack.unpackb(f.read_bytes(), raw=False) for f in files)
-        summary = {'format': 'xlc-compare-chain-versions', 'inputs': [{'path': str(f), 'md5': hashlib.md5(f.read_bytes()).hexdigest()} for f in files], **summarize(a, b)}
+        data = [f.read_bytes() for f in files]
+        summary = summarize(*(msgpack.unpackb(d, raw=False) for d in data))
+        summary['inputs'] = [{'path': str(f), 'md5': hashlib.md5(d).hexdigest()} for f, d in zip(files, data)]
         Path(args[1]).write_text(json.dumps(summary, indent=1, ensure_ascii=False) + '\n')
         print('\n'.join(report(summary)))
     else:
