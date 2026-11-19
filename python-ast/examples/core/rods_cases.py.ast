@@ -47,7 +47,7 @@ def main():
     (HERE / 'cases.yaml').write_text('# このファイルは rods_cases.py が書く。dvc.yaml の foreach が読むケースの名前\ncases:\n' + ''.join((f'  - {n}\n' for n in names)))
 
 def code(stage):
-    return [f'../../bin/{stage}']
+    return [f'../../binary-forms/{stage}.md5']
 
 def listed(items, indent):
     return ''.join((f"{' ' * indent}- {item}\n" for item in items))

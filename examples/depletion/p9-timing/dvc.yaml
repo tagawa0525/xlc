@@ -5,7 +5,7 @@ stages:
   core-p9:
     cmd: ../../../bin/core core-p9.toml > core-p9.out 2> core-p9.log
     deps:
-      - ../../../bin/core
+      - ../../../binary-forms/core.md5
       - ../../../toml-values/examples/depletion/p9-timing/core-p9.toml.json
       - ../../../toml-values/examples/depletion/p9-timing/core-p9-cycle.toml.json
       - ../../../toml-values/examples/depletion/p9-timing/core-p9-assemblies.toml.json

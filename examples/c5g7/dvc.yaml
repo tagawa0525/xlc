@@ -8,7 +8,7 @@ stages:
     deps:
       - ../../toml-values/examples/c5g7/c5g7.toml.json
       - ../../toml-values/examples/c5g7/c5g7-xs.toml.json
-      - ../../bin/lattice
+      - ../../binary-forms/lattice.md5
     outs:
       - pins.msgpack
       - lattice-coarse.out
@@ -18,7 +18,7 @@ stages:
     deps:
       - ../../toml-values/examples/c5g7/c5g7-fine.toml.json
       - ../../toml-values/examples/c5g7/c5g7-xs.toml.json
-      - ../../bin/lattice
+      - ../../binary-forms/lattice.md5
     outs:
       - fine-pins.msgpack
       - lattice-fine.out

@@ -136,7 +136,7 @@ stages:
     deps:
       - ../../toml-values/examples/vera/xs.toml.json
       - ../../references/endf/ENDF-B-VIII.0_neutrons
-      - ../../bin/xs
+      - ../../binary-forms/xs.md5
     outs:
       - xs-range.toml:
           cache: false
@@ -150,7 +150,7 @@ stages:
         - xs-range.toml
         - ${endf-directory}/${item.endf}
         - ${thermal-directory}
-        - ../../bin/xs
+        - ../../binary-forms/xs.md5
       params:
         - xs.toml:
             - sigma0
@@ -164,7 +164,7 @@ stages:
       - ../../toml-values/examples/vera/xs.toml.json
       - xs-range.toml
       - xs-nuclides
-      - ../../bin/xs
+      - ../../binary-forms/xs.md5
     outs:
       - vera.msgpack
   lattice-1B:
@@ -173,7 +173,7 @@ stages:
     deps:
       - ../../toml-values/examples/vera/p1/pincell-1B.toml.json
       - vera.msgpack
-      - ../../bin/lattice
+      - ../../binary-forms/lattice.md5
     outs:
       - p1/lattice-1B.out
   compare-1B:
@@ -198,7 +198,7 @@ stages:
         - ../../python-ast/examples/vera/compare_k.py.ast
         - ../../python-ast/examples/vera/compare_p3.py.ast
         - ../../references/vera/spec.txt
-        - ../../bin/lattice
+        - ../../binary-forms/lattice.md5
       outs:
         - p1/keno-lattice-${item}.out
         - compare-keno-${item}.json:
@@ -215,7 +215,7 @@ stages:
         - ../../python-ast/examples/vera/compare_k.py.ast
         - ../../python-ast/examples/vera/compare_p3.py.ast
         - ../../references/vera/spec.txt
-        - ../../bin/lattice
+        - ../../binary-forms/lattice.md5
       outs:
         - p2/keno-lattice-${item}.out
         - p2/pins-${item}.msgpack
