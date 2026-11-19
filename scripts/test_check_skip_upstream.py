@@ -86,10 +86,8 @@ class Blockers(unittest.TestCase):
 
     def test_changed_binary_forms_upstream_blocks(self):
         # 下流の cmd は bin/ を呼び、deps は binary-forms の正規形（ADR-0255）
-        status = {
-            "build": [{"changed deps": {"crates": "modified"}}],
-            "binary-forms@xs": [{"changed deps": {"bin/xs": "modified"}}],
-        }
+        # build は実行して lock を付け直したが、binary-forms はまだ
+        status = {"binary-forms@xs": [{"changed deps": {"bin/xs": "modified"}}]}
         self.assertEqual(
             skip.blockers(status, TARGET), [("binary-forms@xs", ["changed deps"])]
         )

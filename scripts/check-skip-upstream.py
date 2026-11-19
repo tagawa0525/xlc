@@ -7,7 +7,8 @@
 ときに 0、ほかの種類（`changed outs`、`changed command`、`changed checksum`）を持つものがあれば、その一覧を出して 1 で終わる。
 直下の dvc.yaml の正規形のステージ（`python-ast`、`toml-values`、`binary-forms`）は、`changed deps` だけでも止める: 下流の cmd は
 元の .py、TOML、bin/ を読むので、先に実行して changed でなくしないと、dvc.lock に古い正規形の md5 が入る（ADR-0184、ADR-0254、ADR-0255）。
-目標のステージ自身の変更は再実行の理由なので数えない（foreach の目標 `<yaml>:<名前>` は、`<名前>@<項目>` のすべてが目標）。知らない種類の変更は ValueError で止める。
+目標のステージ自身の変更は再実行の理由なので数えない（foreach の目標 `<yaml>:<名前>` は、`<名前>@<項目>` のすべてが目標）。
+目標が数秒で終わるか（例外の条件）は判定しない。知らない種類の変更は ValueError で止める。
 
 `dvc status` に出ない条件は判定しない: `references-shell.txt` は devShell が変わっても `dvc status` に出ないので、
 `scripts/check-references-shell.sh` で確かめる（ADR-0184）。
@@ -78,8 +79,10 @@ def main(argv):
         print(f"BLOCKED: {key}: {', '.join(kinds)}")
     if found:
         print(
-            "ERROR: 上流に changed deps でない変更か、changed の python-ast、toml-values、binary-forms がある。それらは先に"
-            " dvc repro で実行し、ほかは -s を使わず dvc repro <目標> で上流から実行する（ADR-0184）",
+            "ERROR: 上流に changed deps でない変更か、changed の正規形のステージ（"
+            + "、".join(name.rstrip("@") for name in RUN_FIRST)
+            + "）がある。正規形のステージは先に dvc repro <そのステージ> で実行し（上流の build も走りうる。数秒で済まなければ"
+            " -s の例外に当たらない）、ほかは -s を使わず dvc repro <目標> で上流から実行する（ADR-0184）",
             file=sys.stderr,
         )
         return 1
