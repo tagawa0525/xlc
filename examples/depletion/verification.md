@@ -10704,10 +10704,10 @@ for f in u mox gd; do python3 issue-0292/compare_dilute.py --report issue-0292/d
 
 ### 計算
 
-燃焼は aab96af8（実行したのは rebase の前の同じ変更、分岐点 be853f22。rebase で入った main の変更は crates/lattice、crates/xs、
+燃焼は 4aa90881（実行したのは rebase の前の同じ変更、分岐点 be853f22。rebase で入った main の変更は crates/lattice、crates/xs、
 Cargo.lock に触れない）の release のビルドで、2026-11-20、Slurm 969（全核種を数える、U）、970（同、MOX）、971（同、Gd）、
 972〜974（65 核種を輸送、U、MOX、Gd）、975〜977（4 核種を遮蔽、U、MOX、Gd）。ライブラリの md5 は p2 975be970、65 核種 9eeecb5d、4 核種 53b71010。
-割り込まれうるジョブで、時間は記録に使わない（下の自己遮蔽の時間の比は目安）。比較は a2c3221d の時点で手元。入力の md5 は JSON の `inputs`。
+割り込まれうるジョブで、時間は記録に使わない（下の自己遮蔽の時間の比は目安）。比較は bd1cbf8e の時点で手元。入力の md5 は JSON の `inputs`。
 どのログも、81 回の輸送で `nuclides=` と `dilute=` が上の数（89 と 455、154 と 390、93 と 451）を出す。
 
 ### 結果
