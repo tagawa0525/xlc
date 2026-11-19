@@ -35,6 +35,7 @@ def result(k, fission_power, u235, power=100.0, burnup=(0.0, 10.0, 20.0)):
         "transportable": ["U235", "U238"],
         "power": power,
         "fission-power": list(fission_power),
+        "fission-rates": {"U235": [1.0] * len(burnup), "Pu239": [0.0, 0.5, 1.0]},
     }
 
 
@@ -93,6 +94,29 @@ class Compare(unittest.TestCase):
         other["transportable"] = ["U235"]
         with self.assertRaises(SystemExit):
             compare_normalization.compare(FISSION_Q, other)
+
+
+class Kappa(unittest.TestCase):
+    """仕様書の核種ごとの定数 Kappa / Kappa0 を、fission-q の履歴の核分裂の率とチェーンの Q で重み付けた割合。"""
+
+    def test_the_kappa_ratio_is_weighted_by_the_chain_q_fission_power(self):
+        kappa = {
+            "U235": {"kappa": 1.04, "kappa0": 1.0},
+            "Pu239": {"kappa": 1.08, "kappa0": 1.0},
+        }
+        q = {"U235": 2.0e8, "Pu239": 2.0e8}
+        rows = compare_normalization.kappa_delta(FISSION_Q, kappa, q)
+        self.assertAlmostEqual(rows[0]["delta"], 0.04)
+        # 点 2 は U235 と Pu239 が 1 : 1
+        self.assertAlmostEqual(rows[2]["delta"], 0.06)
+        self.assertAlmostEqual(rows[2]["uncovered"], 0.0)
+
+    def test_fission_without_a_kappa_is_counted_as_uncovered(self):
+        kappa = {"U235": {"kappa": 1.04, "kappa0": 1.0}}
+        q = {"U235": 2.0e8, "Pu239": 2.0e8}
+        rows = compare_normalization.kappa_delta(FISSION_Q, kappa, q)
+        self.assertAlmostEqual(rows[2]["delta"], 0.04)
+        self.assertAlmostEqual(rows[2]["uncovered"], 0.5)
 
 
 if __name__ == "__main__":
