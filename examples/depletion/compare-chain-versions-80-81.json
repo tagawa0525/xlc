@@ -1,15 +1,5 @@
 {
  "format": "xlc-compare-chain-versions",
- "inputs": [
-  {
-   "path": "chain.msgpack",
-   "md5": "1f1de1800363a19f23af2f7b4417c426"
-  },
-  {
-   "path": "endfb81/chain.msgpack",
-   "md5": "4b08493286f1d7840d777ac2cbfa9877"
-  }
- ],
  "nuclides": {
   "a": 3820,
   "b": 3820,
@@ -481,7 +471,7 @@
      "nuclide": "In-115",
      "mt": 16,
      "a": "In-114",
-     "b": "MF10 LFS 1: In-114m; MF10 LFS None: In-114",
+     "b": "MF10 LFS 1: In-114m; MF10 の残り（基底状態）: In-114",
      "relative": null
     },
     {
@@ -516,7 +506,7 @@
      "nuclide": "Mo-92",
      "mt": 103,
      "a": "H-1 + Nb-92",
-     "b": "MF10 LFS 1: H-1 + Nb-92m; MF10 LFS None: H-1 + Nb-92",
+     "b": "MF10 LFS 1: H-1 + Nb-92m; MF10 の残り（基底状態）: H-1 + Nb-92",
      "relative": null
     },
     {
@@ -2343,6 +2333,32 @@
     },
     "modes": [],
     "fission_q": null
+   },
+   {
+    "nuclide": "Xe-135m",
+    "half_life": {
+     "a": 917.4,
+     "b": 917.4
+    },
+    "modes": [
+     {
+      "nuclide": "Xe-135m",
+      "mode": "IT",
+      "products": "Xe-135",
+      "a": 0.997,
+      "b": 0.997,
+      "relative": 0.0
+     },
+     {
+      "nuclide": "Xe-135m",
+      "mode": "beta-",
+      "products": "Cs-135",
+      "a": 0.003,
+      "b": 0.003,
+      "relative": 0.0
+     }
+    ],
+    "fission_q": null
    }
   ],
   "yields": [
@@ -2404,6 +2420,14 @@
    },
    {
     "nuclide": "Pu-239",
+    "energy": 0.0253,
+    "product": "Xe-135m",
+    "a": 0.007522799,
+    "b": 0.007522799,
+    "relative": 0.0
+   },
+   {
+    "nuclide": "Pu-239",
     "energy": 500000.0,
     "product": "Cs-133",
     "a": 2.169855e-07,
@@ -2456,6 +2480,14 @@
     "product": "Xe-135",
     "a": 0.006140546,
     "b": 0.006140546,
+    "relative": 0.0
+   },
+   {
+    "nuclide": "Pu-239",
+    "energy": 500000.0,
+    "product": "Xe-135m",
+    "a": 0.008875605,
+    "b": 0.008875605,
     "relative": 0.0
    },
    {
@@ -2516,6 +2548,14 @@
    },
    {
     "nuclide": "Pu-239",
+    "energy": 2000000.0,
+    "product": "Xe-135m",
+    "a": 0.01049763,
+    "b": 0.01049763,
+    "relative": 0.0
+   },
+   {
+    "nuclide": "Pu-239",
     "energy": 14000000.0,
     "product": "Cs-133",
     "a": 5.723842e-05,
@@ -2568,6 +2608,14 @@
     "product": "Xe-135",
     "a": 0.006461199,
     "b": 0.006461199,
+    "relative": 0.0
+   },
+   {
+    "nuclide": "Pu-239",
+    "energy": 14000000.0,
+    "product": "Xe-135m",
+    "a": 0.008156781,
+    "b": 0.008156781,
     "relative": 0.0
    },
    {
@@ -2628,6 +2676,14 @@
    },
    {
     "nuclide": "Pu-241",
+    "energy": 0.0253,
+    "product": "Xe-135m",
+    "a": 0.00161402,
+    "b": 0.00161399,
+    "relative": 1.858713027102432e-05
+   },
+   {
+    "nuclide": "Pu-241",
     "energy": 500000.0,
     "product": "Cs-133",
     "a": 4.01e-09,
@@ -2680,6 +2736,14 @@
     "product": "Xe-135",
     "a": 0.00065482,
     "b": 0.00065482,
+    "relative": 0.0
+   },
+   {
+    "nuclide": "Pu-241",
+    "energy": 500000.0,
+    "product": "Xe-135m",
+    "a": 0.0018606,
+    "b": 0.0018606,
     "relative": 0.0
    },
    {
@@ -2740,6 +2804,14 @@
    },
    {
     "nuclide": "U-235",
+    "energy": 0.0253,
+    "product": "Xe-135m",
+    "a": 0.00178122,
+    "b": 0.00178122,
+    "relative": 0.0
+   },
+   {
+    "nuclide": "U-235",
     "energy": 500000.0,
     "product": "Cs-133",
     "a": 7.51993e-10,
@@ -2792,6 +2864,14 @@
     "product": "Xe-135",
     "a": 0.0011961,
     "b": 0.0011961,
+    "relative": 0.0
+   },
+   {
+    "nuclide": "U-235",
+    "energy": 500000.0,
+    "product": "Xe-135m",
+    "a": 0.00185584,
+    "b": 0.00185584,
     "relative": 0.0
    },
    {
@@ -2851,6 +2931,14 @@
     "relative": 0.0
    },
    {
+    "nuclide": "U-235",
+    "energy": 14000000.0,
+    "product": "Xe-135m",
+    "a": 0.00995953,
+    "b": 0.00995953,
+    "relative": 0.0
+   },
+   {
     "nuclide": "U-238",
     "energy": 500000.0,
     "product": "Cs-133",
@@ -2896,6 +2984,14 @@
     "product": "Xe-135",
     "a": 0.000111541,
     "b": 0.000111541,
+    "relative": 0.0
+   },
+   {
+    "nuclide": "U-238",
+    "energy": 500000.0,
+    "product": "Xe-135m",
+    "a": 0.000157101,
+    "b": 0.000157101,
     "relative": 0.0
    },
    {
@@ -2953,7 +3049,25 @@
     "a": 0.0013291,
     "b": 0.0013291,
     "relative": 0.0
+   },
+   {
+    "nuclide": "U-238",
+    "energy": 14000000.0,
+    "product": "Xe-135m",
+    "a": 0.00202021,
+    "b": 0.00202021,
+    "relative": 0.0
    }
   ]
- }
+ },
+ "inputs": [
+  {
+   "path": "chain.msgpack",
+   "md5": "1f1de1800363a19f23af2f7b4417c426"
+  },
+  {
+   "path": "endfb81/chain.msgpack",
+   "md5": "4b08493286f1d7840d777ac2cbfa9877"
+  }
+ ]
 }

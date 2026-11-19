@@ -1,15 +1,5 @@
 {
  "format": "xlc-compare-chain-versions",
- "inputs": [
-  {
-   "path": "endfb70/chain.msgpack",
-   "md5": "5c4c81940ae00f9e9cdcd561ac4610a3"
-  },
-  {
-   "path": "endfb71/chain.msgpack",
-   "md5": "32ee4517036e5333f7c38a69b34adeed"
-  }
- ],
  "nuclides": {
   "a": 3837,
   "b": 3820,
@@ -842,7 +832,7 @@
   "decay_modes": {
    "compared": 5257,
    "differ": 1812,
-   "one_sided": 0,
+   "one_sided": 576,
    "above": {
     "1e-06": 1697,
     "0.001": 1503,
@@ -853,241 +843,241 @@
      "nuclide": "Ac-208",
      "mode": "alpha",
      "products": "Fr-204 + He-4",
-     "a": 0.0,
+     "a": null,
      "b": 1.0,
-     "relative": 1.0
+     "relative": null
     },
     {
      "nuclide": "Ac-208",
      "mode": "ec/beta+",
      "products": "Ra-208",
      "a": 1.0,
-     "b": 0.0,
-     "relative": 1.0
+     "b": null,
+     "relative": null
     },
     {
      "nuclide": "Ac-208m",
      "mode": "IT",
      "products": "Ac-208",
      "a": 0.1,
-     "b": 0.0,
-     "relative": 1.0
+     "b": null,
+     "relative": null
     },
     {
      "nuclide": "Ac-220",
      "mode": "ec/beta+",
      "products": "Ra-220",
      "a": 5e-06,
-     "b": 0.0,
-     "relative": 1.0
+     "b": null,
+     "relative": null
     },
     {
      "nuclide": "Ac-223",
      "mode": "ec/beta+",
      "products": "Ra-223",
      "a": 0.01,
-     "b": 0.0,
-     "relative": 1.0
+     "b": null,
+     "relative": null
     },
     {
      "nuclide": "Ag-106",
      "mode": "beta-",
      "products": "Cd-106",
      "a": 0.01,
-     "b": 0.0,
-     "relative": 1.0
+     "b": null,
+     "relative": null
     },
     {
      "nuclide": "Ag-117",
      "mode": "beta-",
      "products": "Cd-117m",
-     "a": 0.0,
+     "a": null,
      "b": 0.1517857,
-     "relative": 1.0
+     "relative": null
     },
     {
      "nuclide": "Ag-117m",
      "mode": "beta-",
      "products": "Cd-117m",
-     "a": 0.0,
+     "a": null,
      "b": 0.20951232095123212,
-     "relative": 1.0
+     "relative": null
     },
     {
      "nuclide": "Ag-119",
      "mode": "beta-",
      "products": "Cd-119m",
-     "a": 0.0,
+     "a": null,
      "b": 0.2716234,
-     "relative": 1.0
+     "relative": null
     },
     {
      "nuclide": "Ag-122",
      "mode": "beta-,n",
      "products": "Cd-121",
-     "a": 0.0,
+     "a": null,
      "b": 0.00186,
-     "relative": 1.0
+     "relative": null
     },
     {
      "nuclide": "Ag-122m",
      "mode": "beta-,n",
      "products": "Cd-121",
-     "a": 0.0,
+     "a": null,
      "b": 0.0005506,
-     "relative": 1.0
+     "relative": null
     },
     {
      "nuclide": "Ag-123",
      "mode": "beta-",
      "products": "Cd-123m",
      "a": 0.12538421253842127,
-     "b": 0.0,
-     "relative": 1.0
+     "b": null,
+     "relative": null
     },
     {
      "nuclide": "Ag-123",
      "mode": "beta-,n",
      "products": "Cd-122",
-     "a": 0.0,
+     "a": null,
      "b": 0.0055,
-     "relative": 1.0
+     "relative": null
     },
     {
      "nuclide": "Ag-128",
      "mode": "beta-,n,n",
      "products": "Cd-126",
-     "a": 0.0,
+     "a": null,
      "b": 9.042200052263917e-07,
-     "relative": 1.0
+     "relative": null
     },
     {
      "nuclide": "Ag-130",
      "mode": "beta-,n,n",
      "products": "Cd-128",
-     "a": 0.0,
+     "a": null,
      "b": 0.010046,
-     "relative": 1.0
+     "relative": null
     },
     {
      "nuclide": "Ag-94m",
      "mode": "ec/beta+,p",
      "products": "H-1 + Rh-93",
-     "a": 0.0,
+     "a": null,
      "b": 0.2,
-     "relative": 1.0
+     "relative": null
     },
     {
      "nuclide": "Ag-94m2",
      "mode": "ec/beta+,p",
      "products": "H-1 + Rh-93",
-     "a": 0.0,
+     "a": null,
      "b": 0.27,
-     "relative": 1.0
+     "relative": null
     },
     {
      "nuclide": "Ag-94m2",
      "mode": "p",
      "products": "H-1 + Pd-93",
-     "a": 0.0,
+     "a": null,
      "b": 0.031,
-     "relative": 1.0
+     "relative": null
     },
     {
      "nuclide": "Ag-98",
      "mode": "ec/beta+,p",
      "products": "H-1 + Rh-97",
      "a": 1.1e-05,
-     "b": 0.0,
-     "relative": 1.0
+     "b": null,
+     "relative": null
     },
     {
      "nuclide": "Al-38",
      "mode": "beta-,n",
      "products": "Si-37",
-     "a": 0.0,
+     "a": null,
      "b": 0.5,
-     "relative": 1.0
+     "relative": null
     },
     {
      "nuclide": "Al-39",
      "mode": "beta-,n",
      "products": "Si-38",
-     "a": 0.0,
+     "a": null,
      "b": 0.5,
-     "relative": 1.0
+     "relative": null
     },
     {
      "nuclide": "Am-233",
      "mode": "ec/beta+",
      "products": "Pu-233",
      "a": 0.97,
-     "b": 0.0,
-     "relative": 1.0
+     "b": null,
+     "relative": null
     },
     {
      "nuclide": "Am-234",
      "mode": "alpha",
      "products": "He-4 + Np-230",
      "a": 0.0004,
-     "b": 0.0,
-     "relative": 1.0
+     "b": null,
+     "relative": null
     },
     {
      "nuclide": "Am-237",
      "mode": "ec/beta+",
      "products": "Pu-237m",
-     "a": 0.0,
+     "a": null,
      "b": 0.28086022808602285,
-     "relative": 1.0
+     "relative": null
     },
     {
      "nuclide": "Am-238",
      "mode": "alpha",
      "products": "He-4 + Np-234",
-     "a": 0.0,
+     "a": null,
      "b": 1e-06,
-     "relative": 1.0
+     "relative": null
     },
     {
      "nuclide": "Am-242m",
      "mode": "sf",
      "products": "なし",
-     "a": 0.0,
+     "a": null,
      "b": 1.599999999744e-10,
-     "relative": 1.0
+     "relative": null
     },
     {
      "nuclide": "Am-242m2",
      "mode": "alpha",
      "products": "He-4 + Np-238",
-     "a": 0.0,
+     "a": null,
      "b": 4.999750012499375e-05,
-     "relative": 1.0
+     "relative": null
     },
     {
      "nuclide": "Ar-31",
      "mode": "ec/beta+,p,p",
      "products": "2×H-1 + P-29",
-     "a": 0.0,
+     "a": null,
      "b": 0.08500000000000002,
-     "relative": 1.0
+     "relative": null
     },
     {
      "nuclide": "Ar-47",
      "mode": "beta-,n",
      "products": "K-46",
      "a": 2e-05,
-     "b": 0.0,
-     "relative": 1.0
+     "b": null,
+     "relative": null
     },
     {
      "nuclide": "Ar-49",
      "mode": "beta-,n",
      "products": "K-48",
-     "a": 0.0,
+     "a": null,
      "b": 0.65,
-     "relative": 1.0
+     "relative": null
     }
    ]
   },
@@ -1306,261 +1296,261 @@
    "largest": [
     {
      "nuclide": "Pu-239",
-     "a": "0.0253 500000 1.4e+07",
-     "b": "0.0253 500000 2e+06 1.4e+07",
+     "a": "0.0253 500000.0 14000000.0",
+     "b": "0.0253 500000.0 2000000.0 14000000.0",
      "relative": null
     }
    ]
   },
   "fission_yields": {
-   "compared": 97831,
-   "differ": 3022,
-   "one_sided": 0,
+   "compared": 98834,
+   "differ": 4025,
+   "one_sided": 1003,
    "above": {
-    "1e-06": 2915,
-    "0.001": 1978,
-    "0.01": 1019
+    "1e-06": 3918,
+    "0.001": 2981,
+    "0.01": 2022
    },
    "largest": [
     {
-     "nuclide": "Ac-227",
-     "energy": 0.0253,
-     "product": "Cu-81",
-     "a": 0.0,
-     "b": 2.02e-13,
-     "relative": 1.0
+     "nuclide": "Pu-239",
+     "energy": 2000000.0,
+     "product": "Ag-106",
+     "a": null,
+     "b": 6.12916e-14,
+     "relative": null
     },
     {
-     "nuclide": "Ac-227",
-     "energy": 0.0253,
-     "product": "Ga-72m",
-     "a": 0.0,
-     "b": 1.855e-09,
-     "relative": 1.0
+     "nuclide": "Pu-239",
+     "energy": 2000000.0,
+     "product": "Ag-106m",
+     "a": null,
+     "b": 1.65977e-13,
+     "relative": null
     },
     {
-     "nuclide": "Ac-227",
-     "energy": 0.0253,
-     "product": "I-145",
-     "a": 0.0,
-     "b": 1.30487e-13,
-     "relative": 1.0
+     "nuclide": "Pu-239",
+     "energy": 2000000.0,
+     "product": "Ag-107",
+     "a": null,
+     "b": 2.47967e-12,
+     "relative": null
     },
     {
-     "nuclide": "Am-241",
-     "energy": 0.0253,
-     "product": "Cu-81",
-     "a": 0.0,
-     "b": 1.02e-12,
-     "relative": 1.0
+     "nuclide": "Pu-239",
+     "energy": 2000000.0,
+     "product": "Ag-107m",
+     "a": null,
+     "b": 1.81975e-11,
+     "relative": null
     },
     {
-     "nuclide": "Am-241",
-     "energy": 0.0253,
-     "product": "Ga-72m",
-     "a": 0.0,
-     "b": 9.55002e-10,
-     "relative": 1.0
+     "nuclide": "Pu-239",
+     "energy": 2000000.0,
+     "product": "Ag-108",
+     "a": null,
+     "b": 3.77448e-10,
+     "relative": null
     },
     {
-     "nuclide": "Am-241",
-     "energy": 0.0253,
-     "product": "I-145",
-     "a": 0.0,
-     "b": 1.23896e-11,
-     "relative": 1.0
+     "nuclide": "Pu-239",
+     "energy": 2000000.0,
+     "product": "Ag-108m",
+     "a": null,
+     "b": 3.77448e-10,
+     "relative": null
     },
     {
-     "nuclide": "Am-241",
-     "energy": 500000.0,
-     "product": "Cu-81",
-     "a": 0.0,
-     "b": 1.53e-12,
-     "relative": 1.0
+     "nuclide": "Pu-239",
+     "energy": 2000000.0,
+     "product": "Ag-111m",
+     "a": null,
+     "b": 3.82947e-14,
+     "relative": null
     },
     {
-     "nuclide": "Am-241",
-     "energy": 500000.0,
-     "product": "Ga-72m",
-     "a": 0.0,
-     "b": 1.76e-08,
-     "relative": 1.0
+     "nuclide": "Pu-239",
+     "energy": 2000000.0,
+     "product": "Ag-112",
+     "a": null,
+     "b": 7.54897e-13,
+     "relative": null
     },
     {
-     "nuclide": "Am-241",
-     "energy": 500000.0,
-     "product": "I-145",
-     "a": 0.0,
-     "b": 4.99065e-12,
-     "relative": 1.0
+     "nuclide": "Pu-239",
+     "energy": 2000000.0,
+     "product": "Ag-113",
+     "a": null,
+     "b": 2.1597e-12,
+     "relative": null
     },
     {
-     "nuclide": "Am-241",
-     "energy": 14000000.0,
-     "product": "Cu-81",
-     "a": 0.0,
-     "b": 9.21e-10,
-     "relative": 1.0
+     "nuclide": "Pu-239",
+     "energy": 2000000.0,
+     "product": "Ag-113m",
+     "a": null,
+     "b": 1.57978e-11,
+     "relative": null
     },
     {
-     "nuclide": "Am-241",
-     "energy": 14000000.0,
-     "product": "Ga-72m",
-     "a": 0.0,
-     "b": 1.435e-06,
-     "relative": 1.0
+     "nuclide": "Pu-239",
+     "energy": 2000000.0,
+     "product": "Ag-114",
+     "a": null,
+     "b": 3.406247e-06,
+     "relative": null
     },
     {
-     "nuclide": "Am-241",
-     "energy": 14000000.0,
-     "product": "I-145",
-     "a": 0.0,
-     "b": 6.24754e-11,
-     "relative": 1.0
+     "nuclide": "Pu-239",
+     "energy": 2000000.0,
+     "product": "Ag-115",
+     "a": null,
+     "b": 1.628019e-05,
+     "relative": null
     },
     {
-     "nuclide": "Am-241",
-     "energy": 14000000.0,
-     "product": "Pd-125",
-     "a": 0.0,
-     "b": 7.41e-09,
-     "relative": 1.0
+     "nuclide": "Pu-239",
+     "energy": 2000000.0,
+     "product": "Ag-115m",
+     "a": null,
+     "b": 1.628019e-05,
+     "relative": null
     },
     {
-     "nuclide": "Am-241",
-     "energy": 14000000.0,
-     "product": "Pd-126",
-     "a": 0.0,
-     "b": 1.92e-09,
-     "relative": 1.0
+     "nuclide": "Pu-239",
+     "energy": 2000000.0,
+     "product": "Ag-116",
+     "a": null,
+     "b": 4.883636e-05,
+     "relative": null
     },
     {
-     "nuclide": "Am-241",
-     "energy": 14000000.0,
-     "product": "Rh-123",
-     "a": 0.0,
-     "b": 3.87e-11,
-     "relative": 1.0
+     "nuclide": "Pu-239",
+     "energy": 2000000.0,
+     "product": "Ag-116m",
+     "a": null,
+     "b": 4.883636e-05,
+     "relative": null
     },
     {
-     "nuclide": "Am-242",
-     "energy": 0.0253,
-     "product": "Cu-81",
-     "a": 0.0,
-     "b": 7.39e-12,
-     "relative": 1.0
+     "nuclide": "Pu-239",
+     "energy": 2000000.0,
+     "product": "Ag-117",
+     "a": null,
+     "b": 0.0001731762,
+     "relative": null
     },
     {
-     "nuclide": "Am-242",
-     "energy": 0.0253,
-     "product": "Ga-72m",
-     "a": 0.0,
-     "b": 2.8e-08,
-     "relative": 1.0
+     "nuclide": "Pu-239",
+     "energy": 2000000.0,
+     "product": "Ag-117m",
+     "a": null,
+     "b": 0.0001731762,
+     "relative": null
     },
     {
-     "nuclide": "Am-242",
-     "energy": 0.0253,
-     "product": "I-145",
-     "a": 0.0,
-     "b": 4.17928e-11,
-     "relative": 1.0
+     "nuclide": "Pu-239",
+     "energy": 2000000.0,
+     "product": "Ag-118",
+     "a": null,
+     "b": 0.0002028033,
+     "relative": null
     },
     {
-     "nuclide": "Am-242",
-     "energy": 0.0253,
-     "product": "Rh-123",
-     "a": 0.0,
-     "b": 1.78e-14,
-     "relative": 1.0
+     "nuclide": "Pu-239",
+     "energy": 2000000.0,
+     "product": "Ag-118m",
+     "a": null,
+     "b": 0.0002028033,
+     "relative": null
     },
     {
-     "nuclide": "Am-242m",
-     "energy": 0.0253,
-     "product": "Cu-81",
-     "a": 0.0,
-     "b": 7.39e-12,
-     "relative": 1.0
+     "nuclide": "Pu-239",
+     "energy": 2000000.0,
+     "product": "Ag-119",
+     "a": null,
+     "b": 0.000324297,
+     "relative": null
     },
     {
-     "nuclide": "Am-242m",
-     "energy": 0.0253,
-     "product": "Ga-72m",
-     "a": 0.0,
-     "b": 2.8e-08,
-     "relative": 1.0
+     "nuclide": "Pu-239",
+     "energy": 2000000.0,
+     "product": "Ag-120",
+     "a": null,
+     "b": 5.088199e-05,
+     "relative": null
     },
     {
-     "nuclide": "Am-242m",
-     "energy": 0.0253,
-     "product": "I-145",
-     "a": 0.0,
-     "b": 4.17928e-11,
-     "relative": 1.0
+     "nuclide": "Pu-239",
+     "energy": 2000000.0,
+     "product": "Ag-120m",
+     "a": null,
+     "b": 5.088196e-05,
+     "relative": null
     },
     {
-     "nuclide": "Am-242m",
-     "energy": 0.0253,
-     "product": "Rh-123",
-     "a": 0.0,
-     "b": 1.78e-14,
-     "relative": 1.0
+     "nuclide": "Pu-239",
+     "energy": 2000000.0,
+     "product": "Ag-121",
+     "a": null,
+     "b": 3.713808e-05,
+     "relative": null
     },
     {
-     "nuclide": "Am-243",
-     "energy": 500000.0,
-     "product": "Cu-81",
-     "a": 0.0,
-     "b": 1.07e-10,
-     "relative": 1.0
+     "nuclide": "Pu-239",
+     "energy": 2000000.0,
+     "product": "Ag-122",
+     "a": null,
+     "b": 3.192775e-06,
+     "relative": null
     },
     {
-     "nuclide": "Am-243",
-     "energy": 500000.0,
-     "product": "Ga-72m",
-     "a": 0.0,
-     "b": 3.01e-09,
-     "relative": 1.0
+     "nuclide": "Pu-239",
+     "energy": 2000000.0,
+     "product": "Ag-122m",
+     "a": null,
+     "b": 3.192775e-06,
+     "relative": null
     },
     {
-     "nuclide": "Am-243",
-     "energy": 500000.0,
-     "product": "I-145",
-     "a": 0.0,
-     "b": 1.26474e-10,
-     "relative": 1.0
+     "nuclide": "Pu-239",
+     "energy": 2000000.0,
+     "product": "Ag-123",
+     "a": null,
+     "b": 7.35325e-07,
+     "relative": null
     },
     {
-     "nuclide": "Am-243",
-     "energy": 500000.0,
-     "product": "Rh-123",
-     "a": 0.0,
-     "b": 1.71e-12,
-     "relative": 1.0
+     "nuclide": "Pu-239",
+     "energy": 2000000.0,
+     "product": "Ag-124",
+     "a": null,
+     "b": 9.40871e-12,
+     "relative": null
     },
     {
-     "nuclide": "Am-244",
-     "energy": 500000.0,
-     "product": "Cu-81",
-     "a": 0.0,
-     "b": 1.07e-10,
-     "relative": 1.0
+     "nuclide": "Pu-239",
+     "energy": 2000000.0,
+     "product": "Ag-125",
+     "a": null,
+     "b": 9.28874e-13,
+     "relative": null
     },
     {
-     "nuclide": "Am-244",
-     "energy": 500000.0,
-     "product": "Ga-72m",
-     "a": 0.0,
-     "b": 3.01e-09,
-     "relative": 1.0
+     "nuclide": "Pu-239",
+     "energy": 2000000.0,
+     "product": "Ag-126",
+     "a": null,
+     "b": 6.15916e-14,
+     "relative": null
     },
     {
-     "nuclide": "Am-244",
-     "energy": 500000.0,
-     "product": "I-145",
-     "a": 0.0,
-     "b": 1.26474e-10,
-     "relative": 1.0
+     "nuclide": "Pu-239",
+     "energy": 2000000.0,
+     "product": "Ag-129",
+     "a": null,
+     "b": 7.3744e-17,
+     "relative": null
     }
    ]
   },
@@ -2968,9 +2958,9 @@
       "nuclide": "Pu-239",
       "mode": "alpha",
       "products": "He-4 + U-235m",
-      "a": 0.0,
+      "a": null,
       "b": 0.9995373299830214,
-      "relative": 1.0
+      "relative": null
      },
      {
       "nuclide": "Pu-239",
@@ -3112,6 +3102,32 @@
     },
     "modes": [],
     "fission_q": null
+   },
+   {
+    "nuclide": "Xe-135m",
+    "half_life": {
+     "a": 917.4,
+     "b": 917.4
+    },
+    "modes": [
+     {
+      "nuclide": "Xe-135m",
+      "mode": "IT",
+      "products": "Xe-135",
+      "a": 1.0,
+      "b": 0.997,
+      "relative": 0.0030000000000000027
+     },
+     {
+      "nuclide": "Xe-135m",
+      "mode": "beta-",
+      "products": "Cs-135",
+      "a": null,
+      "b": 0.003,
+      "relative": null
+     }
+    ],
+    "fission_q": null
    }
   ],
   "yields": [
@@ -3173,6 +3189,14 @@
    },
    {
     "nuclide": "Pu-239",
+    "energy": 0.0253,
+    "product": "Xe-135m",
+    "a": 0.0075228,
+    "b": 0.007522799,
+    "relative": 1.3292922840878984e-07
+   },
+   {
+    "nuclide": "Pu-239",
     "energy": 500000.0,
     "product": "Cs-133",
     "a": 2.16996e-07,
@@ -3229,6 +3253,78 @@
    },
    {
     "nuclide": "Pu-239",
+    "energy": 500000.0,
+    "product": "Xe-135m",
+    "a": 0.0084644,
+    "b": 0.008875605,
+    "relative": 0.04632979948972488
+   },
+   {
+    "nuclide": "Pu-239",
+    "energy": 2000000.0,
+    "product": "Cs-133",
+    "a": null,
+    "b": 2.16974e-07,
+    "relative": null
+   },
+   {
+    "nuclide": "Pu-239",
+    "energy": 2000000.0,
+    "product": "I-135",
+    "a": null,
+    "b": 0.03897742,
+    "relative": null
+   },
+   {
+    "nuclide": "Pu-239",
+    "energy": 2000000.0,
+    "product": "Nd-143",
+    "a": null,
+    "b": 3.50952e-11,
+    "relative": null
+   },
+   {
+    "nuclide": "Pu-239",
+    "energy": 2000000.0,
+    "product": "Pm-149",
+    "a": null,
+    "b": 2.520393e-06,
+    "relative": null
+   },
+   {
+    "nuclide": "Pu-239",
+    "energy": 2000000.0,
+    "product": "Rh-103",
+    "a": null,
+    "b": 3.04959e-10,
+    "relative": null
+   },
+   {
+    "nuclide": "Pu-239",
+    "energy": 2000000.0,
+    "product": "Sm-149",
+    "a": null,
+    "b": 9.42871e-10,
+    "relative": null
+   },
+   {
+    "nuclide": "Pu-239",
+    "energy": 2000000.0,
+    "product": "Xe-135",
+    "a": null,
+    "b": 0.006147635,
+    "relative": null
+   },
+   {
+    "nuclide": "Pu-239",
+    "energy": 2000000.0,
+    "product": "Xe-135m",
+    "a": null,
+    "b": 0.01049763,
+    "relative": null
+   },
+   {
+    "nuclide": "Pu-239",
     "energy": 14000000.0,
     "product": "Cs-133",
     "a": 5.739e-05,
@@ -3282,6 +3378,14 @@
     "a": 0.00865993,
     "b": 0.006461199,
     "relative": 0.2538970869279544
+   },
+   {
+    "nuclide": "Pu-239",
+    "energy": 14000000.0,
+    "product": "Xe-135m",
+    "a": 0.0135889,
+    "b": 0.008156781,
+    "relative": 0.39974677862078606
    },
    {
     "nuclide": "Pu-241",
@@ -3341,6 +3445,14 @@
    },
    {
     "nuclide": "Pu-241",
+    "energy": 0.0253,
+    "product": "Xe-135m",
+    "a": 0.00161402,
+    "b": 0.00161402,
+    "relative": 0.0
+   },
+   {
+    "nuclide": "Pu-241",
     "energy": 500000.0,
     "product": "Cs-133",
     "a": 4.01e-09,
@@ -3393,6 +3505,14 @@
     "product": "Xe-135",
     "a": 0.00065482,
     "b": 0.00065482,
+    "relative": 0.0
+   },
+   {
+    "nuclide": "Pu-241",
+    "energy": 500000.0,
+    "product": "Xe-135m",
+    "a": 0.0018606,
+    "b": 0.0018606,
     "relative": 0.0
    },
    {
@@ -3453,6 +3573,14 @@
    },
    {
     "nuclide": "U-235",
+    "energy": 0.0253,
+    "product": "Xe-135m",
+    "a": 0.00178122,
+    "b": 0.00178122,
+    "relative": 0.0
+   },
+   {
+    "nuclide": "U-235",
     "energy": 500000.0,
     "product": "Cs-133",
     "a": 7.51993e-10,
@@ -3505,6 +3633,14 @@
     "product": "Xe-135",
     "a": 0.0011961,
     "b": 0.0011961,
+    "relative": 0.0
+   },
+   {
+    "nuclide": "U-235",
+    "energy": 500000.0,
+    "product": "Xe-135m",
+    "a": 0.00185584,
+    "b": 0.00185584,
     "relative": 0.0
    },
    {
@@ -3564,6 +3700,14 @@
     "relative": 0.0
    },
    {
+    "nuclide": "U-235",
+    "energy": 14000000.0,
+    "product": "Xe-135m",
+    "a": 0.00995953,
+    "b": 0.00995953,
+    "relative": 0.0
+   },
+   {
     "nuclide": "U-238",
     "energy": 500000.0,
     "product": "Cs-133",
@@ -3609,6 +3753,14 @@
     "product": "Xe-135",
     "a": 0.000111541,
     "b": 0.000111541,
+    "relative": 0.0
+   },
+   {
+    "nuclide": "U-238",
+    "energy": 500000.0,
+    "product": "Xe-135m",
+    "a": 0.000157101,
+    "b": 0.000157101,
     "relative": 0.0
    },
    {
@@ -3666,7 +3818,25 @@
     "a": 0.0013291,
     "b": 0.0013291,
     "relative": 0.0
+   },
+   {
+    "nuclide": "U-238",
+    "energy": 14000000.0,
+    "product": "Xe-135m",
+    "a": 0.00202021,
+    "b": 0.00202021,
+    "relative": 0.0
    }
   ]
- }
+ },
+ "inputs": [
+  {
+   "path": "endfb70/chain.msgpack",
+   "md5": "5c4c81940ae00f9e9cdcd561ac4610a3"
+  },
+  {
+   "path": "endfb71/chain.msgpack",
+   "md5": "32ee4517036e5333f7c38a69b34adeed"
+  }
+ ]
 }
