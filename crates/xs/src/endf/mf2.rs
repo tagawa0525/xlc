@@ -275,12 +275,14 @@ impl Mf2 {
                 1 if lrf == 3 => RangeKind::ReichMoore(read_reich_moore(&mut r, range.n2)?),
                 1 if lrf == 1 => RangeKind::Slbw(read_breit_wigner(
                     &mut r,
+                    Levels::Single,
                     range.n2,
                     nro,
                     (range.c1, range.c2),
                 )?),
                 1 if lrf == 2 => RangeKind::Mlbw(read_breit_wigner(
                     &mut r,
+                    Levels::Multi,
                     range.n2,
                     nro,
                     (range.c1, range.c2),
@@ -763,9 +765,22 @@ fn read_reich_moore(r: &mut Reader<'_>, naps: i64) -> Result<ReichMoore, Error> 
     })
 }
 
+/// Breit-Wigner の式が準位の間の干渉を数えるか。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Levels {
+    /// SLBW（LRF=1）。J は統計因子 g にだけ使う
+    Single,
+    /// MLBW（LRF=2）。同じ J の準位どうしが干渉する
+    Multi,
+}
+
 /// SLBW か MLBW の範囲 [el, eh] のパラメータ。`nro` が 1 なら、先に散乱半径の TAB1 を読む。
+///
+/// 標的スピンと l から作れない J は、MLBW ではどの J の系列にも入らないのでエラーにする。SLBW は J を g にだけ使うので
+/// そのまま読み、数を warn で出す（J の分からない共鳴に J = I（g = 1/2）を置いた古い評価がある。ENDF-102 の 2.4.7）。
 fn read_breit_wigner(
     r: &mut Reader<'_>,
+    levels: Levels,
     naps: i64,
     nro: i64,
     (el, eh): (f64, f64),
@@ -815,6 +830,7 @@ fn read_breit_wigner(
         let fl = f64::from(l.number());
         let (ajmin, ajmax) = (((spi - fl).abs() - 0.5).abs(), spi + fl + 0.5);
         let mut resonances = Vec::new();
+        let mut disallowed = Vec::new();
         for (i, p) in list.values.as_chunks::<6>().0.iter().enumerate() {
             let line = header_line + 1 + i;
             if p[0] == 0.0 {
@@ -825,10 +841,15 @@ fn read_breit_wigner(
             }
             let steps = p[1] - ajmin;
             if p[1] > ajmax + 1e-6 || (steps - steps.round()).abs() > 1e-6 || steps < -1e-6 {
-                return Err(Error::new(
-                    line,
-                    format!("J={} is not allowed for L={l}", p[1]),
-                ));
+                match levels {
+                    Levels::Multi => {
+                        return Err(Error::new(
+                            line,
+                            format!("J={} is not allowed for L={l}", p[1]),
+                        ));
+                    }
+                    Levels::Single => disallowed.push(p[1]),
+                }
             }
             resonances.push(BwResonance {
                 er: p[0],
@@ -837,6 +858,16 @@ fn read_breit_wigner(
                 gg: p[4],
                 gf: p[5],
             });
+        }
+        if !disallowed.is_empty() {
+            let count = disallowed.len();
+            disallowed.sort_by(f64::total_cmp);
+            disallowed.dedup();
+            xlc_log::warn!(
+                "line {header_line}: {count} of {} SLBW resonances with L={l} have J {disallowed:?}, not allowed for \
+                 the target spin {spi}; using their statistical factor g = (2J+1)/(2(2I+1)) as NJOY does",
+                resonances.len()
+            );
         }
         l_values.push(BwLValue {
             awri: list.c1,
