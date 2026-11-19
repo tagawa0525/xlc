@@ -8,6 +8,9 @@ description: examples/*/verification.md に測定の結果を書く・直す手�
 結果を `examples/<問題>/verification.md` に書く。書き方の規則（今の姿だけを書く、結果ごとにコミットと日付を添える、
 再測定するのは計算を変えたときだけ）は CLAUDE.md と ADR-0117、ADR-0122 にある。ここには、その手順の細部を書く。
 
+記録には今の結果だけを題目ごとに書き、古い測定や誤りは消して書き直す（経緯は git に残る。ADR-0117）。評価済みデータを変えた検証は、
+混ぜずに examples/<問題>/verification-<略称>.md に分ける（ADR-0175）。
+
 ## 数値を出す前
 
 - 記録に書く計算は、流す前に main に rebase する（スキル topic-start の「記録に書く計算の前に main に rebase する」）。
