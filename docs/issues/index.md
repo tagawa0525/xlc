@@ -295,3 +295,4 @@
 * [OKF の索引の ADR と issue の行に説明が無い](0296-okf-index-descriptions.md)
 * [issue の status の値が OKF の status と意味の違う同じキーにある](0297-okf-status-of-issues.md)
 * [ミクロ燃焼で追う核種と格子計算が輸送する核種の範囲を、燃料の種類ごとに中性子の吸収と履歴の効きで確かめる](0292-micro-nuclide-scope.md)
+* [ユーザーの発言の記録が無いまま決まった計算と DVC の規則を見直す](0300-review-session-made-compute-rules.md)
