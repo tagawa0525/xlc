@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [lattice, core, verification]
 opened: 2026-10-08
-closed:
+closed: 2026-11-19
 milestone: M3
 blocked-by: []
-resolution:
+resolution: コミット 96ac95461
 ---
 
 # 5-2D の出力分布の比較に、バレルなどを除いた分の偏りが入る
@@ -27,3 +27,4 @@ resolution:
 ## 経緯
 
 - 2026-10-08: ADR のレビューで、表 J-1 の出力分布の差が判断に入っていないことが分かった
+- 2026-11-19: issue の棚卸しで閉じた。ADR-0139 が 5-2D の OpenMC の参照解を付録 J の Case 1（バレルなどを含む）で作り、外の構造の効果をモデルの違いとして記録に書くと決め、ADR-0132 が KENO との比較で表 J-1 の差を偏りとして並べると書く
