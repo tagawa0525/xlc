@@ -2098,7 +2098,7 @@ OpenMC の抽出が値の正のセルの平均で割った分は、比べる側�
 
 8 本の k∞ の差（xlc − OpenMC、pcm。± は OpenMC の標準偏差）とピン出力の rms を 1 つの表に並べる（ADR-0032 の目標は k ±100 pcm、
 許容は ±150 pcm、ピン出力 rms 0.2%）。最大は燃焼点の中の差の絶対値の最大で、符号を残す。ピン出力の rms は燃焼点の中の最小〜最大。
-値は上の「計算」の実行の比較の JSON（`p2/compare-<ジョブ>.json`）で、各節の表と同じもの。
+値は上の「計算」の実行（ブランチ chore/rerun-new-defaults。2M、2O、2P、2A-density、2A-rods は xlc d6cc90d9 の 2026-11-15、2A、2F、2N は 68251719 の 2026-11-17。分岐点は main の d6cc90d9）の比較の JSON（`p2/compare-<ジョブ>.json`）で、各節の表と同じもの。
 
 <!-- table: depletion-assembly-summary -->
 
