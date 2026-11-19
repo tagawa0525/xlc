@@ -19,7 +19,7 @@ issues: ["#0135", "#0146", "#0159"]
 決めることは、燃焼点ごとのピン出力をどこに書くか、どの輸送の値にするか、比較で何を要約するかである。判断の軸:
 
 - 比較のツールと DVC のステージが読む手間（examples/depletion/p2/dvc.yaml の `lattice` のステージは重く、出力の並びを変えるとステージの定義が変わる）
-- 燃焼度の軸を持つ分岐のテーブル（docs/plans/m4-depletion.md の「進め方」6）での使い回し。[ADR-0096](0096-reconstruct-pin-power-analytically.md) の形状関数が燃焼度ごとに要る
+- 燃焼度の軸を持つブランチのテーブル（docs/plans/m4-depletion.md の「進め方」6）での使い回し。[ADR-0096](0096-reconstruct-pin-power-analytically.md) の形状関数が燃焼度ごとに要る
 - 履歴のファイルの大きさ
 - OpenMC の参照解（examples/depletion/openmc_depletion_assembly.py の `bos_points`）と同じ定義
 

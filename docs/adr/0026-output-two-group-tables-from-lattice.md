@@ -7,7 +7,7 @@ issues: ["#0010"]
 requires: []
 ---
 
-# ADR-0026: 格子計算は燃焼度ごとの2群定数、ADF、ピン出力形状と分岐テーブルを出す
+# ADR-0026: 格子計算は燃焼度ごとの2群定数、ADF、ピン出力形状とブランチのテーブルを出す
 
 ## 背景
 
@@ -32,4 +32,4 @@ M3 以降の炉心の結果で確かめる。ADF は #0010。
 ## 帰結
 
 - M2 の出力は、集合体を均質化した2群定数と、ピンごとの核分裂率の分布
-- M3 の状態の分岐は [ADR-0085](0085-branch-on-core-states.md)、M4 の分岐テーブルの中身は [ADR-0033](0033-store-kinetics-and-cooling-data-in-m4-tables.md)
+- M3 のブランチ計算は [ADR-0085](0085-branch-on-core-states.md)、M4 のブランチのテーブルの中身は [ADR-0033](0033-store-kinetics-and-cooling-data-in-m4-tables.md)

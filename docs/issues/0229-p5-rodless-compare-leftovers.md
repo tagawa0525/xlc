@@ -26,7 +26,7 @@ fix/0229-table-error-placement のレビューで残した点）:
 - `compare_rodless.py` の入力の端: 2 つのファイルがどちらも `format` を持たないと KeyError で止まる（`unknown format` の SystemExit に
   ならない）。k∞ が 0 の状態で 0 で割る。文字列に直すと同じになるキー（整数の 1 と文字列の "1"）を持つ map は、片方を比べない
 - examples/vera/p5/p5_inputs.py の `hzp_pipeline` は、棒のない出力のパスを 2 回求める。支持格子の層と反射体の格子の棒のない格子の
-  ステージも、媒質を書かないのに `rodless/media` を作る（制御棒の分岐を解く格子の `mkdir -p lattice media` も同じ）
+  ステージも、媒質を書かないのに `rodless/media` を作る（制御棒のブランチを解く格子の `mkdir -p lattice media` も同じ）
 - examples/verification_tables.py の `TABLES` の JSON の置き場を確かめるテストが無い。`GIT_TRACKED` に無い JSON は、同じディレクトリの
   dvc.lock から md5 を読む（`locked_md5`。dvc.lock が無ければ `<dvc.lock> does not exist`、あっても `- path: <JSON の名前>`、`hash: md5`、
   `md5:` の 3 行の組が 1 つでなければ `<dvc.lock> has N outputs named <JSON> (expected 1)` の `TableError`）ので、同じディレクトリの dvc.yaml がその JSON を

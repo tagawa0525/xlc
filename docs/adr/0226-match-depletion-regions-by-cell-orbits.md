@@ -84,7 +84,7 @@ issues: ["#0190", "#0196"]
   residual-density-history 2489 秒、switch-density-history 972 秒。weight-history-0661 と 0702、lattice-2A-6272e937、lattice-2A-fg と
   2O-fg のログは見つけておらず、2A の燃焼と同じ程度（各 2221〜2489 秒）と置いた（確かめていない）。hybrid の 4 本は make_hybrid.py
   で数秒。合計はおよそ 9.4 時間（ログのあるもの）と、見込みの 5 本で 3.1〜3.5 時間
-- 分岐のテーブル（`xlc-table`）と core の履歴は燃焼の領域を持たないので、形式は変わらない
+- ブランチのテーブル（`xlc-table`）と core の履歴は燃焼の領域を持たないので、形式は変わらない
 - `cells` の有無で結果が変わる Python のツール（2026-11-03 に `"regions"` を grep して見つけたもの。ほかは確かめていない）:
   examples/depletion/p2/compare_checkpoint.py（再開した履歴と一気に流した履歴のバイトの一致、一気に流した履歴と本番の履歴の
   `nuclides`、`regions`、`transportable` の一致）と examples/depletion/issue-0134/compare.py（2 つの履歴の `nuclides` と `regions` の

@@ -22,7 +22,7 @@ resolution:
 - examples/vera/verification-endfb70.md: 「結論」の数値（VII.0 の +80〜+245 pcm など）
 - examples/depletion/verification.md: 冒頭の、1C と 2A だけが ADR-0209 の既定という文。MOX-1 の冒頭の −219 pcm（../mox/ の比較は今
   −212 pcm）。2F〜2A-rods の問題ごとの k の差の文。2A の履歴を前の md5 7efea664 で「今の履歴」と引く節。「core のミクロ燃焼」、
-  「サイクルのステップ」、「制御棒の分岐と値ごとの格子計算の結合の一致」の節は #0213 の残りに書いた
+  「サイクルのステップ」、「制御棒のブランチと値ごとの格子計算の結合の一致」の節は #0213 の残りに書いた
 - examples/mox、examples/m0、examples/m1、examples/core、examples/reflector、examples/colorset、examples/split の verification.md の
   k と表、冒頭の ADR-0209 の文
 - rod_table.py と、それを使う確認の手順（examples/core/rod-branch-check、examples/depletion/rod-axis-check）を #0213 で消した
