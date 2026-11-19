@@ -425,7 +425,7 @@ lock の deps の項と今の `dvc.yaml` の deps を、1 対 1 に対応させ�
 
 ### 確認
 
-ブランチ feat/0298-rewrite-lock-paths（分岐点は main の 5e67e41e7）、手元、2026-11-20。
+ブランチ feat/0298-rewrite-lock-paths（分岐点は main の 883cd9834）、手元、2026-11-20。
 
 - テスト（`scripts/test_rewrite_lock_paths.py`。使い捨ての git と DVC のリポジトリで本物の dvc を使う。45 件、a4ae1d52b で
   すべて通る）
