@@ -135,6 +135,10 @@ deps のパスを替えると、TOML を deps に持つステージの lock が�
 
 - コメント、空白、引用符と数の書き方だけの修正では、`toml-values` のそのファイルのステージだけが走り、正規形が変わらなければ
   計算のステージは走らない。語を直すために入力を検査から外す理由は無くなる。値（型と順を含む）を変えれば下流は changed になる
+- `toml-values` の deps は、scripts/normalize_toml.py のファイルそのものでなく、python-ast の正規形
+  （`python-ast/scripts/normalize_toml.py.ast`。ADR-0210）にする。スクリプトの注釈だけの修正で 436 本が走ることがあった
+  （824daf513）。ADR-0255 の `binary-forms` と同じ形で、`scripts/test_normalize_python.py` が直下の dvc.yaml の生の .py の deps も止める
+  （fix/0110-line-positions-in-binaries、2026-11-19）
 - 例のステージに TOML を deps として足すときは、正規形のパスを書き、`toml-values` の foreach にも足す。`RepositoryDepsTest` が
   食い違い（TOML のままの deps、並びに無い正規形、使われない並び、ステージの出力を並べたもの、今の TOML と違う正規形）を止める。
   `toml-values/` は git で追跡する生成物で、手で直さない。TOML を変えたブランチは `toml-values` を実行し、正規形とリポジトリの

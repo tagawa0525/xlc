@@ -3,11 +3,10 @@ stages:
   xs:
     cmd: ../../bin/xs xs.toml
     deps:
-    - path: ../../bin/xs
+    - path: ../../binary-forms/xs.md5
       hash: md5
-      md5: f98234e2f601b6afcaf2b4e2a2c2a2b0
-      size: 3072016
-      isexec: true
+      md5: 2cd98c7ffae320136aab7fc8da03d360
+      size: 33
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-001_H_001.endf
       hash: md5
       md5: a8a7d4b0bc9b9627affeaa0e74716c82
@@ -269,11 +268,10 @@ stages:
   lattice-mox2:
     cmd: ../../bin/lattice pincell-mox2.toml > lattice-mox2.out
     deps:
-    - path: ../../bin/lattice
+    - path: ../../binary-forms/lattice.md5
       hash: md5
-      md5: b54520abc189139cc6b34ae570f84061
-      size: 11161856
-      isexec: true
+      md5: 61b95fad944d8779d376676fdc1a0f6b
+      size: 33
     - path: ../../toml-values/examples/mox/pincell-mox2.toml.json
       hash: md5
       md5: 8909fa4e44e1d6454467cde0ae25b9fd
@@ -464,11 +462,10 @@ stages:
   lattice-mox1:
     cmd: ../../bin/lattice pincell-mox1.toml > lattice-mox1.out
     deps:
-    - path: ../../bin/lattice
+    - path: ../../binary-forms/lattice.md5
       hash: md5
-      md5: b54520abc189139cc6b34ae570f84061
-      size: 11161856
-      isexec: true
+      md5: 61b95fad944d8779d376676fdc1a0f6b
+      size: 33
     - path: ../../toml-values/examples/mox/pincell-mox1.toml.json
       hash: md5
       md5: 1c06d5113d8ce20dbab4f12fd290e01b

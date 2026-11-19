@@ -13,7 +13,7 @@ stages:
       - ../p9-product/lattice-2A.msgpack
       - ../p2/depletion.msgpack
       - ../chain.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - table-2A.msgpack
       - branch-2A.out

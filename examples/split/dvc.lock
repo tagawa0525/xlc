@@ -3,11 +3,10 @@ stages:
   lattice-2:
     cmd: ../../bin/lattice assembly-2.toml > lattice-2.out
     deps:
-    - path: ../../bin/lattice
+    - path: ../../binary-forms/lattice.md5
       hash: md5
-      md5: b54520abc189139cc6b34ae570f84061
-      size: 11161856
-      isexec: true
+      md5: 61b95fad944d8779d376676fdc1a0f6b
+      size: 33
     - path: ../../toml-values/examples/split/assembly-2.toml.json
       hash: md5
       md5: ea36caec882af0a30a75652021f58777
@@ -28,11 +27,10 @@ stages:
   core-2:
     cmd: ../../bin/core case-2.toml > core-2.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/split/assemblies-2.toml.json
       hash: md5
       md5: 3941122f7db77a155773ae0888d7e633
@@ -65,11 +63,10 @@ stages:
   lattice-1:
     cmd: ../../bin/lattice assembly-1.toml > lattice-1.out
     deps:
-    - path: ../../bin/lattice
+    - path: ../../binary-forms/lattice.md5
       hash: md5
-      md5: b54520abc189139cc6b34ae570f84061
-      size: 11161856
-      isexec: true
+      md5: 61b95fad944d8779d376676fdc1a0f6b
+      size: 33
     - path: ../../toml-values/examples/split/assembly-1.toml.json
       hash: md5
       md5: 7940d2b326c68e75dc0500e49b90f2af
@@ -94,11 +91,10 @@ stages:
   core-1:
     cmd: ../../bin/core case-1.toml > core-1.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/split/assemblies-1.toml.json
       hash: md5
       md5: 3de481143b60e5d55c444dc11740e35d

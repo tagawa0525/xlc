@@ -648,7 +648,7 @@ pub fn evaluate(
         None => None,
     };
     let seconds = importance.seconds;
-    tracing::info!(
+    xlc_log::info!(
         solve_seconds,
         derivative_seconds,
         direct_seconds,
@@ -747,7 +747,7 @@ fn ufg_tangent_report(
     if pins.is_empty() {
         bail!("[sensitivity.ufg-tangent] no fuel pin of the state has a UFG range");
     }
-    tracing::info!(
+    xlc_log::info!(
         shielding_seconds,
         tangent_shielding_seconds,
         "UFG tangent self-shielding"
@@ -837,7 +837,7 @@ fn few_group_state<'a>(
         &settings,
     )?;
     let seconds = clock.elapsed().as_secs_f64();
-    tracing::info!(seconds, sweeps = ?solve.sweeps, "few-group generalized adjoints");
+    xlc_log::info!(seconds, sweeps = ?solve.sweeps, "few-group generalized adjoints");
     Ok(FewGroupState {
         input,
         responses,
@@ -1422,7 +1422,7 @@ fn compare_generalized(
                 | MocError::GeneralizedNotConverged { .. }
                 | MocError::Cmfd(_)),
             ) => {
-                tracing::warn!(%method, tolerance, batch, seconds, error = %e, "generalized adjoints failed");
+                xlc_log::warn!(%method, tolerance, batch, seconds, error = %e, "generalized adjoints failed");
                 let failed = GeneralizedRun {
                     method: method.to_string(),
                     tolerance,
@@ -1445,7 +1445,7 @@ fn compare_generalized(
             .iter()
             .map(|g| fission_overlap(materials, solution, &g.flux))
             .collect();
-        tracing::info!(%method, tolerance, batch, seconds, "generalized adjoints");
+        xlc_log::info!(%method, tolerance, batch, seconds, "generalized adjoints");
         Ok((
             GeneralizedRun {
                 method: method.to_string(),

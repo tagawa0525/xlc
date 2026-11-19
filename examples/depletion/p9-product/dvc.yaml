@@ -11,7 +11,7 @@ stages:
       - ../../../toml-values/examples/depletion/p9-product/lattice-2A.toml.json
       - ../p2/depletion.msgpack
       - ../chain.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - lattice-2A.out
       - lattice-2A.msgpack
@@ -23,7 +23,7 @@ stages:
       - lattice-2A.msgpack
       - ../p2/depletion.msgpack
       - ../chain.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - table-2A.msgpack
       - branch-2A.out

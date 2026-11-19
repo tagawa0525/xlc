@@ -1,6 +1,7 @@
 # M0 のステージ: ENDF → 多群ライブラリ（xs）→ ピンセルの2群定数（lattice）→ 炉心の k_eff（core）。
 # 実行するのは `dvc repro`（ADR-0159）。deps には、ステージの入力と、ステージが呼ぶ実行ファイル（リポジトリの直下の dvc.yaml の
-# build が bin/ に作る）を並べる。コードを変えても実行ファイルのバイトが変わらなければ、ステージは走らない（ADR-0159）。
+# build が bin/ に作る）の正規形（同じ dvc.yaml の binary-forms が書く、行と列の番号を 0 にしたコピーの md5）を並べる。コードを
+# 変えても実行ファイルの正規形が変わらなければ、ステージは走らない（ADR-0159、ADR-0255）。
 stages:
   xs:
     cmd: ../../bin/xs xs.toml
@@ -10,7 +11,7 @@ stages:
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-008_O_016.endf
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_235.endf
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_238.endf
-      - ../../bin/xs
+      - ../../binary-forms/xs.md5
     outs:
       - wims69.msgpack
   lattice:
@@ -19,7 +20,7 @@ stages:
     deps:
       - ../../toml-values/examples/m0/pincell.toml.json
       - wims69.msgpack
-      - ../../bin/lattice
+      - ../../binary-forms/lattice.md5
     outs:
       - pincell-fg.msgpack
       - lattice.out
@@ -32,6 +33,6 @@ stages:
       - ../../toml-values/examples/m0/plant.toml.json
       - ../../toml-values/examples/m0/assemblies.toml.json
       - pincell-fg.msgpack
-      - ../../bin/core
+      - ../../binary-forms/core.md5
     outs:
       - core.out

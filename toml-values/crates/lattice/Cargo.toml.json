@@ -45,6 +45,9 @@
   "tracing": {
    "workspace": true
   },
+  "xlc-log": {
+   "path": "../log"
+  },
   "tracing-subscriber": {
    "workspace": true
   }

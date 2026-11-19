@@ -23,7 +23,7 @@ stages:
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_092.endf
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_094.endf
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_096.endf
-      - ../../bin/xs
+      - ../../binary-forms/xs.md5
     outs:
       - mox.msgpack
   lattice-mox1:
@@ -32,7 +32,7 @@ stages:
     deps:
       - ../../toml-values/examples/mox/pincell-mox1.toml.json
       - mox.msgpack
-      - ../../bin/lattice
+      - ../../binary-forms/lattice.md5
     outs:
       - lattice-mox1.out
   fuel-xs-mox1:
@@ -134,7 +134,7 @@ stages:
     deps:
       - ../../toml-values/examples/mox/pincell-mox2.toml.json
       - mox.msgpack
-      - ../../bin/lattice
+      - ../../binary-forms/lattice.md5
     outs:
       - lattice-mox2.out
   fuel-xs-mox2:

@@ -282,6 +282,8 @@ def stage(name: str, cmd: str, deps: list[str], outs: list[str]) -> str:
 def pipeline() -> str:
     """ステージ: ライブラリ（../dvc.yaml の xs）→ 2D の格子のテーブル → 平板のテーブル → 炉心 → 比較"""
     bin_ = "../../../bin"
+    # deps には実行ファイルの正規形を書く（../../../dvc.yaml の binary-forms。ADR-0255）
+    forms = "../../../binary-forms"
     stages = []
     tables = []
     for name, _, grid, _ in p3.LATTICES["3A"]:
@@ -294,7 +296,7 @@ def pipeline() -> str:
             stage(
                 stem,
                 f"mkdir -p lattice-6 && {bin_}/lattice {stem}.toml > {stem}.out",
-                [f"{stem}.toml", "../vera.msgpack", f"{bin_}/lattice"],
+                [f"{stem}.toml", "../vera.msgpack", f"{forms}/lattice.md5"],
                 outs,
             )
         )
@@ -307,7 +309,7 @@ def pipeline() -> str:
                 "axial-6.toml",
                 "../vera.msgpack",
                 "medium-6-fuel.msgpack",
-                f"{bin_}/lattice",
+                f"{forms}/lattice.md5",
             ],
             ["axial-6", "axial-6.out", "axial-6.log"],
         )
@@ -318,7 +320,7 @@ def pipeline() -> str:
             stage(
                 stem,
                 f"RUST_LOG=debug {bin_}/core {stem}.toml > {stem}.out 2> {stem}.log",
-                [f"{stem}.toml", *shared, "axial-6", *tables, f"{bin_}/core"],
+                [f"{stem}.toml", *shared, "axial-6", *tables, f"{forms}/core.md5"],
                 [f"{stem}.out", f"{stem}.log"],
             )
         )

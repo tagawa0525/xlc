@@ -3,11 +3,10 @@ stages:
   xs:
     cmd: ../../bin/xs xs.toml
     deps:
-    - path: ../../bin/xs
+    - path: ../../binary-forms/xs.md5
       hash: md5
-      md5: f98234e2f601b6afcaf2b4e2a2c2a2b0
-      size: 3072016
-      isexec: true
+      md5: 2cd98c7ffae320136aab7fc8da03d360
+      size: 33
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-006_C_012.endf
       hash: md5
       md5: 562de9bfd12d8f51b15be9e22517b4dc

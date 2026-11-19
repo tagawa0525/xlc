@@ -4,11 +4,10 @@ stages:
     cmd: mkdir -p lattice-3A && ../../../bin/lattice lattice-3A-fuel.toml > 
       lattice-3A-fuel.out
     deps:
-    - path: ../../../bin/lattice
+    - path: ../../../binary-forms/lattice.md5
       hash: md5
-      md5: b54520abc189139cc6b34ae570f84061
-      size: 11161856
-      isexec: true
+      md5: 61b95fad944d8779d376676fdc1a0f6b
+      size: 33
     - path: ../../../toml-values/examples/vera/p3/lattice-3A-fuel.toml.json
       hash: md5
       md5: c97674dbadb94bc88bcbc9e6fac4e4dd
@@ -34,11 +33,10 @@ stages:
     cmd: mkdir -p lattice-3B && ../../../bin/lattice lattice-3B-empty.toml > 
       lattice-3B-empty.out
     deps:
-    - path: ../../../bin/lattice
+    - path: ../../../binary-forms/lattice.md5
       hash: md5
-      md5: b54520abc189139cc6b34ae570f84061
-      size: 11161856
-      isexec: true
+      md5: 61b95fad944d8779d376676fdc1a0f6b
+      size: 33
     - path: ../../../toml-values/examples/vera/p3/lattice-3B-empty.toml.json
       hash: md5
       md5: 501385794d30933a3e41a0ab927225ba
@@ -64,16 +62,15 @@ stages:
     cmd: mkdir -p lattice-3B && ../../../bin/lattice 
       lattice-3B-poison-zgrid.toml > lattice-3B-poison-zgrid.out
     deps:
-    - path: ../../../bin/lattice
-      hash: md5
-      md5: b54520abc189139cc6b34ae570f84061
-      size: 11161856
-      isexec: true
     - path: 
         ../../../toml-values/examples/vera/p3/lattice-3B-poison-zgrid.toml.json
       hash: md5
       md5: cc98e20da636055c441686632b864b0c
       size: 5602
+    - path: ../../../binary-forms/lattice.md5
+      hash: md5
+      md5: 61b95fad944d8779d376676fdc1a0f6b
+      size: 33
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
@@ -91,11 +88,10 @@ stages:
     cmd: mkdir -p lattice-3A && ../../../bin/lattice lattice-3A-igrid.toml > 
       lattice-3A-igrid.out
     deps:
-    - path: ../../../bin/lattice
+    - path: ../../../binary-forms/lattice.md5
       hash: md5
-      md5: b54520abc189139cc6b34ae570f84061
-      size: 11161856
-      isexec: true
+      md5: 61b95fad944d8779d376676fdc1a0f6b
+      size: 33
     - path: ../../../toml-values/examples/vera/p3/lattice-3A-igrid.toml.json
       hash: md5
       md5: 902eff6b42ce54fe5992ce7213557aa8
@@ -117,11 +113,10 @@ stages:
     cmd: mkdir -p axial-3A && RUST_LOG=debug ../../../bin/lattice axial-3A.toml 
       > axial-3A.out 2> axial-3A.log
     deps:
-    - path: ../../../bin/lattice
+    - path: ../../../binary-forms/lattice.md5
       hash: md5
-      md5: b54520abc189139cc6b34ae570f84061
-      size: 11161856
-      isexec: true
+      md5: 61b95fad944d8779d376676fdc1a0f6b
+      size: 33
     - path: ../../../toml-values/examples/vera/p3/axial-3A.toml.json
       hash: md5
       md5: ec77539d36cd1f9af34830daceef2329
@@ -152,16 +147,15 @@ stages:
     cmd: RUST_LOG=debug ../../../bin/core core-3A-slab.toml > core-3A-slab.out 
       2> core-3A-slab.log
     deps:
-    - path: ../../../bin/core
-      hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
     - path: 
         ../../../toml-values/examples/vera/p3/core-3A-slab-assemblies.toml.json
       hash: md5
       md5: 36ae139ddd1ae8d1a88bc94179decfe3
       size: 2758
+    - path: ../../../binary-forms/core.md5
+      hash: md5
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../../toml-values/examples/vera/p3/core-3A-slab-cycle.toml.json
       hash: md5
       md5: d2a25d919506cd273d2f7d0d83d2badc
@@ -192,11 +186,10 @@ stages:
     cmd: mkdir -p lattice-3B && ../../../bin/lattice lattice-3B-poison.toml > 
       lattice-3B-poison.out
     deps:
-    - path: ../../../bin/lattice
+    - path: ../../../binary-forms/lattice.md5
       hash: md5
-      md5: b54520abc189139cc6b34ae570f84061
-      size: 11161856
-      isexec: true
+      md5: 61b95fad944d8779d376676fdc1a0f6b
+      size: 33
     - path: ../../../toml-values/examples/vera/p3/lattice-3B-poison.toml.json
       hash: md5
       md5: 14c0c6490581f25e315fbfff5e18ebe2
@@ -222,11 +215,10 @@ stages:
     cmd: mkdir -p lattice-3B && ../../../bin/lattice lattice-3B-plug.toml > 
       lattice-3B-plug.out
     deps:
-    - path: ../../../bin/lattice
+    - path: ../../../binary-forms/lattice.md5
       hash: md5
-      md5: b54520abc189139cc6b34ae570f84061
-      size: 11161856
-      isexec: true
+      md5: 61b95fad944d8779d376676fdc1a0f6b
+      size: 33
     - path: ../../../toml-values/examples/vera/p3/lattice-3B-plug.toml.json
       hash: md5
       md5: 45b17c411edd96f49ed1c71709825bd3
@@ -252,11 +244,10 @@ stages:
     cmd: mkdir -p lattice-3B && ../../../bin/lattice lattice-3B-plenum.toml > 
       lattice-3B-plenum.out
     deps:
-    - path: ../../../bin/lattice
+    - path: ../../../binary-forms/lattice.md5
       hash: md5
-      md5: b54520abc189139cc6b34ae570f84061
-      size: 11161856
-      isexec: true
+      md5: 61b95fad944d8779d376676fdc1a0f6b
+      size: 33
     - path: ../../../toml-values/examples/vera/p3/lattice-3B-plenum.toml.json
       hash: md5
       md5: 58a1b7fbe9c3cd9bf9ab33fa466dcf0f
@@ -282,11 +273,10 @@ stages:
     cmd: mkdir -p axial-3B && RUST_LOG=debug ../../../bin/lattice axial-3B.toml 
       > axial-3B.out 2> axial-3B.log
     deps:
-    - path: ../../../bin/lattice
+    - path: ../../../binary-forms/lattice.md5
       hash: md5
-      md5: b54520abc189139cc6b34ae570f84061
-      size: 11161856
-      isexec: true
+      md5: 61b95fad944d8779d376676fdc1a0f6b
+      size: 33
     - path: ../../../toml-values/examples/vera/p3/axial-3B.toml.json
       hash: md5
       md5: 53eb0643a63293d1827a850c4e61feca
@@ -329,16 +319,15 @@ stages:
     cmd: RUST_LOG=debug ../../../bin/core core-3B-slab.toml > core-3B-slab.out 
       2> core-3B-slab.log
     deps:
-    - path: ../../../bin/core
-      hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
     - path: 
         ../../../toml-values/examples/vera/p3/core-3B-slab-assemblies.toml.json
       hash: md5
       md5: a7d1c04c431b5afcaeca3b716c137850
       size: 2891
+    - path: ../../../binary-forms/core.md5
+      hash: md5
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../../toml-values/examples/vera/p3/core-3B-slab-cycle.toml.json
       hash: md5
       md5: d395ed294a2b6029482e747ebed89489
@@ -390,16 +379,15 @@ stages:
     cmd: mkdir -p lattice-3B && ../../../bin/lattice 
       lattice-3B-poison-igrid.toml > lattice-3B-poison-igrid.out
     deps:
-    - path: ../../../bin/lattice
-      hash: md5
-      md5: b54520abc189139cc6b34ae570f84061
-      size: 11161856
-      isexec: true
     - path: 
         ../../../toml-values/examples/vera/p3/lattice-3B-poison-igrid.toml.json
       hash: md5
       md5: 887e342a08fab1304908c06f516dc666
       size: 6195
+    - path: ../../../binary-forms/lattice.md5
+      hash: md5
+      md5: 61b95fad944d8779d376676fdc1a0f6b
+      size: 33
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
@@ -417,11 +405,10 @@ stages:
     cmd: mkdir -p lattice-3A && ../../../bin/lattice lattice-3A-zgrid.toml > 
       lattice-3A-zgrid.out
     deps:
-    - path: ../../../bin/lattice
+    - path: ../../../binary-forms/lattice.md5
       hash: md5
-      md5: b54520abc189139cc6b34ae570f84061
-      size: 11161856
-      isexec: true
+      md5: 61b95fad944d8779d376676fdc1a0f6b
+      size: 33
     - path: ../../../toml-values/examples/vera/p3/lattice-3A-zgrid.toml.json
       hash: md5
       md5: 351bdd169f533e2bf1873c8376f366e9
@@ -443,11 +430,10 @@ stages:
     cmd: RUST_LOG=debug ../../../bin/core core-3A.toml > core-3A.out 2> 
       core-3A.log
     deps:
-    - path: ../../../bin/core
+    - path: ../../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../../toml-values/examples/vera/p3/core-3A-assemblies.toml.json
       hash: md5
       md5: 6d4045e69d731e319b4d617b53348b9d
@@ -523,16 +509,15 @@ stages:
     cmd: mkdir -p lattice-3B && ../../../bin/lattice lattice-3B-plug-igrid.toml 
       > lattice-3B-plug-igrid.out
     deps:
-    - path: ../../../bin/lattice
-      hash: md5
-      md5: b54520abc189139cc6b34ae570f84061
-      size: 11161856
-      isexec: true
     - path: 
         ../../../toml-values/examples/vera/p3/lattice-3B-plug-igrid.toml.json
       hash: md5
       md5: 334ac40e9c8fd83cbe38d82bc23a340c
       size: 5602
+    - path: ../../../binary-forms/lattice.md5
+      hash: md5
+      md5: 61b95fad944d8779d376676fdc1a0f6b
+      size: 33
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
@@ -550,16 +535,15 @@ stages:
     cmd: mkdir -p lattice-3B && ../../../bin/lattice lattice-3B-empty-igrid.toml
       > lattice-3B-empty-igrid.out
     deps:
-    - path: ../../../bin/lattice
-      hash: md5
-      md5: b54520abc189139cc6b34ae570f84061
-      size: 11161856
-      isexec: true
     - path: 
         ../../../toml-values/examples/vera/p3/lattice-3B-empty-igrid.toml.json
       hash: md5
       md5: a11f77e6152ef54b0a1d6674b7e15dae
       size: 4549
+    - path: ../../../binary-forms/lattice.md5
+      hash: md5
+      md5: 61b95fad944d8779d376676fdc1a0f6b
+      size: 33
     - path: ../vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
@@ -577,11 +561,10 @@ stages:
     cmd: RUST_LOG=debug ../../../bin/core core-3B.toml > core-3B.out 2> 
       core-3B.log
     deps:
-    - path: ../../../bin/core
+    - path: ../../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../../toml-values/examples/vera/p3/core-3B-assemblies.toml.json
       hash: md5
       md5: 4c3199cb82342d10c298ff6942151e28

@@ -3,11 +3,10 @@ stages:
   lattice-coarse:
     cmd: ../../bin/lattice c5g7.toml > lattice-coarse.out
     deps:
-    - path: ../../bin/lattice
+    - path: ../../binary-forms/lattice.md5
       hash: md5
-      md5: b54520abc189139cc6b34ae570f84061
-      size: 11161856
-      isexec: true
+      md5: 61b95fad944d8779d376676fdc1a0f6b
+      size: 33
     - path: ../../toml-values/examples/c5g7/c5g7-xs.toml.json
       hash: md5
       md5: f4b0f58ed8a096b0a692ce1b4da09473
@@ -147,11 +146,10 @@ stages:
   lattice-fine:
     cmd: ../../bin/lattice c5g7-fine.toml > lattice-fine.out
     deps:
-    - path: ../../bin/lattice
+    - path: ../../binary-forms/lattice.md5
       hash: md5
-      md5: b54520abc189139cc6b34ae570f84061
-      size: 11161856
-      isexec: true
+      md5: 61b95fad944d8779d376676fdc1a0f6b
+      size: 33
     - path: ../../toml-values/examples/c5g7/c5g7-fine.toml.json
       hash: md5
       md5: 22671635337d93c1838ca300954d25a6

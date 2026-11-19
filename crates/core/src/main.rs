@@ -124,7 +124,7 @@ fn use_threads(given: Option<NonZeroUsize>) -> anyhow::Result<()> {
         .num_threads(threads)
         .build_global()
         .context("thread pool")?;
-    tracing::info!(threads = rayon::current_num_threads(), from, "thread pool");
+    xlc_log::info!(threads = rayon::current_num_threads(), from, "thread pool");
     Ok(())
 }
 
@@ -197,7 +197,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
         let file = &depletion.history;
         let bytes = history.to_msgpack().with_context(|| shown(file))?;
         std::fs::write(file, bytes).with_context(|| shown(file))?;
-        tracing::info!(seconds = start.elapsed().as_secs_f64(), "core");
+        xlc_log::info!(seconds = start.elapsed().as_secs_f64(), "core");
         return Ok(());
     }
     if case.states.is_empty() {
@@ -250,7 +250,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
             return Err(anyhow!("{}", errors.join("\n")));
         }
     }
-    tracing::info!(seconds = start.elapsed().as_secs_f64(), "core");
+    xlc_log::info!(seconds = start.elapsed().as_secs_f64(), "core");
     Ok(())
 }
 
@@ -303,10 +303,10 @@ fn report(layout: &Layout, problem: &Problem, solution: &Solution) {
     // 生成率 1 に規格化）。ノードのない位置は出さない
     for (node, flux) in solution.flux.iter().enumerate() {
         if !flux.is_empty() {
-            tracing::debug!(node, flux = ?flux, "node average flux");
+            xlc_log::debug!(node, flux = ?flux, "node average flux");
         }
     }
-    tracing::info!(iterations = solution.iterations, "eigenvalue");
+    xlc_log::info!(iterations = solution.iterations, "eigenvalue");
 }
 
 /// 熱水力の繰り返しの解（ADR-0229）を標準出力に出す: 回数と最後の変化、燃料の温度の体積平均と最大、減速材の密度の内挿の差の最大、
@@ -396,7 +396,7 @@ fn write_pin_powers(case: &Case, problem: &Problem, solution: &Solution) -> anyh
     for (file, bytes) in outputs {
         std::fs::write(file, bytes).with_context(|| shown(file))?;
     }
-    tracing::info!(
+    xlc_log::info!(
         seconds = reconstructed.elapsed().as_secs_f64(),
         "pin power reconstruction"
     );

@@ -9,7 +9,7 @@ stages:
     deps:
       - ../../toml-values/examples/colorset/assembly-31.toml.json
       - ../vera/vera.msgpack
-      - ../../bin/lattice
+      - ../../binary-forms/lattice.md5
     outs:
       - fg-31.msgpack
       - lattice-pins-31.msgpack
@@ -20,7 +20,7 @@ stages:
     deps:
       - ../../toml-values/examples/colorset/assembly-21.toml.json
       - ../vera/vera.msgpack
-      - ../../bin/lattice
+      - ../../binary-forms/lattice.md5
     outs:
       - fg-21.msgpack
       - lattice-pins-21.msgpack
@@ -31,7 +31,7 @@ stages:
     deps:
       - ../../toml-values/examples/colorset/colorset.toml.json
       - ../vera/vera.msgpack
-      - ../../bin/lattice
+      - ../../binary-forms/lattice.md5
     outs:
       - moc-pins.msgpack
       - fg-node-31a.msgpack
@@ -63,7 +63,7 @@ stages:
       - fg-31.msgpack
       - fg-21.msgpack
       - ../../toml-values/examples/colorset/plant.toml.json
-      - ../../bin/core
+      - ../../binary-forms/core.md5
     outs:
       - core-pins.msgpack
       - core.out
@@ -79,7 +79,7 @@ stages:
       - fg-node-21b.msgpack
       - fg-node-31b.msgpack
       - ../../toml-values/examples/colorset/plant.toml.json
-      - ../../bin/core
+      - ../../binary-forms/core.md5
     outs:
       - core-node.out
   core-nodf:
@@ -92,7 +92,7 @@ stages:
       - fg-31-nodf.msgpack
       - fg-21-nodf.msgpack
       - ../../toml-values/examples/colorset/plant.toml.json
-      - ../../bin/core
+      - ../../binary-forms/core.md5
     outs:
       - core-pins-nodf.msgpack
       - core-nodf.out

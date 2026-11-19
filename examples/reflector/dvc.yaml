@@ -1,7 +1,7 @@
 # 軸方向の反射体の平板（ADR-0128）のステージ: ENDF → 多群ライブラリ（xs）→ VERA 3A の単一集合体の媒質と少数群定数
 # （assembly-3A）→ 集合体の高さ全体の平板の格子計算（axial-<版>）→ 平板の定数で解く炉心（core-axial-<種類>-<版>）→
 # MOC との比較（compare-axial-<種類>-<版>）と z の辺の ADF（fstar-<版>）。実行するのは `dvc repro`（ADR-0159）。deps の
-# 書き方は examples/m0/dvc.yaml と同じ（ステージの入力と、ステージが呼ぶ実行ファイル）。平板と炉心の入力は axial_slab.py が書いて
+# 書き方は examples/m0/dvc.yaml と同じ（ステージの入力と、ステージが呼ぶ実行ファイルの正規形）。平板と炉心の入力は axial_slab.py が書いて
 # コミットしたもの。径方向の反射体の格子（lattice-I、lattice-corner）→ その定数で解く炉心（core-corner-<種類>）→ MOC との
 # 比較（compare-corner-<種類>。ADR-0132）。
 stages:
@@ -59,7 +59,7 @@ stages:
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-022_Ti_049.endf
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-022_Ti_050.endf
       - ../../references/endf/ENDF-B-VIII.0_thermal_scatt/tsl-HinH2O.endf
-      - ../../bin/xs
+      - ../../binary-forms/xs.md5
     outs:
       - reflector.msgpack
   assembly-3A:
@@ -68,7 +68,7 @@ stages:
     deps:
       - ../../toml-values/examples/reflector/assembly-3A.toml.json
       - reflector.msgpack
-      - ../../bin/lattice
+      - ../../binary-forms/lattice.md5
     outs:
       - medium-3A.msgpack
       - fg-3A.msgpack
@@ -81,7 +81,7 @@ stages:
       - ../../toml-values/examples/reflector/axial-3A-16.toml.json
       - reflector.msgpack
       - medium-3A.msgpack
-      - ../../bin/lattice
+      - ../../binary-forms/lattice.md5
     outs:
       - axial-16
       - axial-3A-16.out
@@ -94,7 +94,7 @@ stages:
       - ../../toml-values/examples/reflector/axial-3A-32.toml.json
       - reflector.msgpack
       - medium-3A.msgpack
-      - ../../bin/lattice
+      - ../../binary-forms/lattice.md5
     outs:
       - axial-32
       - axial-3A-32.out
@@ -107,7 +107,7 @@ stages:
       - ../../toml-values/examples/reflector/axial-3A-fine.toml.json
       - reflector.msgpack
       - medium-3A.msgpack
-      - ../../bin/lattice
+      - ../../binary-forms/lattice.md5
     outs:
       - axial-fine
       - axial-3A-fine.out
@@ -120,7 +120,7 @@ stages:
       - ../../toml-values/examples/reflector/core-axial-plant.toml.json
       - ../../toml-values/examples/reflector/core-axial-assemblies-16.toml.json
       - axial-16
-      - ../../bin/core
+      - ../../binary-forms/core.md5
     outs:
       - core-axial-slab-16.out
       - core-axial-slab-16.log
@@ -141,7 +141,7 @@ stages:
       - ../../toml-values/examples/reflector/core-axial-assemblies-16.toml.json
       - axial-16
       - fg-3A.msgpack
-      - ../../bin/core
+      - ../../binary-forms/core.md5
     outs:
       - core-axial-fstar-16.out
       - core-axial-fstar-16.log
@@ -169,7 +169,7 @@ stages:
       - ../../toml-values/examples/reflector/core-axial-plant.toml.json
       - ../../toml-values/examples/reflector/core-axial-assemblies-32.toml.json
       - axial-32
-      - ../../bin/core
+      - ../../binary-forms/core.md5
     outs:
       - core-axial-slab-32.out
       - core-axial-slab-32.log
@@ -190,7 +190,7 @@ stages:
       - ../../toml-values/examples/reflector/core-axial-assemblies-32.toml.json
       - axial-32
       - fg-3A.msgpack
-      - ../../bin/core
+      - ../../binary-forms/core.md5
     outs:
       - core-axial-fstar-32.out
       - core-axial-fstar-32.log
@@ -218,7 +218,7 @@ stages:
       - ../../toml-values/examples/reflector/core-axial-plant.toml.json
       - ../../toml-values/examples/reflector/core-axial-assemblies-fine.toml.json
       - axial-fine
-      - ../../bin/core
+      - ../../binary-forms/core.md5
     outs:
       - core-axial-slab-fine.out
       - core-axial-slab-fine.log
@@ -239,7 +239,7 @@ stages:
       - ../../toml-values/examples/reflector/core-axial-assemblies-fine.toml.json
       - axial-fine
       - fg-3A.msgpack
-      - ../../bin/core
+      - ../../binary-forms/core.md5
     outs:
       - core-axial-fstar-fine.out
       - core-axial-fstar-fine.log
@@ -265,7 +265,7 @@ stages:
     deps:
       - ../../toml-values/examples/reflector/reflector-I.toml.json
       - reflector.msgpack
-      - ../../bin/lattice
+      - ../../binary-forms/lattice.md5
     outs:
       - fg-I-fuel.msgpack
       - fg-I-reflector.msgpack
@@ -278,7 +278,7 @@ stages:
     deps:
       - ../../toml-values/examples/reflector/reflector-corner.toml.json
       - reflector.msgpack
-      - ../../bin/lattice
+      - ../../binary-forms/lattice.md5
     outs:
       - fg-corner-fuel.msgpack
       - fg-corner-right.msgpack
@@ -298,7 +298,7 @@ stages:
       - fg-corner-right.msgpack
       - fg-corner-top.msgpack
       - fg-corner-corner.msgpack
-      - ../../bin/core
+      - ../../binary-forms/core.md5
     outs:
       - core-corner.out
       - core-corner.log
@@ -326,7 +326,7 @@ stages:
       - fg-corner-right.msgpack
       - fg-corner-top.msgpack
       - fg-corner-corner.msgpack
-      - ../../bin/core
+      - ../../binary-forms/core.md5
     outs:
       - core-corner-outline.out
       - core-corner-outline.log
@@ -353,7 +353,7 @@ stages:
       - fg-corner-fuel.msgpack
       - fg-I-reflector.msgpack
       - fg-corner-corner.msgpack
-      - ../../bin/core
+      - ../../binary-forms/core.md5
     outs:
       - core-corner-I.out
       - core-corner-I.log

@@ -3,11 +3,10 @@ stages:
   xs:
     cmd: ../../bin/xs xs.toml
     deps:
-    - path: ../../bin/xs
+    - path: ../../binary-forms/xs.md5
       hash: md5
-      md5: f98234e2f601b6afcaf2b4e2a2c2a2b0
-      size: 3072016
-      isexec: true
+      md5: 2cd98c7ffae320136aab7fc8da03d360
+      size: 33
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-001_H_001.endf
       hash: md5
       md5: a8a7d4b0bc9b9627affeaa0e74716c82
@@ -81,11 +80,10 @@ stages:
     cmd: ../../bin/lattice pincell-f293.6-m293.6.toml > 
       lattice-f293.6-m293.6.out
     deps:
-    - path: ../../bin/lattice
+    - path: ../../binary-forms/lattice.md5
       hash: md5
-      md5: b54520abc189139cc6b34ae570f84061
-      size: 11161856
-      isexec: true
+      md5: 61b95fad944d8779d376676fdc1a0f6b
+      size: 33
     - path: ../../toml-values/examples/m1/pincell-f293.6-m293.6.toml.json
       hash: md5
       md5: a4688747cf92bb41d34cca83ad30f651
@@ -106,11 +104,10 @@ stages:
   lattice-temperatures@f293.6-m600:
     cmd: ../../bin/lattice pincell-f293.6-m600.toml > lattice-f293.6-m600.out
     deps:
-    - path: ../../bin/lattice
+    - path: ../../binary-forms/lattice.md5
       hash: md5
-      md5: b54520abc189139cc6b34ae570f84061
-      size: 11161856
-      isexec: true
+      md5: 61b95fad944d8779d376676fdc1a0f6b
+      size: 33
     - path: ../../toml-values/examples/m1/pincell-f293.6-m600.toml.json
       hash: md5
       md5: 01f50b42cec065e49a381bbd6360a990
@@ -131,11 +128,10 @@ stages:
   lattice-temperatures@f900-m293.6:
     cmd: ../../bin/lattice pincell-f900-m293.6.toml > lattice-f900-m293.6.out
     deps:
-    - path: ../../bin/lattice
+    - path: ../../binary-forms/lattice.md5
       hash: md5
-      md5: b54520abc189139cc6b34ae570f84061
-      size: 11161856
-      isexec: true
+      md5: 61b95fad944d8779d376676fdc1a0f6b
+      size: 33
     - path: ../../toml-values/examples/m1/pincell-f900-m293.6.toml.json
       hash: md5
       md5: 8418d43856ff7ba1d8bc398fe8d9d8c5
@@ -156,11 +152,10 @@ stages:
   lattice:
     cmd: ../../bin/lattice pincell.toml > lattice.out
     deps:
-    - path: ../../bin/lattice
+    - path: ../../binary-forms/lattice.md5
       hash: md5
-      md5: b54520abc189139cc6b34ae570f84061
-      size: 11161856
-      isexec: true
+      md5: 61b95fad944d8779d376676fdc1a0f6b
+      size: 33
     - path: ../../toml-values/examples/m1/pincell.toml.json
       hash: md5
       md5: 65b36dc746900bbba423c2dde8f0fe49

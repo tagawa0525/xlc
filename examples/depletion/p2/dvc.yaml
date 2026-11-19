@@ -23,7 +23,7 @@ stages:
     deps:
       - ../../../toml-values/examples/depletion/p2/xs.toml.json
       - ../../../references/endf/ENDF-B-VIII.0_neutrons
-      - ../../../bin/xs
+      - ../../../binary-forms/xs.md5
     outs:
       - xs-range.toml:
           cache: false
@@ -36,7 +36,7 @@ stages:
         - xs-range.toml
         - ${endf-directory}/${item.endf}
         - ${thermal-directory}
-        - ../../../bin/xs
+        - ../../../binary-forms/xs.md5
       params:
         - xs.toml:
             - sigma0
@@ -50,7 +50,7 @@ stages:
       - ../../../toml-values/examples/depletion/p2/xs.toml.json
       - xs-range.toml
       - xs-nuclides
-      - ../../../bin/xs
+      - ../../../binary-forms/xs.md5
     outs:
       - depletion.msgpack
   openmc-neutron:
@@ -104,7 +104,7 @@ stages:
         - ../../../toml-values/examples/depletion/p2/lattice-${item}.toml.json
         - depletion.msgpack
         - ../chain.msgpack
-        - ../../../bin/lattice
+        - ../../../binary-forms/lattice.md5
       outs:
         - lattice-${item}.out
         - lattice-${item}.msgpack

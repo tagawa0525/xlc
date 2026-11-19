@@ -1125,8 +1125,8 @@ def core_files() -> dict[str, str]:
 
 
 def code(crate: str) -> list[str]:
-    """Rust のステージの deps のうち、ステージが呼ぶ実行ファイル（../../../dvc.yaml の build が作る。ADR-0159）"""
-    return [f"../../../bin/{crate}"]
+    """Rust のステージの deps のうち、ステージが呼ぶ実行ファイルの正規形（../../../dvc.yaml の binary-forms が書く。ADR-0159、ADR-0255）"""
+    return [f"../../../binary-forms/{crate}.md5"]
 
 
 def normal_form(dep: str) -> str:

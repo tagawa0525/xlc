@@ -1109,6 +1109,7 @@ dependencies = [
  "tracing-subscriber",
  "xlc-depletion",
  "xlc-format",
+ "xlc-log",
  "xlc-xs",
 ]
 
@@ -1136,6 +1137,7 @@ dependencies = [
  "xlc-cmfd",
  "xlc-depletion",
  "xlc-format",
+ "xlc-log",
  "xlc-numeric",
 ]
 
@@ -1183,7 +1185,16 @@ dependencies = [
  "tracing-subscriber",
  "xlc-depletion",
  "xlc-format",
+ "xlc-log",
  "xlc-numeric",
+]
+
+[[package]]
+name = "xlc-log"
+version = "0.1.0"
+dependencies = [
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -1206,6 +1217,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "xlc-format",
+ "xlc-log",
  "xlc-numeric",
 ]
 

@@ -4,11 +4,10 @@ stages:
     cmd: mkdir -p lattice-6 && ../../../bin/lattice lattice-6-fuel.toml > 
       lattice-6-fuel.out
     deps:
-    - path: ../../../bin/lattice
+    - path: ../../../binary-forms/lattice.md5
       hash: md5
-      md5: b54520abc189139cc6b34ae570f84061
-      size: 11161856
-      isexec: true
+      md5: 61b95fad944d8779d376676fdc1a0f6b
+      size: 33
     - path: ../../../toml-values/examples/vera/p6/lattice-6-fuel.toml.json
       hash: md5
       md5: a12c12731329b9c08a4a8a4ebc602480
@@ -34,11 +33,10 @@ stages:
     cmd: mkdir -p axial-6 && RUST_LOG=debug ../../../bin/lattice axial-6.toml > 
       axial-6.out 2> axial-6.log
     deps:
-    - path: ../../../bin/lattice
+    - path: ../../../binary-forms/lattice.md5
       hash: md5
-      md5: b54520abc189139cc6b34ae570f84061
-      size: 11161856
-      isexec: true
+      md5: 61b95fad944d8779d376676fdc1a0f6b
+      size: 33
     - path: ../../../toml-values/examples/vera/p6/axial-6.toml.json
       hash: md5
       md5: ba6f0dc006b7400ad3888782b40c7ab0
@@ -69,11 +67,10 @@ stages:
     cmd: mkdir -p lattice-6 && ../../../bin/lattice lattice-6-zgrid.toml > 
       lattice-6-zgrid.out
     deps:
-    - path: ../../../bin/lattice
+    - path: ../../../binary-forms/lattice.md5
       hash: md5
-      md5: b54520abc189139cc6b34ae570f84061
-      size: 11161856
-      isexec: true
+      md5: 61b95fad944d8779d376676fdc1a0f6b
+      size: 33
     - path: ../../../toml-values/examples/vera/p6/lattice-6-zgrid.toml.json
       hash: md5
       md5: d0c3ec5e6e216c033de5b1c74db9d45a
@@ -95,11 +92,10 @@ stages:
     cmd: mkdir -p lattice-6 && ../../../bin/lattice lattice-6-igrid.toml > 
       lattice-6-igrid.out
     deps:
-    - path: ../../../bin/lattice
+    - path: ../../../binary-forms/lattice.md5
       hash: md5
-      md5: b54520abc189139cc6b34ae570f84061
-      size: 11161856
-      isexec: true
+      md5: 61b95fad944d8779d376676fdc1a0f6b
+      size: 33
     - path: ../../../toml-values/examples/vera/p6/lattice-6-igrid.toml.json
       hash: md5
       md5: 1885e3184578532aac8a3216ceadbdff
@@ -121,11 +117,10 @@ stages:
     cmd: RUST_LOG=debug ../../../bin/core core-6-isothermal.toml > 
       core-6-isothermal.out 2> core-6-isothermal.log
     deps:
-    - path: ../../../bin/core
+    - path: ../../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../../toml-values/examples/vera/p6/core-6-assemblies.toml.json
       hash: md5
       md5: c2ec240c23e06824015820a308c56f64
@@ -171,11 +166,10 @@ stages:
   core-6:
     cmd: RUST_LOG=debug ../../../bin/core core-6.toml > core-6.out 2> core-6.log
     deps:
-    - path: ../../../bin/core
+    - path: ../../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../../toml-values/examples/vera/p6/core-6-assemblies.toml.json
       hash: md5
       md5: c2ec240c23e06824015820a308c56f64
@@ -222,11 +216,10 @@ stages:
     cmd: RUST_LOG=debug ../../../bin/core core-6-low-power.toml > 
       core-6-low-power.out 2> core-6-low-power.log
     deps:
-    - path: ../../../bin/core
+    - path: ../../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../../toml-values/examples/vera/p6/core-6-assemblies.toml.json
       hash: md5
       md5: c2ec240c23e06824015820a308c56f64

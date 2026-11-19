@@ -236,7 +236,7 @@ pub fn homogenize_nodes(
             )?;
             few.diffusion = diffusion;
             match choice {
-                Choice::Koebke => tracing::info!(
+                Choice::Koebke => xlc_log::info!(
                     node = n,
                     current_weighted = ?h.few.diffusion,
                     equivalent = ?few.diffusion,
@@ -246,7 +246,7 @@ pub fn homogenize_nodes(
                     group,
                     target,
                     range,
-                } => tracing::info!(
+                } => xlc_log::info!(
                     node = n,
                     current_weighted = ?few.diffusion,
                     group,
@@ -445,7 +445,7 @@ pub(crate) fn node_references(
             Some(_) => Boundary::Reflective,
         });
         few.vacuum_ratio = vacuum_ratios(&node_sides, &heterogeneous, &currents)?;
-        tracing::info!(node = n, average_flux = ?average, "node");
+        xlc_log::info!(node = n, average_flux = ?average, "node");
         references.push(Reference {
             few,
             average,
@@ -924,7 +924,7 @@ fn node_pins(
         .collect();
     let scales = corner_balance(nx, ny, &corner_nodes, &vec![false; points]).map_err(error)?;
     for (p, (s, f)) in scales.iter().zip(&phi).enumerate() {
-        tracing::debug!(
+        xlc_log::debug!(
             point = p,
             column = p % (nx + 1),
             row_from_bottom = p / (nx + 1),
@@ -1360,7 +1360,7 @@ fn discontinuity_factors(
     currents: &[Vec<f64>],
     edges: [Edge; 4],
 ) -> Result<Vec<Vec<f64>>, HomogenizeError> {
-    tracing::debug!(
+    xlc_log::debug!(
         diffusion = ?few.diffusion,
         total = ?few.total,
         scatter = ?few.scatter,
@@ -1370,7 +1370,7 @@ fn discontinuity_factors(
         "one-node constants"
     );
     for (side, het) in heterogeneous.iter().enumerate() {
-        tracing::debug!(
+        xlc_log::debug!(
             side,
             heterogeneous = ?het,
             outward_current = ?currents[side],
@@ -1391,7 +1391,7 @@ fn discontinuity_factors(
         edges,
     })?;
     for (side, &face) in FACES.iter().enumerate() {
-        tracing::debug!(side, homogeneous = ?surface[face], "one-node face flux");
+        xlc_log::debug!(side, homogeneous = ?surface[face], "one-node face flux");
     }
     Ok((0..4)
         .map(|side| {
@@ -1614,7 +1614,7 @@ fn outflow_diffusion(
                 return Err(HomogenizeError::NoNetCurrent { group });
             }
             // 打ち消しの程度: 1 なら領域と細かい群の中性子流がすべてノードの正味の中性子流の向き
-            tracing::debug!(
+            xlc_log::debug!(
                 group,
                 cancellation = weight[group] / magnitude[group],
                 "current weights"

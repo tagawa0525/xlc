@@ -8,7 +8,7 @@ stages:
     deps:
       - ../../toml-values/examples/split/assembly-1.toml.json
       - ../vera/vera.msgpack
-      - ../../bin/lattice
+      - ../../binary-forms/lattice.md5
     outs:
       - fg-1.msgpack
       - lattice-pins.msgpack
@@ -19,7 +19,7 @@ stages:
     deps:
       - ../../toml-values/examples/split/assembly-2.toml.json
       - ../vera/vera.msgpack
-      - ../../bin/lattice
+      - ../../binary-forms/lattice.md5
     outs:
       - fg-2.msgpack
       - lattice-2.out
@@ -32,7 +32,7 @@ stages:
       - ../../toml-values/examples/split/plant.toml.json
       - ../../toml-values/examples/split/assemblies-1.toml.json
       - fg-1.msgpack
-      - ../../bin/core
+      - ../../binary-forms/core.md5
     outs:
       - core-pins-1.msgpack
       - core-1.out
@@ -45,7 +45,7 @@ stages:
       - ../../toml-values/examples/split/plant.toml.json
       - ../../toml-values/examples/split/assemblies-2.toml.json
       - fg-2.msgpack
-      - ../../bin/core
+      - ../../binary-forms/core.md5
     outs:
       - core-pins-2.msgpack
       - core-2.out

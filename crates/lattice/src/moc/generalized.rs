@@ -531,7 +531,7 @@ impl Problem<'_> {
                     });
                 }
                 let change = largest_change(&next.flux, &state.flux);
-                tracing::debug!(iteration, copy, change, "generalized adjoint");
+                xlc_log::debug!(iteration, copy, change, "generalized adjoint");
                 *state = next;
                 if histories[copy].update(change) < settings.tolerance && done[copy].is_none() {
                     done[copy] = Some(iteration);
@@ -751,7 +751,7 @@ impl Problem<'_> {
             krylov.push(Krylov::new(b.pack(), settings.tolerance, restart));
         }
         // 基底は源あたり再始動の回数 + 1 本の、この長さの値
-        tracing::info!(
+        xlc_log::info!(
             length = krylov.first().map_or(0, |k| k.solution().len()),
             sources = copies,
             restart,
@@ -793,7 +793,7 @@ impl Problem<'_> {
                     .in_scope(|| k.receive(applied, sweeps))
                     .map_err(|_| MocError::GeneralizedDiverged { iterations: sweeps })?;
                 let (residual, target) = k.residual_norm();
-                tracing::debug!(sweeps, residual, target, "generalized adjoint GMRES");
+                xlc_log::debug!(sweeps, residual, target, "generalized adjoint GMRES");
             }
         }
         Ok(krylov

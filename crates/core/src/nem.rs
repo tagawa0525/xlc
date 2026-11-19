@@ -471,7 +471,7 @@ fn iterate(
             state.scale(1.0 / production(core, &state));
             change = largest_change(&state);
         }
-        tracing::debug!(
+        xlc_log::debug!(
             iteration,
             k = new_k,
             k_change = new_k - k,

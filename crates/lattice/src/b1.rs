@@ -332,7 +332,7 @@ impl Medium {
                 k: best.k,
             });
         }
-        tracing::info!(
+        xlc_log::info!(
             buckling = best.buckling,
             evaluations,
             "B1 critical spectrum"

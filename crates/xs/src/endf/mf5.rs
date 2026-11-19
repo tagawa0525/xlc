@@ -216,7 +216,7 @@ pub(super) fn incident_laws(
                             ),
                         ));
                     }
-                    tracing::warn!(
+                    xlc_log::warn!(
                         code,
                         "corresponding-point interpolation between grids of different sizes; \
                          using unit-base interpolation as NJOY does"

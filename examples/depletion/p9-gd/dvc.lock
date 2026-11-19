@@ -81,15 +81,15 @@ stages:
       hash: md5
       md5: 1fbba180eddd60cc40f8e3c467dc578a
       size: 9792
-    - path: ../../../python-ast/scripts/normalize_toml.py.ast
-      hash: md5
-      md5: 82d3738ce2567f06e06af65bb8f664f7
-      size: 872
     - path: 
         ../../../toml-values/examples/depletion/p9-gd/compare-2O-all.toml.json
       hash: md5
       md5: 2c60d65ca2c4fa97d3f6a1b28a2930d9
       size: 12389
+    - path: ../../../python-ast/scripts/normalize_toml.py.ast
+      hash: md5
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     - path: table-2O-all.msgpack
       hash: md5
       md5: 5122d921942e6ff2864009739c1cf4a8
@@ -149,15 +149,15 @@ stages:
       hash: md5
       md5: 1fbba180eddd60cc40f8e3c467dc578a
       size: 9792
-    - path: ../../../python-ast/scripts/normalize_toml.py.ast
-      hash: md5
-      md5: 82d3738ce2567f06e06af65bb8f664f7
-      size: 872
     - path: 
         ../../../toml-values/examples/depletion/p9-gd/compare-2P-all.toml.json
       hash: md5
       md5: 1ec014a1a4c68f2d0c91c65c383b9d77
       size: 12544
+    - path: ../../../python-ast/scripts/normalize_toml.py.ast
+      hash: md5
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     - path: table-2P-all.msgpack
       hash: md5
       md5: 4c883b4afbb3dc420071d08e858eb087

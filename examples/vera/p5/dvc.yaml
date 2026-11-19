@@ -10,7 +10,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/assembly-21.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - lattice/21.msgpack
       - assembly-21.out
@@ -19,7 +19,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/assembly-21-aic.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - lattice/21-aic.msgpack
       - assembly-21-aic.out
@@ -28,7 +28,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/assembly-21-b4c.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - lattice/21-b4c.msgpack
       - assembly-21-b4c.out
@@ -37,7 +37,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/assembly-26.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - lattice/26.msgpack
       - assembly-26.out
@@ -46,7 +46,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/assembly-26-aic.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - lattice/26-aic.msgpack
       - assembly-26-aic.out
@@ -55,7 +55,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/assembly-26-b4c.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - lattice/26-b4c.msgpack
       - assembly-26-b4c.out
@@ -64,7 +64,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/assembly-26-p16.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - lattice/26-p16.msgpack
       - assembly-26-p16.out
@@ -73,7 +73,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/assembly-26-p20.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - lattice/26-p20.msgpack
       - assembly-26-p20.out
@@ -82,7 +82,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/assembly-26-p24.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - lattice/26-p24.msgpack
       - assembly-26-p24.out
@@ -91,7 +91,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/assembly-31.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - lattice/31.msgpack
       - assembly-31.out
@@ -100,7 +100,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/assembly-31-p12.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - lattice/31-p12.msgpack
       - assembly-31-p12.out
@@ -109,7 +109,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/assembly-31-p16.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - lattice/31-p16.msgpack
       - assembly-31-p16.out
@@ -118,7 +118,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/assembly-31-p24.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - lattice/31-p24.msgpack
       - assembly-31-p24.out
@@ -127,7 +127,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/reflector-I.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - lattice/reflector-I-fuel.msgpack
       - lattice/reflector-I.msgpack
@@ -137,7 +137,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/reflector-I-31-p12.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - lattice/reflector-I-31-p12-fuel.msgpack
       - lattice/reflector-I-31-p12.msgpack
@@ -147,7 +147,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/reflector-I-31-p8.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - lattice/reflector-I-31-p8-fuel.msgpack
       - lattice/reflector-I-31-p8.msgpack
@@ -157,7 +157,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/reflector-corner.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - lattice/reflector-corner-fuel.msgpack
       - lattice/reflector-corner-right.msgpack
@@ -169,7 +169,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/small-moc.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - small-moc-pins.msgpack
       - small-moc.out
@@ -196,7 +196,7 @@ stages:
       - lattice/reflector-corner-right.msgpack
       - lattice/reflector-corner-top.msgpack
       - lattice/reflector-corner.msgpack
-      - ../../../bin/core
+      - ../../../binary-forms/core.md5
     outs:
       - core-5A.out
       - core-5A.log
@@ -222,7 +222,7 @@ stages:
       - lattice/reflector-I.msgpack
       - lattice/reflector-corner-fuel.msgpack
       - lattice/reflector-corner.msgpack
-      - ../../../bin/core
+      - ../../../binary-forms/core.md5
     outs:
       - core-5A-Inext.out
       - core-5A-Inext.log
@@ -250,7 +250,7 @@ stages:
       - lattice/reflector-corner-right.msgpack
       - lattice/reflector-corner-top.msgpack
       - lattice/reflector-corner.msgpack
-      - ../../../bin/core
+      - ../../../binary-forms/core.md5
     outs:
       - core-5A-Ly.out
       - core-5A-Ly.log
@@ -279,7 +279,7 @@ stages:
       - lattice/reflector-corner-right.msgpack
       - lattice/reflector-corner-top.msgpack
       - lattice/reflector-corner.msgpack
-      - ../../../bin/core
+      - ../../../binary-forms/core.md5
     outs:
       - core-5B.out
       - core-5B.log
@@ -308,7 +308,7 @@ stages:
       - lattice/reflector-corner-right.msgpack
       - lattice/reflector-corner-top.msgpack
       - lattice/reflector-corner.msgpack
-      - ../../../bin/core
+      - ../../../binary-forms/core.md5
     outs:
       - core-5C.out
       - core-5C.log
@@ -324,7 +324,7 @@ stages:
       - lattice/reflector-I-fuel.msgpack
       - lattice/reflector-I.msgpack
       - lattice/reflector-corner-fuel.msgpack
-      - ../../../bin/core
+      - ../../../binary-forms/core.md5
     outs:
       - core-lattice-I-equivalence.out
       - core-lattice-I-equivalence.log
@@ -340,7 +340,7 @@ stages:
       - lattice/reflector-I-fuel.msgpack
       - lattice/reflector-I.msgpack
       - lattice/reflector-corner-fuel.msgpack
-      - ../../../bin/core
+      - ../../../binary-forms/core.md5
     outs:
       - core-lattice-I-fstar.out
       - core-lattice-I-fstar.log
@@ -358,7 +358,7 @@ stages:
       - lattice/reflector-corner-right.msgpack
       - lattice/reflector-corner-top.msgpack
       - lattice/reflector-corner.msgpack
-      - ../../../bin/core
+      - ../../../binary-forms/core.md5
     outs:
       - core-lattice-corner-equivalence.out
       - core-lattice-corner-equivalence.log
@@ -376,7 +376,7 @@ stages:
       - lattice/reflector-corner-right.msgpack
       - lattice/reflector-corner-top.msgpack
       - lattice/reflector-corner.msgpack
-      - ../../../bin/core
+      - ../../../binary-forms/core.md5
     outs:
       - core-lattice-corner-fstar.out
       - core-lattice-corner-fstar.log
@@ -395,7 +395,7 @@ stages:
       - lattice/reflector-corner-right.msgpack
       - lattice/reflector-corner-top.msgpack
       - lattice/reflector-corner.msgpack
-      - ../../../bin/core
+      - ../../../binary-forms/core.md5
     outs:
       - core-small-E.out
       - core-small-E.log
@@ -412,7 +412,7 @@ stages:
       - lattice/reflector-I.msgpack
       - lattice/reflector-corner-fuel.msgpack
       - lattice/reflector-corner.msgpack
-      - ../../../bin/core
+      - ../../../binary-forms/core.md5
     outs:
       - core-small-I.out
       - core-small-I.log
@@ -431,7 +431,7 @@ stages:
       - lattice/reflector-corner-right.msgpack
       - lattice/reflector-corner-top.msgpack
       - lattice/reflector-corner.msgpack
-      - ../../../bin/core
+      - ../../../binary-forms/core.md5
     outs:
       - core-small-step-Lx.out
       - core-small-step-Lx.log
@@ -450,7 +450,7 @@ stages:
       - lattice/reflector-corner-right.msgpack
       - lattice/reflector-corner-top.msgpack
       - lattice/reflector-corner.msgpack
-      - ../../../bin/core
+      - ../../../binary-forms/core.md5
     outs:
       - core-small-step-Ly.out
       - core-small-step-Ly.log
@@ -671,7 +671,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/21-fuel.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/21-fuel.msgpack
       - hzp/media/21-fuel.msgpack
@@ -681,7 +681,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/rodless-21-fuel.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/rodless/lattice/21-fuel.msgpack
       - hzp/rodless/media/21-fuel.msgpack
@@ -691,7 +691,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/21-igrid.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/21-igrid.msgpack
       - hzp/21-igrid.out
@@ -700,7 +700,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/21-zgrid.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/21-zgrid.msgpack
       - hzp/21-zgrid.out
@@ -709,7 +709,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/rodless-21-zgrid.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/rodless/lattice/21-zgrid.msgpack
       - hzp/rodless-21-zgrid.out
@@ -718,7 +718,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/26-fuel.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/26-fuel.msgpack
       - hzp/media/26-fuel.msgpack
@@ -728,7 +728,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/rodless-26-fuel.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/rodless/lattice/26-fuel.msgpack
       - hzp/rodless/media/26-fuel.msgpack
@@ -738,7 +738,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/26-igrid.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/26-igrid.msgpack
       - hzp/26-igrid.out
@@ -747,7 +747,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/26-zgrid.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/26-zgrid.msgpack
       - hzp/26-zgrid.out
@@ -756,7 +756,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/rodless-26-zgrid.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/rodless/lattice/26-zgrid.msgpack
       - hzp/rodless-26-zgrid.out
@@ -765,7 +765,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/26-p16-empty.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/26-p16-empty.msgpack
       - hzp/media/26-p16-empty.msgpack
@@ -775,7 +775,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/26-p16-empty-igrid.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/26-p16-empty-igrid.msgpack
       - hzp/26-p16-empty-igrid.out
@@ -784,7 +784,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/26-p16-plenum.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/26-p16-plenum.msgpack
       - hzp/media/26-p16-plenum.msgpack
@@ -794,7 +794,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/26-p16-plug.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/26-p16-plug.msgpack
       - hzp/media/26-p16-plug.msgpack
@@ -804,7 +804,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/26-p16-plug-igrid.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/26-p16-plug-igrid.msgpack
       - hzp/26-p16-plug-igrid.out
@@ -813,7 +813,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/26-p16-poison.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/26-p16-poison.msgpack
       - hzp/media/26-p16-poison.msgpack
@@ -823,7 +823,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/26-p16-poison-zgrid.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/26-p16-poison-zgrid.msgpack
       - hzp/26-p16-poison-zgrid.out
@@ -832,7 +832,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/26-p20-empty.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/26-p20-empty.msgpack
       - hzp/media/26-p20-empty.msgpack
@@ -842,7 +842,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/26-p20-empty-igrid.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/26-p20-empty-igrid.msgpack
       - hzp/26-p20-empty-igrid.out
@@ -851,7 +851,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/26-p20-plenum.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/26-p20-plenum.msgpack
       - hzp/media/26-p20-plenum.msgpack
@@ -861,7 +861,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/26-p20-plug.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/26-p20-plug.msgpack
       - hzp/media/26-p20-plug.msgpack
@@ -871,7 +871,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/26-p20-plug-igrid.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/26-p20-plug-igrid.msgpack
       - hzp/26-p20-plug-igrid.out
@@ -880,7 +880,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/26-p20-poison.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/26-p20-poison.msgpack
       - hzp/media/26-p20-poison.msgpack
@@ -890,7 +890,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/26-p20-poison-zgrid.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/26-p20-poison-zgrid.msgpack
       - hzp/26-p20-poison-zgrid.out
@@ -899,7 +899,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/26-p24-empty.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/26-p24-empty.msgpack
       - hzp/media/26-p24-empty.msgpack
@@ -909,7 +909,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/26-p24-empty-igrid.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/26-p24-empty-igrid.msgpack
       - hzp/26-p24-empty-igrid.out
@@ -918,7 +918,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/26-p24-plenum.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/26-p24-plenum.msgpack
       - hzp/media/26-p24-plenum.msgpack
@@ -928,7 +928,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/26-p24-plug.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/26-p24-plug.msgpack
       - hzp/media/26-p24-plug.msgpack
@@ -938,7 +938,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/26-p24-plug-igrid.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/26-p24-plug-igrid.msgpack
       - hzp/26-p24-plug-igrid.out
@@ -947,7 +947,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/26-p24-poison.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/26-p24-poison.msgpack
       - hzp/media/26-p24-poison.msgpack
@@ -957,7 +957,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/26-p24-poison-zgrid.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/26-p24-poison-zgrid.msgpack
       - hzp/26-p24-poison-zgrid.out
@@ -966,7 +966,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/31-fuel.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/31-fuel.msgpack
       - hzp/media/31-fuel.msgpack
@@ -976,7 +976,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/rodless-31-fuel.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/rodless/lattice/31-fuel.msgpack
       - hzp/rodless/media/31-fuel.msgpack
@@ -986,7 +986,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/31-igrid.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/31-igrid.msgpack
       - hzp/31-igrid.out
@@ -995,7 +995,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/31-zgrid.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/31-zgrid.msgpack
       - hzp/31-zgrid.out
@@ -1004,7 +1004,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/rodless-31-zgrid.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/rodless/lattice/31-zgrid.msgpack
       - hzp/rodless-31-zgrid.out
@@ -1013,7 +1013,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/31-p12-empty.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/31-p12-empty.msgpack
       - hzp/media/31-p12-empty.msgpack
@@ -1023,7 +1023,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/31-p12-empty-igrid.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/31-p12-empty-igrid.msgpack
       - hzp/31-p12-empty-igrid.out
@@ -1032,7 +1032,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/31-p12-plenum.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/31-p12-plenum.msgpack
       - hzp/media/31-p12-plenum.msgpack
@@ -1042,7 +1042,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/31-p12-plug.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/31-p12-plug.msgpack
       - hzp/media/31-p12-plug.msgpack
@@ -1052,7 +1052,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/31-p12-plug-igrid.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/31-p12-plug-igrid.msgpack
       - hzp/31-p12-plug-igrid.out
@@ -1061,7 +1061,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/31-p12-poison.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/31-p12-poison.msgpack
       - hzp/media/31-p12-poison.msgpack
@@ -1071,7 +1071,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/31-p12-poison-zgrid.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/31-p12-poison-zgrid.msgpack
       - hzp/31-p12-poison-zgrid.out
@@ -1080,7 +1080,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/31-p16-empty.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/31-p16-empty.msgpack
       - hzp/media/31-p16-empty.msgpack
@@ -1090,7 +1090,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/31-p16-empty-igrid.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/31-p16-empty-igrid.msgpack
       - hzp/31-p16-empty-igrid.out
@@ -1099,7 +1099,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/31-p16-plenum.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/31-p16-plenum.msgpack
       - hzp/media/31-p16-plenum.msgpack
@@ -1109,7 +1109,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/31-p16-plug.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/31-p16-plug.msgpack
       - hzp/media/31-p16-plug.msgpack
@@ -1119,7 +1119,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/31-p16-plug-igrid.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/31-p16-plug-igrid.msgpack
       - hzp/31-p16-plug-igrid.out
@@ -1128,7 +1128,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/31-p16-poison.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/31-p16-poison.msgpack
       - hzp/media/31-p16-poison.msgpack
@@ -1138,7 +1138,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/31-p16-poison-zgrid.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/31-p16-poison-zgrid.msgpack
       - hzp/31-p16-poison-zgrid.out
@@ -1147,7 +1147,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/31-p24-empty.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/31-p24-empty.msgpack
       - hzp/media/31-p24-empty.msgpack
@@ -1157,7 +1157,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/31-p24-empty-igrid.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/31-p24-empty-igrid.msgpack
       - hzp/31-p24-empty-igrid.out
@@ -1166,7 +1166,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/31-p24-plenum.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/31-p24-plenum.msgpack
       - hzp/media/31-p24-plenum.msgpack
@@ -1176,7 +1176,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/31-p24-plug.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/31-p24-plug.msgpack
       - hzp/media/31-p24-plug.msgpack
@@ -1186,7 +1186,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/31-p24-plug-igrid.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/31-p24-plug-igrid.msgpack
       - hzp/31-p24-plug-igrid.out
@@ -1195,7 +1195,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/31-p24-poison.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/31-p24-poison.msgpack
       - hzp/media/31-p24-poison.msgpack
@@ -1205,7 +1205,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/31-p24-poison-zgrid.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/31-p24-poison-zgrid.msgpack
       - hzp/31-p24-poison-zgrid.out
@@ -1214,7 +1214,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/31-p8-empty.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/31-p8-empty.msgpack
       - hzp/media/31-p8-empty.msgpack
@@ -1224,7 +1224,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/31-p8-plenum.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/31-p8-plenum.msgpack
       - hzp/media/31-p8-plenum.msgpack
@@ -1234,7 +1234,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/31-p8-plug.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/31-p8-plug.msgpack
       - hzp/media/31-p8-plug.msgpack
@@ -1244,7 +1244,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/31-p8-poison.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/31-p8-poison.msgpack
       - hzp/media/31-p8-poison.msgpack
@@ -1254,7 +1254,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/reflector-I-31-fuel.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/reflector-I-31-fuel-fuel.msgpack
       - hzp/lattice/reflector-I-31-fuel.msgpack
@@ -1264,7 +1264,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/rodless-reflector-I-31-fuel.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/rodless/lattice/reflector-I-31-fuel-fuel.msgpack
       - hzp/rodless/lattice/reflector-I-31-fuel.msgpack
@@ -1274,7 +1274,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/reflector-I-31-igrid.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/reflector-I-31-igrid-fuel.msgpack
       - hzp/lattice/reflector-I-31-igrid.msgpack
@@ -1284,7 +1284,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/reflector-I-31-zgrid.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/reflector-I-31-zgrid-fuel.msgpack
       - hzp/lattice/reflector-I-31-zgrid.msgpack
@@ -1294,7 +1294,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/rodless-reflector-I-31-zgrid.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/rodless/lattice/reflector-I-31-zgrid-fuel.msgpack
       - hzp/rodless/lattice/reflector-I-31-zgrid.msgpack
@@ -1304,7 +1304,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/reflector-I-31-p12-empty-igrid.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/reflector-I-31-p12-empty-igrid-fuel.msgpack
       - hzp/lattice/reflector-I-31-p12-empty-igrid.msgpack
@@ -1314,7 +1314,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/reflector-I-31-p12-plenum.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/reflector-I-31-p12-plenum-fuel.msgpack
       - hzp/lattice/reflector-I-31-p12-plenum.msgpack
@@ -1324,7 +1324,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/reflector-I-31-p12-plug-igrid.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/reflector-I-31-p12-plug-igrid-fuel.msgpack
       - hzp/lattice/reflector-I-31-p12-plug-igrid.msgpack
@@ -1334,7 +1334,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/reflector-I-31-p12-poison.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/reflector-I-31-p12-poison-fuel.msgpack
       - hzp/lattice/reflector-I-31-p12-poison.msgpack
@@ -1344,7 +1344,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/reflector-I-31-p12-poison-zgrid.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/reflector-I-31-p12-poison-zgrid-fuel.msgpack
       - hzp/lattice/reflector-I-31-p12-poison-zgrid.msgpack
@@ -1354,7 +1354,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/reflector-I-31-p8-empty-igrid.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/reflector-I-31-p8-empty-igrid-fuel.msgpack
       - hzp/lattice/reflector-I-31-p8-empty-igrid.msgpack
@@ -1364,7 +1364,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/reflector-I-31-p8-plenum.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/reflector-I-31-p8-plenum-fuel.msgpack
       - hzp/lattice/reflector-I-31-p8-plenum.msgpack
@@ -1374,7 +1374,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/reflector-I-31-p8-plug-igrid.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/reflector-I-31-p8-plug-igrid-fuel.msgpack
       - hzp/lattice/reflector-I-31-p8-plug-igrid.msgpack
@@ -1384,7 +1384,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/reflector-I-31-p8-poison.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/reflector-I-31-p8-poison-fuel.msgpack
       - hzp/lattice/reflector-I-31-p8-poison.msgpack
@@ -1394,7 +1394,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/reflector-I-31-p8-poison-zgrid.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/reflector-I-31-p8-poison-zgrid-fuel.msgpack
       - hzp/lattice/reflector-I-31-p8-poison-zgrid.msgpack
@@ -1404,7 +1404,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/reflector-corner-31-fuel.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/reflector-corner-31-fuel-fuel.msgpack
       - hzp/lattice/reflector-corner-31-fuel-right.msgpack
@@ -1416,7 +1416,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/reflector-corner-31-igrid.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/reflector-corner-31-igrid-fuel.msgpack
       - hzp/lattice/reflector-corner-31-igrid-right.msgpack
@@ -1428,7 +1428,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/p5/hzp/reflector-corner-31-zgrid.toml.json
       - ../vera.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/lattice/reflector-corner-31-zgrid-fuel.msgpack
       - hzp/lattice/reflector-corner-31-zgrid-right.msgpack
@@ -1441,7 +1441,7 @@ stages:
       - ../../../toml-values/examples/vera/p5/hzp/axial-21.toml.json
       - ../vera.msgpack
       - hzp/media/21-fuel.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/axial-21
       - hzp/axial-21.out
@@ -1452,7 +1452,7 @@ stages:
       - ../../../toml-values/examples/vera/p5/hzp/axial-21-rcca.toml.json
       - ../vera.msgpack
       - hzp/media/21-fuel.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/axial-21-rcca
       - hzp/axial-21-rcca.out
@@ -1463,7 +1463,7 @@ stages:
       - ../../../toml-values/examples/vera/p5/hzp/axial-26-rcca.toml.json
       - ../vera.msgpack
       - hzp/media/26-fuel.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/axial-26-rcca
       - hzp/axial-26-rcca.out
@@ -1477,7 +1477,7 @@ stages:
       - hzp/media/26-p16-plenum.msgpack
       - hzp/media/26-p16-plug.msgpack
       - hzp/media/26-p16-poison.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/axial-26-p16
       - hzp/axial-26-p16.out
@@ -1491,7 +1491,7 @@ stages:
       - hzp/media/26-p20-plenum.msgpack
       - hzp/media/26-p20-plug.msgpack
       - hzp/media/26-p20-poison.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/axial-26-p20
       - hzp/axial-26-p20.out
@@ -1505,7 +1505,7 @@ stages:
       - hzp/media/26-p24-plenum.msgpack
       - hzp/media/26-p24-plug.msgpack
       - hzp/media/26-p24-poison.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/axial-26-p24
       - hzp/axial-26-p24.out
@@ -1516,7 +1516,7 @@ stages:
       - ../../../toml-values/examples/vera/p5/hzp/axial-31.toml.json
       - ../vera.msgpack
       - hzp/media/31-fuel.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/axial-31
       - hzp/axial-31.out
@@ -1527,7 +1527,7 @@ stages:
       - ../../../toml-values/examples/vera/p5/hzp/axial-31-rcca.toml.json
       - ../vera.msgpack
       - hzp/media/31-fuel.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/axial-31-rcca
       - hzp/axial-31-rcca.out
@@ -1541,7 +1541,7 @@ stages:
       - hzp/media/31-p12-plenum.msgpack
       - hzp/media/31-p12-plug.msgpack
       - hzp/media/31-p12-poison.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/axial-31-p12
       - hzp/axial-31-p12.out
@@ -1555,7 +1555,7 @@ stages:
       - hzp/media/31-p16-plenum.msgpack
       - hzp/media/31-p16-plug.msgpack
       - hzp/media/31-p16-poison.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/axial-31-p16
       - hzp/axial-31-p16.out
@@ -1569,7 +1569,7 @@ stages:
       - hzp/media/31-p24-plenum.msgpack
       - hzp/media/31-p24-plug.msgpack
       - hzp/media/31-p24-poison.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/axial-31-p24
       - hzp/axial-31-p24.out
@@ -1583,7 +1583,7 @@ stages:
       - hzp/media/31-p8-plenum.msgpack
       - hzp/media/31-p8-plug.msgpack
       - hzp/media/31-p8-poison.msgpack
-      - ../../../bin/lattice
+      - ../../../binary-forms/lattice.md5
     outs:
       - hzp/axial-31-p8
       - hzp/axial-31-p8.out
@@ -1596,7 +1596,7 @@ stages:
       - ../../../toml-values/examples/vera/p5/hzp/interp-31-plant.toml.json
       - ../../../toml-values/examples/vera/p5/hzp/interp-31-assemblies.toml.json
       - hzp/lattice/31-fuel.msgpack
-      - ../../../bin/core
+      - ../../../binary-forms/core.md5
     outs:
       - hzp/interp-31.out
       - hzp/interp-31.log
@@ -1622,7 +1622,7 @@ stages:
       - hzp/lattice/reflector-corner-31-fuel.msgpack
       - hzp/lattice/reflector-corner-31-igrid-fuel.msgpack
       - hzp/lattice/reflector-corner-31-zgrid-fuel.msgpack
-      - ../../../bin/core
+      - ../../../binary-forms/core.md5
     outs:
       - hzp/small.out
       - hzp/small.log
@@ -1648,7 +1648,7 @@ stages:
       - hzp/lattice/reflector-corner-31-fuel.msgpack
       - hzp/lattice/reflector-corner-31-igrid-fuel.msgpack
       - hzp/lattice/reflector-corner-31-zgrid-fuel.msgpack
-      - ../../../bin/core
+      - ../../../binary-forms/core.md5
     outs:
       - hzp/small-half.out
       - hzp/small-half.log
@@ -1667,7 +1667,7 @@ stages:
       - hzp/lattice/reflector-corner-31-fuel-right.msgpack
       - hzp/lattice/reflector-corner-31-fuel-top.msgpack
       - hzp/lattice/reflector-corner-31-fuel.msgpack
-      - ../../../bin/core
+      - ../../../binary-forms/core.md5
     outs:
       - hzp/small-2d-aic.out
       - hzp/small-2d-aic.log
@@ -1685,7 +1685,7 @@ stages:
       - hzp/lattice/reflector-corner-31-fuel-right.msgpack
       - hzp/lattice/reflector-corner-31-fuel-top.msgpack
       - hzp/lattice/reflector-corner-31-fuel.msgpack
-      - ../../../bin/core
+      - ../../../binary-forms/core.md5
     outs:
       - hzp/small-2d-b4c.out
       - hzp/small-2d-b4c.log
@@ -1764,7 +1764,7 @@ stages:
       - hzp/lattice/reflector-corner-31-fuel.msgpack
       - hzp/lattice/reflector-corner-31-igrid-fuel.msgpack
       - hzp/lattice/reflector-corner-31-zgrid-fuel.msgpack
-      - ../../../bin/core
+      - ../../../binary-forms/core.md5
     outs:
       - hzp/core-hzp.out
       - hzp/core-hzp.log

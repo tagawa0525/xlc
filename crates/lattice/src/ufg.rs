@@ -1153,7 +1153,7 @@ fn solve_cell(
             if let Some(t) = &mut sweep.tangent {
                 t.finish_sweep();
             }
-            tracing::debug!(sweep = count, change, "UFG free-gas sweep");
+            xlc_log::debug!(sweep = count, change, "UFG free-gas sweep");
             let done = match sweeps {
                 Some(limit) => count >= limit,
                 None => change.is_some_and(|c| c <= SWEEP_TOLERANCE),
@@ -1187,7 +1187,7 @@ fn solve_cell(
     // 点の数と、段ごとの時間 (s): lookup = 核種のデータの引き、grid = 格子点とスイープの用意、table = 飛程の表の作成。
     // free_gas と sab は slowing のうちの自由ガスの核の区間と S(α, β) の移行の散乱源。held はスイープの間で持った区間の数、work は
     // 持つ区間の上限から除いた作業の配列 (B)
-    tracing::debug!(
+    xlc_log::debug!(
         points = u.len(),
         union,
         jumps = jumps.len(),
@@ -1424,7 +1424,7 @@ fn solve_cell(
         t.cost.classes = t.classes.len();
         t.cost.bytes = t.bytes();
         out.cost = t.cost.clone();
-        tracing::debug!(
+        xlc_log::debug!(
             directions = t.cost.directions,
             classes = t.cost.classes,
             tracks = t.cost.tracks,
@@ -1479,7 +1479,7 @@ fn solve_cell(
             shares,
         }
         .count()?;
-        tracing::debug!(
+        xlc_log::debug!(
             seconds = counted.elapsed().as_secs_f64(),
             "UFG transfers counted"
         );
@@ -2042,7 +2042,7 @@ fn log_free_gas_work(
 ) {
     let work = thermal.work();
     let [bounds, quadratics, built, held] = work.seconds.map(|t| t.as_secs_f64());
-    tracing::debug!(
+    xlc_log::debug!(
         swept = points - thermal.start(),
         cells = work.built.iter().sum::<u64>(),
         evaluations = work.evaluations,
@@ -2070,7 +2070,7 @@ fn log_free_gas_work(
             .iter()
             .filter(|ring| ring.iter().any(|&(j, _)| j == k))
             .count();
-        tracing::debug!(
+        xlc_log::debug!(
             name = data[k].name,
             awr = gas.awr(),
             kt = gas.kt(),
@@ -2096,7 +2096,7 @@ fn log_nuclide_points(data: &[Data], group_bounds: &[f64], inside: impl Fn(f64) 
             .filter(|&e| inside(e))
             .collect();
         let added = own.iter().filter(|e| seen.insert(e.to_bits())).count();
-        tracing::debug!(name = d.name, own = own.len(), added, "UFG nuclide points");
+        xlc_log::debug!(name = d.name, own = own.len(), added, "UFG nuclide points");
     }
 }
 
@@ -2206,7 +2206,7 @@ fn track_table(
         }
     }
     if outside > 0 {
-        tracing::debug!(
+        xlc_log::debug!(
             bands = ?OUTSIDE_BANDS,
             by_energy = ?outside_bands,
             deviations = ?OUTSIDE_DEVIATIONS.map(|d| d * layout.limit()),
@@ -2219,7 +2219,7 @@ fn track_table(
     }
     // どの格子点も展開の外なら、表を読む格子点がない
     if outside == points.len() {
-        tracing::info!(
+        xlc_log::info!(
             points = points.len(),
             "UFG tracks point by point: every point is beyond the ring expansion"
         );
@@ -2230,7 +2230,7 @@ fn track_table(
     // ではない（読む組で数えると表を作るセルが増え、そのセルの結果が変わる。#0180）
     let evaluations = match TrackTable::count(&ranges, density) {
         Ok(nodes) => {
-            tracing::debug!(
+            xlc_log::debug!(
                 nodes,
                 per_node = layout.evaluations(),
                 ranges = ?ranges,
@@ -2244,7 +2244,7 @@ fn track_table(
         Err(e) => return Err(e.into()),
     };
     if evaluations.is_none_or(|n| n >= points.len()) {
-        tracing::info!(
+        xlc_log::info!(
             points = points.len(),
             table = evaluations,
             "UFG tracks point by point: the track table needs as many collision probabilities"
@@ -2253,7 +2253,7 @@ fn track_table(
     }
     // 軸を共有する物質のあるセル（リングごとの燃料）は、展開の外の格子点の数を残す（ADR-0182 の確認に使う）
     if layout.evaluations() > 1 {
-        tracing::info!(
+        xlc_log::info!(
             points = points.len(),
             outside,
             evaluations,
@@ -2262,7 +2262,7 @@ fn track_table(
     }
     let clock = Instant::now();
     let table = TrackTable::for_points(cell, layout, &ranges, density, &inside)?;
-    tracing::debug!(
+    xlc_log::debug!(
         seconds = clock.elapsed().as_secs_f64(),
         nodes = table.nodes(),
         solved = table.solved_nodes(),
@@ -2410,7 +2410,7 @@ fn minor_scatterers(
             let kept = share.keep_actinides && actinide;
             let rest = top.is_some() && !kept && measured < share.threshold;
             if rest {
-                tracing::debug!(
+                xlc_log::debug!(
                     name = d.name,
                     share = measured,
                     "UFG free gas rested by the scatter share"

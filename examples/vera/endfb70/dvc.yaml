@@ -28,7 +28,7 @@ stages:
     deps:
       - ../../../toml-values/examples/vera/endfb70/xs.toml.json
       - ../../../references/endf/ENDF-B-VII.0_neutrons
-      - ../../../bin/xs
+      - ../../../binary-forms/xs.md5
     outs:
       - xs-range.toml:
           cache: false
@@ -40,7 +40,7 @@ stages:
         - xs-range.toml
         - ${endf-directory}/${item.endf}
         - ${thermal-directory}
-        - ../../../bin/xs
+        - ../../../binary-forms/xs.md5
       params:
         - xs.toml:
             - sigma0
@@ -54,7 +54,7 @@ stages:
       - ../../../toml-values/examples/vera/endfb70/xs.toml.json
       - xs-range.toml
       - xs-nuclides
-      - ../../../bin/xs
+      - ../../../binary-forms/xs.md5
     outs:
       - vera.msgpack
   pincell:
@@ -70,7 +70,7 @@ stages:
         - ../../../python-ast/examples/vera/compare_k.py.ast
         - ../../../python-ast/examples/vera/compare_p3.py.ast
         - ../../../references/vera/spec.txt
-        - ../../../bin/lattice
+        - ../../../binary-forms/lattice.md5
       outs:
         - p1/lattice-${item}.out
         - compare-${item}.json:
@@ -88,7 +88,7 @@ stages:
         - ../../../python-ast/examples/vera/compare_k.py.ast
         - ../../../python-ast/examples/vera/compare_p3.py.ast
         - ../../../references/vera/spec.txt
-        - ../../../bin/lattice
+        - ../../../binary-forms/lattice.md5
       outs:
         - p2/lattice-${item}.out
         - p2/pins-${item}.msgpack

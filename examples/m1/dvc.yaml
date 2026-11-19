@@ -20,7 +20,7 @@ stages:
       - ../../references/endf/ENDF-B-VIII.0_thermal_scatt/tsl-HinH2O.endf
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-005_B_010.endf
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-005_B_011.endf
-      - ../../bin/xs
+      - ../../binary-forms/xs.md5
     outs:
       - m1.msgpack
   lattice:
@@ -29,7 +29,7 @@ stages:
     deps:
       - ../../toml-values/examples/m1/pincell.toml.json
       - m1.msgpack
-      - ../../bin/lattice
+      - ../../binary-forms/lattice.md5
     outs:
       - pincell-fg.msgpack
       - lattice.out
@@ -44,7 +44,7 @@ stages:
       deps:
         - ../../toml-values/examples/m1/pincell-${item}.toml.json
         - m1.msgpack
-        - ../../bin/lattice
+        - ../../binary-forms/lattice.md5
       outs:
         - pincell-fg-${item}.msgpack
         - lattice-${item}.out

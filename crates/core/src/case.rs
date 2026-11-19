@@ -796,7 +796,7 @@ pub(crate) fn iterate_thermal<T>(
             .map(|(a, b)| (a - b).abs())
             .fold(0.0, f64::max)
             / mean;
-        tracing::debug!(
+        xlc_log::debug!(
             iteration,
             change,
             k = solved.solution.k,
@@ -887,7 +887,7 @@ pub fn search_boron<T: Borrow<Solved>>(
         |ppm| {
             let solved = solve(ppm)?;
             let k = solved.borrow().solution.k;
-            tracing::debug!(ppm, k, "boron search");
+            xlc_log::debug!(ppm, k, "boron search");
             Ok((k, solved))
         },
     )

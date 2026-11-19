@@ -127,8 +127,8 @@ loading = ["F01"]
 
 
 def code(stage):
-    """Rust のステージの deps のうち、ステージが呼ぶ実行ファイル（../../dvc.yaml の build が作る。ADR-0159）"""
-    return [f"../../bin/{stage}"]
+    """Rust のステージの deps のうち、ステージが呼ぶ実行ファイルの正規形（../../dvc.yaml の binary-forms が書く。ADR-0159、ADR-0255）"""
+    return [f"../../binary-forms/{stage}.md5"]
 
 
 def listed(items, indent):

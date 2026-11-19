@@ -717,8 +717,8 @@ UP = ""
 
 
 def code(crate: str) -> list[str]:
-    """Rust のステージの deps のうち、ステージが呼ぶ実行ファイル（../../../dvc.yaml の build が作る。ADR-0159）"""
-    return [f"{UP}../../../bin/{crate}"]
+    """Rust のステージの deps のうち、ステージが呼ぶ実行ファイルの正規形（../../../dvc.yaml の binary-forms が書く。ADR-0159、ADR-0255）"""
+    return [f"{UP}../../../binary-forms/{crate}.md5"]
 
 
 def normal_form(dep: str) -> str:
@@ -863,7 +863,7 @@ def pipeline() -> str:
         "# VERA Problem 3A、3B を xlc で解くステージ: 多群ライブラリ（../dvc.yaml の xs）→ 燃料の高さの 2D の格子（層ごとの\n"
         "# 少数群定数と、平板の燃料の媒質）→ 軸方向の反射体の平板（axial-<問題>）→ 炉心（平板の定数だけの等価性\n"
         "# core-<問題>-slab と、f* の方法 core-<問題>）→ 比較（平板の MOC との等価性、KENO-VI、OpenMC）。実行するのは `dvc repro`\n"
-        "# （ADR-0159）。deps の書き方は examples/m0/dvc.yaml と同じ（ステージの入力と、ステージが呼ぶ実行ファイル）\n"
+        "# （ADR-0159）。deps の書き方は examples/m0/dvc.yaml と同じ（ステージの入力と、ステージが呼ぶ実行ファイルの正規形）\n"
         "stages:\n" + "".join(stages)
     )
 

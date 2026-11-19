@@ -3,11 +3,6 @@ stages:
   core-p9:
     cmd: ../../../bin/core core-p9.toml > core-p9.out 2> core-p9.log
     deps:
-    - path: ../../../bin/core
-      hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
     - path: 
         ../../../toml-values/examples/depletion/p9-timing/core-p9-assemblies.toml.json
       hash: md5
@@ -18,6 +13,10 @@ stages:
       hash: md5
       md5: fdd93300274ae874f14f0f7ff5a9fc02
       size: 2407
+    - path: ../../../binary-forms/core.md5
+      hash: md5
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../../toml-values/examples/depletion/p9-timing/core-p9.toml.json
       hash: md5
       md5: 43a1d41e2ef66389431ed8c298b07320

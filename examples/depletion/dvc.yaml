@@ -24,7 +24,7 @@ stages:
       - ../../references/endf/ENDF-B-VIII.0_decay
       - ../../references/endf/ENDF-B-VIII.0_nfy
       - ../../references/endf/ENDF-B-VIII.0_neutrons
-      - ../../bin/chain
+      - ../../binary-forms/chain.md5
     outs:
       - chain.msgpack
   openmc-chain:
@@ -43,7 +43,7 @@ stages:
     deps:
       - ../../toml-values/examples/depletion/xs.toml.json
       - ../../references/endf/ENDF-B-VIII.0_neutrons
-      - ../../bin/xs
+      - ../../binary-forms/xs.md5
     outs:
       - xs-range.toml:
           cache: false
@@ -56,7 +56,7 @@ stages:
         - xs-range.toml
         - ${endf-directory}/${item.endf}
         - ${thermal-directory}
-        - ../../bin/xs
+        - ../../binary-forms/xs.md5
       params:
         - xs.toml:
             - sigma0
@@ -70,7 +70,7 @@ stages:
       - ../../toml-values/examples/depletion/xs.toml.json
       - xs-range.toml
       - xs-nuclides
-      - ../../bin/xs
+      - ../../binary-forms/xs.md5
     outs:
       - depletion.msgpack
   openmc-neutron:
@@ -150,7 +150,7 @@ stages:
         - ../../toml-values/examples/depletion/lattice-1C-${item}.toml.json
         - depletion.msgpack
         - chain.msgpack
-        - ../../bin/lattice
+        - ../../binary-forms/lattice.md5
       outs:
         - lattice-1C-${item}.out
         - lattice-1C-${item}.msgpack
@@ -162,7 +162,7 @@ stages:
       - ../../toml-values/examples/depletion/lattice-2A.toml.json
       - depletion.msgpack
       - chain.msgpack
-      - ../../bin/lattice
+      - ../../binary-forms/lattice.md5
     outs:
       - lattice-2A.out
       - lattice-2A.msgpack
@@ -214,7 +214,7 @@ stages:
       - ../../toml-values/examples/depletion/lattice-mox1-rings1.toml.json
       - depletion.msgpack
       - chain.msgpack
-      - ../../bin/lattice
+      - ../../binary-forms/lattice.md5
     outs:
       - lattice-mox1-rings1.out
       - lattice-mox1-rings1.msgpack

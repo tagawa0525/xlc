@@ -16,6 +16,7 @@ serde.workspace = true
 thiserror.workspace = true
 toml.workspace = true
 tracing.workspace = true
+xlc-log = { path = "../log" }
 tracing-subscriber.workspace = true
 
 # コマンド名はステージの名前に合わせて `xs` とする

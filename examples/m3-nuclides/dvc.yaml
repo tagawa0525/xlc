@@ -34,6 +34,6 @@ stages:
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_116.endf
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-049_In_113.endf
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-049_In_115.endf
-      - ../../bin/xs
+      - ../../binary-forms/xs.md5
     outs:
       - m3-nuclides.msgpack

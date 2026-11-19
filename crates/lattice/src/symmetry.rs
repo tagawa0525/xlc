@@ -270,7 +270,7 @@ pub fn detect<T: PartialEq + std::fmt::Display>(
                 images.push(image);
             }
             Err(error) => {
-                tracing::info!(operation = name, %error, "symmetry operation does not hold");
+                xlc_log::info!(operation = name, %error, "symmetry operation does not hold");
                 // 強制したときのエラー（`restrict`）は操作の名前を付けて示すので、理由だけを残す
                 rejected[index] = Some(match error {
                     SymmetryError::Broken { reason, .. } => reason,
@@ -280,7 +280,7 @@ pub fn detect<T: PartialEq + std::fmt::Display>(
         }
     }
     let symmetry = Symmetry::new(&held)?;
-    tracing::info!(
+    xlc_log::info!(
         symmetry = symmetry.name(),
         operations = symmetry.order(),
         "symmetry"
@@ -325,7 +325,7 @@ pub fn choose<T: PartialEq + std::fmt::Display>(
 ) -> Result<Chosen, SymmetryError> {
     match forced {
         Some(Symmetry::NONE) => {
-            tracing::info!("symmetry \"none\": no symmetry is detected or used");
+            xlc_log::info!("symmetry \"none\": no symmetry is detected or used");
             Ok(Chosen {
                 shielding: Detected::none(tracking),
                 moc: None,
@@ -334,7 +334,7 @@ pub fn choose<T: PartialEq + std::fmt::Display>(
         Some(symmetry) => {
             let detected = detect(tracking, values)?;
             let moc = detected.restrict(symmetry)?;
-            tracing::info!(symmetry = symmetry.name(), "forced symmetry");
+            xlc_log::info!(symmetry = symmetry.name(), "forced symmetry");
             Ok(Chosen {
                 shielding: detected,
                 moc: Some(moc),

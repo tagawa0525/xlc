@@ -64,7 +64,7 @@ stages:
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_114.endf
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_116.endf
       - ../../references/endf/ENDF-B-VIII.0_thermal_scatt/tsl-HinH2O.endf
-      - ../../bin/xs
+      - ../../binary-forms/xs.md5
     outs:
       - rods.msgpack
   lattice:
@@ -73,7 +73,7 @@ stages:
     deps:
       - ../../toml-values/examples/core/assembly.toml.json
       - rods.msgpack
-      - ../../bin/lattice
+      - ../../binary-forms/lattice.md5
     outs:
       - table-rods.msgpack
       - lattice.out
@@ -88,7 +88,7 @@ stages:
         - ../../toml-values/examples/core/assemblies.toml.json
         - ../../toml-values/examples/core/cycle.toml.json
         - table-rods.msgpack
-        - ../../bin/core
+        - ../../binary-forms/core.md5
       outs:
         - out/${item}.out
   compare:
