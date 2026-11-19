@@ -6,7 +6,7 @@ opened: 2026-10-29
 closed: 2026-11-19
 milestone: M4
 blocked-by: []
-resolution: コミット 6ecf12aa2
+resolution: コミット 767f93a56
 ---
 
 # 部分挿入のノードのミクロ燃焼の残り（数密度が割合について単調でないことと、#0192 のレビューの残り）

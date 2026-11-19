@@ -6,7 +6,7 @@ opened: 2026-11-07
 closed: 2026-11-19
 milestone: M4
 blocked-by: []
-resolution: コミット 168f159cb
+resolution: コミット b6c9d2c4e
 ---
 
 # ノードの出力の重み（#0154）のレビューの残り

@@ -6,7 +6,7 @@ opened: 2026-11-06
 closed: 2026-11-19
 milestone: M4
 blocked-by: []
-resolution: コミット 168f159cb
+resolution: コミット b6c9d2c4e
 ---
 
 # core の CMFD の粗メッシュの反復の止め方と許容の比の残り
