@@ -101,6 +101,38 @@ class CheckModel(unittest.TestCase):
                 )
         self.assertIn("model.xml", str(stop.exception))
 
+    def test_stops_when_only_the_order_of_the_elements_differs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            work = Path(tmp) / "work"
+            self.ran(work)
+            text = (work / "model.xml").read_text()
+            start, end = text.index("<materials"), text.index("</materials>") + 12
+            materials = text[start:end]
+            text = text[:start] + text[end:]
+            text = text.replace("</model>", materials + "</model>")
+            (work / "model.xml").write_text(text)
+            with self.assertRaises(SystemExit) as stop:
+                openmc_resume.check_model(
+                    sphere(1.0, "/elsewhere/cross_sections.xml", [5, 10]), work
+                )
+        self.assertIn("order", str(stop.exception))
+
+    def test_restart_stops_when_the_model_differs_from_the_run(self):
+        """`--restart` は、前の区切りの model.xml を書き換える前に、入力のモデルと比べる"""
+        with tempfile.TemporaryDirectory() as tmp:
+            work = Path(tmp) / "work"
+            self.ran(work)
+            (work / "statepoint.005.h5").write_bytes(b"")
+            with self.assertRaises(SystemExit) as stop:
+                openmc_resume.run_model(
+                    sphere(0.7, "/here/cross_sections.xml", None),
+                    {"threads": 1},
+                    work,
+                    openmc_resume.Options(restart=True),
+                )
+            self.assertTrue((work / "statepoint.005.h5").exists())
+        self.assertIn("model.xml", str(stop.exception))
+
     def test_stops_when_the_work_has_no_model_xml(self):
         with tempfile.TemporaryDirectory() as tmp, self.assertRaises(SystemExit):
             openmc_resume.check_model(

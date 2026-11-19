@@ -119,6 +119,37 @@ class Inputs(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 pair_runs(GUESS, a, b)
 
+    def test_inputs_that_differ_in_another_item_are_errors(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            flat = write_run(
+                tmp,
+                "flat",
+                top='acceleration = "none"',
+                depletion='initial-guess = "flat"',
+            )
+            default = write_run(tmp, "default")
+            with self.assertRaises(SystemExit) as stop:
+                pair_runs(GUESS, flat, default)
+        self.assertIn("acceleration", str(stop.exception))
+
+    def test_the_log_is_named_after_the_input(self):
+        """記録のコマンドは core の標準エラーを `<入力の名前>.log` に書く"""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            nested = write_run(tmp, "nested", depletion='xenon-boron = "nested"')
+            joint = write_run(tmp, "joint")
+            (tmp / "joint.toml").write_text(
+                (tmp / "joint.toml")
+                .read_text()
+                .replace("joint.msgpack", "other.msgpack")
+            )
+            (tmp / "joint.msgpack").rename(tmp / "other.msgpack")
+            *_, files = pair_runs(XENON_BORON, nested, joint)
+        self.assertEqual(
+            [f.name for f in files[3:]], ["joint.toml", "other.msgpack", "joint.log"]
+        )
+
     def test_a_case_item_is_read_from_the_top_of_the_input(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp = Path(tmp)

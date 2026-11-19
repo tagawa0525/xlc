@@ -81,6 +81,48 @@ class Compare(unittest.TestCase):
         with self.assertRaises(SystemExit):
             compare_core_threads.parse("p9=a.toml,,b.toml")
 
+    def test_red_black_runs_need_a_thread_pool_line(self):
+        history, text = run(core(), [60, 20, 15, 40], 1, 2.0)
+        bare = text.split("\n", 1)[1]
+        with self.assertRaises(SystemExit):
+            compare_core_threads.compare(
+                run(core(), [1, 1, 1, 1], 1, 1.0), [(history, bare)]
+            )
+
+    def test_a_base_without_a_thread_pool_line_is_an_error(self):
+        # 入力が順を決めるので、スレッドの数もログの行で確かめる（行の無いログは、入力の名前の履歴のものでない）
+        history, text = run(core(), [60, 20, 15, 40], 1, 2.0)
+        bare = text.split("\n", 1)[1]
+        with self.assertRaises(SystemExit):
+            compare_core_threads.compare(
+                (history, bare), [run(core(), [50, 20, 10, 30], 16, 0.5)]
+            )
+
+    def test_report_draws_summaries_with_the_bin_core_before_adr_0234(self):
+        # #0236 の前のツールが書いた要約（trial-0234/compare-threads.json）は、順 `before` とスレッドの数 null を持つ
+        c = compare_core_threads.compare(
+            run(core(), [60, 20, 15, 40], 1, 2.0),
+            [run(core(), [50, 20, 10, 30], 16, 0.5)],
+        )
+        c["runs"][0] |= {"order": "before", "threads": None}
+        text = "\n".join(compare_core_threads.report({"cases": {"p9": c}}))
+        self.assertIn("ADR-0234 の前の bin/core: 固有値計算 4 回", text)
+
+    def test_report_gives_the_time_per_thread_count(self):
+        c = compare_core_threads.compare(
+            run(core(), [60, 20, 15, 40], 1, 2.0),
+            [
+                run(core(), [50, 20, 10, 30], 1, 1.8),
+                run(core(), [50, 20, 10, 30], 4, 0.9),
+            ],
+        )
+        text = "\n".join(compare_core_threads.report({"cases": {"small": c}}))
+        self.assertIn(
+            "直方体の並びの順 1 スレッド: 固有値計算 4 回、外側の反復 135 回", text
+        )
+        self.assertIn("色の順 4 スレッド: 固有値計算 4 回、外側の反復 110 回", text)
+        self.assertIn("色の順の履歴はスレッドの数によらずバイトで同じ", text)
+
 
 class Inputs(unittest.TestCase):
     """燃焼の順は、引数の位置でなく、入力の `node-order` で決まる"""
@@ -123,38 +165,6 @@ class Inputs(unittest.TestCase):
                     self.assertRaises(SystemExit),
                 ):
                     compare_core_threads.thread_runs(wrong)
-
-    def test_red_black_runs_need_a_thread_pool_line(self):
-        history, text = run(core(), [60, 20, 15, 40], 1, 2.0)
-        bare = text.split("\n", 1)[1]
-        with self.assertRaises(SystemExit):
-            compare_core_threads.compare(
-                run(core(), [1, 1, 1, 1], 1, 1.0), [(history, bare)]
-            )
-
-    def test_a_base_without_a_thread_pool_line_is_an_error(self):
-        # 入力が順を決めるので、スレッドの数もログの行で確かめる（行の無いログは、入力の名前の履歴のものでない）
-        history, text = run(core(), [60, 20, 15, 40], 1, 2.0)
-        bare = text.split("\n", 1)[1]
-        with self.assertRaises(SystemExit):
-            compare_core_threads.compare(
-                (history, bare), [run(core(), [50, 20, 10, 30], 16, 0.5)]
-            )
-
-    def test_report_gives_the_time_per_thread_count(self):
-        c = compare_core_threads.compare(
-            run(core(), [60, 20, 15, 40], 1, 2.0),
-            [
-                run(core(), [50, 20, 10, 30], 1, 1.8),
-                run(core(), [50, 20, 10, 30], 4, 0.9),
-            ],
-        )
-        text = "\n".join(compare_core_threads.report({"cases": {"small": c}}))
-        self.assertIn(
-            "直方体の並びの順 1 スレッド: 固有値計算 4 回、外側の反復 135 回", text
-        )
-        self.assertIn("色の順 4 スレッド: 固有値計算 4 回、外側の反復 110 回", text)
-        self.assertIn("色の順の履歴はスレッドの数によらずバイトで同じ", text)
 
 
 if __name__ == "__main__":
