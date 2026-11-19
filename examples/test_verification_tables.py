@@ -429,6 +429,30 @@ class Replace(unittest.TestCase):
         ):
             vt.render("<!-- table: demo -->\n<!-- /table -->\n", self.root)
 
+    def test_the_md5_comes_from_the_outs_and_not_from_the_deps(self):
+        """dvc.lock の deps も同じ 3 行の形なので、JSON を deps に持つステージの md5 を出力の md5 と取り違えない"""
+        md5 = hashlib.md5((self.root / "t/a.json").read_bytes()).hexdigest()
+        entry = "    - path: a.json\n      hash: md5\n      md5: {}\n"
+        (self.root / "t/dvc.lock").write_text(
+            "schema: '2.0'\nstages:\n  s:\n    cmd: make\n    outs:\n"
+            + entry.format(md5)
+            + "  table:\n    cmd: draw\n    deps:\n"
+            + entry.format("0" * 32)
+        )
+        self.assertEqual(vt.locked_md5(self.root, "t/a.json"), md5)
+
+    def test_a_json_only_in_the_deps_has_no_locked_md5(self):
+        """JSON を出力するステージが無ければ、deps の md5 で照合を通さない"""
+        (self.root / "t/dvc.lock").write_text(
+            "schema: '2.0'\nstages:\n  table:\n    cmd: draw\n    deps:\n    - path: a.json\n      hash: md5\n      md5: "
+            + "0" * 32
+            + "\n    outs:\n    - path: b.json\n      hash: md5\n      md5: "
+            + "1" * 32
+            + "\n"
+        )
+        with self.assertRaisesRegex(vt.TableError, "has 0 outputs named a.json"):
+            vt.locked_md5(self.root, "t/a.json")
+
     def test_a_tracked_json_passes_in_a_git_repository(self):
         self.lock()
         self.git("init", "-q", "-b", "main")
