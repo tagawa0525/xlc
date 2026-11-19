@@ -4,21 +4,11 @@ PWR の解析コード。xs（ENDF から多群定数）→ lattice（MOC の格
 
 ## 文書
 
-- 決定と理由: docs/adr/（書き方と運用は docs/adr/README.md）
-- docs/ は OKF v0.3 のバンドル（ADR-0256）。新しい文書には `type` を書き、索引（`index.md`）の行は `design-records new` か
-  `design-records index` で足す
-- ステージの目的・範囲・作業の順序・検証の対象: docs/plans/
-- 未解決の問題とやること: docs/issues/（書き方と運用は docs/issues/README.md。ブランチ名とコミットの `Refs:`、
-  ADR との両方向の対応を含む）
-- 検証の記録: examples/*/verification.md（評価済みデータを変えた検証は、混ぜずに examples/<問題>/verification-<略称>.md に分ける。ADR-0175）。今の結果だけを題目ごとに書き、古い測定や誤りは消して書き直す（経緯は git に
-  残る。ADR-0117）。結果ごとに、数値を出した xlc のコミットと日付を書く（「計算」の節。新しい測定には必ず書く。コミットが分からない過去の測定だけ日付）
-- 検証の記録の表のうち `<!-- table: <名前> -->` 〜 `<!-- /table -->` の間は、比較のステージの JSON から
-  `python3 examples/verification_tables.py <記録>` が描く（手で直さない。ADR-0176）。`--check` は hook と `cargo test`
-  が実行する。JSON は数十 KB ほどの要約で、DVC の出力（`cache: false`）を git で追跡する（`dvc checkout` なしで走る）
-- コードには How（今の挙動だけ。以前の挙動や変わった経緯は書かず、git、ADR、閉じた issue に任せる）、テストには What、コミットログには Why（決定の理由と採らなかった案は ADR）、コード
-  コメントには Why not（その場の、自明に見える別の書き方をしない理由と制約、式の出典と導出の要点。比べた代わりの案は
-  ADR か issue に書いて参照する）を書く（ADR-0117）
-- 検証の環境（NJOY、OpenMC、核データ）: docs/environment.md。`references/` は git で追跡しない
+- 決定と理由は docs/adr/、未解決の問題とやることは docs/issues/、ステージの目的と順序は docs/plans/（書き方と運用は各ディレクトリの README.md）
+- docs/ は OKF v0.3 のバンドル（ADR-0256）。番号と索引の行は `design-records new [--kind issue]` と `design-records index` で作る
+- 検証の記録は examples/*/verification*.md。書く前にスキル verification-record を読む
+- 検証の環境（NJOY、OpenMC、核データ）は docs/environment.md。`references/` は git で追跡しない
+- コードには今の挙動だけ、決定の理由と採らなかった案は ADR に書く（ADR-0117）
 
 ## 用語と書き方
 
@@ -29,129 +19,33 @@ PWR の解析コード。xs（ENDF から多群定数）→ lattice（MOC の格
 
 ## 計算
 
-- 重い計算（OpenMC、NJOY、ライブラリの作り直し、xlc の集合体以上、時間を記録する測定）は、Slurm で 1 本ずつ流す:
-  `~/.claude/scripts/slurm-run.sh --class <区分> --ref '<参照>' --purpose '<目的>' [--top] [--timed | -c <CPU 数>] -t <見積もり> <名前> '<コマンド>'`（排他で、終わるまで待つ）。区分は timed（時間を記録する測定。`--timed` を付けなくてもパーティション timed）、record（記録に載せる本番）、decision（決定に要る確認）、trial（検討）で、この順に優先する。`--ref` は `#NNNN`、`ADR-NNNN`（複数はカンマ）、または `- <理由>` で、`#` がシェルの注釈になるので引用符で囲む。`--purpose` は結果が何を決めるかの 1 文。待ち行列は `~/.claude/scripts/slurm-queue.sh` で見る。時間を記録する測定は `--timed` を付ける（割り込まれないパーティション timed で、走っている main のジョブを止めて先に走る）。付けないジョブは main で、timed のジョブに止められうるので、その時間は記録に書かない（`TIME:` 行に `preemptible:` の印が付く）。`--top` は同じ区分の中で前に出す。走っているジョブの終わりを待てない数分の計算は、区分を変えずに `--timed` で投げる。本数の上限は置かないので、投げる前に 1 本の見積もりと合計の時間を報告に書き、再実行するときは理由を書く。直接の `sbatch` は hook が止める。直接実行せず、`pgrep` で他の計算を監視しない。時間を記録しない長い計算は `-c <CPU 数>`（ハードウェアスレッドで数える）を付けて排他なしに流せるが、その時間は記録に書かない。
-- OpenMC のスレッド数は docs/environment.md の値を使う
-- lattice のスレッドの数は、`RAYON_NUM_THREADS` が無ければプロセスに許された論理 CPU（SMT を含む）の数で、r995 の排他のジョブでは
-  32（1 コア 2 スレッドの 16 コア。`lscpu`）。始めにログに出す（`thread pool threads=`）。xs の `--threads` の既定は
-  機械の物理コアの数をプロセスに許された CPU の数で抑えたもの、runner の予算は許された CPU の中の物理コアの数で、r995 の排他のジョブでは
-  どちらも 16、`-c 16` では xs 16、runner 8（ADR-0214、ADR-0193）。xs の数はログに出ないので、記録と
-  依頼に書くときは、この規則と、ジョブで付けた `--threads`、`-c` の数から書く（#0186）
-- 数時間の OpenMC の参照解も、xlc の計算と同じく r995 の Slurm で流す。AWS は枠が無いので今は使わない（ユーザー 2026-11-19）。
-  短い OpenMC はローカル。投げ方は上の Slurm の項とスキル openmc-reference に従う。AWS の手順は docs/environment.md の「外部の計算機（AWS）」
-- 本番の作り直し（ライブラリ、燃焼の履歴、テーブル、参照解）の前に、docs/plans/upstream-error-budget.md の「作り直しの前」が
-  「要」の項目を、同じ計画の「進め方の決まり」のとおり見積もる（親の案をユーザーが承認し、目安の決め方を親に任せた。2026-11-19）
-- 重い計算を足す前に、既存の結果で足りるか、結論が変わりうるかを見る。形式（履歴、テーブル、ライブラリ）を変える変更の前に、
-  読めなくなる出力と作り直す時間を数えて依頼と報告に書く。読めなくなった出力の再実行は、それを読む作業が次に来るまで後回し（ユーザー 2026-10-11、2026-10-24）
-- 高速化の途中は、高速化の測定以外のジョブを流さない。遅い bin で流した計算は流し直しになる。後回しは 0 コスト、見込みの外れた
-  ジョブは理由を書いて止める（ユーザー 2026-10-24）
-- 仕様書に KENO-VI の参照解がある問題は ENDF/B-VII.0 の検証用ライブラリで KENO と直接比べ、OpenMC の参照解は仕様書に参照のない
-  問題（燃焼、ブランチ計算、HFP）と診断だけに作る（ADR-0175）。3D の全炉心と Problem 4 の OpenMC は作らない（ADR-0124、docs/plans/m3-core-hzp.md。ユーザー 2026-10-15）
-- 結果を変えない deps の変更で、重いステージを再実行せず `dvc commit` で付け直してよいのは、ADR が決めた移行
-  （ADR-0159、ADR-0210。ADR-0254 の移行は lock の deps の書き換え）だけ（値の同じ TOML の差は、ADR-0254 の正規形で deps に表れない）。参照のステージ（NJOY、OpenMC）が使わない Python のパッケージは、flake.nix の `pythonPackages` にだけ足す（`references` の
-  devShell の store のパスが参照解の deps。食い違いは pre-commit の hook `references-shell` が止める。ADR-0212）
-- `examples/<問題>/dvc.yaml` のある例は、`dvc repro examples/<問題>/dvc.yaml`（すべては `dvc repro -P`）でステージを
-  実行する。重いときは全体を上の形で Slurm に流す。重いステージを 1 本ずつ流す、または参照解の待ちで全体が失敗するときは、
-  目標を指定する `dvc repro <yaml>:<ステージ>`（上流の changed は実行される。ADR-0184）。`-s` は上流を飛ばすので、rebase のあとに
-  数秒のステージを再実行する /dvc-relock と、上流の changed が deps だけで outs が `dvc.lock` のとおりのときに、数秒の下流を
-  `dvc.lock` の上流の出力で再実行するときだけに使う（確かめ方と除く項目は ADR-0184 の決定の `-s` の項。記録には上流の出どころを別に書く）。実行したら `dvc.lock` をコミットする（上流の `build`、`python-ast`、`binary-forms`、`toml-values` が書き換えたリポジトリの直下の `dvc.lock`、`python-ast/`、`binary-forms/`、`toml-values/` も。ADR-0159、ADR-0210、ADR-0255、ADR-0254）
-- 核種ごとの xs のステージ（`xs-nuclide`）は、`dvc repro` でなく `python3 examples/stage_runner.py <yaml> xs-nuclide` で流す（changed の
-  ものを CPU 時間の長い順に同時に実行して `dvc commit` する。上流の changed も実行する。下流の `xs` は続けて `dvc repro <yaml>:xs`。ADR-0193）。
-  runner が書き直す CPU 時間の記録 `<yaml のディレクトリ>/stage-cpu-seconds.json` も `dvc.lock` と一緒にコミットする
-- `dvc repro` を投げる前に、走りうるステージを数えて見積もる（出力を戻した、ジョブを実行する worktree で）。
-  changed の数は `dvc status` の文字列を grep で数えず（タブで始まる `changed deps:` の行を拾って誤り、2026-10-28 に 468 を 942 と数えた）、
-  `scripts/count-changed-stages.py [<yaml>...]` で数える。
-  `dvc status --with-deps <yaml>:<ステージ>` の changed と、目標の上流（`dvc dag --dot <yaml>:<ステージ>`）のうちその下流に
-  あるもの（`dvc status` と `dvc repro --dry` は、上流が出力を書き換えた後に走る下流を出さない。上流が同じ出力を書けば下流は
-  飛ぶので上限）。走るステージに参照解（数時間の OpenMC）が入っていれば、投げずに原因（deps の文書だけの変更など）を調べる。
-  時間は、過去のログで実行したステージの数の一覧（`grep -o "Running stage '[^'@]*" <ログ> | sort | uniq -c`）の全体が同じジョブから取る。
-  2026-10-22 に、65 核種の作り直しを多群の作成のないジョブから 45 分と見積もって 2 時間 5 分かかり（Slurm 452。ラダーの和をベクトル化した ADR-0188 の後は 38 分、Slurm 473）、文書だけを
-  直した deps で changed になった 5 時間の OpenMC を目標の上流に入れて投げ、12 分で止めた（Slurm 454）
-- worktree の `references` は main の `references/` への symlink（`.worktreelink`。worktree-add.sh が作る）で、DVC の
-  キャッシュと核データを共有する（ADR-0126）
-- `examples/vera/vera.msgpack` と VERA の参照解（OpenMC のライブラリ、statepoint、k）は examples/vera/dvc.yaml のステージの
-  出力で、git で追跡しない。worktree では `scripts/worktree-restore-outputs.sh`（中身は `scripts/dvc-checkout.py`）でキャッシュから戻す（ADR-0130）。
-  一部だけ戻すときも `scripts/dvc-checkout.py [<dvc.yaml か .dvc の指定>...]` を使い、生の `dvc checkout` は `.claude/settings.json`
-  の hook が止める（未実行の参照解でいつも 255 で終わり、キャッシュに無い出力が埋もれる。ADR-0223）。ステージが呼ぶ
-  `bin/` の実行ファイルは、リポジトリの直下の `dvc.yaml` の `build` の出力で、同じスクリプトで戻る（ADR-0159）。ステージの
-  deps は `bin/` でなく、`binary-forms` が書く正規形（行と列の番号を 0 にしたコピーの md5。`binary-forms/<名前>.md5`、git で追跡）に
-  する（cmd は `bin/` を呼ぶ。`scripts/test_normalize_binary.py` が食い違いを止める。ADR-0255）。
-  ステージの deps の .py は、元のファイルでなく、直下の `dvc.yaml` の `python-ast` が書く正規形（docstring とコメントを除いた形。
-  `python-ast/<パス>.ast`、git で追跡）にする（cmd は元の .py を呼ぶ。ADR-0210）。.py を deps に足すときは、`python-ast` の
-  foreach にも足す（`scripts/test_normalize_python.py` が食い違いを止める）。入力の TOML（ステージの出力を除く）も同じく、`toml-values` が書く
-  値の正規形（`toml-values/<パス>.json`）を deps にし、foreach に足す（`scripts/test_normalize_toml.py`。ADR-0254）。
-  NJOY と OpenMC を使うステージは cmd が `nix develop ../..#references -c` で包んであるので、`dvc repro` は default の
-  devShell で実行する
-- 記録か ADR が md5 か名前で引く、または比較のツールが書いて git で追跡する JSON が md5 で引く、git で追跡しない生成物
-  （DVC のステージの出力でないもの）は、記録に書く前（JSON だけが引くものは JSON をコミットする前）に置き場で `dvc add` し、
-  `.dvc` ファイルをコミットする（同じ名前で作り直したら `dvc add` をやり直す）。worktree の後片付けで消えず、
-  `scripts/worktree-restore-outputs.sh` で戻り、前の版はキャッシュに残る（`dvc gc` は `--all-commits` で行う。ADR-0222、ADR-0123）
-- 記録の数値には、それを出したコミットと日付を添える（checkout すれば再現できるため）。ブランチの上で実行した計算は、実行した
-  コミットと分岐点（main のコミット）を書く。rebase で deps が変わっても再実行せず、分岐点から復元する。数秒で終わる
-  ステージだけは再実行してよい（ADR-0130）。rebase で hash が変わっても
-  再測定せず、ツール（`commit-refs remap`。rebase と amend では、`remap.commitRefs` が true なら post-rewrite hook が自動で呼ぶ（失敗したときだけ手で呼ぶ）。付け替えはコミットされないので、自分でコミットする）で付け替える。文書やテストの変更で hash が最新でなくなっても再測定しない。
-  再測定するのは計算（コード、入力、環境）を変えたときだけ（ADR-0122）
+計算（Slurm のジョブ、`dvc repro`、ステージの実行、worktree での出力の戻し、OpenMC の参照解）を流す前に、スキル compute を読む。
+直接の `sbatch` と生の `dvc checkout` は hook が止める。
+
+- 重い計算を足す前に、既存の結果で足りるか、結論が変わりうるかを見る。投げる前に、走るステージを数えて時間を見積もる
+- 仕様書に KENO-VI の参照解がある問題は KENO と直接比べ、OpenMC の参照解は仕様書に参照のない問題と診断だけに作る（ADR-0175）
+- 記録の数値には、それを出したコミットと日付を添える。再測定するのは計算（コード、入力、環境）を変えたときだけ（ADR-0122）
 
 ## 作業の流れ
 
-- GitHub のリモートはない。PR の代わりに /git-merge でマージする（rebase、チェック、/code-review と指摘への対応、
-  `git merge --no-ff`、後片付けを含む）
-- `dvc.yaml` のある例を含むブランチは、/git-merge の rebase のあとに /dvc-relock の前半、マージの hook が「.gitignore から外した生成物」で止まったら同スキルの「マージが止まったら」（main の worktree の古い出力を消してよいかを決める）、マージのあとに後半
-- 1 つのトピックの始めからマージまでは /topic-start に従う。委任を受けた担当も作業の前に読む。記録に書く計算の前の
-  rebase は /topic-start の「記録に書く計算の前に main に rebase する」の節に従い、/delegate の「作業中の規則」の計算を投げる
-  直前の項より優先する（ユーザー 2026-11-08）。その後に再び rebase したときは /git-merge の「レビュー」の節の「rebase の後」に従う。
-  マージは /delegate の「8. マージの直前で止める」のとおり親に残す
-- チェックは `~/.claude/skills/language-checks/scripts/run-checks.sh` で、終了コードで判定する。`checks | tail && git merge`
-  のようにつなぐと、失敗してもマージに進む
-- 差分が文書（`.md`）だけのとき、run-checks.sh は fmt、clippy、全体の `cargo test` の代わりに docs クレートのテスト
-  （`cargo test -p xlc-docs`）だけを実行する。宣言は `scripts/run-rust-docs-tests.sh`（nixfiles の ADR-0057）。ほかの差分では
-  全体の後にも宣言を実行し、宣言に実行権限が無ければ差分によらず失敗する
-- Python のテスト（追跡している `test_*.py` と `*_test.py`）は `scripts/run-python-tests.sh` が python-tests の devShell（references の Python に検証用のツールのパッケージを足したもの。ADR-0212）で実行し、run-checks.sh が
-  それを呼ぶ（nixfiles の ADR-0036）。run-checks.sh は Python のステージを .py の変更があるときだけ実行するので、
-  手元では `scripts/run-python-tests.sh` で全部を実行できる
-- ADR は `design-records check`（`.pre-commit-config.yaml` の hook で、run-checks.sh も `id: design-records` のあるリポジトリで実行する）でも確かめる
-- ADR と issue の番号は `design-records new [--kind issue]` で振る（タグで予約。docs/adr/README.md）。手で最大の番号 + 1 を振らない
-- worktree は `~/.claude/scripts/worktree-add.sh <branch>` で作る（/tmp に作ると gitleaks の hook が失敗する）
-- 実装を始めたあとでテストだけをコミットするときは、テストの部分だけをステージする（`git stash` は他のセッションと
-  共有なので使わない）
-- マージしないで残すブランチ（ユーザーの判断で消さない）は docs/branches.md
-- レビューで直す指摘は、ブランチの種類によらず /git-merge の「レビュー」の節の「直す指摘の基準」の (a)〜(c) に従う。
-  文書だけのブランチの歯止めと記録の周の扱いは、同じ基準の「文書だけのブランチ」の項に従う（入る文書と除くものは
-  その項が指す `review-level.sh` の先頭のコメントが正）。
-  xlc では、計画と issue の本文の中の矛盾（同じ文書の 2 か所が食い違う）も (c) と同じく直してからマージする
-  （一次情報が無くても、食い違う 2 か所を再現にできる）
+- 1 つのトピックの始めからマージまでは /topic-start に従う（委任を受けた担当も作業の前に読む）。GitHub のリモートはなく、
+  マージは /git-merge、`dvc.yaml` のある例を含むブランチはその前後に /dvc-relock
+- チェックは `~/.claude/skills/language-checks/scripts/run-checks.sh` で、終了コードで判定する
+- worktree は `~/.claude/scripts/worktree-add.sh <branch>` で作る
 - 試行は本番のコードに入力ファイルを与えて行う。パッチ、環境変数、入力を組み立てる run shell は作らず、選べない選択肢は
-  入力で選べる機能として足す。手元の試行は `trials/`（無視する）に置き、記録に数値を書く試行だけ `git add -f` で
-  コミットする。マージの前に残さない試行を消し、残すものは examples/<問題>/ に `git mv` する（ADR-0122）
+  入力で選べる機能として足す（ADR-0122）
+- マージしないで残すブランチは docs/branches.md
 
 ## 方針
 
-- 後方互換を作らない（利用者はまだいない）。形式を変えたら、移行の経路や古い形式の読み込みを残さない。黙った
-  フォールバックを足さず、怪しい入力や状態は、推測せずにエラーで止める。既定値は ADR で決めたものだけにする
-- NJOY などの参照コードが誤っていそうなときは、誤りを真似ず、正しい方法を実装して `tracing::warn!` を出す。
-  理由は ADR に、差の大きさは検証の記録に書く
+- 判断の軸は正確さ > 実行速度 > 保守の容易さ。3 つが衝突したときの順で、保守性を捨てる意味ではない
+- 速度のための近似は入力の項目として足し、既定は物理的に正しい方法にする。厳密な経路は入力で選べる形で必ず残す
+  （ADR-0209、ADR-0251、ADR-0252）。既定や近似を決める測定は、燃料の種類と燃焼度を変えて行う
+- 後方互換を作らない。形式を変えたら古い形式の読み込みを残さない。黙ったフォールバックを足さず、怪しい入力や状態は
+  エラーで止める。既定値は ADR で決めたものだけにする
+- 参照コード（NJOY など）が誤っていそうなときは、誤りを真似ず、正しい方法を実装して `tracing::warn!` を出す
 - 誤差の原因が分かり、おおよそ定量化できたら、記録して詰めるのをやめ、足りない機能を作る
-- 仮に置いた組や値（核種、範囲、既定）と、外して通す除外（核種、ファイル、検査）は、置いた場所の注釈に「仮の」「確かめていない」「外す」と
-  開いている issue の番号を同じ行に（除外は「外す（#NNNN）」のように語のすぐ隣に）書く。除外は原因を直すのが既定で、担当の報告の除外も同じ基準で差し戻す。`scripts/check-exclusions.py`
-  （hook `exclusions`）が見る印（`.textlintignore`、テストの ignore と skip、例の入力の注釈。語と範囲はスクリプトの先頭）は、理由（開いている
-  issue。種類によっては ADR。前提を並べる一覧の issue は数えない。細目はスクリプトの先頭）を持たないものが止まる。「除く」「省く」は番号を引く行だけを集める。それ以外の場所の印は検査に掛からない。
-  本番の作り直しの前に `--list` で一覧を出し、その計算の入力が拠る印（例の入力の excluded と provisional）を docs/plans/upstream-error-budget.md
-  の項目に対応させる（#0294）
-- 誤差の原因の候補や次に詰める差を並べる前に（宛先によらない。依頼、ADR の検討した案、ユーザーへの提案も同じ）、その量の語
-  （移行、散乱行列、群の重みなど）で open の issue と ADR の「候補」「確かめていない」「後回し」の行を検索し、既に挙がっている
-  候補を一覧に入れる。差を挙げるときは、検証の記録の値と ± で統計誤差と区別できるかを先に確かめ、issue にある見方を添える。
-  2026-10-27 に、#0005、ADR-0076、ADR-0133 に残っていた散乱行列の群の中の重み（1/E）を ADR-0202 の候補から落とし、
-  散乱核を ADR-0203〜0205 で先に詰めた（原因は ADR-0207 で分かった）。2026-10-28 に、1C の 0 の点の差の 1 リングと 4 リングの
-  違い（+53 ± 22 と +102 ± 20 pcm）をユーザーへの次の手の 1 番目に挙げ、比較の JSON で xlc どうしの差が +17 pcm、残りは
-  OpenMC の統計の範囲（#0133 の経緯も揺らぎの大きさの中と書いていた）と分かって外した
-- 判断の軸は正確さ > 実行速度 > 保守の容易さ。自己遮蔽は UFG のまま、物理的に正しい改善で速くする（ユーザー 2026-10-12）。衝突確率の精度（1e-9。求積 16 点）は、入力で選べる厳密な経路（`ufg-cp-points = 16`）に保ち、UFG の既定の求積は差を測った 6 点（ADR-0252。ユーザー 2026-11-14）。ここでの「速度」は実行速度で、ライブラリの作り直しや再実行を避ける意味ではない（無駄に CPU を使わないことは、重い計算の見積もりと後回しの規則が別に扱う）。保守性を捨てているのではなく、3 つが衝突したときの順で、保守性が上がる変更（複製を共通のクレートにまとめるなど）は、実行ファイルがどのみち変わるときなどに費用を数えて行う（ユーザー 2026-10-28）
-- 速度のための近似は入力の項目として足し、既定は物理的に正しい方法にする（参照が数時間で既定にできなければ、参照からの差を測った
-  速い設定。ADR-0209）。燃料の種類と燃焼度を変えて差を測り、ユーザーが小さいと認めた近似は、既定にしてよい（ADR-0251 の自由ガスの
-  核種の絞り込み、ADR-0252 の求積 6 点。ユーザー 2026-11-13、2026-11-14）。厳密な経路は入力で選べる形で必ず残す（ほかの手法の参照解にする。ユーザー 2026-10-27）。本番（記録に載せる燃焼、
-  p2 のステージ）は既定、検討（結論が ±20 pcm で変わらないもの）は `shielding = "step-start"` などの簡易でよい（ADR-0197、ユーザー 2026-10-24）
-- 問題の大きさに釣り合わない時間は性能の欠陥として issue にし、同じ計算を繰り返す前に最小の入力で原因を測って直す。計画の見積もりにも
-  当てはめる。商用コードの桁から数倍までは手法の代価として許容、2 桁は設計の誤り（ユーザー 2026-10-13、2026-10-24。例: 1 次元の平板の 55 分 #0069、
-  1 集合体のテーブル 110 時間、ADR-0209 の後の自己遮蔽 #0180）
-- 燃焼 → 炉心の燃焼 → 動特性を最小の入力（ピンセル、集合体、小さい炉心）で縦に通して時間の内訳を測り、ネックを掴んでから詰める。
-  大きい計算（9 種のテーブル、全炉心）は精度の原因を詰めて直した後。簡単に直せる非効率はすぐ直す（ユーザー 2026-10-14、2026-10-24）
-- 環境整備（DVC、チェック、スキル、references の片付け、リファクタリング）も issue に書いて計画的に進める（ユーザー 2026-10-12）
+- 問題の大きさに釣り合わない時間は性能の欠陥として扱い、同じ計算を繰り返す前に最小の入力で原因を測って直す
+- 仮に置いた値と、外して通す除外は、置いた場所の注釈に開いている issue の番号を書く（hook `exclusions` が検査する。
+  語と範囲は `scripts/check-exclusions.py` の先頭）。除外は原因を直すのが既定
+- 誤差の原因の候補や次に詰める差を並べる前に、その量の語で open の issue と ADR を検索し、既に挙がっている候補を入れる
