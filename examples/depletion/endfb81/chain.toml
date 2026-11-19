@@ -1,0 +1,5 @@
+# 全核種の燃焼チェーン（ADR-0164）を ENDF/B-VIII.1 から作る入力。版ごとの燃焼の比較（#0303）に使う
+output = "chain.msgpack"
+decay-directory = "../../../references/endf/ENDF-B-VIII.1_decay"
+nfy-directory = "../../../references/endf/ENDF-B-VIII.1_nfy"
+neutron-directory = "../../../references/endf/ENDF-B-VIII.1_neutrons"
