@@ -262,10 +262,13 @@ class InputComments(unittest.TestCase):
             "# Pm-147 は外すとした",
             "# Eu-151 などを外すなど",
             "# 外しても k は変わらない",
+            "# Pm-147 を外しながら測る",
+            "# 外してなお k は変わる",
+            "# Pm-147 は外れたまま",
             "x = 1",
         ]
         files = {"examples/a/xs.toml": "\n".join(lines)}
-        self.assertEqual(len(problems(files)), 3)
+        self.assertEqual(len(problems(files)), 6)
 
     def test_a_removal_without_an_adjacent_issue_says_where_the_number_goes(self):
         files = {
@@ -346,6 +349,13 @@ class Statuses(unittest.TestCase):
         for issues in (empty, outside, twice):
             with self.assertRaises(ValueError):
                 exc.issue_statuses(issues)
+
+    def test_a_quoted_list_label_counts_and_an_unreadable_labels_line_stops(self):
+        quoted = {"docs/issues/0001-a.md": '---\nstatus: open\nlabels: ["list"]\n---\n'}
+        self.assertEqual(exc.issue_statuses(quoted)[2], {"0001"})
+        block = {"docs/issues/0001-a.md": "---\nstatus: open\nlabels:\n  - list\n---\n"}
+        with self.assertRaises(ValueError):
+            exc.issue_statuses(block)
 
     def test_statuses_come_from_the_given_issue_files_only(self):
         issues = {
