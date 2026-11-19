@@ -66,7 +66,7 @@ B1 は、ADR-0173 の S1（等価原理をピンのリングの体積平均の�
 
 - 燃焼の領域（`DepletionRegion`）に扇形の組の番号 `sector`（組の代表のセルの中の、組の扇形のうち最も小さい番号）を足し、分けない
   領域はキーを書かない（`continued` と同じ形）。既存の履歴はそのまま読め、分けない燃焼の履歴のバイトは変わらない（採用）
-- 番号を足さず、MOC の領域の並びから扇形を読む: 名前（`<物質>@<セル>`）が扇形の組の間で重なり、分岐（`[history]`）と続ける燃焼の
+- 番号を足さず、MOC の領域の並びから扇形を読む: 名前（`<物質>@<セル>`）が扇形の組の間で重なり、ブランチ計算（`[history]`）と続ける燃焼の
   照合が領域を区別できない
 
 ## 決定と理由
@@ -78,14 +78,14 @@ B1 は、ADR-0173 の S1（等価原理をピンのリングの体積平均の�
   （名前は分けないときと同じ `<物質>@<セル>`）で遮蔽し、`remix_depleted` で扇形の組ごとに作り直す。作り直しは、自己遮蔽のたびと
   `step-start` の中点の両方で同じ関数を通る
 - 履歴は燃焼の領域に `sector` を足す（分けない領域は書かない）。続ける燃焼（ADR-0215、ADR-0226）の照合に `sector` を含める
-- `[history]`（燃焼点からの分岐。ADR-0187）は、扇形に分けた履歴をエラーで止める。ブランチ計算の状態で扇形ごとの物質を作り直す経路は、
+- `[history]`（燃焼点からのブランチ計算。ADR-0187）は、扇形に分けた履歴をエラーで止める。ブランチ計算の状態で扇形ごとの物質を作り直す経路は、
   本番のテーブルで分けると決めてから足す（#0276）
 
 ### 帰結
 
 - 扇形の間の組成の違いが共鳴の自己遮蔽を変える分は入らない（案 B1）。その大きさは測っていない（#0277）
 - 輸送のたびに、扇形の組とリングの対ごとに物質を作り直す（核種ごとの群定数の組み立て）。時間は #0276 の短い入力で測る
-- 分けた燃焼の履歴からはブランチのテーブルを作れない。本番のテーブルは方位に分けないと決めた（ADR-0245）ので、分岐の経路は足さない
+- 分けた燃焼の履歴からはブランチのテーブルを作れない。本番のテーブルは方位に分けないと決めた（ADR-0245）ので、ブランチ計算の経路は足さない
 
 ### 確認
 
@@ -96,6 +96,6 @@ B1 は、ADR-0173 の S1（等価原理をピンのリングの体積平均の�
   `histories_write_the_sector_of_split_regions_only`、`step_start_shielding_remixes_sector_regions`、
   `continuing_needs_the_sectors_of_the_history`、`split_sector_materials_take_their_densities_at_the_pooled_cross_sections`
   （UFG の範囲と SPH 因子、リングの中性子束の移行のあるライブラリで、作り直した物質が扇形の数密度に比例し、微視的断面積と移行は
-  まとめて遮蔽した値のまま）。分岐（crates/lattice/src/history/tests.rs）: `histories_depleted_by_sector_are_not_branched`。入力（crates/lattice/src/input/tests.rs）: `depletion_sectors_are_four_or_eight`
+  まとめて遮蔽した値のまま）。ブランチ計算（crates/lattice/src/history/tests.rs）: `histories_depleted_by_sector_are_not_branched`。入力（crates/lattice/src/input/tests.rs）: `depletion_sectors_are_four_or_eight`
 - 分けない燃焼が変わらないことは、既存のテスト（`step_start_shielding_remixes_depleted_absorbers_too` など、分けない入力の燃焼と
   履歴のバイトを比べるもの）が通ることで確かめる

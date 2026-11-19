@@ -32,7 +32,7 @@ worktree にだけあり、/git-merge の後片付け（`git worktree remove`）
 
 - 案 A（採用）: 引く生成物を、置き場のまま `dvc add` で追う。ファイルごとに `.dvc` ファイル（md5 と大きさ）を git で追跡し、
   中身はキャッシュに置く
-- 案 B: 既存の dvc.yaml（examples/depletion/dvc.yaml など）にステージを足し、生成物をその出力にする。記録は、分岐の
+- 案 B: 既存の dvc.yaml（examples/depletion/dvc.yaml など）にステージを足し、生成物をその出力にする。記録は、ブランチの
   テーブルをステージにしない理由を「履歴（p2 の `lattice@2A`）を deps にすると、このブランチで lattice の実行ファイルが
   変わったために履歴のステージ（約 1 時間 41 分）が changed になり、目標を指定した `dvc repro` がそれを再実行するため（ADR-0184）」
   と書き（examples/depletion/verification.md の「燃焼度の軸を持つテーブル（2A）」）、「履歴の効き（2A）」、「ミクロ燃焼の

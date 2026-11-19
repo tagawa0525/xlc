@@ -165,7 +165,7 @@ history = "history.msgpack"                     # 燃焼の履歴の出力（ケ
 
 ### lattice のテーブルの `heavy_metal`（案 M2）
 
-`xlc-table` に `heavy_metal`（初めの重金属の質量、高さ 1 cm あたり g/cm。正の数）を足す。燃焼の履歴からの分岐（ADR-0187 の
+`xlc-table` に `heavy_metal`（初めの重金属の質量、高さ 1 cm あたり g/cm。正の数）を足す。燃焼の履歴からのブランチ計算（ADR-0187 の
 `[history]`）は、履歴の燃焼度 0 の点の数密度、燃焼の領域の体積、ライブラリの AWR から、格子計算の燃焼と同じ式（Z ≥ 90 の核種、
 AWR × 中性子の質量）で書く。新しい燃料のブランチのテーブル（`[history]` のないもの）と核分裂のないテーブルは、キーを書かない（軸の
 `b10` や `density` と同じく、持つテーブルだけが書く項目。nil を書いてキーを省けなくする形（ADR-0129 の `height`）は、どのテーブルにも
@@ -176,7 +176,7 @@ ADR-0187 の、変える範囲を lattice の外に出さない方針との関�
 
 ### lattice のテーブルの `kappa_fission`（案 W2）
 
-`xlc-table` の状態に `kappa_fission`（κΣf、eV/cm。群ごと）を足す。燃焼の履歴からの分岐（`[history]`）は、状態ごとに、燃焼の領域の輸送する
+`xlc-table` の状態に `kappa_fission`（κΣf、eV/cm。群ごと）を足す。燃焼の履歴からのブランチ計算（`[history]`）は、状態ごとに、燃焼の領域の輸送する
 核種の自己遮蔽した核分裂の断面積に、数密度とチェーンの核分裂の Q 値（ADR-0173 の案 P1 の MF3 MT18 の QI）を掛けて足し、ほかの少数群定数と
 同じく MOC の中性子束と体積で重みを付けて均質化する（格子計算の燃焼の出力と同じ定義）。持つテーブルは、どの状態も持ち、核分裂のある群で
 だけ正。新しい燃料のブランチのテーブルと核分裂のないテーブルは、キーを書かない（`heavy_metal` と同じく、持つテーブルだけが書く項目）。
@@ -201,7 +201,7 @@ ADR-0187 の、変える範囲を lattice の外に出さない方針との関�
 - core は `[depletion]` のケースで、ノードごとに燃焼度の違う定数を内挿する（ノードの数だけ内挿する。一様な状態の計算は今のまま）。
   全炉心の燃焼（examples/depletion/verification.md の「固有値計算の複数のスレッド（小さな炉心と全炉心）」の「全炉心（Problem 9 の形）」、29563b884、
   Slurm 711 の timed、2026-11-06）で、全体 106.2 s のうち固有値計算が 90.9 s、少数群定数の内挿とミクロ燃焼の補正が 9.7 s（経緯は #0156、縮める形は #0250）
-- テーブルの `heavy_metal` は、分岐の入力のライブラリの AWR と ZA から求め直す。履歴の燃焼に使ったライブラリと同じことは、輸送する
+- テーブルの `heavy_metal` は、ブランチ計算の入力のライブラリの AWR と ZA から求め直す。履歴の燃焼に使ったライブラリと同じことは、輸送する
   核種の集合でしか確かめられない（ADR-0187 の、ライブラリのデータそのものをステージの deps に頼るのと同じ）。2A では、チェーンの Z で
   選んだ質量とビットで一致した（「確認」）
 - ノードの出力の割合は κΣf φ V で、格子計算の燃焼の Q の重みと同じ。集合体 1 体では割合が 1 で効かない。燃焼度の違う集合体が並ぶ小さな炉心で、
@@ -229,7 +229,7 @@ ADR-0187 の、変える範囲を lattice の外に出さない方針との関�
 - テーブルの質量（crates/format/src/table/tests.rs）: `heavy_metal_round_trips_and_is_written_only_when_held`、
   `heavy_metal_must_be_positive`。lattice（crates/lattice/src/history/tests.rs）: `history_branches_carry_the_initial_heavy_metal_mass`。制御棒のテーブルの結合（examples/core/test_rod_table.py）:
   `test_tables_with_other_heavy_metal_masses_are_errors`
-- 2A の集合体 1 体（examples/depletion/verification.md の「core の燃焼（2A の集合体 1 体）」、分岐は ce33db92、core は 8e6d71fd、
+- 2A の集合体 1 体（examples/depletion/verification.md の「core の燃焼（2A の集合体 1 体）」、ブランチ計算は ce33db92、core は 8e6d71fd、
   2026-10-23）: 履歴の 40 点をステップにして、燃焼度は履歴と相対 2.2e-16 以内、テーブルの 17 点でブランチ計算の k∞ を 0.0008 pcm
   以内（履歴とは 0.0639 pcm 以内）で再現した。点の間の内挿の誤差は −32.8〜+179.7 pcm。テーブルの質量 1258.0981395709794 g/cm は、
   チェーンの Z で選んだ重金属の質量（格子計算の燃焼と同じ式）とビットで一致した

@@ -124,7 +124,7 @@ UFG の外の衝突確率の既定のまま。
   inputs.py の `mox-assembly-60-default` と `-cp-points-6`、実行ファイルを main の `dvc.lock` の `bin/lattice`（md5 cda1b9db、Slurm 861 の
   ブランチのコード）で解いた。6 本の標準出力は同じ md5
 - examples/depletion/issue-0286/cp-853-855.json（compare.py）と timing-851-855.json（timing.py。ログは `timing-<ケース>-cp-*.log.dvc`）、入力は inputs.py（#0286 の「衝突確率の近似」の節）
-- 燃焼した MOX の集合体（examples/depletion/mox-assembly の履歴の 0、20、40、60 MWd/kg から、公称、燃料 1200 K、減速材 600 K、その両方の
+- 燃焼した MOX の集合体（examples/depletion/mox-assembly の履歴の 0、20、40、60 MWd/kg から、基準条件、燃料 1200 K、減速材 600 K、その両方の
   16 状態。Slurm 862、排他、xlc 4e54ffdf6、分岐点は main の 5ec0adcb1、2026-11-14。入力は coverage.py の `assembly-mox`）: 6 点の
   どの核種も自由ガスの経路からの差は、k∞ 0.0024 pcm 以下、少数群定数 3.1e−8 以下、ピン出力の形状関数 3.4e−9 以下、燃料の温度と
   減速材の反応度の変化の差 0.0003 pcm 以下、ミクロ燃焼の 31 核種の微視的断面積 1.2e−7 以下（U-238）。ADR-0251 の既定と合わせると
