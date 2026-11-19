@@ -46,6 +46,12 @@
     "moved_production": 0.0,
     "rest": 2.190384227597249
    },
+   "transported_pcm": 94.8806663182088,
+   "moved_absorption_ranges": {
+    "fast": -2.348282627980991,
+    "ufg": 2.4848096353202163,
+    "thermal": -27.49271118008148
+   },
    "moved": [
     "Ba-134",
     "Ba-138",
@@ -1944,6 +1950,12 @@
     "moved_scattering_below": 0,
     "moved_production": 0,
     "rest": 30.545643041434335
+   },
+   "transported_pcm": -130.87249720024872,
+   "moved_absorption_ranges": {
+    "fast": 0,
+    "ufg": 0,
+    "thermal": 0
    },
    "moved": [],
    "rest_effects": {
