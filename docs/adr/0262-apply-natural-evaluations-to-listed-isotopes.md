@@ -61,8 +61,8 @@ Nb-88m の負の励起エネルギーの扱いを決めてから置く（#0303�
 ### 帰結
 
 - 天然の元素の評価の MF8 が生成物の状態を挙げると、その ZA は天然の元素の評価のもので、当てた核種の生成物と食い違い、
-  ADR-0164 の検査で止まる。VII.1 の天然の元素の評価では止まらない（下の「確認」）。VII.0 の天然の C、V、Zn を当てた手元の
-  実行（2026-11-20）は、反応を組み立てた後のチェーンの検査で Nb-88m の励起エネルギーで止まり、反応の段では止まらなかった
+  ADR-0164 の検査で止まる。VII.0 と VII.1 の天然の元素の評価では止まらない（下の「確認」。VII.0 は Nb-88m の励起エネルギーを
+  ADR-0263 で扱った入力で確かめた）
 - 当てた核種の反応の断面積は、xs の側で同じ評価から作る。チェーンと xs の入力の挙げる核種が食い違っても、どちらのツールも
   気づかない（チェーンは xs の入力を読まない）。版ごとのライブラリの入力を作るとき（#0303 の次の作業）に揃える
 
@@ -72,5 +72,5 @@ Nb-88m の負の励起エネルギーの扱いを決めてから置く（#0303�
   `rejects_a_natural_evaluation_that_no_listed_isotope_takes`、`rejects_a_listed_isotope_without_a_natural_evaluation_of_its_element`、
   `rejects_a_listed_isotope_that_has_its_own_evaluation`、
   `rejects_a_listed_isotope_outside_the_decay_data_or_in_an_excited_state`、`rejects_two_natural_evaluations_of_one_element`）
-- 実データ: VII.1 の入力（`examples/depletion/endfb71/chain.toml`）で `bin/chain` が終了コード 0 でチェーンを作る（#0303 の
-  経緯）
+- 実データ: VII.1 の入力（`examples/depletion/endfb71/chain.toml`）と、Nb-88m の励起エネルギーを ADR-0263 で扱った VII.0 の
+  入力（`examples/depletion/endfb70/chain.toml`）で `bin/chain` が終了コード 0 でチェーンを作る（#0303 の経緯）

@@ -17,8 +17,8 @@ stages:
       size: 1422
     - path: crates
       hash: md5
-      md5: efda357d9ca1bf6a9ab777983c80fa41.dir
-      size: 5674334
+      md5: 90e58c669172880cdceb934ec5d21da2.dir
+      size: 5682470
       nfiles: 268
     - path: flake.lock
       hash: md5
@@ -40,8 +40,8 @@ stages:
     outs:
     - path: bin/chain
       hash: md5
-      md5: bc8bfca435aa73d061bdfd7ea978eace
-      size: 2008504
+      md5: 8ca4bc06be0d1a70bb9bb8c9b62607c4
+      size: 2025664
       isexec: true
     - path: bin/core
       hash: md5
@@ -8463,8 +8463,8 @@ stages:
     deps:
     - path: bin/chain
       hash: md5
-      md5: bc8bfca435aa73d061bdfd7ea978eace
-      size: 2008504
+      md5: 8ca4bc06be0d1a70bb9bb8c9b62607c4
+      size: 2025664
       isexec: true
     - path: python-ast/scripts/normalize_binary.py.ast
       hash: md5
@@ -8473,7 +8473,7 @@ stages:
     outs:
     - path: binary-forms/chain.md5
       hash: md5
-      md5: 462b4c54bbfc07f85daf462be7fd80a2
+      md5: 8391b8ec885103684ffcf5db0ad6415a
       size: 33
   toml-values@examples/vera/endfb70/openmc/openmc-1D.toml:
     cmd: python3 scripts/normalize_toml.py 

@@ -118,7 +118,7 @@ VIII.0 との違い（入力 `examples/vera/endfb70/xs.toml` で吸収する）:
 本番の版を決め直す検討（#0303）で版ごとの燃焼を比べるため、ENDF/B-VII.0、VII.1、VIII.1 の decay、nfy、neutrons も同じ形で
 固定し（`.#endfb70-decay`、`.#endfb70-nfy`、`.#endfb71-<part>`、`.#endfb81-<part>`）、`.#endf` の木に
 `ENDF-B-<版>_<part>/` として並べる（VII.0 の neutrons は上の検証用のもの）。取得は 2026-11-20。版ごとのチェーンの入力は
-`examples/depletion/endfb71/chain.toml`、`endfb81/chain.toml`（VIII.0 は `examples/depletion/chain.toml`）。
+`examples/depletion/endfb70/chain.toml`、`endfb71/chain.toml`、`endfb81/chain.toml`（VIII.0 は `examples/depletion/chain.toml`）。
 
 | アーカイブ                                                                                                  | `.endf` の数 | sha256                                                           |
 | ----------------------------------------------------------------------------------------------------------- | ------------ | ---------------------------------------------------------------- |
@@ -139,8 +139,8 @@ VIII.0 との違い（入力 `examples/vera/endfb70/xs.toml` で吸収する）:
   ディレクトリを持つので、`ENDF-B-<版>_<part>/` に名前を揃える
 - VII.0 の neutrons には天然の C、V、Zn、VII.1 には天然の C の評価（A = 0）があり、チェーンの入力の `natural-isotopes` で
   当てる核種を挙げる（ADR-0262）。VIII.1 にはない
-- VII.0 の decay は Nb-88m の励起エネルギーを -1000 eV と書き（VII.1 以降は 1e6 eV）、チェーンの検査が負の励起エネルギーで止めるので、
-  VII.0 のチェーンの入力はまだ無い（#0303）
+- VII.0 の decay は Nb-88m の励起エネルギーを -1000 eV と書く（VII.1 以降は 1e6 eV）。チェーンの入力の `unknown-excitations` で挙げ、
+  チェーンは 0（与えられない）と書いて警告に出す（ADR-0263）
 
 ## 仕様書の PDF
 

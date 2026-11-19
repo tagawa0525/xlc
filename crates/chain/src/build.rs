@@ -564,23 +564,15 @@ fn nearest_yields(target: Key, yields: &[&YieldEvaluation]) -> Option<usize> {
 fn assign_natural<'a>(
     neutrons: &'a [NeutronEvaluation],
     isotopes: &[String],
-    nuclides: &[Nuclide],
+    materials: &[&Material],
     warnings: &mut Vec<String>,
 ) -> Result<Vec<Cow<'a, NeutronEvaluation>>> {
     let mut listed: Vec<Key> = Vec::with_capacity(isotopes.len());
-    for name in isotopes {
-        let nuclide = nuclides
-            .iter()
-            .find(|n| &n.name == name)
-            .ok_or_else(|| anyhow!("{name} of natural-isotopes is not in the decay data"))?;
-        if nuclide.state != 0 {
-            bail!("{name} of natural-isotopes is an excited state");
+    for m in self::listed(isotopes, materials, "natural-isotopes")? {
+        if m.state != 0 {
+            bail!("{} of natural-isotopes is an excited state", name(key(m))?);
         }
-        let k = (nuclide.z, nuclide.a, 0);
-        if listed.contains(&k) {
-            bail!("{name} appears twice in natural-isotopes");
-        }
-        listed.push(k);
+        listed.push(key(m));
     }
     let (natural, own): (Vec<_>, Vec<_>) = neutrons
         .iter()
@@ -625,17 +617,107 @@ fn assign_natural<'a>(
     Ok(out)
 }
 
-/// 評価からチェーンを組み立てる。評価の順は問わない。`natural_isotopes` は天然の元素の評価を当てる核種の名前（ADR-0262）。
+/// 評価にないものを入力で補う核種（名前）
+#[derive(Debug, Default)]
+pub struct Supplements {
+    /// 天然の元素の評価（A = 0）を当てる核種（ADR-0262）
+    pub natural_isotopes: Vec<String>,
+    /// 負の ELIS を励起エネルギーの分からない準位（0）として受け入れる準安定状態（ADR-0263）
+    pub unknown_excitations: Vec<String>,
+}
+
+/// 名前から decay の評価の対象を引く（`what` は入力の項目の名前）。同じ名前の 2 度の記載は止める
+fn listed<'a>(
+    names: &[String],
+    materials: &[&'a Material],
+    what: &str,
+) -> Result<Vec<&'a Material>> {
+    let mut by_name: HashMap<String, &Material> = HashMap::with_capacity(materials.len());
+    for &m in materials {
+        // 同じ核種の評価の重なりは、入力の誤りでなくデータの誤りとして先に止める
+        if by_name.insert(name(key(m))?, m).is_some() {
+            bail!("{} appears twice in the decay data", name(key(m))?);
+        }
+    }
+    let mut out: Vec<&Material> = Vec::with_capacity(names.len());
+    for n in names {
+        let found = *by_name
+            .get(n)
+            .ok_or_else(|| anyhow!("{n} of {what} is not in the decay data"))?;
+        if out.iter().any(|m| key(m) == key(found)) {
+            bail!("{n} appears twice in {what}");
+        }
+        out.push(found);
+    }
+    Ok(out)
+}
+
+/// 負の ELIS を、`isomers` に挙げた準安定状態だけ 0（評価が与えない励起エネルギー）にする（ADR-0263）。挙げない負の ELIS
+/// は止める
+fn unknown_excitations<'a>(
+    decays: &'a [DecayEvaluation],
+    isomers: &[String],
+    warnings: &mut Vec<String>,
+) -> Result<Vec<Cow<'a, DecayEvaluation>>> {
+    let materials: Vec<&Material> = decays
+        .iter()
+        .map(|d| &d.material)
+        .filter(|m| m.z > 0)
+        .collect();
+    // NaN は負でないので含めない（非有限の値は Chain::check が止める）
+    let unknown = |m: &Material| m.state > 0 && m.excitation < 0.0;
+    let listed = listed(isomers, &materials, "unknown-excitations")?;
+    for &m in &listed {
+        if !unknown(m) {
+            bail!(
+                "{} of unknown-excitations is not an isomer with a negative excitation (state {}, {} eV)",
+                name(key(m))?,
+                m.state,
+                m.excitation
+            );
+        }
+    }
+    let mut out = Vec::with_capacity(decays.len());
+    for d in decays {
+        let m = &d.material;
+        // 基底状態の励起エネルギーは Chain::check が止める
+        if !unknown(m) {
+            out.push(Cow::Borrowed(d));
+            continue;
+        }
+        let parent = name(key(m))?;
+        if !listed.iter().any(|&l| key(l) == key(m)) {
+            bail!(
+                "{parent}: negative excitation {} eV in MF1/MT451; list it in unknown-excitations if the evaluation means an unknown level",
+                m.excitation
+            );
+        }
+        warnings.push(format!(
+            "{parent}: negative excitation {} eV in MF1/MT451; recorded as not given (0)",
+            m.excitation
+        ));
+        let mut d = d.clone();
+        d.material.excitation = 0.0;
+        out.push(Cow::Owned(d));
+    }
+    Ok(out)
+}
+
+/// 評価からチェーンを組み立てる。評価の順は問わない。`supplements` は評価にないものを入力で補う核種。
 pub fn build(
     decays: &[DecayEvaluation],
     neutrons: &[NeutronEvaluation],
     yields: &[YieldEvaluation],
-    natural_isotopes: &[String],
+    supplements: &Supplements,
 ) -> Result<Built> {
     let mut warnings = Vec::new();
+    let decays = unknown_excitations(decays, &supplements.unknown_excitations, &mut warnings)?;
     // 中性子そのもの（Z = 0）はチェーンに入れない
-    let mut evaluations: Vec<&DecayEvaluation> =
-        decays.iter().filter(|d| d.material.z > 0).collect();
+    let mut evaluations: Vec<&DecayEvaluation> = decays
+        .iter()
+        .map(AsRef::as_ref)
+        .filter(|d| d.material.z > 0)
+        .collect();
     evaluations.sort_by_key(|d| key(&d.material));
     if let Some(w) = evaluations
         .windows(2)
@@ -698,7 +780,12 @@ pub fn build(
             );
         }
     }
-    let neutrons = assign_natural(neutrons, natural_isotopes, &nuclides, &mut warnings)?;
+    let neutrons = assign_natural(
+        neutrons,
+        &supplements.natural_isotopes,
+        &evaluations.iter().map(|e| &e.material).collect::<Vec<_>>(),
+        &mut warnings,
+    )?;
     let mut fissionable = Vec::new();
     let mut seen = std::collections::HashSet::new();
     // 中性子そのものの評価（n + n）もチェーンに入れない
