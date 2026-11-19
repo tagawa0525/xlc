@@ -770,6 +770,24 @@ class DrawChainVersions(unittest.TestCase):
         with self.assertRaises(vt.TableError):
             vt.chain_versions([{"format": "xlc-compare-depletion"}])
 
+    def test_a_summary_without_two_inputs_is_an_error(self):
+        s = chain_versions("endfb70/chain.msgpack", "endfb71/chain.msgpack", 0)
+        s["inputs"] = s["inputs"][:1]
+        with self.assertRaises(vt.TableError):
+            vt.chain_versions([s])
+
+    def test_summaries_with_different_thresholds_are_an_error(self):
+        other = chain_versions("chain.msgpack", "endfb81/chain.msgpack", 0)
+        for q in other["quantities"].values():
+            q["above"] = {"1e-05": 0}
+        with self.assertRaises(vt.TableError):
+            vt.chain_versions(
+                [
+                    chain_versions("endfb70/chain.msgpack", "endfb71/chain.msgpack", 0),
+                    other,
+                ]
+            )
+
 
 class DrawDepletion(unittest.TestCase):
     def test_k_rows_list_each_case_by_burnup(self):

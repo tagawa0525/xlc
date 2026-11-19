@@ -228,10 +228,11 @@ class Differences(unittest.TestCase):
 
     def test_the_largest_differences_come_first(self):
         modes = self.summary["quantities"]["decay_modes"]["largest"]
-        # b だけの分岐（a は 0）の相対差 1 が、0.1 の差より先
+        # b だけの分岐（a は値を持たない）が、0.1 の差より先
         self.assertEqual([m["mode"] for m in modes], ["beta-,n", "beta-"])
-        self.assertEqual(modes[0]["a"], 0.0)
-        self.assertEqual(modes[0]["relative"], 1.0)
+        self.assertIsNone(modes[0]["a"])
+        self.assertIsNone(modes[0]["relative"])
+        self.assertEqual(self.summary["quantities"]["decay_modes"]["one_sided"], 1)
 
     def test_yields_are_summed_per_parent_and_energy(self):
         table = self.summary["yield_tables"]
@@ -291,6 +292,38 @@ class Differences(unittest.TestCase):
         reactions = summary["quantities"]["reactions"]
         self.assertEqual((reactions["differ"], reactions["one_sided"]), (1, 1))
         self.assertEqual(self.summary["quantities"]["reactions"]["one_sided"], 0)
+
+
+class YieldEnergies(unittest.TestCase):
+    def test_a_table_at_an_energy_of_only_one_chain_is_one_sided(self):
+        nuclides = chain_nuclides()
+        f = by_name(nuclides, "U-235")["fission"]
+        f["energies"].append(1.4e7)
+        f["yields"].append([{"nuclide": "I-135", "value": 0.02}])
+        summary = compare_chain_versions.summarize(
+            build(chain_nuclides()), build(nuclides)
+        )
+        yields = summary["quantities"]["fission_yields"]
+        self.assertEqual((yields["differ"], yields["one_sided"]), (1, 1))
+        (item,) = yields["largest"]
+        self.assertEqual((item["energy"], item["a"], item["b"]), (1.4e7, None, 0.02))
+        self.assertEqual(summary["quantities"]["yield_energies"]["differ"], 1)
+
+    def test_energies_that_differ_below_the_printed_digits_differ(self):
+        nuclides = chain_nuclides()
+        by_name(nuclides, "U-235")["fission"]["energies"][0] = 0.02530001
+        summary = compare_chain_versions.summarize(
+            build(chain_nuclides()), build(nuclides)
+        )
+        self.assertEqual(summary["quantities"]["yield_energies"]["differ"], 1)
+        # 0.0253 eV の 2 つの生成物は a だけ、0.02530001 eV の 2 つは b だけ
+        self.assertEqual(summary["quantities"]["fission_yields"]["one_sided"], 4)
+
+
+class Channels(unittest.TestCase):
+    def test_the_remainder_to_the_ground_state_is_named(self):
+        text = compare_chain_versions.channel_text([((9, None), (("Am-242", 1),))])
+        self.assertEqual(text, "MF9 の残り（基底状態）: Am-242")
 
 
 class NuclideSets(unittest.TestCase):
