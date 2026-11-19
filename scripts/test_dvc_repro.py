@@ -218,6 +218,19 @@ class Process(unittest.TestCase):
         self.assertIn("more than --max-stages 3", r.stderr)
         self.assertEqual(self.ran_repro(), [])
 
+    def test_stop_follows_the_list_in_a_log_that_merges_both_streams(self):
+        (self.d / "status.json").write_text(json.dumps(XS_CHANGED))
+        r = subprocess.run(
+            [sys.executable, str(self.script), "--max-stages", "3", V],
+            cwd=self.repo,
+            env=self.env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            check=False,
+        )
+        self.assertLess(r.stdout.index("COUNT:"), r.stdout.index("STOP:"))
+
     def test_target_within_the_limit_runs_dvc_repro(self):
         r = self.run_script(XS_CHANGED, "--max-stages", "4", "--no-run-cache", V)
         self.assertEqual(r.returncode, 7)  # 偽の dvc repro の終了コード
