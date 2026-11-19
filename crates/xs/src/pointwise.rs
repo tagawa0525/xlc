@@ -686,6 +686,7 @@ fn add_resonances(
                     .filter(|&(mt, _)| mt != 1)
                     .collect()
             }
+            RangeKind::Slbw(_) => return Err("SLBW is not implemented".to_string()),
             RangeKind::Mlbw(bw) => {
                 let peaks = bw
                     .l_values

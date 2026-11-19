@@ -9,6 +9,7 @@ mod mlbw;
 mod quadrature;
 mod r_matrix_limited;
 mod reich_moore;
+mod slbw;
 mod unresolved;
 
 pub use breit_wigner::BreitWignerError;
@@ -16,6 +17,7 @@ pub use ladder::{Bondarenko, Sampling};
 pub use mlbw::MlbwXs;
 pub use r_matrix_limited::{RMatrixLimitedXs, RmlError};
 pub use reich_moore::{ReichMooreError, ReichMooreXs};
+pub use slbw::SlbwXs;
 pub use unresolved::{
     ShieldedSigma, UnresolvedXs, UrrError, interpolation as unresolved_interpolation,
     unresolved_grid,
@@ -34,3 +36,5 @@ pub struct Sigma {
 pub(crate) use r_matrix_limited::tests as r_matrix_limited_tests;
 #[cfg(test)]
 pub(crate) use reich_moore::tests as reich_moore_tests;
+#[cfg(test)]
+pub(crate) use slbw::tests as slbw_tests;

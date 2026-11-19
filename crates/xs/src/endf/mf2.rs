@@ -29,6 +29,8 @@ pub enum RangeKind {
     ScatteringRadius { ap: f64 },
     /// LRU=1, LRF=3
     ReichMoore(ReichMoore),
+    /// LRU=1, LRF=1
+    Slbw(BreitWigner),
     /// LRU=1, LRF=2
     Mlbw(BreitWigner),
     /// LRU=1, LRF=7
@@ -68,7 +70,7 @@ impl RangeKind {
     /// 分離共鳴の範囲か。
     pub fn is_resolved(&self) -> bool {
         match self {
-            Self::ReichMoore(_) | Self::Mlbw(_) | Self::RMatrixLimited(_) => true,
+            Self::ReichMoore(_) | Self::Slbw(_) | Self::Mlbw(_) | Self::RMatrixLimited(_) => true,
             Self::ScatteringRadius { .. } | Self::Unresolved(_) => false,
         }
     }
