@@ -5,6 +5,9 @@ description: xlc で計算を流す前に読む。Slurm の投げ方と区分、
 
 # 計算を流す
 
+本番の作り直し（ライブラリ、燃焼の履歴、テーブル、参照解）の前に、`scripts/check-exclusions.py --list` で印の一覧を出し、その計算の入力が拠る印
+（例の入力の excluded と provisional）を docs/plans/upstream-error-budget.md の項目に対応させる（#0294）。
+
 - 重い計算（OpenMC、NJOY、ライブラリの作り直し、xlc の集合体以上、時間を記録する測定）は、Slurm で 1 本ずつ流す:
   `~/.claude/scripts/slurm-run.sh --class <区分> --ref '<参照>' --purpose '<目的>' [--top] [--timed | -c <CPU 数>] -t <見積もり> <名前> '<コマンド>'`（排他で、終わるまで待つ）。区分は timed（時間を記録する測定。`--timed` を付けなくてもパーティション timed）、record（記録に載せる本番）、decision（決定に要る確認）、trial（検討）で、この順に優先する。`--ref` は `#NNNN`、`ADR-NNNN`（複数はカンマ）、または `- <理由>` で、`#` がシェルの注釈になるので引用符で囲む。`--purpose` は結果が何を決めるかの 1 文。待ち行列は `~/.claude/scripts/slurm-queue.sh` で見る。時間を記録する測定は `--timed` を付ける（割り込まれないパーティション timed で、走っている main のジョブを止めて先に走る）。付けないジョブは main で、timed のジョブに止められうるので、その時間は記録に書かない（`TIME:` 行に `preemptible:` の印が付く）。`--top` は同じ区分の中で前に出す。走っているジョブの終わりを待てない数分の計算は、区分を変えずに `--timed` で投げる。本数の上限は置かないので、投げる前に 1 本の見積もりと合計の時間を報告に書き、再実行するときは理由を書く。直接の `sbatch` は hook が止める。直接実行せず、`pgrep` で他の計算を監視しない。時間を記録しない長い計算は `-c <CPU 数>`（ハードウェアスレッドで数える）を付けて排他なしに流せるが、その時間は記録に書かない。
 - OpenMC のスレッド数は docs/environment.md の値を使う

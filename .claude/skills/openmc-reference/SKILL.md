@@ -96,7 +96,7 @@ nix develop .#references -c sh -c 'OMP_NUM_THREADS=16 python3 examples/vera/open
 
 ## AWS の自己完結な実行（Problem 3、5-2D、燃焼）
 
-今は使わない。AWS の枠が無いので、数時間の参照解も r995 の Slurm で流す（ユーザー 2026-11-19。CLAUDE.md の「計算」とスキル slurm-run に従う。次の「Slurm の名前と見積もり」の実績は 97 分までで、
+今は使わない。AWS の枠が無いので、数時間の参照解も r995 の Slurm で流す（ユーザー 2026-11-19。スキル compute とスキル slurm-run に従う。次の「Slurm の名前と見積もり」の実績は 97 分までで、
 数時間のものの実績と投げ方はまだ無い）。以下は枠が戻ったときのために残す。
 
 ADR-0155、0168、0171、0174。手順は docs/environment.md の「自己完結な実行」。要点:

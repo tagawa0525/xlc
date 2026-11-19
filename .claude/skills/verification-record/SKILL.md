@@ -6,10 +6,12 @@ description: examples/*/verification.md に測定の結果を書く・直す手�
 # 検証の記録を書く
 
 結果を `examples/<問題>/verification.md` に書く。書き方の規則（今の姿だけを書く、結果ごとにコミットと日付を添える、
-再測定するのは計算を変えたときだけ）は CLAUDE.md と ADR-0117、ADR-0122 にある。ここには、その手順の細部を書く。
+再測定するのは計算を変えたときだけ）は ADR-0117、ADR-0122 にある。ここには、その手順の細部を書く。
 
 記録には今の結果だけを題目ごとに書き、古い測定や誤りは消して書き直す（経緯は git に残る。ADR-0117）。評価済みデータを変えた検証は、
-混ぜずに examples/<問題>/verification-<略称>.md に分ける（ADR-0175）。
+混ぜずに examples/<問題>/verification-<略称>.md に分ける（ADR-0175）。`<!-- table: <名前> -->` 〜 `<!-- /table -->` の間の表は
+`python3 examples/verification_tables.py <記録>` が比較の JSON から描くので、手で直さない（ADR-0176）。比較の JSON は数十 KB ほどの要約で、
+DVC の出力（`cache: false`）を git で追跡する。新しい測定には、数値を出したコミットと日付を必ず書く（日付だけは、コミットが分からない過去の測定）。
 
 ## 数値を出す前
 
@@ -25,8 +27,8 @@ description: examples/*/verification.md に測定の結果を書く・直す手�
 
 ## 計算は Slurm で、時間は `--timed` の排他のジョブのものだけ
 
-数値を記録に書く計算は、`~/.claude/scripts/slurm-run.sh` で流す（スキル slurm-run）。CLAUDE.md が示す
-`--class <区分> --ref '<参照>' --purpose '<目的>' --timed -t <見積もり> <名前> '<コマンド>'` の形（時間を測る計算の区分は timed、記録に載せる本番は record）で、割り込まれない排他で流す（`--timed` を付けないジョブは main で、timed のジョブに止められうる）。CLAUDE.md は直接の `sbatch` を使わないと定め、hook が止めるとも書く（hook の所在は確かめていない）。
+数値を記録に書く計算は、`~/.claude/scripts/slurm-run.sh` で流す（スキル slurm-run）。スキル compute が示す
+`--class <区分> --ref '<参照>' --purpose '<目的>' --timed -t <見積もり> <名前> '<コマンド>'` の形（時間を測る計算の区分は timed、記録に載せる本番は record）で、割り込まれない排他で流す（`--timed` を付けないジョブは main で、timed のジョブに止められうる）。スキル compute は直接の `sbatch` を使わないと定め、hook が止めるとも書く（hook の所在は確かめていない）。
 
 - 記録に書く時間は、`--timed` の排他のジョブの `TIME:` 行の `elapsed`、または OpenMC が statepoint に書く計算時間（total。既存の
   「参照解」はこちら）
@@ -51,7 +53,7 @@ description: examples/*/verification.md に測定の結果を書く・直す手�
     要る。xlc の dvc.yaml で `always_changed` を持つのは references-shell のステージだけで、`persist` は無い2026-11-03 の 1C の再実行では、`dvc repro --no-run-cache <yaml>:compare-1C` の Slurm 657 が
     格子計算を戻すだけで終わり、depletion の dvc.lock を戻して changed にしてから流した Slurm 658 で走った（#0152）
   - 比較のステージだけが走る再実行（上流が走らない）は、同じ `seconds` をコピーするだけなので、どのジョブで流してもよい。上流が
-    走らないことは、CLAUDE.md の「計算」の数え方（`scripts/count-changed-stages.py` と、目標の上流のうち changed の下流にあるもの）で
+    走らないことは、スキル compute の数え方（`scripts/count-changed-stages.py` と、目標の上流のうち changed の下流にあるもの）で
     確かめる。`dvc status` だけでは、上流が出力を書き換えた後に走る下流が出ない
   - 描く関数が OpenMC の `seconds` も読む表の OpenMC の行は、上の項（OpenMC の total も `--timed`）と、
     数時間の参照解を AWS に回していたとき（2026-11-19 までの CLAUDE.md の「計算」）の規則とが両立しなかった。今は参照解も r995 の Slurm で流すが、
@@ -167,7 +169,7 @@ python3 examples/vera/compare_balance.py xlc-2K.msgpack references/openmc/balanc
    main から辿れる）。残ったままだと、マージのコミットの前の hook が実行する `cargo test`（`main_reports_trials_left_by_a_merge`）が止める
 3. 繰り返し比べるツールと、採用した入力は `git mv trials/<入力> examples/<問題>/` で移し、記録のパスと hash を移した先と
    移したコミットに書き換える。計算（コード、入力、環境）を変えていなければ再測定しない
-4. 試行の出力のうち `dvc add` で追うもの（対象と時機は CLAUDE.md の「計算」の `dvc add` の項と、ADR-0222 の「決定と理由」）は、
+4. 試行の出力のうち `dvc add` で追うもの（対象と時機はスキル compute の `dvc add` の項と、ADR-0222 の「決定と理由」）は、
    3 で入力を移すときに `mv` で `examples/<問題>/` に移し（追跡しない出力は `git mv` では移らない）、そこで `dvc add` して `.dvc` を
    移すコミットに入れる（`trials/` は無視されるので、その中では `.dvc` が無視されるファイルになり、`dvc add` が止まる）。比較の
    JSON は、引く生成物のパスを書くので、移した後の置き場の出力から書く
