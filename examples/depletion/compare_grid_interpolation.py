@@ -407,7 +407,8 @@ def main() -> None:
         print("\n".join(report(json.loads(Path(args[1]).read_text()))))
     elif len(args) == 3 and args[0] == "--json":
         config_path = Path(args[2])
-        config = tomllib.loads(config_path.read_text())
+        config_bytes = config_path.read_bytes()
+        config = tomllib.loads(config_bytes.decode())
         unknown = sorted(set(config) - {"table", "scheme"})
         if unknown:
             raise SystemExit(f"{config_path}: unknown keys {unknown}")
@@ -419,8 +420,8 @@ def main() -> None:
                 raise SystemExit(f"{config_path}: unknown scheme keys {extra}")
         summary = summarize(msgpack.unpackb(data), config.get("scheme", []))
         summary["inputs"] = [
-            {"path": str(config_path), "md5": input_md5(config_path)},
-            {"path": str(path), "md5": input_md5(path)},
+            {"path": str(config_path), "md5": input_md5(config_path, config_bytes)},
+            {"path": str(path), "md5": input_md5(path, data)},
         ]
         Path(args[1]).write_text(
             json.dumps(summary, indent=1, ensure_ascii=False) + "\n"

@@ -24,8 +24,10 @@ def normalize(text: str) -> str:
     return json.dumps(values, ensure_ascii=False, indent=1, allow_nan=False) + "\n"
 
 
-def input_md5(path: Path) -> str:
-    data = path.read_bytes()
+def input_md5(path: Path, data: bytes | None = None) -> str:
+    """`path` の入力の md5。`data` があれば、ファイルを読み直さずにそのバイトを使う（スクリプトが解いたバイト）"""
+    if data is None:
+        data = path.read_bytes()
     if path.suffix == ".toml":
         data = normalize(data.decode("utf-8")).encode("utf-8")
     return hashlib.md5(data).hexdigest()
