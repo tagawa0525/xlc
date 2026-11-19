@@ -85,6 +85,9 @@ def run_model(
     model: openmc.Model, run: dict[str, Any], work: Path, options: Options
 ) -> None:
     """`model` を `work` で解く。`options.restart` なら最新の statepoint から再開する。"""
+    # `model.run(cwd=work)` はプロセスの作業ディレクトリを `work` に移すので、相対パスのままでは別のスレッドの
+    # `prune` が `work/work` を探す
+    work = work.resolve()
     restart_file = None
     found = statepoints(work)
     if options.restart:

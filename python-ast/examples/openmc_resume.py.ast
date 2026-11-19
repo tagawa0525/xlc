@@ -46,6 +46,7 @@ def prune(work: Path) -> None:
         old.unlink(missing_ok=True)
 
 def run_model(model: openmc.Model, run: dict[str, Any], work: Path, options: Options) -> None:
+    work = work.resolve()
     restart_file = None
     found = statepoints(work)
     if options.restart:
