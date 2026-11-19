@@ -53,8 +53,8 @@ repos:
         # 検査する（ADR-0255）
         entry: python3 scripts/test_normalize_binary.py RepositoryDepsTest
         language: system
-        files: ^(.*dvc\.(yaml|lock)|binary-forms/.*|.*\.py)$
-        pass_filenames: false # 渡されたファイルでなく、すべての例の dvc.yaml と、直下の dvc.lock と正規形を見る
+        files: ^(.*dvc\.(yaml|lock)|binary-forms/.*|.*\.py|examples/.*\.(toml|yaml))$
+        pass_filenames: false # 渡されたファイルでなく、すべての例の dvc.yaml（vars で読む TOML と YAML を含む）と、直下の dvc.lock と正規形を見る
         verbose: true
       - id: references-shell
         name: references-shell.txt matches the references devShell

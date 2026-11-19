@@ -347,6 +347,13 @@ def root_stages() -> dict:
     return toml_tests.yaml.safe_load(text)["stages"]
 
 
+def built_binaries() -> list[str]:
+    """build の outs の bin/<名前> の名前（outs の項目は、設定を付けると {パス: 設定} の辞書になる）"""
+    outs = root_stages()["build"]["outs"]
+    paths = [next(iter(e)) if isinstance(e, dict) else e for e in outs]
+    return [path.removeprefix("bin/") for path in paths]
+
+
 def binary_forms_items() -> list[str]:
     """リポジトリの直下の dvc.yaml の binary-forms の foreach の並び"""
     stages = root_stages()
@@ -374,14 +381,16 @@ class RepositoryDepsTest(unittest.TestCase):
         self.assertEqual(bare, [])
 
     def test_binary_forms_writes_the_form_of_every_built_binary(self):
-        built = [out.removeprefix("bin/") for out in root_stages()["build"]["outs"]]
-        self.assertEqual(sorted(binary_forms_items()), sorted(built))
+        self.assertEqual(sorted(binary_forms_items()), sorted(built_binaries()))
 
     def test_stages_depend_on_the_forms_of_the_binaries_they_run(self):
         # cmd の bin/<名前> と deps の binary-forms/<名前>.md5 は別の文字列なので、同じ名前の組かを比べる
+        # cmd の中の、空白で区切った ../ で始まる語の bin/<名前>（out/bin/core-p9.log のような語は数えない）
+        names = "|".join(re.escape(name) for name in built_binaries())
+        runs = re.compile(rf"(?:^|\s)(?:\.\./)+bin/({names})(?=\s|$)")
         wrong = []
         for stage in toml_tests.example_stages():
-            run = set(re.findall(r"bin/(xs|lattice|core|chain)\b", stage["cmd"]))
+            run = set(runs.findall(stage["cmd"]))
             forms = {
                 dep.removeprefix("binary-forms/").removesuffix(".md5")
                 for dep in stage["deps"]
@@ -398,18 +407,18 @@ class RepositoryDepsTest(unittest.TestCase):
         lock = toml_tests.yaml.safe_load(
             (ROOT / "dvc.lock").read_text(encoding="utf-8")
         )
-        stale = [
-            item
-            for item in binary_forms_items()
-            if locked_md5(lock, "build", "outs", f"bin/{item}")
-            != locked_md5(lock, f"binary-forms@{item}", "deps", f"bin/{item}")
-            or locked_md5(
+        stale = []
+        for item in binary_forms_items():
+            built = locked_md5(lock, "build", "outs", f"bin/{item}")
+            read = locked_md5(lock, f"binary-forms@{item}", "deps", f"bin/{item}")
+            written = locked_md5(
                 lock, f"binary-forms@{item}", "outs", f"binary-forms/{item}.md5"
             )
-            != hashlib.md5(
+            tracked = hashlib.md5(
                 (ROOT / "binary-forms" / f"{item}.md5").read_bytes()
             ).hexdigest()
-        ]
+            if built is None or built != read or written != tracked:
+                stale.append(item)
         self.assertEqual(stale, [])
 
     def test_every_form_a_stage_depends_on_is_written_by_binary_forms(self):
