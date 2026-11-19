@@ -61,3 +61,7 @@ control-rod（温度、密度、ホウ素）branch → 制御棒（温度、密�
   OpenMC の extract 3、python-ast 6）は再実行した（出力の md5 は extract、hzp-compare とも変わらず、比較の JSON は入力の md5 だけが
   変わった）。残りの 167 は、lock の md5 と今のファイルが違う deps に bin/lattice（110）、bin/core（53）、bin/xs（4）があり、main で
   既に changed なので、(b) の条件 2 に当たらず changed のまま残した。比較の JSON の入力の md5 の食い違いを止める検査は #0295
+- 2026-11-19: 同じブランチで、生成器を再実行すると値が変わる生成物があった: issue-0285 の production-2A-60-*.toml の 4 本（元の
+  p9-2A/branch-2A.toml の燃料の温度の点が後で 4 点になった）、issue-0180/reuse と issue-0279 の生成物（読む
+  p9-product/lattice-2A.msgpack が後で変わった）、issue-0045 と issue-0129 の生成物（元の入力が後で変わった）。追跡している入力が
+  記録の出どころなので、これらは再実行せず、注釈の行が生成器と一致することだけを確かめた
