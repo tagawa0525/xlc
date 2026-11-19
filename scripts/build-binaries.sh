@@ -65,8 +65,8 @@ for name in "${names[@]}" "${separate[@]}"; do
     echo "ERROR: $built に worktree のパスか outputs/out/lib が埋まっている（ADR-0159）" >&2
     exit 1
   fi
-  # パニックの位置とログの Metadata の行と列の番号を 0 にしたコピーを置く。注釈の行や関数の並べ替えで bin/ のバイトが変わらず、
-  # 計算のステージが古くならない（ADR-0255）。パニックの位置は target/dvc/release/<名前>（番号を残した同じビルド）で
-  # 同じ入力を流すと分かる
+  # パニックの位置の行と列と、ログの Metadata の行を 0 にしたコピーを置く。注釈の行や関数の並べ替えで bin/ のバイトが
+  # 変わらず、計算のステージが古くならない（ADR-0255）。パニックの行は、bin/ を作ったコミット（dvc.lock の build の deps の
+  # コミット）でこのスクリプトを流した target/dvc/release/<名前>（番号を残した同じビルド）で、同じ入力を流すと分かる
   python3 scripts/normalize_binary.py "$built" "bin/$name"
 done
