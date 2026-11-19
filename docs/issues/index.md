@@ -302,6 +302,6 @@
 * [コードを変えた後に、軽い問題を今のコードで再実行して結果の変化に気付く検査が無い](0299-rerun-light-problems-to-notice-result-changes.md)
 * [ENDF/B-VIII.0 が軽水炉の燃焼で反応度を低く見積もるという報告を確かめ、本番の核データの版を決める](0303-endfb80-depletion-reactivity-bias.md)
 * [ENDF のテープの読み込み（Tape）が、離れた場所に再び現れるセクションを止める](0304-tape-refuses-split-sections.md)
-* [xs が分離共鳴の SLBW（LRF=1）を読めず、ENDF/B-VII.0 と VII.1 の燃焼のライブラリを作れない](0305-xs-slbw-resolved.md)
+* [xs が読めない MF2 の形式（ENDF/B-VII.0 の NIS > 1、VIII.1 の KBK = 1）が、燃焼チェーンの中性子のファイルに残る](0305-xs-slbw-resolved.md)
 * [非分離共鳴の LRF=1、LFW=1 の断面積を、xs は lin-lin、NJOY RECONR は log-log で補間し、差を warn も記録もしていない](0306-warn-unresolved-lrf1-interpolation.md)
 * [xs が MF5 の LF=12（Madland-Nix）と MF1 の LNU=1（多項式の ν）を読めず、ENDF/B-VII.0 と VII.1 の燃焼のライブラリを作れない](0307-read-vii-madland-nix-and-polynomial-nubar.md)

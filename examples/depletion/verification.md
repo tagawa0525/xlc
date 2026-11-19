@@ -258,9 +258,9 @@ U-235、U-238、Pu-239、Pu-241 と主な核分裂生成物（Xe-135、I-135、S
   `natural-isotopes`（VII.0 の C、V、Zn、VII.1 の C の同位体）は、どれもライブラリに無い。揃っていることはステージ `natural-isotopes`
   （`check_natural_isotopes.py`。VII.0 では `../vera/endfb70/xs.toml` も）が確かめる
 - 熱散乱: H-1 の `tsl-HinH2O.endf` に 573.6 K の無い VII.0 と VII.1 は、H-1 を 550 K と 600 K で作る（ピンセルの減速材は 600 K）
-- 読めない評価: `bin/xs range` は、VII.0 では Pu-238、Pu-242、Am-241、Am-243、Cm-242、Xe-135、Pm-148m、VII.1 では Xe-135、Pm-148m の
-  分離共鳴の SLBW（LRF=1）で止まる（#0305）。VIII.1 の 65 核種は止まらない。`xs range` は MF2 の分離共鳴の上端までしか読まないので、
-  核種ごとのステージ（`xs-nuclide`）で止まる核種があるかは確かめていない
+- 読めない評価: 分離共鳴の SLBW（LRF=1）の核種（VII.0 の Pu-238、Pu-242、Am-241、Am-243、Cm-242、Xe-135、Pm-148m、VII.1 の Xe-135、
+  Pm-148m）は読める（ADR-0265、下の「版ごとのライブラリの分離共鳴の SLBW」）。VII.0 と VII.1 の Am-241、Am-243 は、核分裂スペクトルが
+  MF5 の LF=12（Madland-Nix）で、核種ごとのステージ（`xs-nuclide`）で止まる（#0307）
 
 ```sh
 dvc repro examples/depletion/dvc.yaml:compare-depletion-versions   # 3 つの版のライブラリ、4 つの版の燃焼、比較
@@ -268,6 +268,68 @@ python3 examples/depletion/compare_depletion_versions.py --report examples/deple
 ```
 
 まだ解いていない（VII.0 と VII.1 のライブラリは #0305 で止まる）。
+
+## 版ごとのライブラリの分離共鳴の SLBW
+
+分離共鳴の SLBW（[ADR-0265](../../docs/adr/0265-raise-negative-slbw-elastic-sums-to-zero.md)）の 0 K の再構成を、NJOY2016.79 の RECONR
+（許容誤差 1e-3）の PENDF と比べた。核種は版ごとのライブラリで SLBW を持つもの（VII.1 の Xe-135、Pm-148m、VII.0 の Pu-238、Pu-242、
+Am-241）。NJOY の入力と出力は references/njoy-runs/slbw/<核種>-<版>/（git で追跡しない。入力は ADR-0167 の確認の
+references/njoy-runs/nro/ と同じ形で MAT だけが違う）。
+
+```sh
+cargo run --release -p xlc-xs --example compare_njoy_pendf -- \
+  references/njoy-runs/slbw/Pu238-VII.0/tape20 references/njoy-runs/slbw/Pu238-VII.0/tape25 9434
+```
+
+### 計算
+
+xlc 9a5525c5（分岐点 3e134ac6、2026-11-20）。手元で `compare_njoy_pendf` を実行した。`xs nuclide` は同じコミットの bin（`cargo build
+--release`）で、ブランチ feat/0303-pin-depletion-by-endf-version の `endfb70/xs.toml`、`endfb71/xs.toml` と同じ入力を手元の試行に
+置いて実行した。
+
+### 結果
+
+分離共鳴の範囲の NJOY の格子点での相対差（`compare_njoy_pendf` の範囲ごとの出力の `resolved` の行。先頭に核種と版、反応を付けた）。
+どの核種も全断面積、核分裂、捕獲の最大は 9.7e-4〜1.0e-3 で、許容誤差の 2 倍を超える点は無い（MLBW の ADR-0167 の確認と同じ基準）。
+
+```text
+Xe135 VII.1 MT1: compared 765, max rel diff 9.71e-4 at 4.812500e-4 eV, > 2 tol: 0
+Xe135 VII.1 MT2: compared 765, max rel diff 9.55e-4 at 7.868750e-2 eV, > 2 tol: 0
+Xe135 VII.1 MT102: compared 765, max rel diff 9.88e-4 at 1.875000e-3 eV, > 2 tol: 0
+Pm148m VII.1 MT1: compared 633, max rel diff 9.89e-4 at 3.000000e-5 eV, > 2 tol: 0
+Pm148m VII.1 MT2: compared 633, max rel diff 9.39e-4 at 1.677472e-1 eV, > 2 tol: 0
+Pm148m VII.1 MT102: compared 633, max rel diff 9.89e-4 at 3.000000e-5 eV, > 2 tol: 0
+Pu238 VII.0 MT1: compared 6802, max rel diff 9.83e-4 at 1.136025e2 eV, > 2 tol: 0
+Pu238 VII.0 MT2: compared 6802, max rel diff 3.00e1 at 5.974552e1 eV, > 2 tol: 483 (njoy up to 3.47e-4 b, |diff| up to 7.52e-7 b)
+Pu238 VII.0 MT18: compared 6802, max rel diff 1.00e-3 at 1.209388e2 eV, > 2 tol: 0
+Pu238 VII.0 MT102: compared 6802, max rel diff 9.99e-4 at 8.307686e1 eV, > 2 tol: 0
+Pu242 VII.0 MT1: compared 26827, max rel diff 9.73e-4 at 7.550025e2 eV, > 2 tol: 0
+Pu242 VII.0 MT2: compared 26827, max rel diff 1.68e2 at 6.691508e2 eV, > 2 tol: 922 (njoy up to 3.85e-4 b, |diff| up to 1.68e-6 b)
+Pu242 VII.0 MT18: compared 26827, max rel diff 9.98e-4 at 2.059034e2 eV, > 2 tol: 0
+Pu242 VII.0 MT102: compared 26827, max rel diff 1.00e-3 at 1.319339e2 eV, > 2 tol: 0
+Am241 VII.0 MT1: compared 36994, max rel diff 9.77e-4 at 3.406250e-4 eV, > 2 tol: 0
+Am241 VII.0 MT2: compared 36994, max rel diff 9.97e-4 at 6.957147e1 eV, > 2 tol: 0
+Am241 VII.0 MT18: compared 36994, max rel diff 9.99e-4 at 8.824193e1 eV, > 2 tol: 0
+Am241 VII.0 MT102: compared 36994, max rel diff 1.00e-3 at 1.114863e2 eV, > 2 tol: 0
+```
+
+- Pu-238 と Pu-242 の弾性散乱の、許容誤差の 2 倍を超える点は、どれも NJOY の値が 3.47e-4 b（Pu-238）、3.85e-4 b（Pu-242）以下で、
+  差の絶対値は 7.5e-7 b、1.7e-6 b 以下。SLBW の弾性散乱が負になる区間の端の、0 に近い点である。NJOY は共鳴の部分とポテンシャル散乱を
+  別々に有効数字 8 桁に丸めて足す（`csslbw` の `sigfig`）ので、10 b ほどの 2 つの項が打ち消し合う点の値は 1e-6 b 刻みになり、0 にした点を
+  1e-8 b にする（`emerge`）。xs は 0 にする
+- 弾性散乱が負になる点（xs の warn）: Pu-238 は 6,652 点のうち 341（和の最小 −3.87 b）、Pu-242 は 30,202 点のうち 678（−4.42 b）、
+  VII.0 の Cm-242 は 6,411 点のうち 295（−2.30 b）。どれも MF3 の弾性散乱のバックグラウンドが範囲の中で 0 なので、和で 0 にする xs と、
+  共鳴の部分を 0 にする NJOY は同じ値になる（MF3 が打ち消した点は 0）。Xe-135、Pm-148m、Am-241 は、NJOY の `emerge` の
+  「nonpositive elastic cross sections」の message が出ない（Am-241 の xs の warn は、`xs nuclide` が #0307 で止まるので見ていない）
+- Am-241 と Am-243（VII.0）の全部の共鳴と Pm-148m の 1 つの共鳴は、J が標的のスピンに等しい（J の分からない共鳴の古い慣習。
+  ENDF-102 の 2.4.7）。g = 1/2 のまま計算した（xs の warn）
+- 分離共鳴の外: Xe-135、Pu-242、Am-241 の非分離共鳴と、全核種の範囲の外は、どの反応も 2 倍を超える点が無い（最大は Xe-135 の非分離共鳴の
+  捕獲の 1.69e-3）。Pu-238 の非分離共鳴（LRF=1、LFW=1、200 eV〜10 keV）は、捕獲 9.92e-3、核分裂 3.58e-3、全断面積 3.96e-3 で、
+  2 倍を超える点は捕獲 43、核分裂 13、全断面積 13。平均断面積の格子点（200、250、300 eV など）の上では差が 2e-5 以下で、間の点で xs が
+  大きい（NJOY の PENDF の点ごとに見た）。格子点の間の断面積を、xs は ENDF-102 の lin-lin、NJOY は log-log で補間するためで（#0306）、
+  このブランチで変えていない非分離共鳴の処理の差である
+- `xs nuclide`（65 核種の入力の範囲のファイルと設定）は、VII.1 の Xe-135、Pm-148m、VII.0 の Xe-135、Pm-148m、Cm-242、Pu-238、Pu-242 が
+  終了コード 0 で終わる。VII.0 の Am-241、Am-243 は MF5 の LF=12 で止まる（#0307）
 
 ## 燃焼の多群ライブラリ
 

@@ -44,7 +44,10 @@ NJOY2016 の RECONR は、範囲ごとの共鳴の部分（`csslbw` の結果）
 案 A にする。
 
 - MF2 の読み込み: LRF = 1 を MLBW と同じ並びで読む（同じ構造体 `BreitWigner`）。散乱半径のエネルギーの表（NRO ≠ 0）と競合反応の幅
-  （LRX ≠ 0）は MLBW と同じくエラー（ADR-0167）
+  （LRX ≠ 0）は MLBW と同じくエラー（ADR-0167）。標的のスピンと l から作れない J（VII.0 の Am-241、Am-243 の全部の共鳴と、VII.0 と
+  VII.1 の Pm-148m の 1 つの共鳴は J = I）は、MLBW ではエラーのままにし、SLBW では読んで、その数を warn で出す。SLBW は J を統計因子
+  g = (2J + 1) / (2 (2I + 1)) にだけ使い、準位を J の系列に分けないので、J = I は g = 1/2 として式が決まる（ENDF-102 の 2.4.7 は
+  J の分からない共鳴に J = I を置いた古い評価を挙げ、すべての共鳴が J = I なら非負になるとする。NJOY の `csslbw` も同じ g を使う）
 - 断面積: ENDF-102 の (D.1)〜(D.7)。透過因子、シフト因子、位相シフト、チャネル半径は MLBW と同じ（NJOY の `csslbw` と同じ）。全幅は
   MLBW と同じく Γn(E) + Γγ + Γf（LRX = 0 では競合反応の幅が無く、GT との差はパラメータの丸め）
 - 負の弾性散乱: 0 K の再構成で、範囲の中の弾性散乱を max(共鳴の部分 + MF3, 0) にする。和を 0 で切ると MF3 の表の点で折れるので、範囲の
@@ -56,7 +59,10 @@ NJOY2016 の RECONR は、範囲ごとの共鳴の部分（`csslbw` の結果）
 ## 帰結
 
 - VII.0 と VII.1 の SLBW の核種の 0 K の再構成と多群の処理ができるようになる
-- MF3 が負の裾を打ち消す評価では、弾性散乱が NJOY より小さい
+- MF3 が負の裾を打ち消す評価では、弾性散乱が NJOY より小さい。VII.0 と VII.1 の燃焼のライブラリの SLBW の核種で、弾性散乱が負になる
+  Pu-238、Pu-242、Cm-242 は、範囲の中の MF3 の弾性散乱が 0 なので、NJOY と同じ値になる（examples/depletion/verification.md の
+  「版ごとのライブラリの分離共鳴の SLBW」）
+- 0 にした弾性散乱を NJOY は 1e-8 b にするので、その点の相対差は 1 になる。NJOY と比べるときは、0 に近い点の差を絶対値で見る
 
 ## 確認
 
@@ -66,3 +72,11 @@ NJOY2016 の RECONR は、範囲ごとの共鳴の部分（`csslbw` の結果）
   `negative_slbw_elastic_with_its_background_is_raised_to_zero`
 - MF2 の読み込み（crates/xs/src/endf/mf2/tests.rs）: `reads_slbw_range_in_the_form_of_mlbw`、`energy_dependent_radius_in_slbw_is_error`
 - ポテンシャル散乱（crates/xs/src/process/tests.rs）: `resolved_range_has_its_top_and_potential_scattering`
+- MF2 の読み込みの J（crates/xs/src/endf/mf2/tests.rs）: `slbw_reads_resonances_whose_spin_equals_the_target_spin`、
+  `mlbw_rejects_resonances_whose_spin_equals_the_target_spin`
+- NJOY との比較（xlc 9a5525c5、2026-11-20）: VII.1 の Xe-135、Pm-148m、VII.0 の Pu-238、Pu-242、Am-241 の 0 K の再構成を、NJOY2016 の
+  RECONR（許容誤差 1e-3）の PENDF と `compare_njoy_pendf` で比べた。分離共鳴の範囲の全断面積、核分裂、捕獲の相対差の最大は 9.7e-4〜1.0e-3 で、
+  許容誤差の 2 倍を超える点は無い。弾性散乱の 2 倍を超える点は、Pu-238 と Pu-242 の NJOY の値が 3.9e-4 b 以下の点だけで、差の絶対値は
+  1.7e-6 b 以下（NJOY の丸めと 1e-8 b の下限。値と入力は examples/depletion/verification.md の「版ごとのライブラリの分離共鳴の SLBW」）
+- VIII.0 の既存の核種の出力が変わらないこと: Zr-90、Xe-135（MLBW）、U-238（Reich-Moore）の `xs nuclide` の出力のバイトが、この変更の前の
+  main（3e134ac6）と同じ
