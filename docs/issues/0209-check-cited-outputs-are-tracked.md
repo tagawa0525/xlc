@@ -25,7 +25,7 @@ ADR-0222 は、記録（examples/*/verification*.md）と ADR が md5 か名前�
   変わった worktree で、走るステージの数の見積もりより大きく出る）
 
 - 作り直して `dvc add` をやり直していない生成物のある進行中のブランチは、ADR-0222 のマージに rebase した後の
-  `worktree-restore-outputs.sh` とスキル dvc-relock の前半 1 で checkout 全体が止まる（対処はスキル dvc-relock の前半 1。上の
+  `worktree-restore-outputs.sh` とスキル dvc-relock の前半 1 で checkout 全体が止まる（対処はスキル dvc-relock の前半 2。上の
   一般の誤りの文で原因が見えにくい）
 - examples/depletion/verification.md の「ブランチのテーブルの交差の項」は、`table-2B.msgpack` と
   `table-2A-fine.msgpack` を main の作業ツリーからコピーすると書く（今は `.dvc` で戻る。記録の本文はこのブランチで変えない）
