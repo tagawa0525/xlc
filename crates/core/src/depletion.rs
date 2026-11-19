@@ -406,7 +406,7 @@ pub fn advance_history(h: &[f64], start: f64, end: f64, x: &[f64], weight: f64) 
                 h
             } else {
                 // H + (x − H) ω ΔB / (B₀ + ω ΔB) と書く（(H B₀ + ω x ΔB) / (B₀ + ω ΔB) と同じ値）。x が H と同じなら、H のまま
-                // （ビットで同じ。公称の履歴の w が厳密に 0）
+                // （ビットで同じ。ベース計算の履歴の w が厳密に 0）
                 h + (x - h) * fraction
             }
         })
@@ -2064,7 +2064,7 @@ fn node_uses<'a>(
             }
             None => {
                 // 部分挿入のノード: 区間のどれかが核分裂すれば、区間の微視的断面積を混ぜて燃焼させる（ADR-0217）。区間は同じ
-                // 層のテーブルで、初めの組成と公称の数密度は区間によらない
+                // 層のテーブルで、初めの組成とベース計算の数密度は区間によらない
                 let index = m - layout.materials.len();
                 let segments = &layout.partial[index].segments;
                 if segments

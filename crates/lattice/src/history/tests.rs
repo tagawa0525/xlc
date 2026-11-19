@@ -49,7 +49,7 @@ fn borated(text: &str) -> String {
     )
 }
 
-/// 燃焼の入力 `PIN` の燃焼を外し、少数群定数のファイル、3 つの軸の分岐、`[history]` を足した入力
+/// 燃焼の入力 `PIN` の燃焼を外し、少数群定数のファイル、3 つの軸のブランチ、`[history]` を足した入力
 fn branch_input(burnup: &str, fuel: &str) -> String {
     branch_input_of(PIN, burnup, fuel)
 }
@@ -167,13 +167,13 @@ fn history() -> (History, Library) {
 
 #[test]
 fn nominal_branches_reproduce_the_history_points() {
-    // 履歴の燃焼度 0 より後の輸送は前の輸送の解から、分岐は平らな初期値から反復を始める（ADR-0195）ので、k は収束の誤差の
+    // 履歴の燃焼度 0 より後の輸送は前の輸送の解から、ブランチ計算は平らな初期値から反復を始める（ADR-0195）ので、k は収束の誤差の
     // 程度で違う。このピンセル（k 0.08 程度）は止めた解の誤差が判定より大きく（#0160）、燃焼度 0.5 と 2.0 の点の k の相対差は
     // 判定の k の約 100〜300 倍で、判定に比例して縮む（判定 1e-8 で 1.2e-6、1e-9 で 2.1e-7、1e-11 で 1.5e-9。2026-10-23 の手元の
-    // 測定）。履歴も分岐も判定を 1e-11 にして解き、相対 1e-8（測った差の約 7 倍）で比べる
+    // 測定）。履歴もブランチ計算も判定を 1e-11 にして解き、相対 1e-8（測った差の約 7 倍）で比べる
     let library = library_with_boron();
     let history = deplete_with_moc(&borated(PIN), &library, &tight());
-    // 履歴の燃焼度は 0、0.05、0.5、2.0。分岐はそのうち 3 点で、燃焼度がいちばん遅く変わる
+    // 履歴の燃焼度は 0、0.05、0.5、2.0。ブランチ計算はそのうち 3 点で、燃焼度がいちばん遅く変わる
     let text = branch_input("[0, 0.5, 2.0]", "[600]");
     let branches = branches_of(&text, &history, &library).unwrap();
     assert_eq!(
@@ -185,7 +185,7 @@ fn nominal_branches_reproduce_the_history_points() {
     assert_eq!(branches.axes.len(), 4);
     assert_eq!(branches.len(), 3 * 2);
     for (i, point) in [0, 2, 3].into_iter().enumerate() {
-        // 公称（1000 ppm）は輸送の組成も状態も履歴の点と同じ。燃焼度 0 の点はどちらも平らな初期値から解くので同じ反復をたどる
+        // 基準条件（1000 ppm）は輸送の組成も状態も履歴の点と同じ。燃焼度 0 の点はどちらも平らな初期値から解くので同じ反復をたどる
         let nominal = k_of(
             &text,
             &library,
@@ -199,7 +199,7 @@ fn nominal_branches_reproduce_the_history_points() {
             "burnup {}: {nominal} vs {want}",
             history.points[point].burnup
         );
-        // ホウ素を減らした分岐は組成が同じで、吸収が減る
+        // ホウ素を減らしたブランチ条件は組成が同じで、吸収が減る
         let diluted = k_of(
             &text,
             &library,
@@ -213,8 +213,8 @@ fn nominal_branches_reproduce_the_history_points() {
 
 #[test]
 fn branches_at_the_continued_conditions_reproduce_the_points_of_a_continued_history() {
-    // 燃焼度 0.5 から減速材のホウ素を 500 ppm にして続けた履歴（燃焼度 0、0.05 は 1000 ppm の元の履歴の点）。分岐の 500 ppm の状態は
-    // 続けた点を、1000 ppm の状態は元の点を再現する。続ける点の輸送も分岐も平らな初期値から反復を始め、2.0 の点は前の輸送の解から
+    // 燃焼度 0.5 から減速材のホウ素を 500 ppm にして続けた履歴（燃焼度 0、0.05 は 1000 ppm の元の履歴の点）。ブランチ計算の 500 ppm の状態は
+    // 続けた点を、1000 ppm の状態は元の点を再現する。続ける点の輸送もブランチ計算も平らな初期値から反復を始め、2.0 の点は前の輸送の解から
     // 始めるので、`nominal_branches_reproduce_the_history_points` と同じく判定を 1e-11 にして相対 1e-8 で比べる
     let library = library_with_boron();
     let nominal = deplete_with_moc(&borated(PIN), &library, &tight());
@@ -248,14 +248,14 @@ fn branches_at_the_continued_conditions_reproduce_the_points_of_a_continued_hist
 
 #[test]
 fn nominal_branches_of_absorbers_at_another_temperature_reproduce_the_history_points() {
-    // 吸収体（580 K）を燃料（600 K）と違う温度で燃焼させた履歴（ADR-0240）。分岐の燃焼の領域は燃焼させた物質の温度で、公称の
-    // 状態は履歴の点を再現する。判定は `nominal_branches_reproduce_the_history_points` と同じ
+    // 吸収体（580 K）を燃料（600 K）と違う温度で燃焼させた履歴（ADR-0240）。ブランチ計算の燃焼の領域は燃焼させた物質の温度で、基準条件は
+    // 履歴の点を再現する。判定は `nominal_branches_reproduce_the_history_points` と同じ
     let library = with_temperature(library_with_boron(), 580.0, &["H-1"]);
     let lattice = absorbers_at(580.0);
     let history = deplete_with_moc(&borated(&lattice), &library, &tight());
     let text = branch_input_of(&lattice, "[0, 2.0]", "[600]");
     let branches = branches_of(&text, &history, &library).unwrap();
-    // 状態は燃焼度ごとに 500 ppm、1000 ppm（公称）の順
+    // 状態は燃焼度ごとに 500 ppm、1000 ppm（基準条件）の順
     for (i, point) in [0, 3].into_iter().enumerate() {
         let nominal = branches.state(2 * i + 1);
         for region in &history.regions {
@@ -332,7 +332,7 @@ fn the_branch_lattice_must_be_the_lattice_of_the_history() {
 
 #[test]
 fn histories_depleted_by_sector_are_not_branched() {
-    // 扇形の組ごとの物質をブランチ計算の状態で作り直す経路は無いので、扇形に分けた履歴は分岐の前に止める（ADR-0244）
+    // 扇形の組ごとの物質をブランチ計算の状態で作り直す経路は無いので、扇形に分けた履歴はブランチ計算の前に止める（ADR-0244）
     let library = library_with_boron();
     let sectored = borated(PIN).replace("rings = 1 }]\n", "rings = 1 }]\nsectors = 8\n");
     let history = deplete_with(&format!("{sectored}sectors = 8\n"), &library);
@@ -584,7 +584,7 @@ fn nominal_boron_shielding_solves_once_per_burnup_moderator_and_fuel_point() {
     // 燃焼度 2 点 × ホウ素 2 点 × 減速材 2 点 × 燃料 1 点を、状態ごとに解く
     assert_eq!(branches.len(), 8);
     assert_eq!(solves, 8);
-    // 既定は燃焼度、減速材、燃料の点ごとに 1 回（公称の 1000 ppm は軸の点）
+    // 既定は燃焼度、減速材、燃料の点ごとに 1 回（基準の 1000 ppm は軸の点）
     assert_eq!(reuses, 4);
     let fuel = regions_of(branches.region_materials(0), |n| n.contains('@'));
     let water = regions_of(branches.region_materials(0), |n| n == "water");
@@ -681,8 +681,8 @@ fn shield_ratio_states(
 
 #[test]
 fn ratio_shielding_solves_the_ufg_at_the_anchors_only() {
-    // ADR-0250 の (F1): 燃焼点と燃料の温度の点ごとに、減速材が公称の参照だけを解き、ほかの減速材の参照は比で求める。(F2) は燃焼点
-    // ごとに公称の 1 つだけを解く。ホウ素の軸は基準ホウ素濃度の参照から作り直す（ADR-0201）。テストのライブラリは UFG の範囲を
+    // ADR-0250 の (F1): 燃焼点と燃料の温度の点ごとに、減速材が基準値の参照だけを解き、ほかの減速材の参照は比で求める。(F2) は燃焼点
+    // ごとに基準値の 1 つだけを解く。ホウ素の軸は基準ホウ素濃度の参照から作り直す（ADR-0201）。テストのライブラリは UFG の範囲を
     // 持たないので、比で求めた参照は参照ごとに解いたもの（範囲の外の等価原理）とビットで同じで、状態は既定の解き方とビットで同じ
     let library = library_for_reuse();
     let history = deplete_with(&borated(PIN), &library);
@@ -718,7 +718,7 @@ fn ratio_shieldings_take_the_ratio_options_and_need_a_nominal_moderator_point() 
         })
     };
     let ratio = ratio_shielding(&text, "moderator-ratio");
-    // 減速材 2 点（公称は 600 K の点 0）× 燃料 1 点
+    // 減速材 2 点（基準値は 600 K の点 0）× 燃料 1 点
     assert_eq!(anchors(&ratio), Ok((vec![0, 0], RatioOptions::default())));
     let chosen = ratio.replace(
         "[history]\n",
@@ -843,7 +843,7 @@ fn branches_without_a_history_shield_at_the_nominal_boron_too() {
     }
 }
 
-/// 枠（Zr-90 の塊）のある格子の、燃焼度 0.5 MWd/kg の分岐（減速材 2 点）と、その基準条件（状態 2）で解いた自己遮蔽
+/// 枠（Zr-90 の塊）のある格子の、燃焼度 0.5 MWd/kg のブランチ計算（減速材 2 点）と、その基準条件（状態 2）で解いた自己遮蔽
 fn framed_nominal(
     library: &Library,
 ) -> (
@@ -881,7 +881,7 @@ fn framed_nominal(
 
 #[test]
 fn remixing_the_nominal_composition_reproduces_the_shielded_materials() {
-    // 作り直しの前提（自己遮蔽の物質が、領域の実効断面積と組成から作った群定数に SPH 因子を掛けたもの）の確かめ方: 公称の組成で
+    // 作り直しの前提（自己遮蔽の物質が、領域の実効断面積と組成から作った群定数に SPH 因子を掛けたもの）の確かめ方: 基準の組成で
     // 作り直すと、自己遮蔽の物質とビットで同じ。無限希釈の水と、塊（枠）の両方で
     let library = library_for_reuse();
     let (s, branches, nominal, shielded) = framed_nominal(&library);
@@ -926,7 +926,7 @@ fn remixed_materials_take_the_state_densities_at_the_nominal_temperature() {
     for (a, b) in material.total.iter().zip(&shielded.materials[m].total) {
         assert!((a - 2.0 * b).abs() <= 1e-12 * a, "{a} vs {b}");
     }
-    // 温度を変えた状態は、公称の温度の実効断面積から作れない
+    // 温度を変えた状態は、基準の温度の実効断面積から作れない
     let mut hot = nominal.clone();
     hot.iter_mut()
         .find(|m| m.name == "zirc")
@@ -998,7 +998,7 @@ fn off_nominal_states_are_solved_at_their_burnups_only() {
     let branches = branches_of(&text, &history, &library).unwrap();
     assert_eq!(branches.len(), 3 * 4);
     let solved: Vec<usize> = (0..12).filter(|&i| branches.solved(0, i)).collect();
-    // 状態の番号は燃焼度 × 4 + (ホウ素 × 2 + 減速材)。公称は (1, 0)
+    // 状態の番号は燃焼度 × 4 + (ホウ素 × 2 + 減速材)。基準条件は (1, 0)
     assert_eq!(solved, vec![0, 1, 2, 3, 6, 8, 9, 10, 11]);
     // 基準条件が格子点にないと、ブランチ条件の燃焼点を間引けない
     let off = text.replace(
@@ -1161,7 +1161,7 @@ fn assert_micro_closes(
     }
 }
 
-/// 輸送するすべての核種を `micro` に挙げた分岐の入力
+/// 輸送するすべての核種を `micro` に挙げたブランチ計算の入力
 fn all_transported(history: &History, burnup: &str) -> String {
     let names: Vec<String> = history
         .transportable
@@ -1285,7 +1285,7 @@ fn micro_reactions_follow_the_library_chain_reactions_and_split_fissions_at_the_
         branch_input("[0, 2.0]", "[600]")
     );
     let branches = branches_of(&text, &history, &library).unwrap();
-    // 燃焼度 0 の公称（1000 ppm）の状態。Xe-135 の数密度は 0 で、燃料の中で一様に重みを付ける
+    // 燃焼度 0 の基準条件（1000 ppm）。Xe-135 の数密度は 0 で、燃料の中で一様に重みを付ける
     let index = 1;
     let (s, shielded, solution) = solved(&text, &library, &branches, index);
     let micro = branches
@@ -1366,7 +1366,7 @@ fn guided(text: &str, guide: &str) -> String {
 
 #[test]
 fn micro_cross_sections_take_the_regions_of_the_branch_lattice_when_the_guide_tubes_differ() {
-    // 履歴は案内管が水の格子、分岐は同じ燃料のセルで案内管に制御棒を入れた格子（ADR-0200）。案内管のセルの MOC の領域の数が
+    // 履歴は案内管が水の格子、ブランチ計算は同じ燃料のセルで案内管に制御棒を入れた格子（ADR-0200）。案内管のセルの MOC の領域の数が
     // 違うので、燃料の MOC の領域の番号が履歴の格子と違う
     let library = library_with_boron();
     let history = deplete_with(&guided(&borated(PIN), WATER_GUIDE), &library);
@@ -1382,7 +1382,7 @@ fn micro_cross_sections_take_the_regions_of_the_branch_lattice_when_the_guide_tu
     recorded.sort_unstable();
     assert_ne!(fuel, recorded);
     let branches = branches_of(&text, &history, &library).unwrap();
-    // 微視的断面積を重み付ける MOC の領域は、分岐の格子のその燃焼の領域の領域
+    // 微視的断面積を重み付ける MOC の領域は、ブランチ計算の格子のその燃焼の領域の領域
     for d in branches.regions(0) {
         for &r in &d.regions {
             assert_eq!(
@@ -1392,7 +1392,7 @@ fn micro_cross_sections_take_the_regions_of_the_branch_lattice_when_the_guide_tu
             );
         }
     }
-    // 分岐の格子を直接解いた燃料の物質の反応率と、Σᵢ σᵢ N̄ᵢ が同じ
+    // ブランチ計算の格子を直接解いた燃料の物質の反応率と、Σᵢ σᵢ N̄ᵢ が同じ
     for index in 0..branches.len() {
         let (s, shielded, solution) = solved(&text, &library, &branches, index);
         let micro = branches
@@ -1428,7 +1428,7 @@ fn previous_points(history: &History) -> History {
     previous
 }
 
-/// 入力 `text` の履歴 `history` からの分岐を、自己遮蔽の履歴 `shielding`（`None` なら状態の組成）で `BranchShielder` で自己遮蔽した
+/// 入力 `text` の履歴 `history` からのブランチ計算を、自己遮蔽の履歴 `shielding`（`None` なら状態の組成）で `BranchShielder` で自己遮蔽した
 /// 状態ごとの燃料の自己遮蔽と物質
 fn shield_with(
     text: &str,
@@ -1558,7 +1558,7 @@ fn at_previous_state(
 
 #[test]
 fn shielding_at_the_history_itself_reproduces_the_shielded_materials() {
-    // 自己遮蔽の履歴が分岐の履歴そのものなら、物質は自己遮蔽の履歴のない分岐とビットで同じ
+    // 自己遮蔽の履歴がブランチ計算の履歴そのものなら、物質は自己遮蔽の履歴のないブランチ計算とビットで同じ
     let (history, library) = history();
     let base = branch_input("[0, 2.0]", "[600]");
     for text in [base.clone(), every_state(&base)] {
@@ -1583,7 +1583,7 @@ fn a_shielding_history_must_match_the_branch_history() {
     let (history, library) = history();
     let text = branch_input("[0, 2.0]", "[600]");
     let mut branches = branches_of(&text, &history, &library).unwrap();
-    // 分岐の燃焼点を持たない
+    // ブランチ計算の燃焼点を持たない
     let mut short = history.clone();
     short.points.retain(|p| p.burnup != 2.0);
     let err = branches.shield_with(&short).unwrap_err();
@@ -1600,7 +1600,7 @@ fn a_shielding_history_must_match_the_branch_history() {
     let mut fewer = history.clone();
     fewer.transportable.pop();
     assert!(branches.shield_with(&fewer).is_err());
-    // 自己遮蔽の履歴のない分岐は、作り直す物質を持たない
+    // 自己遮蔽の履歴のないブランチ計算は、作り直す物質を持たない
     let plain = branches_of(&text, &history, &library).unwrap();
     assert!(plain.remixed().is_empty());
 }
@@ -1678,7 +1678,7 @@ fn shielding_burnup_points_shield_the_points_between_them_at_the_last_one() {
     }
 }
 
-/// `micro` に U-235 と Xe-135 を挙げ、両方の数密度の微分を摂動の割合 `perturbation` で求める分岐の入力（燃焼度 0 と 2.0）
+/// `micro` に U-235 と Xe-135 を挙げ、両方の数密度の微分を摂動の割合 `perturbation` で求めるブランチ計算の入力（燃焼度 0 と 2.0）
 fn derivative_input(perturbation: f64) -> String {
     format!(
         "{}micro = [\"U-235\", \"Xe-135\"]\nderivative = [\"Xe-135\", \"U-235\"]\nperturbation = {perturbation}\n",
@@ -1730,7 +1730,7 @@ fn perturbed_states_scale_only_the_derivative_nuclide_in_the_depletion_regions()
                 name,
                 0.25,
             );
-            // 自己遮蔽の参照（基準ホウ素濃度。ADR-0201）も同じ核種を同じ割合で変えた組成で、摂動の組成を公称の組成と同じに扱う
+            // 自己遮蔽の参照（基準ホウ素濃度。ADR-0201）も同じ核種を同じ割合で変えた組成で、摂動の組成を基準の組成と同じに扱う
             if let Some((point, r)) = branches.reference(index) {
                 assert_scaled(
                     &branches.perturbed_reference_state(point, r, j),
@@ -1741,7 +1741,7 @@ fn perturbed_states_scale_only_the_derivative_nuclide_in_the_depletion_regions()
             }
         }
     }
-    // 自己遮蔽の履歴（#0191）を与えた分岐は、自己遮蔽をその履歴の組成に固定するので、摂動の参照もその組成のまま
+    // 自己遮蔽の履歴（#0191）を与えたブランチ計算は、自己遮蔽をその履歴の組成に固定するので、摂動の参照もその組成のまま
     let mut fixed = branches_of(&text, &history, &library).unwrap();
     fixed.shield_with(&previous_points(&history)).unwrap();
     for index in 0..fixed.len() {
@@ -1856,7 +1856,7 @@ fn density_derivatives_divide_the_few_group_change_by_the_density_change() {
         s.chosen.shielding(),
         s.input.shielding_options(),
     );
-    // 燃焼度 2.0 の公称（1000 ppm）の状態。どちらの核種も数密度が正
+    // 燃焼度 2.0 の基準条件（1000 ppm）。どちらの核種も数密度が正
     let index = 3;
     let point = 1;
     let (nominal, mut micro) =
@@ -2109,7 +2109,7 @@ fn perturbed_shieldings_keep_the_pin_dancoff_factors_of_the_state() {
 #[test]
 fn fixed_perturbed_shieldings_remix_the_depletion_regions_from_the_state_shielding() {
     // 自己遮蔽を固定する微分の摂動（既定。ADR-0249）は、状態の自己遮蔽のまま燃焼の領域の物質だけを摂動の組成で作り直す。自己遮蔽の
-    // 履歴を分岐の履歴そのものにした分岐（#0180 の測定の経路。摂動の参照を状態の組成のまま解き直す）の摂動の物質とビットで同じで、
+    // 履歴をブランチ計算の履歴そのものにしたブランチ計算（#0180 の測定の経路。摂動の参照を状態の組成のまま解き直す）の摂動の物質とビットで同じで、
     // 摂動の組成で解き直した物質とは違う。ホウ素の軸の参照（nominal-boron）でも、状態ごと（every-state）でも
     let (history, library) = history();
     let base = derivative_input(0.25);
@@ -2401,7 +2401,7 @@ const ROD_CELL: &str = "[material.rod]\ntemperature = 600\nnuclides = { B-10 = 1
      [cell.gt-rod]\nzones = [{ material = \"rod\", radius = 0.4, rings = 3 }, \
      { material = \"water\", radius = 0.56, rings = 1 }, { material = \"water\", rings = 1 }]\n";
 
-/// 案内管が水の格子の履歴からの分岐に、制御棒の値 a を足した入力。`history` は `[history]` に足す行
+/// 案内管が水の格子の履歴からのブランチ計算に、制御棒の値 a を足した入力。`history` は `[history]` に足す行
 fn rodded(history: &History, burnup: &str, extra: &str) -> String {
     let text = guided(
         &format!("{}{extra}", all_transported(history, burnup)),
@@ -2447,8 +2447,8 @@ fn rod_values_take_the_history_densities_in_the_regions_of_their_own_geometry() 
 
 #[test]
 fn rod_values_are_solved_at_their_own_burnups() {
-    // 棒のない値は基準条件をすべての燃焼点で、ほかの状態を off-nominal-burnup で解き、制御棒の値はすべての状態（公称を含む）を
-    // その値の燃焼点で解く（ADR-0200 の制御棒を入れた組。ADR-0225）。状態の番号は燃焼度 × 2 + ホウ素で、公称は 1000 ppm
+    // 棒のない値は基準条件をすべての燃焼点で、ほかの状態を off-nominal-burnup で解き、制御棒の値はすべての状態（基準条件を含む）を
+    // その値の燃焼点で解く（ADR-0200 の制御棒を入れた組。ADR-0225）。状態の番号は燃焼度 × 2 + ホウ素で、基準値は 1000 ppm
     let library = library_with_boron();
     let history = deplete_with(&guided(&borated(PIN), WATER_GUIDE), &library);
     let solved = |text: &str, rod: usize| -> Vec<usize> {
@@ -2997,7 +2997,7 @@ fn history_branches_need_the_nominal_state_for_the_cooling_cross_sections() {
     assert!(err.contains("nominal"), "{err}");
 }
 
-/// `micro` に U-235 と Xe-135 を挙げ、一般化摂動の微分（ADR-0247）を求める分岐の入力。`shielded` は自己遮蔽を解き直す核種、
+/// `micro` に U-235 と Xe-135 を挙げ、一般化摂動の微分（ADR-0247）を求めるブランチ計算の入力。`shielded` は自己遮蔽を解き直す核種、
 /// `derivative` は反応率の微分を直接の摂動で解く核種（燃焼度 0 と 2.0）
 fn generalized_input(perturbation: f64, shielded: &[&str], derivative: &[&str]) -> String {
     let list = |names: &[&str]| {
@@ -3378,7 +3378,7 @@ fn generalized_derivatives_need_the_micro_nuclides_only_in_depleted_materials() 
     let history = deplete_with(&clad(&borated(PIN)), &library);
     let text = clad(&generalized_input(0.04, &[], &[]));
     assert!(text.contains("[material.clad]"));
-    // 輸送を解く前の、分岐を作るときに止める
+    // 輸送を解く前の、ブランチ計算を作るときに止める
     let err = branches_of(&text, &history, &library)
         .unwrap_err()
         .to_string();

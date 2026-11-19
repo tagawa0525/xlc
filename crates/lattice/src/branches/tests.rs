@@ -213,7 +213,7 @@ fn invalid_branches_are_errors() {
         "density = [0.76972, 0.0, 0.71190]",
         "densities",
     );
-    // ピン出力は分岐と一緒に出さない（状態ごとの形状関数は ADR-0096 でテーブルに入れる）
+    // ピン出力はブランチ計算と一緒に出さない（状態ごとの形状関数は ADR-0096 でテーブルに入れる）
     rejects(
         "rows = [\"pin\"]",
         "rows = [\"pin\"]\npin-powers = \"pins.msgpack\"",
@@ -372,7 +372,7 @@ fn each_state_starts_from_one_step_back_on_its_last_moved_axis() {
         ),
         // 格子点が 1 つの軸は動かない
         (&[2, 1, 2], &[None, Some(0), Some(0), Some(2)]),
-        // 軸のない分岐（状態 1 つ）
+        // 軸のないブランチ計算（状態 1 つ）
         (&[], &[None]),
     ];
     for (counts, expected) in cases {
@@ -430,7 +430,7 @@ fn the_nominal_state_is_the_grid_point_of_the_input_materials() {
         input.materials,
         "the nominal state is the input"
     );
-    // テーブルの軸は公称の値と、ADR-0097 の内挿の変数を持つ
+    // テーブルの軸は基準値と、ADR-0097 の内挿の変数を持つ
     assert_eq!(
         branches.axes(),
         vec![
@@ -445,7 +445,7 @@ fn the_nominal_state_is_the_grid_point_of_the_input_materials() {
     let off = off.branches.as_ref().unwrap();
     assert_eq!(off.nominal(), None);
     assert!(off.axes().iter().all(|a| a.nominal_index().is_none()));
-    // 格子点が 1 つの軸は、その点が公称（入力の物質と違ってよい）
+    // 格子点が 1 つの軸は、その点が基準点（入力の物質と違ってよい）
     let single = edited(
         "fuel = { temperature = [550, 580], materials = [\"fuel\"] }",
         "fuel = { temperature = [600], materials = [\"fuel\"] }",
@@ -500,7 +500,7 @@ fn pair_subgrids_solve_the_nominal_state_one_axis_branches_and_pairs() {
     .unwrap();
     let one = one.branches.as_ref().unwrap();
     assert_eq!((0..27).filter(|&s| one.solved(s)).count(), 7);
-    // 公称が端の格子点で、軸の点の数が違う（ADR-0200 の 2A の 40 MWd/kg の形: 3 × 2 × 2 で 10 状態）
+    // 基準点が端の格子点で、軸の点の数が違う（ADR-0200 の 2A の 40 MWd/kg の形: 3 × 2 × 2 で 10 状態）
     let uneven = LatticeInput::parse(
         &(INPUT
             .replace(
@@ -535,7 +535,7 @@ fn subgrids_need_the_nominal_state_and_name_distinct_axes() {
         r#"subgrids = [[]]"#,
         r#"subgrids = [["boron", "boron"]]"#,
         r#"subgrids = [["boron", "rod"]]"#,
-        // 点が 2 つ以上の燃料の軸を、どの組も持たない（燃料の分岐を解かず、core が黙って公称の燃料の値を使う）
+        // 点が 2 つ以上の燃料の軸を、どの組も持たない（燃料のブランチ計算を行わず、core が黙って燃料の基準値を使う）
         r#"subgrids = [["boron", "moderator"]]"#,
     ] {
         assert!(LatticeInput::parse(&three_by_three(bad)).is_err(), "{bad}");
@@ -545,7 +545,7 @@ fn subgrids_need_the_nominal_state_and_name_distinct_axes() {
 #[test]
 fn references_of_subgrid_states_are_their_moderator_and_fuel_points() {
     // 基準ホウ素濃度の自己遮蔽（ADR-0201）の参照は、部分格子の状態でも減速材と燃料の温度の格子点で選び、その参照の状態（ホウ素を
-    // 公称にした状態）も部分格子の状態にある
+    // 基準値にした状態）も部分格子の状態にある
     let input = LatticeInput::parse(&three_by_three(PAIRS)).unwrap();
     let branches = input.branches.as_ref().unwrap();
     let mut used = Vec::new();
@@ -596,7 +596,7 @@ fn tables_hold_the_solved_points() {
 #[test]
 fn states_outside_the_subgrids_start_from_the_last_solved_state() {
     // 部分格子の状態だけを解くとき、ADR-0195 の状態（添字が 0 でない最後の軸を 1 つ戻し、後の軸を 0 にした状態）を解いていれば
-    // その解から、解いていなければ直前に解いた状態の解から始める。3 × 3 × 3 の 2 軸の組（公称は中央）
+    // その解から、解いていなければ直前に解いた状態の解から始める。3 × 3 × 3 の 2 軸の組（基準点は中央）
     let counts = [3, 3, 3];
     let present: Vec<usize> = (0..27)
         .filter(|&s| state_indices(&counts, s).contains(&1))
@@ -858,7 +858,7 @@ fn node_rod_branches_outside_the_radial_reflector_lattice_are_errors() {
     );
 }
 
-/// 制御棒のブランチ（値 aic と b4c）と、燃焼の履歴からの分岐（燃焼点 0、10、20、40）の入力。連続の軸は入力の物質を公称の格子点に
+/// 制御棒のブランチ（値 aic と b4c）と、燃焼の履歴からのブランチ計算（燃焼点 0、10、20、40）の入力。連続の軸は入力の物質を基準の格子点に
 /// 持つ（ADR-0200 の部分格子）。`history` は `[history]` に足す行
 fn history_with_rods(history: &str) -> String {
     let text = with_rods(
@@ -872,7 +872,7 @@ fn history_with_rods(history: &str) -> String {
 
 #[test]
 fn history_branches_take_the_rod_axis() {
-    // 燃焼の履歴からの分岐も制御棒の軸を持つ（ADR-0225）。値ごとの燃焼点を書かなければ、制御棒の値の状態はブランチ条件の
+    // 燃焼の履歴からのブランチ計算も制御棒の軸を持つ（ADR-0225）。値ごとの燃焼点を書かなければ、制御棒の値の状態はブランチ条件の
     // 燃焼点で解く
     let input =
         LatticeInput::parse(&history_with_rods("off-nominal-burnup = [0, 20, 40]\n")).unwrap();

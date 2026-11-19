@@ -396,7 +396,7 @@ fn mix(segments: &[Segment], flux: &[Vec<f64>]) -> Result<FewGroup, String> {
 /// 区間ごとの追う核種の微視的断面積 `micro` を、[区間][群] の重み `weights`（そのノードの少数群定数を混ぜた重み。
 /// `solve_rodded` が返す）で混ぜる（ADR-0217）。反応の断面積と経路の断面積は群の重みで、散乱行列は入射の群の重みで
 /// （`mix` と同じ）、収率の境界より下の核分裂の割合は、ノード平均の中性子束 `flux` で燃焼が使う核分裂率のうちの区間の分
-/// Σ_G σf,s,G (w_s,G / Σ_s w_s,G) φ̄_G で混ぜる。公称の数密度は区間で同じこと
+/// Σ_G σf,s,G (w_s,G / Σ_s w_s,G) φ̄_G で混ぜる。ベース計算の数密度は区間で同じこと
 pub(crate) fn mix_micro(
     micro: &[MicroAt],
     weights: &[Vec<f64>],
@@ -449,7 +449,7 @@ pub(crate) fn mix_micro(
         ));
     }
     check_weights(weights)?;
-    // 公称の数密度は燃焼度だけの関数で、区間は同じ層のテーブルなので同じ値のはず
+    // ベース計算の数密度は燃焼度だけの関数で、区間は同じ層のテーブルなので同じ値のはず
     if micro
         .iter()
         .any(|m| m.densities != first.densities || m.nuclides.len() != first.nuclides.len())

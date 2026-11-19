@@ -150,7 +150,7 @@ pub(crate) fn plain_library() -> Library {
             };
             NuclideData {
                 name: name.into(),
-                // ZA = 1000 Z + A（履歴からの分岐が重金属を Z で選ぶ。ADR-0190）
+                // ZA = 1000 Z + A（履歴からのブランチ計算が重金属を Z で選ぶ。ADR-0190）
                 za: match name {
                     "H-1" => 1001.0,
                     "O-16" => 8016.0,

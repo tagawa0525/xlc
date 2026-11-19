@@ -113,8 +113,8 @@ pub(crate) fn fine_medium(
     Ok((medium, flux))
 }
 
-/// 平板の格子計算が読む媒質が、ライブラリの群境界 `bounds` と、平板の分岐の軸 `axes`（名前、点、密度、B-10 の
-/// 割合。分岐がなければ空）に一致することを確かめる。ブランチ計算の状態ごとに、媒質の同じ状態を使う（ADR-0128）
+/// 平板の格子計算が読む媒質が、ライブラリの群境界 `bounds` と、平板のブランチの軸 `axes`（名前、点、密度、B-10 の
+/// 割合。ブランチがなければ空）に一致することを確かめる。ブランチ計算の状態ごとに、媒質の同じ状態を使う（ADR-0128）
 pub fn check_medium(medium: &Medium, bounds: &[f64], axes: &[Axis]) -> Result<(), String> {
     if medium.bounds != bounds {
         return Err(format!(
@@ -122,7 +122,7 @@ pub fn check_medium(medium: &Medium, bounds: &[f64], axes: &[Axis]) -> Result<()
             medium.bounds
         ));
     }
-    // 媒質は公称の値を持たないので、平板の軸の公称の値（ADR-0200）は比べない
+    // 媒質は基準値を持たないので、平板の軸の基準値（ADR-0200）は比べない
     let slab: Vec<Axis> = axes.iter().cloned().map(Axis::without_nominal).collect();
     if medium.axes != slab {
         return Err(format!(

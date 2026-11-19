@@ -66,7 +66,7 @@ fn sigma(s: f64, derivative: bool) -> MicroNuclide {
 
 const NUCLIDES: [&str; 2] = ["U-235", "Pu-240"];
 
-/// ベース計算のテーブル: 燃焼度 0、10、20、ホウ素 1300 ppm、減速材 565 K と 0.743 g/cm³（公称）と 600 K と 0.661 g/cm³、燃料 565 K。
+/// ベース計算のテーブル: 燃焼度 0、10、20、ホウ素 1300 ppm、減速材 565 K と 0.743 g/cm³（基準条件）と 600 K と 0.661 g/cm³、燃料 565 K。
 /// ブランチ条件は 0 と 20 で解く。Pu-240 は数密度の微分を持つ
 fn nominal() -> Table {
     let axes = vec![
@@ -141,8 +141,8 @@ fn branch() -> Table {
     table
 }
 
-/// 履歴ブランチの組成のうち追う核種だけを公称の組成に足したハイブリッドを、同じ条件で解いたテーブル: 分岐と同じ軸、点、追う核種、
-/// 均質化した数密度で、定数と微視的断面積が違う。燃焼度 0 は組成が公称と同じなので、ベース計算のテーブルの条件の状態（点 1）と同じ定数と
+/// 履歴ブランチの組成のうち追う核種だけをベース計算の組成に足したハイブリッドを、同じ条件で解いたテーブル: ブランチ計算と同じ軸、点、追う核種、
+/// 均質化した数密度で、定数と微視的断面積が違う。燃焼度 0 は組成がベース計算と同じなので、ベース計算のテーブルの条件の状態（点 1）と同じ定数と
 /// 反応率の微視的断面積
 fn hybrid() -> Table {
     let mut table = branch();
@@ -155,7 +155,7 @@ fn hybrid() -> Table {
     table
 }
 
-/// 制御棒の値 out の、分岐とハイブリッドのテーブルの組
+/// 制御棒の値 out の、ブランチ計算とハイブリッドのテーブルの組
 fn pair() -> BranchTables {
     BranchTables {
         branch: branch(),
@@ -187,7 +187,7 @@ fn linearizations_are_the_hybrid_less_the_linearly_corrected_nominal_condition()
     // ベース計算のテーブルの条件の状態の点（燃焼度 0 と 20）と、ブランチのテーブルの点
     for (k, (&p, &u)) in [1usize, 4].iter().zip(&[0usize, 2]).enumerate() {
         let f0 = &n.states[p];
-        // L は、追う核種だけが分岐と同じハイブリッドの定数から、線形の補正を足した公称の条件の定数を引いたもの
+        // L は、追う核種だけがブランチ計算と同じハイブリッドの定数から、線形の補正を足した基準条件の定数を引いたもの
         let fb = &h.states[k];
         let c = &micro.states[p];
         let d: Vec<f64> = (0..2)
@@ -214,7 +214,7 @@ fn linearizations_are_the_hybrid_less_the_linearly_corrected_nominal_condition()
             let total = sum(&|i| coefficient(i).total[g]);
             let absorption =
                 sum(&|i| coefficient(i).total[g] - coefficient(i).scatter[g].iter().sum::<f64>());
-            // L = ハイブリッド − 公称 − 補正（丸めは 3 つの項の大きさの範囲）
+            // L = ハイブリッド − ベース計算 − 補正（丸めは 3 つの項の大きさの範囲）
             let expect = |r: f64, b: f64, n: f64, c: f64| {
                 assert!(
                     near(r, b - n - c, b.abs() + n.abs() + c.abs()),
@@ -291,7 +291,7 @@ fn branch_densities_are_held_at_each_residual_point() {
 
 #[test]
 fn the_nominal_condition_with_the_correction_and_both_parts_is_the_branch() {
-    // core が履歴ブランチの点（w = 1、ノードの数密度が分岐のもの、L の指標の比が 1）で返す定数は、ブランチ計算の定数（ADR-0215）
+    // core が履歴ブランチの点（w = 1、ノードの数密度がブランチ計算のもの、L の指標の比が 1）で返す定数は、ブランチ計算の定数（ADR-0215）
     let n = nominal();
     let b = branch();
     let (_, _, rod) = residuals(&n, MODERATOR_DENSITY, ROD_OUT, &pair()).unwrap();
@@ -359,7 +359,7 @@ fn branch_conditions_differ_from_the_nominal_state_on_the_variable_axis_only() {
     let fails = |change: &dyn Fn(&mut Table)| {
         let mut b = branch();
         change(&mut b);
-        // ハイブリッドも同じ条件（分岐の条件の検査を確かめる）
+        // ハイブリッドも同じ条件（ブランチ計算の条件の検査を確かめる）
         let mut h = hybrid();
         change(&mut h);
         let err = residuals(
@@ -385,7 +385,7 @@ fn branch_conditions_differ_from_the_nominal_state_on_the_variable_axis_only() {
     // 基準条件そのもの
     let err = fails(&|b| b.axes[2] = Axis::moderator(vec![565.0], vec![0.743]).with_nominal(565.0));
     assert!(err.contains("moderator"), "{err}");
-    // 変数の軸のほかが公称と違う
+    // 変数の軸のほかが基準値と違う
     let mut n2 = nominal();
     n2.axes[3] = Axis::fuel(vec![565.0, 600.0]).with_nominal(565.0);
     let mut b = branch();
@@ -490,7 +490,7 @@ fn rate_parts(a: &MicroNuclide, b: &MicroNuclide) -> (Vec<f64>, Vec<f64>, f64) {
 
 #[test]
 fn rate_residuals_split_at_the_hybrid_like_the_constants() {
-    // 追わない核種の分は分岐 − ハイブリッド、線形化の誤差はハイブリッド − 公称の条件 j の状態の、反応率の微視的断面積の差
+    // 追わない核種の分はブランチ計算 − ハイブリッド、線形化の誤差はハイブリッド − ベース計算のテーブルの条件 j の状態の、反応率の微視的断面積の差
     // （U と L と同じハイブリッドで分ける。ADR-0215）
     let n = nominal();
     let mut b = branch();
@@ -531,7 +531,7 @@ fn rate_residuals_split_at_the_hybrid_like_the_constants() {
                 assert_eq!(r.reactions[0].mt, 102);
                 assert!(close(r.thermal_fission.unwrap(), below));
             }
-            // 2 つの和は分岐 − 公称の条件 j の状態の差（分けない差の検算）
+            // 2 つの和はブランチ計算 − ベース計算のテーブルの条件 j の状態の差（分けない差の検算）
             let (fission, capture, below) = rate_parts(bj, nj);
             let (u, l) = (&rod.micro.untracked[k][i], &rod.micro.linearization[k][i]);
             for g in 0..2 {
@@ -559,7 +559,7 @@ fn rate_residuals_split_at_the_hybrid_like_the_constants() {
 
 #[test]
 fn branch_tables_with_other_reactions_or_fission_are_errors() {
-    // 分岐かハイブリッドのどちらかの反応の並びか核分裂の有無が、ベース計算のテーブルと違えばエラー
+    // ブランチ計算かハイブリッドのどちらかの反応の並びか核分裂の有無が、ベース計算のテーブルと違えばエラー
     let n = nominal();
     let changes: Vec<fn(&mut MicroNuclide)> = vec![
         |x| x.reactions[0].mt = 103,
@@ -678,7 +678,7 @@ fn run_writes_the_nominal_table_with_the_history_residuals() {
 
 #[test]
 fn branch_values_on_axes_the_nominal_table_lacks_are_errors() {
-    // ベース計算のテーブルに燃料の軸が無いと、分岐の燃料の温度を照らせず、温度の差の効きが R に混ざる
+    // ベース計算のテーブルに燃料の軸が無いと、ブランチ計算の燃料の温度を照らせず、温度の差の効きが R に混ざる
     let mut n = nominal();
     n.axes.remove(3);
     for p in &mut n.points {
@@ -710,7 +710,7 @@ fn branch_values_on_axes_the_nominal_table_lacks_are_errors() {
 
 #[test]
 fn branch_conditions_with_the_nominal_density_are_errors() {
-    // 温度だけが公称と違う格子点では Hᵇ = H⁰ で、core の重みが 0 で割る
+    // 温度だけが基準値と違う格子点では Hᵇ = H⁰ で、core の重みが 0 で割る
     let mut n = nominal();
     n.axes[2] = Axis::moderator(vec![565.0, 600.0], vec![0.743, 0.743]).with_nominal(565.0);
     let mut b = branch();
@@ -766,7 +766,7 @@ type HybridChange = (fn(&mut Table), &'static str);
 
 #[test]
 fn hybrids_solve_the_branch_points_with_the_branch_tracked_densities() {
-    // U と L は同じ条件と燃焼度の点の 2 つの定数の差で、ハイブリッドの追う核種は分岐と同じ数密度（ADR-0215）
+    // U と L は同じ条件と燃焼度の点の 2 つの定数の差で、ハイブリッドの追う核種はブランチ計算と同じ数密度（ADR-0215）
     let n = nominal();
     let changes: Vec<HybridChange> = vec![
         (
@@ -851,7 +851,7 @@ fn with_rod_axis(table: &Table, s: f64) -> Table {
 }
 
 /// 制御棒の履歴ブランチ（一生を制御棒を入れて燃焼させた組成）の、基準条件を制御棒の値 out と aic で解いたテーブルと、その追う核種を
-/// 公称の組成に入れたハイブリッドの、同じ条件のテーブル（燃焼度 0、10、20。燃焼度 0 は組成が公称と同じなので、`with_rod_axis(&nominal(), 4.0)`
+/// ベース計算の組成に入れたハイブリッドの、同じ条件のテーブル（燃焼度 0、10、20。燃焼度 0 は組成がベース計算と同じなので、`with_rod_axis(&nominal(), 4.0)`
 /// の基準条件と同じ定数）
 fn rod_pair() -> BranchTables {
     let single = |states: [f64; 3], sigmas: [f64; 3]| {
@@ -908,7 +908,7 @@ fn rod_histories_take_each_rod_value_of_the_branch_at_the_nominal_state() {
         let micro = nominal.micro.as_ref().unwrap();
         let branch_micro = tables.branch.micro.as_ref().unwrap();
         for k in 0..3 {
-            // 分岐とハイブリッドのテーブルの、その制御棒の値の状態
+            // ブランチ計算とハイブリッドのテーブルの、その制御棒の値の状態
             let at = |t: &Table| t.point_index(&[k, 0, 0, 0, r]).unwrap();
             let (b, h) = (
                 &tables.branch.states[at(&tables.branch)],

@@ -645,7 +645,7 @@ pub fn check_negative(
 }
 
 /// 燃焼の領域 `d` を解く物質: 温度 `temperature`、輸送する核種 `transported`（番号）の数密度 `n`（負の値は 0。燃焼の
-/// 輸送と履歴からの分岐で同じ。ADR-0173、ADR-0187）。`name` は核種の名前
+/// 輸送と履歴からのブランチ計算で同じ。ADR-0173、ADR-0187）。`name` は核種の名前
 pub fn region_material(
     d: &DepletionRegion,
     temperature: f64,

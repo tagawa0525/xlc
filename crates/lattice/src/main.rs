@@ -1,9 +1,9 @@
 //! 格子計算を行い、少数群定数のテーブル、セルごとの核分裂率、細かい群の媒質（ADR-0128）を書き出すコマンド。
-//! 入力に分岐（`[branches]`）があれば、状態ごとに格子計算を解き、軸の直積の順の状態をテーブルにする（ADR-0097）。
+//! 入力にブランチ計算（`[branches]`）があれば、状態ごとに格子計算を解き、軸の直積の順の状態をテーブルにする（ADR-0097）。
 //! 制御棒のブランチ（`[branches.rod]`）があれば、値ごとにセルを置き換えた形状で同じ状態を解き、制御棒の軸を最後に足す（ADR-0224）。
 //! 入力に燃焼（`[depletion]`）があれば、燃焼点ごとの k∞、数密度、ピン出力、少数群定数を燃焼の履歴のファイルに書く（ADR-0173、ADR-0181）。
 //! `continue` があれば、その燃焼の履歴の燃焼点から、この入力の条件で燃焼を続ける（ADR-0215 の確認）。
-//! 入力に燃焼の履歴（`[history]`）があれば、選んだ燃焼点の組成で分岐を解き、燃焼度の軸を持つテーブルにする（ADR-0187）。
+//! 入力に燃焼の履歴（`[history]`）があれば、選んだ燃焼点の組成でブランチ計算を行い、燃焼度の軸を持つテーブルにする（ADR-0187）。
 //! 制御棒のブランチと組めば、値ごとの形状の燃焼の領域で同じ組成を解き、制御棒の値はその値の燃焼点だけで解く（ADR-0225）。
 //! 入力に k の感度（`[sensitivity]`）があれば、1 つの状態の前向きと随伴の解から核種の数密度の k の感度を求め、TOML に書く（ADR-0247）。
 //!
@@ -167,7 +167,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
     let text = std::fs::read_to_string(path).with_context(|| shown(path))?;
     let input = LatticeInput::parse(&text).with_context(|| shown(path))?;
     let base = path.parent().unwrap_or(Path::new("."));
-    // 燃焼と分岐は点（状態）ごとにチェックポイントを書き、止めた後に同じコマンドで再開する。指紋は結果を決めるもの（実行
+    // 燃焼とブランチ計算は点（状態）ごとにチェックポイントを書き、止めた後に同じコマンドで再開する。指紋は結果を決めるもの（実行
     // ファイル、入力、読むファイル、スレッドの数）で、違えば古い途中の結果から続けずに止まる（ADR-0196）
     let mut fingerprint =
         if input.depletion.is_some() || input.branches.is_some() || input.history.is_some() {
@@ -214,7 +214,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
                 .with_context(|| format!("{}: symmetry", shown(path)))?;
             Ok((tracking, chosen))
         };
-    // 断面積の出どころは一度だけ読む。巨視的断面積は分岐を持たない（入力の読み込みで確かめてある）
+    // 断面積の出どころは一度だけ読む。巨視的断面積はブランチを持たない（入力の読み込みで確かめてある）
     enum Source {
         Library(Library),
         Macroscopic(Vec<(String, Material)>),
@@ -393,7 +393,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
             Some(r) => &rod_geometries[r],
         }
     };
-    // 燃焼の履歴の燃焼点からの分岐（ADR-0187）: 解く状態、値ごとの燃焼の領域の物質の名前、燃焼度の軸を足した軸
+    // 燃焼の履歴の燃焼点からのブランチ計算（ADR-0187）: 解く状態、値ごとの燃焼の領域の物質の名前、燃焼度の軸を足した軸
     let history_branches = match (&input.history, &source) {
         (Some(history), Source::Library(library)) => {
             let file = base.join(&history.file);
@@ -447,7 +447,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
             None => &geometry_of(rod).region_materials,
         }
     };
-    // 平板の物質の媒質（ADR-0128）。ライブラリの群境界と分岐の軸に合うことを解く前に確かめる
+    // 平板の物質の媒質（ADR-0128）。ライブラリの群境界とブランチの軸に合うことを解く前に確かめる
     let media = input
         .media
         .iter()
@@ -476,8 +476,8 @@ fn run(path: &Path) -> anyhow::Result<()> {
     // ブランチ計算の状態ごとに格子計算を解き、出力ごとの少数群定数を状態の順に集める（ADR-0097）
     let plain = input.branch_states();
     let count = history_branches.as_ref().map_or(plain.len(), |h| h.len());
-    // 値ごとの解く状態（軸の直積の順の番号）: 部分格子の状態と、ブランチ条件を解く燃焼点（ADR-0200）。履歴からの分岐の制御棒の
-    // 値は、その値の燃焼点（ADR-0225）。履歴のない分岐は、どの値も同じ状態
+    // 値ごとの解く状態（軸の直積の順の番号）: 部分格子の状態と、ブランチ条件を解く燃焼点（ADR-0200）。履歴からのブランチ計算の制御棒の
+    // 値は、その値の燃焼点（ADR-0225）。履歴のないブランチ計算は、どの値も同じ状態
     let present_states: Vec<Vec<usize>> = (0..rods)
         .map(|rod| {
             (0..count)
@@ -519,7 +519,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
     let mut shielder: Option<(usize, BranchShielder)> = None;
     let mut finished_shieldings = 0;
     // 数密度の微分（ADR-0221）の摂動の組成を解き直すとき（`derivative-shielding = "solved"` と一般化摂動。ADR-0249）は、微分の
-    // 核種ごとの自己遮蔽で、公称の組成と同じ解き方で自己遮蔽する（参照は摂動の参照の組成で解いたもの）。基準条件の自己遮蔽と
+    // 核種ごとの自己遮蔽で、基準の組成と同じ解き方で自己遮蔽する（参照は摂動の参照の組成で解いたもの）。基準条件の自己遮蔽と
     // 参照を混ぜないよう、核種ごとに別に持つ。制御棒の値の自己遮蔽と同じく、今の値の形状のものだけを持つ。既定の、状態の自己遮蔽の
     // まま作り直す摂動は持たない
     let derivatives = history_branches
@@ -530,7 +530,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
     let mut finished_derivative_shieldings = 0;
     let mut finished_ratios = 0;
     // 比で求める参照（ADR-0250）の基準。摂動の組成を解き直す微分（摂動の参照の組成は比の基準と組まない）と、自己遮蔽の組成で燃焼の
-    // 領域を作り直す分岐（参照の番号がブランチ計算の状態に続く）は、比で求めない
+    // 領域を作り直すブランチ計算（参照の番号がブランチ計算の状態に続く）は、比で求めない
     let anchors = input.branches.as_ref().and_then(|b| b.anchors());
     if anchors.is_some()
         && history_branches
@@ -547,7 +547,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
     // 自己遮蔽で共有する（燃料の数密度だけを変える摂動は、状態の Dancoff 係数を持ち越す。ADR-0194）。Dancoff 係数は呼び出し側
     // （状態と微分の核種）の数だけ、最後に使った違う入力の結果を持つ（燃料でない燃焼の領域の数密度を変える摂動も、それぞれ 1 つ持つ）
     let mut reuse: Option<(usize, ShieldingReuse)> = None;
-    // 比の基準（ADR-0250）の物質（燃焼度の点、参照の番号）。履歴からの分岐は燃焼度の点ごと
+    // 比の基準（ADR-0250）の物質（燃焼度の点、参照の番号）。履歴からのブランチ計算は燃焼度の点ごと
     let anchor_materials = |point: usize, r: usize| -> Vec<MaterialInput> {
         match (&history_branches, &input.branches) {
             (Some(h), _) => h.reference_state(point, r),
@@ -633,13 +633,13 @@ fn run(path: &Path) -> anyhow::Result<()> {
         });
         // 状態と、その参照と摂動の組成の自己遮蔽は、自己遮蔽を持つ燃焼度の点のもの（自由ガスの核の表が格子点を捨てる単位。
         // ADR-0248）。shielding-burnup の間の点は自己遮蔽を解かないので、その前の自己遮蔽の点に数え、表を捨てない。
-        // 履歴からの分岐でないブランチ計算の状態は、すべて 1 つの組成の点
+        // 履歴からのブランチ計算でないブランチ計算の状態は、すべて 1 つの組成の点
         reuse.at_point(
             history_branches
                 .as_ref()
                 .map_or(0, |h| h.shielding_point_of(state)),
         );
-        // 履歴からの分岐の物質は状態ごとに作る（ADR-0187）
+        // 履歴からのブランチ計算の物質は状態ごとに作る（ADR-0187）
         let built;
         let state_materials: &[MaterialInput] = match &history_branches {
             Some(h) => {
@@ -650,10 +650,10 @@ fn run(path: &Path) -> anyhow::Result<()> {
         };
         let state_start = Instant::now();
         let context = || format!("{}: state {solved} ({})", shown(path), values(rod, state));
-        // 自己遮蔽した状態の物質と、履歴からの分岐の微視的断面積（ADR-0216）に使う燃料の自己遮蔽
+        // 自己遮蔽した状態の物質と、履歴からのブランチ計算の微視的断面積（ADR-0216）に使う燃料の自己遮蔽
         let held = match &source {
             Source::Library(library) if input.self_shielding => {
-                // 参照（ホウ素が基準条件）の番号と、その物質の作り方。履歴からの分岐は燃焼度の点ごとに参照を持つ
+                // 参照（ホウ素が基準条件）の番号と、その物質の作り方。履歴からのブランチ計算は燃焼度の点ごとに参照を持つ
                 let (reference, nominal): (_, Box<dyn FnOnce() -> Vec<MaterialInput>>) =
                     match (&history_branches, &input.branches) {
                         (Some(h), _) => {
@@ -903,7 +903,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
                             .with_context(context)?,
                         );
                     }
-                    // 履歴からの分岐の κΣf（ADR-0190）。`[history]` は自己遮蔽と分けないテーブルを求める（入力の検査）
+                    // 履歴からのブランチ計算の κΣf（ADR-0190）。`[history]` は自己遮蔽と分けないテーブルを求める（入力の検査）
                     if let Some(h) = &history_branches {
                         let (Source::Library(library), Some(fuel)) = (&source, fuel) else {
                             return Err(anyhow!(
@@ -1002,7 +1002,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
         } else {
             None
         };
-        // ピン出力は分岐のないときだけ（入力の読み込みで確かめてある）
+        // ピン出力はブランチ計算のないときだけ（入力の読み込みで確かめてある）
         if let Some(file) = &input.pin_powers {
             let rates = cell_fission_rates(&solution, &geometry.lattice, &materials)?;
             let file = base.join(file);
@@ -1456,7 +1456,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(|e| anyhow!("{}: {e}", shown(path)))?;
         }
-        // 履歴からの分岐は格子全体の 1 つのテーブル（入力の検査）で、初めの重金属の質量を持つ（ADR-0190）
+        // 履歴からのブランチ計算は格子全体の 1 つのテーブル（入力の検査）で、初めの重金属の質量を持つ（ADR-0190）
         if let Some(h) = &history_branches {
             for table in &mut tables {
                 table.heavy_metal = Some(h.heavy_metal);

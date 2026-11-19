@@ -2,8 +2,8 @@
 //!
 //! フィールド名付きの map 形式の MessagePack: `format` ("xlc-lattice-checkpoint"), `fingerprint`（`Fingerprint`）と、燃焼なら
 //! `depletion: {history（`xlc-depletion-history` のバイト列）, next（次の点の組成 [燃焼の領域][チェーンの核種]）, start（直前の
-//! 輸送の MOC の収束した解。ADR-0195）}`、分岐なら `states: {states: [{k, outputs（[出力][部分ノード] の `xlc-table` の状態 1 つの
-//! バイト列）, medium（細かい群の媒質か nil）, micro, kinetics, cooling（履歴からの分岐の微視的断面積、動特性のデータ、冷却計算の
+//! 輸送の MOC の収束した解。ADR-0195）}`、ブランチ計算なら `states: {states: [{k, outputs（[出力][部分ノード] の `xlc-table` の状態 1 つの
+//! バイト列）, medium（細かい群の媒質か nil）, micro, kinetics, cooling（履歴からのブランチ計算の微視的断面積、動特性のデータ、冷却計算の
 //! 断面積か nil）}], starts: {state（解いた状態の数）, solutions（MOC の解。同じ解は 1 つ）, slots（[軸] の解の番号か nil）}}`。
 
 use std::fs::File;
@@ -53,7 +53,7 @@ pub fn digest(bytes: &[u8]) -> Vec<u8> {
     Sha256::digest(bytes).to_vec()
 }
 
-/// 分岐の 1 つの状態の結果
+/// ブランチ計算の 1 つの状態の結果
 #[derive(Debug, Clone, PartialEq)]
 pub struct SavedState {
     pub k: f64,
@@ -61,11 +61,11 @@ pub struct SavedState {
     pub outputs: Vec<Vec<FewGroup>>,
     /// 細かい群の媒質の出力（ADR-0128）があるときの媒質
     pub medium: Option<MediumState>,
-    /// 履歴からの分岐でミクロ燃焼の核種を追うときの、核種ごとの微視的断面積（ADR-0216）
+    /// 履歴からのブランチ計算でミクロ燃焼の核種を追うときの、核種ごとの微視的断面積（ADR-0216）
     pub micro: Option<Vec<MicroNuclide>>,
-    /// 履歴からの分岐の動特性のデータ（ADR-0238）
+    /// 履歴からのブランチ計算の動特性のデータ（ADR-0238）
     pub kinetics: Option<KineticsState>,
-    /// 履歴からの分岐の基準条件の、冷却計算の核種ごとの 1 群の微視的断面積（ADR-0238）
+    /// 履歴からのブランチ計算の基準条件の、冷却計算の核種ごとの 1 群の微視的断面積（ADR-0238）
     pub cooling: Option<Vec<CoolingNuclide>>,
 }
 
@@ -101,7 +101,7 @@ struct StatesFile {
     starts: StartsFile,
 }
 
-/// 分岐の MOC の反復を始める解（`branches::Starts`）
+/// ブランチ計算の MOC の反復を始める解（`branches::Starts`）
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct StartsFile {
@@ -112,7 +112,7 @@ struct StartsFile {
     slots: Vec<Option<usize>>,
 }
 
-/// 書く分岐のチェックポイント（解は大きいので複製せず、参照のまま書く）
+/// 書くブランチ計算のチェックポイント（解は大きいので複製せず、参照のまま書く）
 #[derive(Serialize)]
 struct StatesFileOut<'a, T> {
     format: &'static str,
@@ -282,7 +282,7 @@ impl Checkpoint {
         })
     }
 
-    /// 分岐の解き終えた状態（解く状態の順）と、次に解く状態の MOC の反復を始める解（`counts` は [軸] の格子点の数、`present` は
+    /// ブランチ計算の解き終えた状態（解く状態の順）と、次に解く状態の MOC の反復を始める解（`counts` は [軸] の格子点の数、`present` は
     /// 解く状態の、軸の直積の順の番号）。なければ空と最初の状態から
     pub fn states<T: DeserializeOwned>(
         &self,
@@ -340,7 +340,7 @@ impl Checkpoint {
         Ok((states, starts))
     }
 
-    /// 分岐の解き終えた状態 `states`（状態 0 から）と、次に解く状態の MOC の反復を始める解 `starts` を書く
+    /// ブランチ計算の解き終えた状態 `states`（状態 0 から）と、次に解く状態の MOC の反復を始める解 `starts` を書く
     pub fn save_states<T: Serialize>(
         &self,
         states: &[SavedState],

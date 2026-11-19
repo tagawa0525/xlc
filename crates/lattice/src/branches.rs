@@ -1,4 +1,4 @@
-//! 格子計算の分岐（ADR-0097、ADR-0200）。入力の `[branches]` の軸（ホウ素濃度、減速材の温度と密度、燃料の温度）から、
+//! 格子計算のブランチ計算（ADR-0097、ADR-0200）。入力の `[branches]` の軸（ホウ素濃度、減速材の温度と密度、燃料の温度）から、
 //! 軸の直積の順（最初の軸がいちばん遅く変わる）の物質の組を作り、そのうち解く状態を部分格子（`subgrids`）で選ぶ。
 //!
 //! ```toml
@@ -20,7 +20,7 @@
 //! 推測しない。同じ物質を2つの温度の軸に挙げられない。
 //!
 //! 基準条件は入力の物質の状態（燃焼の履歴の条件）で、軸ごとに、入力の物質をそのまま残す格子点（点が 1 つの軸はその点）。
-//! 解く状態は、公称と違う軸の組が `subgrids` の組のどれかの部分集合になる状態（基準条件、1 軸ずつの分岐、組の部分格子）。
+//! 解く状態は、基準条件と違う軸の組が `subgrids` の組のどれかの部分集合になる状態（基準条件、1 軸ずつのブランチ、組の部分格子）。
 //! 組のどれかが、点が 2 つ以上の軸をすべて持てば直積で、基準条件は要らない。そうでなければ、入力の物質がどの軸でも格子点に
 //! あること。
 //!
@@ -68,17 +68,17 @@ pub struct Water {
 pub enum BranchShielding {
     /// 状態ごとに、その状態の物質で解き直す
     EveryState,
-    /// 減速材と燃料の温度の格子点ごとに（履歴からの分岐は燃焼度の点ごとにも）、ホウ素を公称（入力の物質）にした参照の状態で
+    /// 減速材と燃料の温度の格子点ごとに（履歴からのブランチ計算は燃焼度の点ごとにも）、ホウ素を基準値（入力の物質）にした参照の状態で
     /// 1 度だけ解く。状態の物質は、参照の自己遮蔽の物質のうち、ホウ素の軸が変える物質だけを状態の組成で作り直す（[`BranchShielder`]）
     NominalBoron,
-    /// `NominalBoron` の参照のうち、減速材が公称のもの（燃料の温度の点ごと。ADR-0250 の (F1)）だけを今の UFG で解き、ほかの参照は
+    /// `NominalBoron` の参照のうち、減速材が基準値のもの（燃料の温度の点ごと。ADR-0250 の (F1)）だけを今の UFG で解き、ほかの参照は
     /// 同じ燃料の温度の基準から比で求める（[`crate::shielding::shield_fuel_ratio`]）
     ModeratorRatio(RatioOptions),
-    /// `NominalBoron` の参照のうち、減速材と燃料の温度が公称のもの 1 つ（ADR-0250 の (F2)）だけを今の UFG で解き、ほかの参照は比で求める
+    /// `NominalBoron` の参照のうち、減速材と燃料の温度が基準値のもの 1 つ（ADR-0250 の (F2)）だけを今の UFG で解き、ほかの参照は比で求める
     ModeratorFuelRatio(RatioOptions),
 }
 
-/// 分岐の軸と、軸の直積の順の物質の組。
+/// ブランチの軸と、軸の直積の順の物質の組。
 #[derive(Debug, Clone, PartialEq)]
 pub struct Branches {
     axes: Vec<Axis>,
@@ -90,7 +90,7 @@ pub struct Branches {
     varied: Vec<String>,
     /// 比で求める解き方の、[参照] の基準の参照の番号と、比が決めない量の作り方（[`Branches::anchors`]）
     anchors: Option<(Vec<usize>, RatioOptions)>,
-    /// [軸] の公称の格子点（入力の物質が格子点にない軸があれば `None`）
+    /// [軸] の基準の格子点（入力の物質が格子点にない軸があれば `None`）
     nominal: Option<Vec<usize>>,
     /// [状態（軸の直積の順）] を解くか
     solved: Vec<bool>,
@@ -169,7 +169,7 @@ impl Branches {
         &self.varied
     }
 
-    /// [軸] の公称の格子点（入力の物質の状態）
+    /// [軸] の基準の格子点（入力の物質の状態）
     pub fn nominal(&self) -> Option<&[usize]> {
         self.nominal.as_deref()
     }
@@ -575,7 +575,7 @@ enum Change {
 impl BranchesEntry {
     /// 軸を確かめ、軸の直積の順の物質の組（核種かホウ酸水で書いた物質）と、基準条件と、解く状態を作る。`waters` はホウ酸水で
     /// 書いた物質の量、`mixtures` と `media` は軸に挙げる規則を確かめるだけ（ADR-0128）。
-    /// `history` は燃焼の履歴からの分岐か（`subgrids` の既定を決める。ADR-0200）
+    /// `history` は燃焼の履歴からのブランチ計算か（`subgrids` の既定を決める。ADR-0200）
     pub(crate) fn build(
         self,
         materials: &[MaterialInput],
@@ -767,7 +767,7 @@ impl BranchesEntry {
             .enumerate()
             .filter(|&(_, &c)| c > 1)
             .fold(0, |mask, (k, _)| mask | (1 << k));
-        // 点が 2 つ以上の軸は、どれかの組が持つ（持たなければ、その軸の分岐を解かず、core が公称の値を黙って使う）
+        // 点が 2 つ以上の軸は、どれかの組が持つ（持たなければ、その軸のブランチ計算を行わず、core が基準値を黙って使う）
         let covered = subgrids.iter().fold(0, |mask, &s| mask | s);
         if let Some(axis) = (0..counts.len()).find(|&k| varying & !covered & (1 << k) != 0) {
             return Err(format!(
@@ -846,7 +846,7 @@ impl BranchesEntry {
                 );
             }
         };
-        // 比の基準は減速材（(F2) は燃料の温度も）が公称の参照なので、入力の物質がその軸の格子点にあること
+        // 比の基準は減速材（(F2) は燃料の温度も）が基準値の参照なので、入力の物質がその軸の格子点にあること
         let needed: &[usize] = match shielding {
             BranchShielding::ModeratorRatio(_) => &[1],
             BranchShielding::ModeratorFuelRatio(_) => &[1, 2],
@@ -892,7 +892,7 @@ impl BranchesEntry {
 }
 
 /// ブランチ計算の状態を順に自己遮蔽する（ADR-0201）。参照の指定のない状態は、その状態の物質で解く。参照のある状態は、参照の状態（ホウ素が
-/// 公称）で 1 度解いた自己遮蔽を持ち、ホウ素の軸が変える物質だけを状態の組成で作り直す。参照は今の燃焼度の点のものだけを持つ
+/// 基準値）で 1 度解いた自己遮蔽を持ち、ホウ素の軸が変える物質だけを状態の組成で作り直す。参照は今の燃焼度の点のものだけを持つ
 /// （状態は燃焼度の点の順に渡す）。燃料の組成によらない前処理（Dancoff 係数）は、呼び出し側の `ShieldingReuse` で持ち越す（同じ
 /// トラッキングのほかの `BranchShielder`、たとえば数密度の微分の摂動の組成のものと共有できる）
 pub struct BranchShielder<'a> {
@@ -1041,7 +1041,7 @@ impl<'a> BranchShielder<'a> {
                 shielded
             }
         };
-        // 作り直しの前提（自己遮蔽の物質が、領域の実効断面積と組成から作った群定数に SPH 因子を掛けたもの）を、公称の組成で
+        // 作り直しの前提（自己遮蔽の物質が、領域の実効断面積と組成から作った群定数に SPH 因子を掛けたもの）を、基準の組成で
         // 作り直した物質が自己遮蔽の物質とビットで同じことで確かめる。崩れれば、状態の物質が自己遮蔽の作り方と食い違う
         let rebuilt = remix_varied(
             library,
@@ -1069,7 +1069,7 @@ impl<'a> BranchShielder<'a> {
 
     /// 物質 `state` の状態の自己遮蔽。`reference` は参照から作るときの燃焼度の点と参照の番号で、その参照の物質はまだ解いていなければ
     /// `nominal` で作る。参照から作った状態は参照の自己遮蔽を持ち（作り直すのはホウ素の軸の物質だけで、燃料の実効断面積は参照と同じ）、
-    /// 公称と違う状態は作り直した物質の一覧を添える。燃料の組成によらない前処理は `reuse`（この自己遮蔽と同じトラッキングのもの）から
+    /// 基準条件と違う状態は作り直した物質の一覧を添える。燃料の組成によらない前処理は `reuse`（この自己遮蔽と同じトラッキングのもの）から
     /// 持ち越し、`reuse` に残す
     pub fn shield_state(
         &mut self,
@@ -1148,7 +1148,7 @@ impl<'a> BranchShielder<'a> {
     }
 }
 
-/// 分岐の 1 つの状態の自己遮蔽（`BranchShielder::shield_state`）: 燃料の自己遮蔽と、ホウ素の軸の物質を作り直したときの物質の一覧
+/// ブランチ計算の 1 つの状態の自己遮蔽（`BranchShielder::shield_state`）: 燃料の自己遮蔽と、ホウ素の軸の物質を作り直したときの物質の一覧
 #[derive(Debug)]
 pub struct StateShielding<'a> {
     fuel: Fuel<'a>,
@@ -1279,7 +1279,7 @@ impl std::ops::Deref for Fuel<'_> {
 /// 物質 `state` の組成で作り直す（ADR-0201）。`region_materials` は [領域] の物質の名前で、`nominal` と `state` は同じ名前を同じ順に
 /// 持ち、作り直す物質の温度は同じであること（実効断面積はその温度の値）。返すのは、作り直した `reference.materials` の番号と物質。
 /// 自己遮蔽した物質は、自己遮蔽と同じく、核種の実効断面積から作った群定数を数密度で混ぜて SPH 因子を掛け、自己遮蔽しなかった物質は
-/// `Material::mix`（無限希釈）で作る。公称の組成にない核種（基準ホウ素濃度が 0 の B-10 など）は無限希釈の値
+/// `Material::mix`（無限希釈）で作る。基準の組成にない核種（基準ホウ素濃度が 0 の B-10 など）は無限希釈の値
 pub(crate) fn remix_varied(
     library: &Library,
     reference: &FuelShielding,
@@ -1392,7 +1392,7 @@ pub(crate) fn remix_varied(
                             library.shielded(nuclide, after.temperature, &vec![infinite; ng])?
                         }
                     };
-                    // 公称の組成にない核種は無限希釈で、UFG の範囲の移行も持たない
+                    // 基準の組成にない核種は無限希釈で、UFG の範囲の移行も持たない
                     let transfer = index.and_then(|i| transfers.map(|t| &t[i]));
                     Ok((
                         shielded_nuclide_with(

@@ -709,7 +709,7 @@ fn mixed_micro_cross_sections_take_the_weights_of_the_mixed_constants() {
     let thermal = (0.95 * rates[0] + 0.8 * rates[1]) / (rates[0] + rates[1]);
     assert!((u235.thermal_fission.unwrap() - thermal).abs() < 1.0e-14);
     assert_eq!(mixed_micro.nuclides[1].thermal_fission, None);
-    // 公称の数密度は区間によらない（同じ層のテーブルの、同じ燃焼度の値）
+    // ベース計算の数密度は区間によらない（同じ層のテーブルの、同じ燃焼度の値）
     assert_eq!(mixed_micro.densities, micro[0].densities);
 }
 
@@ -725,7 +725,7 @@ fn mixing_micro_cross_sections_needs_matching_segments() {
     let mut short = segment_micro(true);
     short.nuclides[1].fission.pop();
     assert!(mix_micro(&[segment_micro(false), short], &even, &flux).is_err());
-    // 公称の数密度の違う区間（同じ層のテーブルの同じ燃焼度なら同じはず）
+    // ベース計算の数密度の違う区間（同じ層のテーブルの同じ燃焼度なら同じはず）
     let mut other = segment_micro(true);
     other.densities[0] *= 1.1;
     assert!(mix_micro(&[segment_micro(false), other], &even, &flux).is_err());

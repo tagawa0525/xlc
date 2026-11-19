@@ -205,7 +205,7 @@ fn invalid_media_and_mixtures_are_errors() {
 
 #[test]
 fn branches_list_mixtures_with_their_components() {
-    // 分岐の軸は、変える成分を持つ混ぜた物質を挙げ、媒質は燃料の温度の軸に挙げる（媒質の状態を選ぶ。ADR-0128）
+    // ブランチの軸は、変える成分を持つ混ぜた物質を挙げ、媒質は燃料の温度の軸に挙げる（媒質の状態を選ぶ。ADR-0128）
     let branches = "\n[branches]\n\
             boron = { ppm = [1300], materials = [\"water\", \"plate\"] }\n\
             moderator = { temperature = [600], density = [0.743], materials = [\"water\", \"ss304\", \"plate\"] }\n\
@@ -1806,7 +1806,7 @@ fn depleted_material_names_leave_room_for_the_region_names() {
     assert!(LatticeInput::parse(&text).is_err());
 }
 
-/// 燃焼の履歴の燃焼点からの分岐（ADR-0187）のピンセル: 減速材をホウ酸水で書き、3 つの軸の分岐と `[history]` を足す
+/// 燃焼の履歴の燃焼点からのブランチ計算（ADR-0187）のピンセル: 減速材をホウ酸水で書き、3 つの軸のブランチと `[history]` を足す
 fn history_branches(history: &str) -> String {
     let water = PIN_CELL.replace(
         "nuclides = { H-1 = 4.9e-2, O-16 = 2.5e-2 }",
@@ -1863,7 +1863,7 @@ fn history_burnup_points_are_nonnegative_and_increase() {
 fn history_branches_need_branches_shielding_and_a_lattice_table() {
     let ok = history_branches(HISTORY);
     assert!(LatticeInput::parse(&ok).is_ok());
-    // 分岐の軸がない（core は 3 つの軸を求める）
+    // ブランチの軸がない（core は 3 つの軸を求める）
     let start = ok.find("[branches]").unwrap();
     let end = ok.find("[history]").unwrap();
     let unbranched = format!("{}{}", &ok[..start], &ok[end..]);
@@ -2116,7 +2116,7 @@ fn history_shielding_burnup_points_are_increasing_points_of_burnup_from_its_firs
 
 #[test]
 fn branches_shield_at_the_nominal_boron_unless_told_to_shield_every_state() {
-    // ブランチ計算の自己遮蔽（ADR-0201）。書かなければ、ホウ素だけを変えた状態は基準ホウ素濃度の自己遮蔽を使う。履歴のない分岐も同じ
+    // ブランチ計算の自己遮蔽（ADR-0201）。書かなければ、ホウ素だけを変えた状態は基準ホウ素濃度の自己遮蔽を使う。履歴のないブランチ計算も同じ
     let with = |value: &str| {
         history_branches(HISTORY).replace(
             "[history]\n",
@@ -2174,7 +2174,7 @@ fn three_axes(history: &str) -> String {
 
 #[test]
 fn history_branches_default_to_all_pair_subgrids() {
-    // 燃焼度の軸を持つブランチのテーブルの既定は、2 軸の組すべての部分格子（ADR-0200）。2 × 2 × 2 で 3 つの軸がどれも公称でない
+    // 燃焼度の軸を持つブランチのテーブルの既定は、2 軸の組すべての部分格子（ADR-0200）。2 × 2 × 2 で 3 つの軸がどれも基準値でない
     // 状態だけを解かない
     let input = LatticeInput::parse(&three_axes(HISTORY)).unwrap();
     let branches = input.branches.as_ref().unwrap();

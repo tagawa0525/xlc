@@ -2666,7 +2666,7 @@ pub(crate) mod lattice {
 
     #[test]
     fn branch_remixing_keeps_the_ring_flux_transfers_by_nuclide_name() {
-        // 分岐の作り直し（ADR-0201）は、核種の名前で公称の組成の移行の行を引く。公称の組成なら自己遮蔽の物質とビットで同じで、
+        // ブランチ計算の作り直し（ADR-0201）は、核種の名前で基準の組成の移行の行を引く。基準の組成なら自己遮蔽の物質とビットで同じで、
         // 核種の順を入れ替えた組成でも、同じ核種の移行の行で作る
         let library = resonant_library();
         let options = ShieldingOptions {

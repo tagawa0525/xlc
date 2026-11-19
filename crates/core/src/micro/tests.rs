@@ -341,7 +341,7 @@ fn constants() -> FewGroup {
 fn corrections_add_the_tracked_density_differences_to_the_reaction_items() {
     let nominal = vec![7.0e-4, 1.0e-5, 1.0e-6, 1.0e-9, 1.0e-8];
     let at = micro_at(nominal.clone());
-    // 公称の数密度なら、補正は 0 で定数はそのまま
+    // ベース計算の数密度なら、補正は 0 で定数はそのまま
     let mut f = constants();
     correct(&mut f, &at, &nominal);
     assert_eq!(f, constants());
