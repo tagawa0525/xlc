@@ -1,7 +1,7 @@
 ---
 type: ADR
-status: proposed
-date: 2026-11-19
+status: accepted
+date: 2026-11-20
 requires: [ADR-0122, ADR-0124, ADR-0126, ADR-0130, ADR-0159, ADR-0184, ADR-0193, ADR-0210, ADR-0212, ADR-0222, ADR-0223, ADR-0254, ADR-0255, ADR-0257]
 supersedes: []
 superseded-by:
