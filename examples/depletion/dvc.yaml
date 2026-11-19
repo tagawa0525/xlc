@@ -103,6 +103,21 @@ stages:
           cache: false
       - read-survey.txt:
           cache: false
+  compare-depletion-versions:
+    # 4 つの版の核データで解いたピンセルの燃焼（endfb70、endfb71、endfb80、endfb81 の dvc.yaml の lattice-1C）を、VII.1 を基準に
+    # 比べた要約（ADR-0264 の「確認」、#0303。記録の表は verification_tables.py がここから描く。ADR-0176）
+    cmd: python3 compare_depletion_versions.py --json compare-depletion-versions.json --base VII.1 VII.0=endfb70/lattice-1C-60.msgpack VII.1=endfb71/lattice-1C-60.msgpack VIII.0=endfb80/lattice-1C-60.msgpack VIII.1=endfb81/lattice-1C-60.msgpack > compare-depletion-versions.txt
+    deps:
+      - ../../python-ast/examples/depletion/compare_depletion_versions.py.ast
+      - endfb70/lattice-1C-60.msgpack
+      - endfb71/lattice-1C-60.msgpack
+      - endfb80/lattice-1C-60.msgpack
+      - endfb81/lattice-1C-60.msgpack
+    outs:
+      - compare-depletion-versions.json:
+          cache: false
+      - compare-depletion-versions.txt:
+          cache: false
   openmc-chain:
     cmd: nix develop ../..#references -c python3 openmc_chain.py ../../references/endf openmc-chain.xml
     deps:

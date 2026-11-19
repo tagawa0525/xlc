@@ -1,8 +1,19 @@
 # 版ごとのピンセルの燃焼の比較（#0303、ADR-0264 の「確認」）の ENDF/B-VIII.0 のステージ。多群ライブラリと燃焼チェーンは本番の版の
-# ../dvc.yaml の xs と chain の出力（../depletion.msgpack、../chain.msgpack）。ほかの版の endfb70/dvc.yaml などと同じく、ピンセルの燃焼
-# lattice-1C-60.toml を解く。
+# ../dvc.yaml の xs と chain の出力（../depletion.msgpack、../chain.msgpack）。ほかの版の endfb70/dvc.yaml などと同じく、チェーンと
+# ライブラリが天然の元素の評価を当てる核種で揃っていることを確かめてから（ADR-0262）、ピンセルの燃焼 lattice-1C-60.toml を解く。
 # 実行するのは default の devShell の `dvc repro`（ADR-0159）
 stages:
+  natural-isotopes:
+    cmd: python3 ../check_natural_isotopes.py ../chain.toml ../chain.msgpack ../xs.toml > natural-isotopes.txt
+    deps:
+      - ../../../python-ast/examples/depletion/check_natural_isotopes.py.ast
+      - ../../../toml-values/examples/depletion/chain.toml.json
+      - ../../../toml-values/examples/depletion/xs.toml.json
+      - ../chain.msgpack
+      - ../../../references/endf/ENDF-B-VIII.0_neutrons
+    outs:
+      - natural-isotopes.txt:
+          cache: false
   lattice-1C:
     # 燃焼点ごとの k∞ は標準出力に出るので、ファイルに受ける。燃焼の時間の内訳はログ（標準エラー）
     cmd: ../../../bin/lattice lattice-1C-60.toml > lattice-1C-60.out 2> lattice-1C-60.log
@@ -10,6 +21,7 @@ stages:
       - ../../../toml-values/examples/depletion/endfb80/lattice-1C-60.toml.json
       - ../depletion.msgpack
       - ../chain.msgpack
+      - natural-isotopes.txt
       - ../../../binary-forms/lattice.md5
     outs:
       - lattice-1C-60.out
