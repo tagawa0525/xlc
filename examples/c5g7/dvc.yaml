@@ -6,8 +6,8 @@ stages:
     # 結果の k∞ は標準出力に出るので、ファイルに受ける
     cmd: ../../bin/lattice c5g7.toml > lattice-coarse.out
     deps:
-      - c5g7.toml
-      - c5g7-xs.toml
+      - ../../toml-values/examples/c5g7/c5g7.toml.json
+      - ../../toml-values/examples/c5g7/c5g7-xs.toml.json
       - ../../bin/lattice
     outs:
       - pins.msgpack
@@ -16,8 +16,8 @@ stages:
     # 結果の k∞ は標準出力に出るので、ファイルに受ける
     cmd: ../../bin/lattice c5g7-fine.toml > lattice-fine.out
     deps:
-      - c5g7-fine.toml
-      - c5g7-xs.toml
+      - ../../toml-values/examples/c5g7/c5g7-fine.toml.json
+      - ../../toml-values/examples/c5g7/c5g7-xs.toml.json
       - ../../bin/lattice
     outs:
       - fine-pins.msgpack
@@ -31,8 +31,8 @@ stages:
       - ../../python-ast/examples/openmc_input.py.ast
       - ../../python-ast/examples/openmc_run.py.ast
       - ../vera/references-shell.txt
-      - openmc-c5g7.toml
-      - c5g7-xs.toml
+      - ../../toml-values/examples/c5g7/openmc-c5g7.toml.json
+      - ../../toml-values/examples/c5g7/c5g7-xs.toml.json
     outs:
       - openmc-model
   openmc:
@@ -55,7 +55,7 @@ stages:
       - ../../python-ast/examples/openmc_input.py.ast
       - ../../python-ast/examples/openmc_run.py.ast
       - ../vera/references-shell.txt
-      - openmc-c5g7.toml
+      - ../../toml-values/examples/c5g7/openmc-c5g7.toml.json
       - openmc
     outs:
       - openmc-results

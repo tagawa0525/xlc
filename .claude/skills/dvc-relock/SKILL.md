@@ -68,19 +68,21 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。マー�
    並んだファイルが `.dvc` で追う生成物（ADR-0222）で、このブランチで作り直したものなら、`dvc add <ファイル>` で `.dvc` を
    付け直してコミットしてから 1 をやり直す。`--force` は作り直した版を失うので付けない。
 
-2. 実行ファイルと Python の正規形を作り直してから、deps の変わったステージを挙げる（rebase でリポジトリの直下の `dvc.lock`
-   か `python-ast/` が衝突したら、main の版を取って rebase を終え、ここで `build` と `python-ast` を実行して書き直す。手で行を
-   選んで混ぜない）:
+2. 実行ファイルと Python と TOML の正規形を作り直してから、deps の変わったステージを挙げる（rebase でリポジトリの直下の
+   `dvc.lock`、`python-ast/`、`toml-values/` が衝突したら、main の版を取って rebase を終え、ここで `build`、`python-ast`、
+   `toml-values` を実行して書き直す。手で行を選んで混ぜない）:
 
    ```bash
    nix develop -c dvc repro -s build
    nix develop -c dvc repro -s dvc.yaml:python-ast
+   nix develop -c dvc repro -s dvc.yaml:toml-values
    nix develop -c dvc status
    ```
 
    例のステージの deps の .py は、`python-ast`（リポジトリの直下の `dvc.yaml`。数秒）が書く正規形で（ADR-0210）、`build` と
    同じく、先に実行しないとコードの変わった .py の下流が changed に出ない。docstring とコメントだけの変更なら正規形は変わらず、
-   下流は changed にならない。`python-ast` を実行したら、リポジトリの直下の `dvc.lock` と `python-ast/` も 4 でコミットする
+   下流は changed にならない。`python-ast` を実行したら、リポジトリの直下の `dvc.lock` と `python-ast/` も 4 でコミットする。
+   入力の TOML も同じく `toml-values` が書く値の正規形が deps で（ADR-0254）、実行したら `toml-values/` も 4 でコミットする
 
    計算のステージの deps は `bin/` の実行ファイルで（ADR-0159）、1 の `dvc checkout` は `dvc.lock` が指す古い実行ファイルを
    戻す。先に `build`（リポジトリの直下の `dvc.yaml`。ビルドは数秒〜十数秒で、手元でよい）を実行しないと、ソースが変わった
@@ -107,7 +109,7 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。マー�
      `dvc repro` まで書き直されず、devShell が変わっても `dvc status` に出ないので、中身を `scripts/check-references-shell.sh` で
      確かめる（flake.nix、flake.lock、docs/patches/ を変えるコミットでは pre-commit の hook が同じものを実行するが、rebase で main の flake の変更と混ざった版は hook を
      通っていない）。食い違えば止め、出力の文言の修正方法に従う（ADR-0212 の (a)）
-   - `build` と `python-ast` は 2 で走らせ終えている
+   - `build`、`python-ast`、`toml-values` は 2 で走らせ終えている
 
    数秒で終わると分かっているステージだけ実行する。迷えば実行しない。実行するときは Slurm を通さず直接、ステージを指定する:
 
@@ -131,7 +133,7 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。マー�
 4. 実行したら、`dvc.lock` の差分だけをコミットする（出力の追跡ファイルが変わっていればそれも含める）:
 
    ```bash
-   git add examples/<問題>/dvc.lock dvc.lock python-ast   # dvc.lock と python-ast/ はリポジトリの直下の build と python-ast の分。git status で、dvc が書き換えたほかの追跡ファイル（.gitignore など）も足す。rebase の hook が付け替えた記録は足さない（5 で別のコミットにする）
+   git add examples/<問題>/dvc.lock dvc.lock python-ast toml-values   # dvc.lock、python-ast/、toml-values/ はリポジトリの直下の build、python-ast、toml-values の分。git status で、dvc が書き換えたほかの追跡ファイル（.gitignore など）も足す。rebase の hook が付け替えた記録は足さない（5 で別のコミットにする）
    git commit -F <メッセージのファイル>
    ```
 
@@ -154,13 +156,13 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。マー�
    （`git reflog` の `ORIG_HEAD` など）と今の HEAD を `git range-diff` で対応させ、中身を確かめてから渡す（全ファイルを
    書き換えるので、推測した対応を渡さない）。再測定はしない（記録の hash は再現のため）。再実行したステージの新しいコミットと分岐点の値は、rebase の対応表に載らないので、手で書く（書いた hash は `git rev-parse` で確かめる）。付け替えのコミットは `docs:` で分ける。
 
-6. 作り直した `dvc.lock` を確かめる（`build` か `python-ast` を実行したら、リポジトリの直下の `dvc.lock` も同じように）。`head -1 examples/<問題>/dvc.lock` が `schema: '2.0'` を出すこと（dvc は、この行の無い lock を
+6. 作り直した `dvc.lock` を確かめる（`build`、`python-ast`、`toml-values` のどれかを実行したら、リポジトリの直下の `dvc.lock` も同じように）。`head -1 examples/<問題>/dvc.lock` が `schema: '2.0'` を出すこと（dvc は、この行の無い lock を
    読めず、書くこともない。欠けたら、手で書き換えた箇所を探し、dvc が書いた版に戻す。戻したら、4 のコミットを `git commit --fixup` で直して `git rebase -i --autosquash` でまとめ、5 の付け替えのコミットは rebase のあとに積み直す）。続けて
    `nix develop -c scripts/check-dvc-lock.sh examples/<問題>/dvc.lock`（direnv で入っていれば `nix develop -c` は要らない）が終了コード 0 で終わること（dvc が lock を読めるかの検査は、このツールが
    唯一の定義。pre-commit の hook `dvc-lock` も同じツールを呼ぶ。issue #0090）。
 
-出力を作り直さず `dvc commit` で lock を付け直してよいのは、ADR-0212 の (b) の条件（重いステージで、変更の親で changed でなく、
-変わった deps が値の同じ TOML だけで、親の版のバイトが出力に入っていない）を満たすステージと、ADR が決めた移行だけである。実行ファイルと
+出力を作り直さず `dvc commit` で lock を付け直してよいのは、ADR が決めた移行だけである（値の同じ TOML の差は、ADR-0254 の
+正規形で deps に表れない）。実行ファイルと
 `references-shell.txt` の差では付け直さない。
 付け直したとき（deps の置き場や正規形を替えた ADR-0210 の移行など）は、deps の hash
 だけが変わったことを `nix develop -c scripts/compare-dvc-lock.py <付け直す前のコミット> HEAD` で確かめる（2 つのコミットの間で変わった

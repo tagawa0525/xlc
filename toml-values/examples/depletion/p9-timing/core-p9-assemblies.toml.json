@@ -1,0 +1,1359 @@
+{
+ "design": {
+  "21": {
+   "bounds": [
+    0.0,
+    50.0,
+    55.0,
+    61.053,
+    66.951,
+    70.817,
+    128.295,
+    132.105,
+    180.495,
+    184.305,
+    232.695,
+    236.505,
+    284.895,
+    288.705,
+    337.095,
+    340.905,
+    389.295,
+    393.105,
+    432.711,
+    448.711,
+    452.51,
+    461.337,
+    468.937,
+    518.937
+   ],
+   "layers": [
+    "../../vera/p5/hzp/axial-21/lower-water.msgpack",
+    "../../vera/p5/hzp/axial-21/lower-plate.msgpack",
+    "../../vera/p5/hzp/axial-21/bottom-nozzle.msgpack",
+    "../../vera/p5/hzp/axial-21/lower-gap-plug.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../../vera/p5/hzp/axial-21/plenum.msgpack",
+    "../../vera/p5/hzp/axial-21/upper-plug-gap.msgpack",
+    "../../vera/p5/hzp/axial-21/top-nozzle.msgpack",
+    "../../vera/p5/hzp/axial-21/upper-plate.msgpack",
+    "../../vera/p5/hzp/axial-21/upper-water.msgpack"
+   ]
+  },
+  "21-rcca": {
+   "bounds": [
+    0.0,
+    50.0,
+    55.0,
+    61.053,
+    66.951,
+    70.817,
+    128.295,
+    132.105,
+    180.495,
+    184.305,
+    232.695,
+    236.505,
+    284.895,
+    288.705,
+    337.095,
+    340.905,
+    389.295,
+    393.105,
+    432.711,
+    448.711,
+    452.51,
+    461.337,
+    468.937,
+    518.937
+   ],
+   "layers": [
+    "../../vera/p5/hzp/axial-21-rcca/lower-water.msgpack",
+    "../../vera/p5/hzp/axial-21-rcca/lower-plate.msgpack",
+    "../../vera/p5/hzp/axial-21-rcca/bottom-nozzle.msgpack",
+    "../../vera/p5/hzp/axial-21-rcca/lower-gap-plug.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../../vera/p5/hzp/axial-21-rcca/plenum.msgpack",
+    "../../vera/p5/hzp/axial-21-rcca/upper-plug-gap.msgpack",
+    "../../vera/p5/hzp/axial-21-rcca/top-nozzle.msgpack",
+    "../../vera/p5/hzp/axial-21-rcca/upper-plate.msgpack",
+    "../../vera/p5/hzp/axial-21-rcca/upper-water.msgpack"
+   ]
+  },
+  "26-p16": {
+   "bounds": [
+    0.0,
+    50.0,
+    55.0,
+    61.053,
+    66.951,
+    68.221,
+    70.817,
+    128.295,
+    132.105,
+    180.495,
+    184.305,
+    232.695,
+    236.505,
+    284.895,
+    288.705,
+    337.095,
+    340.905,
+    389.295,
+    393.105,
+    431.441,
+    432.711,
+    448.711,
+    452.51,
+    461.337,
+    468.937,
+    518.937
+   ],
+   "layers": [
+    "../../vera/p5/hzp/axial-26-p16/lower-water.msgpack",
+    "../../vera/p5/hzp/axial-26-p16/lower-plate.msgpack",
+    "../../vera/p5/hzp/axial-26-p16/bottom-nozzle.msgpack",
+    "../../vera/p5/hzp/axial-26-p16/lower-gap-plug.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../../vera/p5/hzp/axial-26-p16/plenum.msgpack",
+    "../../vera/p5/hzp/axial-26-p16/upper-plug-gap.msgpack",
+    "../../vera/p5/hzp/axial-26-p16/top-nozzle.msgpack",
+    "../../vera/p5/hzp/axial-26-p16/upper-plate.msgpack",
+    "../../vera/p5/hzp/axial-26-p16/upper-water.msgpack"
+   ]
+  },
+  "26-p20": {
+   "bounds": [
+    0.0,
+    50.0,
+    55.0,
+    61.053,
+    66.951,
+    68.221,
+    70.817,
+    128.295,
+    132.105,
+    180.495,
+    184.305,
+    232.695,
+    236.505,
+    284.895,
+    288.705,
+    337.095,
+    340.905,
+    389.295,
+    393.105,
+    431.441,
+    432.711,
+    448.711,
+    452.51,
+    461.337,
+    468.937,
+    518.937
+   ],
+   "layers": [
+    "../../vera/p5/hzp/axial-26-p20/lower-water.msgpack",
+    "../../vera/p5/hzp/axial-26-p20/lower-plate.msgpack",
+    "../../vera/p5/hzp/axial-26-p20/bottom-nozzle.msgpack",
+    "../../vera/p5/hzp/axial-26-p20/lower-gap-plug.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../../vera/p5/hzp/axial-26-p20/plenum.msgpack",
+    "../../vera/p5/hzp/axial-26-p20/upper-plug-gap.msgpack",
+    "../../vera/p5/hzp/axial-26-p20/top-nozzle.msgpack",
+    "../../vera/p5/hzp/axial-26-p20/upper-plate.msgpack",
+    "../../vera/p5/hzp/axial-26-p20/upper-water.msgpack"
+   ]
+  },
+  "26-p24": {
+   "bounds": [
+    0.0,
+    50.0,
+    55.0,
+    61.053,
+    66.951,
+    68.221,
+    70.817,
+    128.295,
+    132.105,
+    180.495,
+    184.305,
+    232.695,
+    236.505,
+    284.895,
+    288.705,
+    337.095,
+    340.905,
+    389.295,
+    393.105,
+    431.441,
+    432.711,
+    448.711,
+    452.51,
+    461.337,
+    468.937,
+    518.937
+   ],
+   "layers": [
+    "../../vera/p5/hzp/axial-26-p24/lower-water.msgpack",
+    "../../vera/p5/hzp/axial-26-p24/lower-plate.msgpack",
+    "../../vera/p5/hzp/axial-26-p24/bottom-nozzle.msgpack",
+    "../../vera/p5/hzp/axial-26-p24/lower-gap-plug.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../../vera/p5/hzp/axial-26-p24/plenum.msgpack",
+    "../../vera/p5/hzp/axial-26-p24/upper-plug-gap.msgpack",
+    "../../vera/p5/hzp/axial-26-p24/top-nozzle.msgpack",
+    "../../vera/p5/hzp/axial-26-p24/upper-plate.msgpack",
+    "../../vera/p5/hzp/axial-26-p24/upper-water.msgpack"
+   ]
+  },
+  "26-rcca": {
+   "bounds": [
+    0.0,
+    50.0,
+    55.0,
+    61.053,
+    66.951,
+    70.817,
+    128.295,
+    132.105,
+    180.495,
+    184.305,
+    232.695,
+    236.505,
+    284.895,
+    288.705,
+    337.095,
+    340.905,
+    389.295,
+    393.105,
+    432.711,
+    448.711,
+    452.51,
+    461.337,
+    468.937,
+    518.937
+   ],
+   "layers": [
+    "../../vera/p5/hzp/axial-26-rcca/lower-water.msgpack",
+    "../../vera/p5/hzp/axial-26-rcca/lower-plate.msgpack",
+    "../../vera/p5/hzp/axial-26-rcca/bottom-nozzle.msgpack",
+    "../../vera/p5/hzp/axial-26-rcca/lower-gap-plug.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../../vera/p5/hzp/axial-26-rcca/plenum.msgpack",
+    "../../vera/p5/hzp/axial-26-rcca/upper-plug-gap.msgpack",
+    "../../vera/p5/hzp/axial-26-rcca/top-nozzle.msgpack",
+    "../../vera/p5/hzp/axial-26-rcca/upper-plate.msgpack",
+    "../../vera/p5/hzp/axial-26-rcca/upper-water.msgpack"
+   ]
+  },
+  "31-I": {
+   "bounds": [
+    0.0,
+    50.0,
+    55.0,
+    61.053,
+    66.951,
+    70.817,
+    128.295,
+    132.105,
+    180.495,
+    184.305,
+    232.695,
+    236.505,
+    284.895,
+    288.705,
+    337.095,
+    340.905,
+    389.295,
+    393.105,
+    432.711,
+    448.711,
+    452.51,
+    461.337,
+    468.937,
+    518.937
+   ],
+   "layers": [
+    "../../vera/p5/hzp/axial-31/lower-water.msgpack",
+    "../../vera/p5/hzp/axial-31/lower-plate.msgpack",
+    "../../vera/p5/hzp/axial-31/bottom-nozzle.msgpack",
+    "../../vera/p5/hzp/axial-31/lower-gap-plug.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../../vera/p5/hzp/axial-31/plenum.msgpack",
+    "../../vera/p5/hzp/axial-31/upper-plug-gap.msgpack",
+    "../../vera/p5/hzp/axial-31/top-nozzle.msgpack",
+    "../../vera/p5/hzp/axial-31/upper-plate.msgpack",
+    "../../vera/p5/hzp/axial-31/upper-water.msgpack"
+   ]
+  },
+  "31-corner": {
+   "bounds": [
+    0.0,
+    50.0,
+    55.0,
+    61.053,
+    66.951,
+    70.817,
+    128.295,
+    132.105,
+    180.495,
+    184.305,
+    232.695,
+    236.505,
+    284.895,
+    288.705,
+    337.095,
+    340.905,
+    389.295,
+    393.105,
+    432.711,
+    448.711,
+    452.51,
+    461.337,
+    468.937,
+    518.937
+   ],
+   "layers": [
+    "../../vera/p5/hzp/axial-31/lower-water.msgpack",
+    "../../vera/p5/hzp/axial-31/lower-plate.msgpack",
+    "../../vera/p5/hzp/axial-31/bottom-nozzle.msgpack",
+    "../../vera/p5/hzp/axial-31/lower-gap-plug.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../../vera/p5/hzp/axial-31/plenum.msgpack",
+    "../../vera/p5/hzp/axial-31/upper-plug-gap.msgpack",
+    "../../vera/p5/hzp/axial-31/top-nozzle.msgpack",
+    "../../vera/p5/hzp/axial-31/upper-plate.msgpack",
+    "../../vera/p5/hzp/axial-31/upper-water.msgpack"
+   ]
+  },
+  "31-p12": {
+   "bounds": [
+    0.0,
+    50.0,
+    55.0,
+    61.053,
+    66.951,
+    68.221,
+    70.817,
+    128.295,
+    132.105,
+    180.495,
+    184.305,
+    232.695,
+    236.505,
+    284.895,
+    288.705,
+    337.095,
+    340.905,
+    389.295,
+    393.105,
+    431.441,
+    432.711,
+    448.711,
+    452.51,
+    461.337,
+    468.937,
+    518.937
+   ],
+   "layers": [
+    "../../vera/p5/hzp/axial-31-p12/lower-water.msgpack",
+    "../../vera/p5/hzp/axial-31-p12/lower-plate.msgpack",
+    "../../vera/p5/hzp/axial-31-p12/bottom-nozzle.msgpack",
+    "../../vera/p5/hzp/axial-31-p12/lower-gap-plug.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../../vera/p5/hzp/axial-31-p12/plenum.msgpack",
+    "../../vera/p5/hzp/axial-31-p12/upper-plug-gap.msgpack",
+    "../../vera/p5/hzp/axial-31-p12/top-nozzle.msgpack",
+    "../../vera/p5/hzp/axial-31-p12/upper-plate.msgpack",
+    "../../vera/p5/hzp/axial-31-p12/upper-water.msgpack"
+   ]
+  },
+  "31-p12-I": {
+   "bounds": [
+    0.0,
+    50.0,
+    55.0,
+    61.053,
+    66.951,
+    68.221,
+    70.817,
+    128.295,
+    132.105,
+    180.495,
+    184.305,
+    232.695,
+    236.505,
+    284.895,
+    288.705,
+    337.095,
+    340.905,
+    389.295,
+    393.105,
+    431.441,
+    432.711,
+    448.711,
+    452.51,
+    461.337,
+    468.937,
+    518.937
+   ],
+   "layers": [
+    "../../vera/p5/hzp/axial-31-p12/lower-water.msgpack",
+    "../../vera/p5/hzp/axial-31-p12/lower-plate.msgpack",
+    "../../vera/p5/hzp/axial-31-p12/bottom-nozzle.msgpack",
+    "../../vera/p5/hzp/axial-31-p12/lower-gap-plug.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../../vera/p5/hzp/axial-31-p12/plenum.msgpack",
+    "../../vera/p5/hzp/axial-31-p12/upper-plug-gap.msgpack",
+    "../../vera/p5/hzp/axial-31-p12/top-nozzle.msgpack",
+    "../../vera/p5/hzp/axial-31-p12/upper-plate.msgpack",
+    "../../vera/p5/hzp/axial-31-p12/upper-water.msgpack"
+   ]
+  },
+  "31-p16": {
+   "bounds": [
+    0.0,
+    50.0,
+    55.0,
+    61.053,
+    66.951,
+    68.221,
+    70.817,
+    128.295,
+    132.105,
+    180.495,
+    184.305,
+    232.695,
+    236.505,
+    284.895,
+    288.705,
+    337.095,
+    340.905,
+    389.295,
+    393.105,
+    431.441,
+    432.711,
+    448.711,
+    452.51,
+    461.337,
+    468.937,
+    518.937
+   ],
+   "layers": [
+    "../../vera/p5/hzp/axial-31-p16/lower-water.msgpack",
+    "../../vera/p5/hzp/axial-31-p16/lower-plate.msgpack",
+    "../../vera/p5/hzp/axial-31-p16/bottom-nozzle.msgpack",
+    "../../vera/p5/hzp/axial-31-p16/lower-gap-plug.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../../vera/p5/hzp/axial-31-p16/plenum.msgpack",
+    "../../vera/p5/hzp/axial-31-p16/upper-plug-gap.msgpack",
+    "../../vera/p5/hzp/axial-31-p16/top-nozzle.msgpack",
+    "../../vera/p5/hzp/axial-31-p16/upper-plate.msgpack",
+    "../../vera/p5/hzp/axial-31-p16/upper-water.msgpack"
+   ]
+  },
+  "31-p24": {
+   "bounds": [
+    0.0,
+    50.0,
+    55.0,
+    61.053,
+    66.951,
+    68.221,
+    70.817,
+    128.295,
+    132.105,
+    180.495,
+    184.305,
+    232.695,
+    236.505,
+    284.895,
+    288.705,
+    337.095,
+    340.905,
+    389.295,
+    393.105,
+    431.441,
+    432.711,
+    448.711,
+    452.51,
+    461.337,
+    468.937,
+    518.937
+   ],
+   "layers": [
+    "../../vera/p5/hzp/axial-31-p24/lower-water.msgpack",
+    "../../vera/p5/hzp/axial-31-p24/lower-plate.msgpack",
+    "../../vera/p5/hzp/axial-31-p24/bottom-nozzle.msgpack",
+    "../../vera/p5/hzp/axial-31-p24/lower-gap-plug.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../../vera/p5/hzp/axial-31-p24/plenum.msgpack",
+    "../../vera/p5/hzp/axial-31-p24/upper-plug-gap.msgpack",
+    "../../vera/p5/hzp/axial-31-p24/top-nozzle.msgpack",
+    "../../vera/p5/hzp/axial-31-p24/upper-plate.msgpack",
+    "../../vera/p5/hzp/axial-31-p24/upper-water.msgpack"
+   ]
+  },
+  "31-p8-I": {
+   "bounds": [
+    0.0,
+    50.0,
+    55.0,
+    61.053,
+    66.951,
+    68.221,
+    70.817,
+    128.295,
+    132.105,
+    180.495,
+    184.305,
+    232.695,
+    236.505,
+    284.895,
+    288.705,
+    337.095,
+    340.905,
+    389.295,
+    393.105,
+    431.441,
+    432.711,
+    448.711,
+    452.51,
+    461.337,
+    468.937,
+    518.937
+   ],
+   "layers": [
+    "../../vera/p5/hzp/axial-31-p8/lower-water.msgpack",
+    "../../vera/p5/hzp/axial-31-p8/lower-plate.msgpack",
+    "../../vera/p5/hzp/axial-31-p8/bottom-nozzle.msgpack",
+    "../../vera/p5/hzp/axial-31-p8/lower-gap-plug.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../../vera/p5/hzp/axial-31-p8/plenum.msgpack",
+    "../../vera/p5/hzp/axial-31-p8/upper-plug-gap.msgpack",
+    "../../vera/p5/hzp/axial-31-p8/top-nozzle.msgpack",
+    "../../vera/p5/hzp/axial-31-p8/upper-plate.msgpack",
+    "../../vera/p5/hzp/axial-31-p8/upper-water.msgpack"
+   ]
+  },
+  "31-rcca-I": {
+   "bounds": [
+    0.0,
+    50.0,
+    55.0,
+    61.053,
+    66.951,
+    70.817,
+    128.295,
+    132.105,
+    180.495,
+    184.305,
+    232.695,
+    236.505,
+    284.895,
+    288.705,
+    337.095,
+    340.905,
+    389.295,
+    393.105,
+    432.711,
+    448.711,
+    452.51,
+    461.337,
+    468.937,
+    518.937
+   ],
+   "layers": [
+    "../../vera/p5/hzp/axial-31-rcca/lower-water.msgpack",
+    "../../vera/p5/hzp/axial-31-rcca/lower-plate.msgpack",
+    "../../vera/p5/hzp/axial-31-rcca/bottom-nozzle.msgpack",
+    "../../vera/p5/hzp/axial-31-rcca/lower-gap-plug.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../branches/table-2A-micro-boron-rod-axis.msgpack",
+    "../../vera/p5/hzp/axial-31-rcca/plenum.msgpack",
+    "../../vera/p5/hzp/axial-31-rcca/upper-plug-gap.msgpack",
+    "../../vera/p5/hzp/axial-31-rcca/top-nozzle.msgpack",
+    "../../vera/p5/hzp/axial-31-rcca/upper-plate.msgpack",
+    "../../vera/p5/hzp/axial-31-rcca/upper-water.msgpack"
+   ]
+  }
+ },
+ "assembly": {
+  "A05": {
+   "design": "31-corner"
+  },
+  "A06": {
+   "design": "31-p8-I"
+  },
+  "A07": {
+   "design": "31-I"
+  },
+  "A08": {
+   "design": "31-p12-I"
+  },
+  "A09": {
+   "design": "31-I"
+  },
+  "A10": {
+   "design": "31-p8-I"
+  },
+  "A11": {
+   "design": "31-corner"
+  },
+  "B03": {
+   "design": "31-corner"
+  },
+  "B04": {
+   "design": "31-rcca-I"
+  },
+  "B05": {
+   "design": "31-p16"
+  },
+  "B06": {
+   "design": "21-rcca"
+  },
+  "B07": {
+   "design": "31-p24"
+  },
+  "B08": {
+   "design": "21-rcca"
+  },
+  "B09": {
+   "design": "31-p24"
+  },
+  "B10": {
+   "design": "21-rcca"
+  },
+  "B11": {
+   "design": "31-p16"
+  },
+  "B12": {
+   "design": "31-rcca-I"
+  },
+  "B13": {
+   "design": "31-corner"
+  },
+  "C02": {
+   "design": "31-corner"
+  },
+  "C03": {
+   "design": "31-p12"
+  },
+  "C04": {
+   "design": "26-p24"
+  },
+  "C05": {
+   "design": "21-rcca"
+  },
+  "C06": {
+   "design": "26-p16"
+  },
+  "C07": {
+   "design": "21-rcca"
+  },
+  "C08": {
+   "design": "26-p20"
+  },
+  "C09": {
+   "design": "21-rcca"
+  },
+  "C10": {
+   "design": "26-p16"
+  },
+  "C11": {
+   "design": "21-rcca"
+  },
+  "C12": {
+   "design": "26-p24"
+  },
+  "C13": {
+   "design": "31-p12"
+  },
+  "C14": {
+   "design": "31-corner"
+  },
+  "D02": {
+   "design": "31-rcca-I"
+  },
+  "D03": {
+   "design": "26-p24"
+  },
+  "D04": {
+   "design": "26-rcca"
+  },
+  "D05": {
+   "design": "26-p20"
+  },
+  "D06": {
+   "design": "21"
+  },
+  "D07": {
+   "design": "26-p20"
+  },
+  "D08": {
+   "design": "21-rcca"
+  },
+  "D09": {
+   "design": "26-p20"
+  },
+  "D10": {
+   "design": "21"
+  },
+  "D11": {
+   "design": "26-p20"
+  },
+  "D12": {
+   "design": "26-rcca"
+  },
+  "D13": {
+   "design": "26-p24"
+  },
+  "D14": {
+   "design": "31-rcca-I"
+  },
+  "E01": {
+   "design": "31-corner"
+  },
+  "E02": {
+   "design": "31-p16"
+  },
+  "E03": {
+   "design": "21-rcca"
+  },
+  "E04": {
+   "design": "26-p20"
+  },
+  "E05": {
+   "design": "21-rcca"
+  },
+  "E06": {
+   "design": "26-p20"
+  },
+  "E07": {
+   "design": "21"
+  },
+  "E08": {
+   "design": "26-p20"
+  },
+  "E09": {
+   "design": "21"
+  },
+  "E10": {
+   "design": "26-p20"
+  },
+  "E11": {
+   "design": "21-rcca"
+  },
+  "E12": {
+   "design": "26-p20"
+  },
+  "E13": {
+   "design": "21-rcca"
+  },
+  "E14": {
+   "design": "31-p16"
+  },
+  "E15": {
+   "design": "31-corner"
+  },
+  "F01": {
+   "design": "31-p8-I"
+  },
+  "F02": {
+   "design": "21-rcca"
+  },
+  "F03": {
+   "design": "26-p16"
+  },
+  "F04": {
+   "design": "21"
+  },
+  "F05": {
+   "design": "26-p20"
+  },
+  "F06": {
+   "design": "21-rcca"
+  },
+  "F07": {
+   "design": "26-p24"
+  },
+  "F08": {
+   "design": "21-rcca"
+  },
+  "F09": {
+   "design": "26-p24"
+  },
+  "F10": {
+   "design": "21-rcca"
+  },
+  "F11": {
+   "design": "26-p20"
+  },
+  "F12": {
+   "design": "21"
+  },
+  "F13": {
+   "design": "26-p16"
+  },
+  "F14": {
+   "design": "21-rcca"
+  },
+  "F15": {
+   "design": "31-p8-I"
+  },
+  "G01": {
+   "design": "31-I"
+  },
+  "G02": {
+   "design": "31-p24"
+  },
+  "G03": {
+   "design": "21-rcca"
+  },
+  "G04": {
+   "design": "26-p20"
+  },
+  "G05": {
+   "design": "21"
+  },
+  "G06": {
+   "design": "26-p24"
+  },
+  "G07": {
+   "design": "21"
+  },
+  "G08": {
+   "design": "26-p20"
+  },
+  "G09": {
+   "design": "21"
+  },
+  "G10": {
+   "design": "26-p24"
+  },
+  "G11": {
+   "design": "21"
+  },
+  "G12": {
+   "design": "26-p20"
+  },
+  "G13": {
+   "design": "21-rcca"
+  },
+  "G14": {
+   "design": "31-p24"
+  },
+  "G15": {
+   "design": "31-I"
+  },
+  "H01": {
+   "design": "31-p12-I"
+  },
+  "H02": {
+   "design": "21-rcca"
+  },
+  "H03": {
+   "design": "26-p20"
+  },
+  "H04": {
+   "design": "21-rcca"
+  },
+  "H05": {
+   "design": "26-p20"
+  },
+  "H06": {
+   "design": "21-rcca"
+  },
+  "H07": {
+   "design": "26-p20"
+  },
+  "H08": {
+   "design": "21-rcca"
+  },
+  "H09": {
+   "design": "26-p20"
+  },
+  "H10": {
+   "design": "21-rcca"
+  },
+  "H11": {
+   "design": "26-p20"
+  },
+  "H12": {
+   "design": "21-rcca"
+  },
+  "H13": {
+   "design": "26-p20"
+  },
+  "H14": {
+   "design": "21-rcca"
+  },
+  "H15": {
+   "design": "31-p12-I"
+  },
+  "J01": {
+   "design": "31-I"
+  },
+  "J02": {
+   "design": "31-p24"
+  },
+  "J03": {
+   "design": "21-rcca"
+  },
+  "J04": {
+   "design": "26-p20"
+  },
+  "J05": {
+   "design": "21"
+  },
+  "J06": {
+   "design": "26-p24"
+  },
+  "J07": {
+   "design": "21"
+  },
+  "J08": {
+   "design": "26-p20"
+  },
+  "J09": {
+   "design": "21"
+  },
+  "J10": {
+   "design": "26-p24"
+  },
+  "J11": {
+   "design": "21"
+  },
+  "J12": {
+   "design": "26-p20"
+  },
+  "J13": {
+   "design": "21-rcca"
+  },
+  "J14": {
+   "design": "31-p24"
+  },
+  "J15": {
+   "design": "31-I"
+  },
+  "K01": {
+   "design": "31-p8-I"
+  },
+  "K02": {
+   "design": "21-rcca"
+  },
+  "K03": {
+   "design": "26-p16"
+  },
+  "K04": {
+   "design": "21"
+  },
+  "K05": {
+   "design": "26-p20"
+  },
+  "K06": {
+   "design": "21-rcca"
+  },
+  "K07": {
+   "design": "26-p24"
+  },
+  "K08": {
+   "design": "21-rcca"
+  },
+  "K09": {
+   "design": "26-p24"
+  },
+  "K10": {
+   "design": "21-rcca"
+  },
+  "K11": {
+   "design": "26-p20"
+  },
+  "K12": {
+   "design": "21"
+  },
+  "K13": {
+   "design": "26-p16"
+  },
+  "K14": {
+   "design": "21-rcca"
+  },
+  "K15": {
+   "design": "31-p8-I"
+  },
+  "L01": {
+   "design": "31-corner"
+  },
+  "L02": {
+   "design": "31-p16"
+  },
+  "L03": {
+   "design": "21-rcca"
+  },
+  "L04": {
+   "design": "26-p20"
+  },
+  "L05": {
+   "design": "21-rcca"
+  },
+  "L06": {
+   "design": "26-p20"
+  },
+  "L07": {
+   "design": "21"
+  },
+  "L08": {
+   "design": "26-p20"
+  },
+  "L09": {
+   "design": "21"
+  },
+  "L10": {
+   "design": "26-p20"
+  },
+  "L11": {
+   "design": "21-rcca"
+  },
+  "L12": {
+   "design": "26-p20"
+  },
+  "L13": {
+   "design": "21-rcca"
+  },
+  "L14": {
+   "design": "31-p16"
+  },
+  "L15": {
+   "design": "31-corner"
+  },
+  "M02": {
+   "design": "31-rcca-I"
+  },
+  "M03": {
+   "design": "26-p24"
+  },
+  "M04": {
+   "design": "26-rcca"
+  },
+  "M05": {
+   "design": "26-p20"
+  },
+  "M06": {
+   "design": "21"
+  },
+  "M07": {
+   "design": "26-p20"
+  },
+  "M08": {
+   "design": "21-rcca"
+  },
+  "M09": {
+   "design": "26-p20"
+  },
+  "M10": {
+   "design": "21"
+  },
+  "M11": {
+   "design": "26-p20"
+  },
+  "M12": {
+   "design": "26-rcca"
+  },
+  "M13": {
+   "design": "26-p24"
+  },
+  "M14": {
+   "design": "31-rcca-I"
+  },
+  "N02": {
+   "design": "31-corner"
+  },
+  "N03": {
+   "design": "31-p12"
+  },
+  "N04": {
+   "design": "26-p24"
+  },
+  "N05": {
+   "design": "21-rcca"
+  },
+  "N06": {
+   "design": "26-p16"
+  },
+  "N07": {
+   "design": "21-rcca"
+  },
+  "N08": {
+   "design": "26-p20"
+  },
+  "N09": {
+   "design": "21-rcca"
+  },
+  "N10": {
+   "design": "26-p16"
+  },
+  "N11": {
+   "design": "21-rcca"
+  },
+  "N12": {
+   "design": "26-p24"
+  },
+  "N13": {
+   "design": "31-p12"
+  },
+  "N14": {
+   "design": "31-corner"
+  },
+  "P03": {
+   "design": "31-corner"
+  },
+  "P04": {
+   "design": "31-rcca-I"
+  },
+  "P05": {
+   "design": "31-p16"
+  },
+  "P06": {
+   "design": "21-rcca"
+  },
+  "P07": {
+   "design": "31-p24"
+  },
+  "P08": {
+   "design": "21-rcca"
+  },
+  "P09": {
+   "design": "31-p24"
+  },
+  "P10": {
+   "design": "21-rcca"
+  },
+  "P11": {
+   "design": "31-p16"
+  },
+  "P12": {
+   "design": "31-rcca-I"
+  },
+  "P13": {
+   "design": "31-corner"
+  },
+  "R05": {
+   "design": "31-corner"
+  },
+  "R06": {
+   "design": "31-p8-I"
+  },
+  "R07": {
+   "design": "31-I"
+  },
+  "R08": {
+   "design": "31-p12-I"
+  },
+  "R09": {
+   "design": "31-I"
+  },
+  "R10": {
+   "design": "31-p8-I"
+  },
+  "R11": {
+   "design": "31-corner"
+  }
+ }
+}

@@ -1129,18 +1129,21 @@ def code(crate: str) -> list[str]:
     return [f"../../../bin/{crate}"]
 
 
-def python_ast(dep: str) -> str:
-    """Python のファイルの deps は、リポジトリの直下の dvc.yaml の python-ast が書く正規形にする（ADR-0210）"""
+def normal_form(dep: str) -> str:
+    """Python のファイルと入力の TOML の deps は、リポジトリの直下の dvc.yaml の python-ast と toml-values が書く正規形にする
+    （ADR-0210、ADR-0254）"""
     source = os.path.relpath(os.path.normpath(HERE / dep), ROOT)
-    return os.path.relpath(ROOT / "python-ast" / f"{source}.ast", HERE)
+    if dep.endswith(".py"):
+        return os.path.relpath(ROOT / "python-ast" / f"{source}.ast", HERE)
+    if dep.endswith(".toml"):
+        return os.path.relpath(ROOT / "toml-values" / f"{source}.json", HERE)
+    return dep
 
 
 def stage(name: str, cmd: str, deps: list[str], outs: list[str]) -> str:
     return (
         f"  {name}:\n    cmd: {cmd}\n    deps:\n"
-        + "".join(
-            f"      - {python_ast(d) if d.endswith('.py') else d}\n" for d in deps
-        )
+        + "".join(f"      - {normal_form(d)}\n" for d in deps)
         + "    outs:\n"
         + "".join(
             f"      - {o.removeprefix('git:')}:\n          cache: false\n"

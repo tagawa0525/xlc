@@ -26,7 +26,7 @@ stages:
   xs-range:
     cmd: ../../../bin/xs range xs.toml xs-range.toml
     deps:
-      - xs.toml
+      - ../../../toml-values/examples/vera/endfb70/xs.toml.json
       - ../../../references/endf/ENDF-B-VII.0_neutrons
       - ../../../bin/xs
     outs:
@@ -51,7 +51,7 @@ stages:
   xs:
     cmd: ../../../bin/xs assemble xs.toml xs-range.toml xs-nuclides
     deps:
-      - xs.toml
+      - ../../../toml-values/examples/vera/endfb70/xs.toml.json
       - xs-range.toml
       - xs-nuclides
       - ../../../bin/xs
@@ -63,7 +63,7 @@ stages:
     do:
       cmd: mkdir -p p1 && cp ../p1/pincell-${item}.toml p1/ && ../../../bin/lattice p1/pincell-${item}.toml > p1/lattice-${item}.out && python3 ../compare_keno_lattice.py --json compare-${item}.json ../../../references/vera/spec.txt ${item} p1/lattice-${item}.out
       deps:
-        - ../p1/pincell-${item}.toml
+        - ../../../toml-values/examples/vera/p1/pincell-${item}.toml.json
         - vera.msgpack
         - ../../../python-ast/examples/vera/compare_keno_lattice.py.ast
         - ../../../python-ast/examples/vera/compare_keno.py.ast
@@ -81,7 +81,7 @@ stages:
     do:
       cmd: mkdir -p p2 && cp ../p2/assembly-${item}.toml p2/ && ../../../bin/lattice p2/assembly-${item}.toml > p2/lattice-${item}.out && python3 ../compare_keno_lattice.py --json compare-${item}.json ../../../references/vera/spec.txt ${item} p2/lattice-${item}.out p2/pins-${item}.msgpack
       deps:
-        - ../p2/assembly-${item}.toml
+        - ../../../toml-values/examples/vera/p2/assembly-${item}.toml.json
         - vera.msgpack
         - ../../../python-ast/examples/vera/compare_keno_lattice.py.ast
         - ../../../python-ast/examples/vera/compare_keno.py.ast

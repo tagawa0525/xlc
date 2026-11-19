@@ -48,7 +48,7 @@ stages:
       - ../../../../python-ast/examples/vera/openmc_library.py.ast
       - ../../../../python-ast/examples/openmc_input.py.ast
       - references-shell.txt
-      - openmc-library.toml
+      - ../../../../toml-values/examples/vera/endfb70/openmc/openmc-library.toml.json
       - openmc-library/neutron
       - openmc-library/thermal
     outs:
@@ -64,7 +64,7 @@ stages:
         - ../../../../python-ast/examples/openmc_run.py.ast
         - ../../../../python-ast/examples/openmc_input.py.ast
         - references-shell.txt
-        - openmc-${item}.toml
+        - ../../../../toml-values/examples/vera/endfb70/openmc/openmc-${item}.toml.json
       outs:
         - openmc-${item}-model
   openmc-run:
@@ -92,7 +92,7 @@ stages:
         - ../../../../python-ast/examples/openmc_run.py.ast
         - ../../../../python-ast/examples/openmc_input.py.ast
         - references-shell.txt
-        - openmc-${item}.toml
+        - ../../../../toml-values/examples/vera/endfb70/openmc/openmc-${item}.toml.json
         - openmc-${item}
       outs:
         - openmc-${item}-results

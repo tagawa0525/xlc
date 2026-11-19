@@ -1,0 +1,42 @@
+{
+ "design": {
+  "reflector-I-fuel": {
+   "bounds": [
+    0.0,
+    21.5
+   ],
+   "layers": [
+    "lattice/reflector-I-fuel.msgpack"
+   ]
+  },
+  "reflector-corner-fuel": {
+   "bounds": [
+    0.0,
+    21.5
+   ],
+   "layers": [
+    "lattice/reflector-corner-fuel.msgpack"
+   ]
+  },
+  "31": {
+   "bounds": [
+    0.0,
+    21.5
+   ],
+   "layers": [
+    "lattice/31.msgpack"
+   ]
+  }
+ },
+ "assembly": {
+  "reflector-I-fuel": {
+   "design": "reflector-I-fuel"
+  },
+  "reflector-corner-fuel": {
+   "design": "reflector-corner-fuel"
+  },
+  "31": {
+   "design": "31"
+  }
+ }
+}

@@ -1,0 +1,104 @@
+{
+ "table": [
+  {
+   "name": "2A（Problem 9 の格子点）",
+   "file": "table-2A.msgpack",
+   "nominal": {
+    "boron": 650,
+    "moderator": 580,
+    "fuel": 900
+   }
+  }
+ ],
+ "model": [
+  {
+   "name": "1 軸ずつ",
+   "keep": []
+  },
+  {
+   "name": "B×M、B×F",
+   "keep": [
+    [
+     "boron",
+     "moderator"
+    ],
+    [
+     "boron",
+     "fuel"
+    ]
+   ]
+  },
+  {
+   "name": "B×M、M×F",
+   "keep": [
+    [
+     "boron",
+     "moderator"
+    ],
+    [
+     "moderator",
+     "fuel"
+    ]
+   ]
+  },
+  {
+   "name": "B×F、M×F",
+   "keep": [
+    [
+     "boron",
+     "fuel"
+    ],
+    [
+     "moderator",
+     "fuel"
+    ]
+   ]
+  },
+  {
+   "name": "2 軸の組すべて",
+   "keep": [
+    [
+     "boron",
+     "moderator"
+    ],
+    [
+     "boron",
+     "fuel"
+    ],
+    [
+     "moderator",
+     "fuel"
+    ]
+   ]
+  }
+ ],
+ "thinning": [
+  {
+   "name": "2A（Problem 9 の格子点）",
+   "file": "table-2A.msgpack",
+   "nominal": {
+    "boron": 650,
+    "moderator": 580,
+    "fuel": 900
+   },
+   "selections": [
+    {
+     "name": "32 を除く 3 点",
+     "burnup": [
+      0,
+      0.5,
+      60
+     ]
+    },
+    {
+     "name": "0.5 を除く 3 点",
+     "burnup": [
+      0,
+      32,
+      60
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,331 @@
+{
+ "library": "depletion.msgpack",
+ "ufg-tolerance": 0.0001,
+ "pitch": 1.26,
+ "azimuthal": 30,
+ "spacing": 0.03,
+ "gap": {
+  "width": 0.04,
+  "material": "water"
+ },
+ "rows": [
+  "ib  pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin ib ",
+  "pin pin pin pin pin ib  pin pin ib  pin pin ib  pin pin pin pin pin",
+  "pin pin pin ib  ib  wb  ib  ib  wb  ib  ib  wb  ib  ib  pin pin pin",
+  "pin pin ib  wb  ib  ib  pin pin ib  pin pin ib  ib  wb  ib  pin pin",
+  "pin pin ib  ib  pin ib  pin pin ib  pin pin ib  pin ib  ib  pin pin",
+  "pin ib  wb  ib  ib  gt  ib  ib  wb  ib  ib  gt  ib  ib  wb  ib  pin",
+  "pin pin ib  pin pin ib  pin pin ib  pin pin ib  pin pin ib  pin pin",
+  "pin pin ib  pin pin ib  pin pin ib  pin pin ib  pin pin ib  pin pin",
+  "pin ib  wb  ib  ib  wb  ib  ib  it  ib  ib  wb  ib  ib  wb  ib  pin",
+  "pin pin ib  pin pin ib  pin pin ib  pin pin ib  pin pin ib  pin pin",
+  "pin pin ib  pin pin ib  pin pin ib  pin pin ib  pin pin ib  pin pin",
+  "pin ib  wb  ib  ib  gt  ib  ib  wb  ib  ib  gt  ib  ib  wb  ib  pin",
+  "pin pin ib  ib  pin ib  pin pin ib  pin pin ib  pin ib  ib  pin pin",
+  "pin pin ib  wb  ib  ib  pin pin ib  pin pin ib  ib  wb  ib  pin pin",
+  "pin pin pin ib  ib  wb  ib  ib  wb  ib  ib  wb  ib  ib  pin pin pin",
+  "pin pin pin pin pin ib  pin pin ib  pin pin ib  pin pin pin pin pin",
+  "ib  pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin ib "
+ ],
+ "material": {
+  "fuel": {
+   "temperature": 600,
+   "nuclides": {
+    "U-234": 6.11864e-06,
+    "U-235": 0.000718132,
+    "U-236": 3.29861e-06,
+    "U-238": 0.0221546,
+    "O-16": 0.0457642
+   }
+  },
+  "zircaloy": {
+   "temperature": 600,
+   "nuclides": {
+    "Cr-50": 3.30121e-06,
+    "Cr-52": 6.36606e-05,
+    "Cr-53": 7.2186e-06,
+    "Cr-54": 1.79686e-06,
+    "Fe-54": 8.68307e-06,
+    "Fe-56": 0.000136306,
+    "Fe-57": 3.14789e-06,
+    "Fe-58": 4.18926e-07,
+    "Zr-90": 0.0218865,
+    "Zr-91": 0.00477292,
+    "Zr-92": 0.00729551,
+    "Zr-94": 0.00739335,
+    "Zr-96": 0.0011911,
+    "Sn-112": 4.68066e-06,
+    "Sn-114": 3.18478e-06,
+    "Sn-115": 1.64064e-06,
+    "Sn-116": 7.01616e-05,
+    "Sn-117": 3.70592e-05,
+    "Sn-118": 0.000116872,
+    "Sn-119": 4.14504e-05,
+    "Sn-120": 0.000157212,
+    "Sn-122": 2.23417e-05,
+    "Sn-124": 2.79392e-05
+   }
+  },
+  "water": {
+   "temperature": 600,
+   "nuclides": {
+    "O-16": 0.0248112,
+    "H-1": 0.0496224,
+    "B-10": 1.0707e-05,
+    "B-11": 4.30971e-05
+   }
+  },
+  "waba": {
+   "temperature": 600,
+   "nuclides": {
+    "B-10": 0.00298553,
+    "B-11": 0.0121192,
+    "C-12": 0.00372967,
+    "C-13": 4.03391e-05,
+    "O-16": 0.0585563,
+    "Al-27": 0.0390223
+   }
+  },
+  "ifba": {
+   "temperature": 600,
+   "nuclides": {
+    "B-10": 0.021641,
+    "B-11": 0.0196824,
+    "Zr-90": 0.0106304,
+    "Zr-91": 0.00231824,
+    "Zr-92": 0.00354348,
+    "Zr-94": 0.003591,
+    "Zr-96": 0.000578528
+   }
+  }
+ },
+ "cell": {
+  "pin": {
+   "zones": [
+    {
+     "material": "fuel",
+     "radius": 0.4096,
+     "rings": 5
+    },
+    {
+     "material": "void",
+     "radius": 0.418,
+     "rings": 1
+    },
+    {
+     "material": "zircaloy",
+     "radius": 0.475,
+     "rings": 1
+    },
+    {
+     "material": "water",
+     "radius": 0.63,
+     "rings": 3
+    },
+    {
+     "material": "water",
+     "radius": 0.75,
+     "rings": 2
+    },
+    {
+     "material": "water",
+     "rings": 1
+    }
+   ],
+   "sectors": 8
+  },
+  "ib": {
+   "zones": [
+    {
+     "material": "fuel",
+     "radius": 0.4096,
+     "rings": 5
+    },
+    {
+     "material": "ifba",
+     "radius": 0.4106,
+     "rings": 1
+    },
+    {
+     "material": "void",
+     "radius": 0.418,
+     "rings": 1
+    },
+    {
+     "material": "zircaloy",
+     "radius": 0.475,
+     "rings": 1
+    },
+    {
+     "material": "water",
+     "radius": 0.63,
+     "rings": 3
+    },
+    {
+     "material": "water",
+     "radius": 0.75,
+     "rings": 2
+    },
+    {
+     "material": "water",
+     "rings": 1
+    }
+   ],
+   "sectors": 8
+  },
+  "gt": {
+   "zones": [
+    {
+     "material": "water",
+     "radius": 0.561,
+     "rings": 3
+    },
+    {
+     "material": "zircaloy",
+     "radius": 0.602,
+     "rings": 1
+    },
+    {
+     "material": "water",
+     "radius": 0.75,
+     "rings": 2
+    },
+    {
+     "material": "water",
+     "rings": 1
+    }
+   ],
+   "sectors": 8
+  },
+  "it": {
+   "zones": [
+    {
+     "material": "water",
+     "radius": 0.559,
+     "rings": 3
+    },
+    {
+     "material": "zircaloy",
+     "radius": 0.605,
+     "rings": 1
+    },
+    {
+     "material": "water",
+     "radius": 0.75,
+     "rings": 2
+    },
+    {
+     "material": "water",
+     "rings": 1
+    }
+   ],
+   "sectors": 8
+  },
+  "wb": {
+   "zones": [
+    {
+     "material": "water",
+     "radius": 0.286,
+     "rings": 2
+    },
+    {
+     "material": "zircaloy",
+     "radius": 0.339,
+     "rings": 1
+    },
+    {
+     "material": "void",
+     "radius": 0.353,
+     "rings": 1
+    },
+    {
+     "material": "waba",
+     "radius": 0.404,
+     "rings": 2
+    },
+    {
+     "material": "void",
+     "radius": 0.418,
+     "rings": 1
+    },
+    {
+     "material": "zircaloy",
+     "radius": 0.484,
+     "rings": 1
+    },
+    {
+     "material": "water",
+     "radius": 0.561,
+     "rings": 1
+    },
+    {
+     "material": "zircaloy",
+     "radius": 0.602,
+     "rings": 1
+    },
+    {
+     "material": "water",
+     "radius": 0.75,
+     "rings": 2
+    },
+    {
+     "material": "water",
+     "rings": 1
+    }
+   ],
+   "sectors": 8
+  }
+ },
+ "depletion": {
+  "chain": "../chain.msgpack",
+  "power": 38.41,
+  "burnup": [
+   0.1,
+   0.25,
+   0.5,
+   0.75,
+   1,
+   1.5,
+   2,
+   2.5,
+   3,
+   3.5,
+   4,
+   5,
+   6,
+   7,
+   8,
+   9,
+   10,
+   11,
+   12,
+   13,
+   14,
+   15,
+   16,
+   18,
+   20,
+   22,
+   24,
+   26,
+   28,
+   30,
+   32,
+   34,
+   36,
+   38,
+   40,
+   44,
+   48,
+   52,
+   56,
+   60
+  ],
+  "materials": [
+   "fuel",
+   "ifba",
+   "waba"
+  ],
+  "output": "lattice-2N.msgpack"
+ }
+}

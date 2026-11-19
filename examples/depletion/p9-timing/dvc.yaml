@@ -6,12 +6,12 @@ stages:
     cmd: ../../../bin/core core-p9.toml > core-p9.out 2> core-p9.log
     deps:
       - ../../../bin/core
-      - core-p9.toml
-      - core-p9-cycle.toml
-      - core-p9-assemblies.toml
+      - ../../../toml-values/examples/depletion/p9-timing/core-p9.toml.json
+      - ../../../toml-values/examples/depletion/p9-timing/core-p9-cycle.toml.json
+      - ../../../toml-values/examples/depletion/p9-timing/core-p9-assemblies.toml.json
       - ../branches/table-2A-micro-boron-rod-axis.msgpack
       - ../chain.msgpack
-      - ../../vera/p5/hzp/core-hzp-plant.toml
+      - ../../../toml-values/examples/vera/p5/hzp/core-hzp-plant.toml.json
       - ../../vera/p5/hzp/axial-21
       - ../../vera/p5/hzp/axial-21-rcca
       - ../../vera/p5/hzp/axial-26-p16

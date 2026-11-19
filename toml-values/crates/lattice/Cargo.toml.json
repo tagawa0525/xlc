@@ -1,0 +1,69 @@
+{
+ "package": {
+  "name": "xlc-lattice",
+  "version": {
+   "workspace": true
+  },
+  "edition": {
+   "workspace": true
+  }
+ },
+ "lints": {
+  "workspace": true
+ },
+ "dependencies": {
+  "xlc-numeric": {
+   "path": "../numeric"
+  },
+  "xlc-format": {
+   "path": "../format"
+  },
+  "xlc-depletion": {
+   "path": "../depletion"
+  },
+  "anyhow": {
+   "workspace": true
+  },
+  "rayon": {
+   "workspace": true
+  },
+  "rmpv": {
+   "workspace": true
+  },
+  "serde": {
+   "workspace": true
+  },
+  "sha2": {
+   "workspace": true
+  },
+  "thiserror": {
+   "workspace": true
+  },
+  "toml": {
+   "workspace": true
+  },
+  "tracing": {
+   "workspace": true
+  },
+  "tracing-subscriber": {
+   "workspace": true
+  }
+ },
+ "bin": [
+  {
+   "name": "lattice",
+   "path": "src/main.rs"
+  }
+ ],
+ "example": [
+  {
+   "name": "swap_absorption",
+   "test": true
+  }
+ ],
+ "dev-dependencies": {
+  "rmp-serde": {
+   "workspace": true
+  }
+ }
+}

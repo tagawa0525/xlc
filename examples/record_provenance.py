@@ -22,6 +22,7 @@
 
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -208,16 +209,24 @@ def show_dvc(dvc: Path) -> int:
     return 0
 
 
-def input_problems(summary: dict, stage: dict) -> list[str]:
-    """JSON の `inputs` が、ステージの deps（パスと md5）と一致しない点"""
+def input_problems(summary: dict, stage: dict, base: Path) -> list[str]:
+    """JSON の `inputs` が、ステージの deps（パスと md5）と一致しない点。`base` はステージの dvc.yaml のディレクトリ
+
+    TOML の入力の deps は toml-values の正規形で、JSON もその md5 を書く（ADR-0254）。
+    """
     deps = dict(stage["deps"])
     problems = []
     for item in summary.get("inputs", []):
-        if item["path"] not in deps:
-            problems.append(f"input {item['path']} is not a dep of the stage")
-        elif deps[item["path"]] != item["md5"]:
+        dep = item["path"]
+        if dep.endswith(".toml"):
+            # resolve でなく normpath: symlink（references/）の先や、ほかの worktree の ROOT の外に出て止まらない
+            source = os.path.relpath(os.path.normpath(base / dep), ROOT)
+            dep = os.path.relpath(ROOT / "toml-values" / f"{source}.json", base)
+        if dep not in deps:
+            problems.append(f"input {item['path']} is not a dep of the stage ({dep})")
+        elif deps[dep] != item["md5"]:
             problems.append(
-                f"input {item['path']}: JSON {item['md5']} but dvc.lock {deps[item['path']]}"
+                f"input {item['path']}: JSON {item['md5']} but dvc.lock {deps[dep]}"
             )
     return problems
 
@@ -256,7 +265,7 @@ def show(dvc_yaml: Path, stage_name: str) -> int:
             print(f"MISMATCH: {file} has no inputs; rerun the stage")
             status = 1
             continue
-        for problem in input_problems(summary, stage):
+        for problem in input_problems(summary, stage, dvc_yaml.parent.resolve()):
             print(f"MISMATCH: {problem}")
             status = 1
         run = subprocess.run(

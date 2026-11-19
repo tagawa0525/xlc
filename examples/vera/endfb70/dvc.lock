@@ -13,10 +13,10 @@ stages:
       md5: 48c057110a0cd8d1a04d52246e1d5fa6.dir
       size: 408193809
       nfiles: 393
-    - path: xs.toml
+    - path: ../../../toml-values/examples/vera/endfb70/xs.toml.json
       hash: md5
-      md5: 631f44aed787fb456f0c920a1945d9be
-      size: 6392
+      md5: 1a689f2fd240a52c795d29ecad80e462
+      size: 7168
     outs:
     - path: xs-range.toml
       hash: md5
@@ -2862,6 +2862,10 @@ stages:
       md5: f98234e2f601b6afcaf2b4e2a2c2a2b0
       size: 3072016
       isexec: true
+    - path: ../../../toml-values/examples/vera/endfb70/xs.toml.json
+      hash: md5
+      md5: 1a689f2fd240a52c795d29ecad80e462
+      size: 7168
     - path: xs-nuclides
       hash: md5
       md5: d36b284e7eee3d0fec2ccde269fa04c2.dir
@@ -2871,10 +2875,6 @@ stages:
       hash: md5
       md5: 74fbedef2186ca159d4e33c92bd3d4ff
       size: 35
-    - path: xs.toml
-      hash: md5
-      md5: 631f44aed787fb456f0c920a1945d9be
-      size: 6392
     outs:
     - path: vera.msgpack
       hash: md5
@@ -2911,10 +2911,10 @@ stages:
       hash: md5
       md5: de9def92d813fd95954b01ec5512fff4
       size: 551223
-    - path: ../p2/assembly-2F.toml
+    - path: ../../../toml-values/examples/vera/p2/assembly-2F.toml.json
       hash: md5
-      md5: 935e8726d4029825d4f651018d18f1aa
-      size: 4730
+      md5: f2d3b6972b90859558e00b5d08ac7dbd
+      size: 4868
     - path: vera.msgpack
       hash: md5
       md5: 0ff19d2186b090cc26f239a12da8b8b2
@@ -2963,10 +2963,10 @@ stages:
       hash: md5
       md5: de9def92d813fd95954b01ec5512fff4
       size: 551223
-    - path: ../p2/assembly-2J.toml
+    - path: ../../../toml-values/examples/vera/p2/assembly-2J.toml.json
       hash: md5
-      md5: d934a859b0903687f6d88544f2fffecb
-      size: 5017
+      md5: bffe79c5bc6a7ca67030265918a46dab
+      size: 5021
     - path: vera.msgpack
       hash: md5
       md5: 0ff19d2186b090cc26f239a12da8b8b2
@@ -3015,10 +3015,10 @@ stages:
       hash: md5
       md5: de9def92d813fd95954b01ec5512fff4
       size: 551223
-    - path: ../p2/assembly-2C.toml
+    - path: ../../../toml-values/examples/vera/p2/assembly-2C.toml.json
       hash: md5
-      md5: cd1d2c349a05b8110e762a77d55452e7
-      size: 3485
+      md5: a6378291d37e3886dbacf28090ada76e
+      size: 3635
     - path: vera.msgpack
       hash: md5
       md5: 0ff19d2186b090cc26f239a12da8b8b2
@@ -3067,10 +3067,10 @@ stages:
       hash: md5
       md5: de9def92d813fd95954b01ec5512fff4
       size: 551223
-    - path: ../p2/assembly-2B.toml
+    - path: ../../../toml-values/examples/vera/p2/assembly-2B.toml.json
       hash: md5
-      md5: 34cce12cc99fcc0959e71def63c1aad3
-      size: 3485
+      md5: 804223d7cc8be38a186fd90494d6716e
+      size: 3635
     - path: vera.msgpack
       hash: md5
       md5: 0ff19d2186b090cc26f239a12da8b8b2
@@ -3119,10 +3119,10 @@ stages:
       hash: md5
       md5: de9def92d813fd95954b01ec5512fff4
       size: 551223
-    - path: ../p2/assembly-2A.toml
+    - path: ../../../toml-values/examples/vera/p2/assembly-2A.toml.json
       hash: md5
-      md5: 4aad98ab3d3590d1fe13eb67cb6ec7aa
-      size: 3528
+      md5: 6abe93d89bf5ce37efc3e0e2d2e3c203
+      size: 3634
     - path: vera.msgpack
       hash: md5
       md5: 0ff19d2186b090cc26f239a12da8b8b2
@@ -3171,10 +3171,10 @@ stages:
       hash: md5
       md5: de9def92d813fd95954b01ec5512fff4
       size: 551223
-    - path: ../p2/assembly-2E.toml
+    - path: ../../../toml-values/examples/vera/p2/assembly-2E.toml.json
       hash: md5
-      md5: 3dc45e435e84c020e40bc288027953f5
-      size: 4987
+      md5: 7cad24cdb63a6326a12bea6169ecddc8
+      size: 5206
     - path: vera.msgpack
       hash: md5
       md5: 0ff19d2186b090cc26f239a12da8b8b2
@@ -3223,10 +3223,10 @@ stages:
       hash: md5
       md5: de9def92d813fd95954b01ec5512fff4
       size: 551223
-    - path: ../p2/assembly-2Q.toml
+    - path: ../../../toml-values/examples/vera/p2/assembly-2Q.toml.json
       hash: md5
-      md5: 8845ce7c8d89f8d28261f4a64ced9f37
-      size: 4078
+      md5: de32987d7d9e365a8da347528c3c7f20
+      size: 3856
     - path: vera.msgpack
       hash: md5
       md5: 0ff19d2186b090cc26f239a12da8b8b2
@@ -3275,10 +3275,10 @@ stages:
       hash: md5
       md5: de9def92d813fd95954b01ec5512fff4
       size: 551223
-    - path: ../p2/assembly-2D.toml
+    - path: ../../../toml-values/examples/vera/p2/assembly-2D.toml.json
       hash: md5
-      md5: 1c4385fc805b5912de6be3dbc92e0c89
-      size: 3487
+      md5: 2e724a00341ec8170b641685e170a9cd
+      size: 3636
     - path: vera.msgpack
       hash: md5
       md5: 0ff19d2186b090cc26f239a12da8b8b2
@@ -3327,10 +3327,10 @@ stages:
       hash: md5
       md5: de9def92d813fd95954b01ec5512fff4
       size: 551223
-    - path: ../p1/pincell-1C.toml
+    - path: ../../../toml-values/examples/vera/p1/pincell-1C.toml.json
       hash: md5
-      md5: 4bd70824b7981a01853cd9b80abc613d
-      size: 1511
+      md5: 42be94cc875d76b54b852363211a4421
+      size: 1640
     - path: vera.msgpack
       hash: md5
       md5: 0ff19d2186b090cc26f239a12da8b8b2
@@ -3375,10 +3375,10 @@ stages:
       hash: md5
       md5: de9def92d813fd95954b01ec5512fff4
       size: 551223
-    - path: ../p2/assembly-2K.toml
+    - path: ../../../toml-values/examples/vera/p2/assembly-2K.toml.json
       hash: md5
-      md5: a903d799557355b415e276c011af5206
-      size: 6195
+      md5: a633d5bdffd7c20ece4be42b13636d68
+      size: 6117
     - path: vera.msgpack
       hash: md5
       md5: 0ff19d2186b090cc26f239a12da8b8b2
@@ -3427,10 +3427,10 @@ stages:
       hash: md5
       md5: de9def92d813fd95954b01ec5512fff4
       size: 551223
-    - path: ../p2/assembly-2H.toml
+    - path: ../../../toml-values/examples/vera/p2/assembly-2H.toml.json
       hash: md5
-      md5: f791eeaca60c21269f90553937c309d9
-      size: 4531
+      md5: 49d5b88513a4eb9782a003b6d5592048
+      size: 4582
     - path: vera.msgpack
       hash: md5
       md5: 0ff19d2186b090cc26f239a12da8b8b2
@@ -3479,10 +3479,10 @@ stages:
       hash: md5
       md5: de9def92d813fd95954b01ec5512fff4
       size: 551223
-    - path: ../p2/assembly-2I.toml
+    - path: ../../../toml-values/examples/vera/p2/assembly-2I.toml.json
       hash: md5
-      md5: 8f8f4e149300ca3a984a38c6b2145f1b
-      size: 4372
+      md5: ab9150ebd1fef6715a8da5bc5bf53597
+      size: 4353
     - path: vera.msgpack
       hash: md5
       md5: 0ff19d2186b090cc26f239a12da8b8b2
@@ -3531,10 +3531,10 @@ stages:
       hash: md5
       md5: de9def92d813fd95954b01ec5512fff4
       size: 551223
-    - path: ../p2/assembly-2G.toml
+    - path: ../../../toml-values/examples/vera/p2/assembly-2G.toml.json
       hash: md5
-      md5: 5e1d8fe5706fcb206e870b40a3ff1911
-      size: 4707
+      md5: e2b42b095a1f35ec185fa1c776bc5446
+      size: 4804
     - path: vera.msgpack
       hash: md5
       md5: 0ff19d2186b090cc26f239a12da8b8b2
@@ -3583,10 +3583,10 @@ stages:
       hash: md5
       md5: de9def92d813fd95954b01ec5512fff4
       size: 551223
-    - path: ../p1/pincell-1B.toml
+    - path: ../../../toml-values/examples/vera/p1/pincell-1B.toml.json
       hash: md5
-      md5: 607599ffb9282261120b82ce84c10a6b
-      size: 1511
+      md5: f839263c9089c810a0311fe51d6cf457
+      size: 1640
     - path: vera.msgpack
       hash: md5
       md5: 0ff19d2186b090cc26f239a12da8b8b2
@@ -3631,10 +3631,10 @@ stages:
       hash: md5
       md5: de9def92d813fd95954b01ec5512fff4
       size: 551223
-    - path: ../p1/pincell-1D.toml
+    - path: ../../../toml-values/examples/vera/p1/pincell-1D.toml.json
       hash: md5
-      md5: 7e55baeae8e91f275f61b49927ec1640
-      size: 1513
+      md5: 9de5baa88efca934bc80acb63b5456d5
+      size: 1641
     - path: vera.msgpack
       hash: md5
       md5: 0ff19d2186b090cc26f239a12da8b8b2

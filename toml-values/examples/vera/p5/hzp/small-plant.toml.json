@@ -1,0 +1,201 @@
+{
+ "pitch": 21.5,
+ "height": 518.937,
+ "map": [
+  "C@90  E@90  I@90  N     C",
+  "N@90  *     *     *     E",
+  "I@180 *     *     *     I",
+  "E@180 *     *     *     N@270",
+  "C@180 N@180 I@270 E@270 C@270"
+ ],
+ "reflector": {
+  "C": {
+   "bounds": [
+    0.0,
+    50.0,
+    55.0,
+    61.053,
+    452.51,
+    461.337,
+    468.937,
+    518.937
+   ],
+   "layers": [
+    {
+     "file": "axial-31/lower-water.msgpack",
+     "vacuum": "marshak"
+    },
+    {
+     "file": "axial-31/lower-plate.msgpack",
+     "vacuum": "marshak"
+    },
+    {
+     "file": "axial-31/bottom-nozzle.msgpack",
+     "vacuum": "marshak"
+    },
+    "lattice/reflector-corner-31-fuel.msgpack",
+    {
+     "file": "axial-31/top-nozzle.msgpack",
+     "vacuum": "marshak"
+    },
+    {
+     "file": "axial-31/upper-plate.msgpack",
+     "vacuum": "marshak"
+    },
+    {
+     "file": "axial-31/upper-water.msgpack",
+     "vacuum": "marshak"
+    }
+   ]
+  },
+  "E": {
+   "bounds": [
+    0.0,
+    50.0,
+    55.0,
+    61.053,
+    452.51,
+    461.337,
+    468.937,
+    518.937
+   ],
+   "layers": [
+    {
+     "file": "axial-31/lower-water.msgpack",
+     "vacuum": "marshak"
+    },
+    {
+     "file": "axial-31/lower-plate.msgpack",
+     "vacuum": "marshak"
+    },
+    {
+     "file": "axial-31/bottom-nozzle.msgpack",
+     "vacuum": "marshak"
+    },
+    "lattice/reflector-corner-31-fuel-right.msgpack",
+    {
+     "file": "axial-31/top-nozzle.msgpack",
+     "vacuum": "marshak"
+    },
+    {
+     "file": "axial-31/upper-plate.msgpack",
+     "vacuum": "marshak"
+    },
+    {
+     "file": "axial-31/upper-water.msgpack",
+     "vacuum": "marshak"
+    }
+   ]
+  },
+  "I": {
+   "bounds": [
+    0.0,
+    50.0,
+    55.0,
+    61.053,
+    452.51,
+    461.337,
+    468.937,
+    518.937
+   ],
+   "layers": [
+    {
+     "file": "axial-31/lower-water.msgpack",
+     "vacuum": "marshak"
+    },
+    {
+     "file": "axial-31/lower-plate.msgpack",
+     "vacuum": "marshak"
+    },
+    {
+     "file": "axial-31/bottom-nozzle.msgpack",
+     "vacuum": "marshak"
+    },
+    "lattice/reflector-I-31-fuel.msgpack",
+    {
+     "file": "axial-31/top-nozzle.msgpack",
+     "vacuum": "marshak"
+    },
+    {
+     "file": "axial-31/upper-plate.msgpack",
+     "vacuum": "marshak"
+    },
+    {
+     "file": "axial-31/upper-water.msgpack",
+     "vacuum": "marshak"
+    }
+   ]
+  },
+  "N": {
+   "bounds": [
+    0.0,
+    50.0,
+    55.0,
+    61.053,
+    452.51,
+    461.337,
+    468.937,
+    518.937
+   ],
+   "layers": [
+    {
+     "file": "axial-31/lower-water.msgpack",
+     "vacuum": "marshak"
+    },
+    {
+     "file": "axial-31/lower-plate.msgpack",
+     "vacuum": "marshak"
+    },
+    {
+     "file": "axial-31/bottom-nozzle.msgpack",
+     "vacuum": "marshak"
+    },
+    "lattice/reflector-corner-31-fuel-top.msgpack",
+    {
+     "file": "axial-31/top-nozzle.msgpack",
+     "vacuum": "marshak"
+    },
+    {
+     "file": "axial-31/upper-plate.msgpack",
+     "vacuum": "marshak"
+    },
+    {
+     "file": "axial-31/upper-water.msgpack",
+     "vacuum": "marshak"
+    }
+   ]
+  }
+ },
+ "rods": {
+  "step": 1.5875,
+  "bottom": 72.031,
+  "steps": 230,
+  "top": 432.711,
+  "map": [
+   ". . . . .",
+   ". . . . .",
+   ". . D . .",
+   ". . . . .",
+   ". . . . ."
+  ],
+  "bank": {
+   "D": {
+    "type": "rcca"
+   }
+  },
+  "type": {
+   "rcca": {
+    "segments": [
+     {
+      "value": "aic",
+      "length": 101.6
+     },
+     {
+      "value": "b4c",
+      "length": 259.08
+     }
+    ]
+   }
+  }
+ }
+}

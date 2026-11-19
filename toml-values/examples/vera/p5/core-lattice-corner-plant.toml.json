@@ -1,0 +1,37 @@
+{
+ "pitch": 21.5,
+ "height": 21.5,
+ "map": [
+  "N C",
+  "* E"
+ ],
+ "reflector": {
+  "C": {
+   "bounds": [
+    0.0,
+    21.5
+   ],
+   "layers": [
+    "lattice/reflector-corner.msgpack"
+   ]
+  },
+  "E": {
+   "bounds": [
+    0.0,
+    21.5
+   ],
+   "layers": [
+    "lattice/reflector-corner-right.msgpack"
+   ]
+  },
+  "N": {
+   "bounds": [
+    0.0,
+    21.5
+   ],
+   "layers": [
+    "lattice/reflector-corner-top.msgpack"
+   ]
+  }
+ }
+}

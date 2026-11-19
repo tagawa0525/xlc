@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [verification]
 opened: 2026-10-22
-closed:
+closed: 2026-11-19
 milestone: M4
 blocked-by: []
-resolution:
+resolution: ADR-0254
 ---
 
 # 履歴の書き換えと opt-level の変更で全例の dvc.lock が deps と食い違う
@@ -43,7 +43,7 @@ ADR-0183 に合わせたコミット（01f33be98。main に入っている）が
   変更など）は計算のステージを動かさない。ただしコードの行をずらすコメントは、実行ファイルを変えうる（ADR-0159 が測った）。
   deps がソースそのものである .py には、バイトの同一で止める仕組みがなく、文書だけの変更が出力の再計算の候補になる
 
-関係する ADR: ADR-0210（.py の deps を正規形にする）、ADR-0212（付け直してよい条件）
+関係する ADR: ADR-0210（.py の deps を正規形にする）、ADR-0212（付け直してよい条件）、ADR-0254（TOML の deps を正規形にする）
 
 ## 例ごとの扱い
 
@@ -128,3 +128,11 @@ ADR-0183 に合わせたコミット（01f33be98。main に入っている）が
 - 2026-10-28: 「再発を防ぐ仕組みの案」のうち、`dvc commit` で付け直してよい条件を ADR-0212 の (b) で決めた（#0183 のブランチ
   fix/0183-references-shell）。toml のコメントの扱い（条件による付け直しの適用か、案 B5 の正規形か）と history-rewrite の段は残るので、
   issue は開いたままにする
+- 2026-11-19: 「再発を防ぐ仕組みの案」の 3 つ目（TOML の deps を正規形にする。ADR-0212 の案 B5）を ADR-0254 で決め、実装した（ブランチ
+  feat/0145-toml-normal-form）。例のステージの deps の TOML（436 ファイル）を、直下の `dvc.yaml` の `toml-values` が書く値の正規形
+  （`tomllib` で読んだ値をキーの順のまま JSON にしたもの。`toml-values/<パス>.json`、git で追跡）に替え、lock の TOML の deps の
+  項目を、記録した版の正規形に書き換えた（675 項目。changed のステージの集合は移行の前後で同じ 1,064）。p2 の `openmc-index` の
+  TOML の差（4aa33c0c9 のコメント）は理由から外れた（.py の deps の差で changed のまま）。.py（ADR-0210）と TOML のコメントの修正は
+  計算のステージを changed にしないので、履歴の書き換えの後の付け直しは要らない。history-rewrite の手順の 6（xlc は /dvc-relock）は
+  /dvc-relock の 2 で `python-ast` と `toml-values` を実行するので、手順を足さない。実行ファイルの行の位置の差は #0110 で扱う。
+  完了の条件の 1 つ目は 2026-10-28 の項のとおり満たしているので、閉じる

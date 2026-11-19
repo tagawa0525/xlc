@@ -14,7 +14,8 @@ stages:
     deps:
       - ../../../python-ast/examples/depletion/compare_branch_cross_terms.py.ast
       - ../../../python-ast/examples/depletion/compare_burnup_interpolation.py.ast
-      - compare-2O.toml
+      - ../../../python-ast/scripts/normalize_toml.py.ast
+      - ../../../toml-values/examples/depletion/p9-gd/compare-2O.toml.json
       - table-2O.msgpack
     outs:
       - compare-2O.json:
@@ -23,10 +24,11 @@ stages:
     # 燃料の温度の格子点を減らした内挿の誤差の要約（数十 KB。git で追跡する）
     cmd: python3 ../compare_grid_interpolation.py --json grid-2O.json grid-2O.toml
     deps:
-      - grid-2O.toml
+      - ../../../toml-values/examples/depletion/p9-gd/grid-2O.toml.json
       - ../../../python-ast/examples/depletion/compare_grid_interpolation.py.ast
       - ../../../python-ast/examples/depletion/compare_branch_cross_terms.py.ast
       - ../../../python-ast/examples/depletion/compare_burnup_interpolation.py.ast
+      - ../../../python-ast/scripts/normalize_toml.py.ast
       - fuel-2O.msgpack
     outs:
       - grid-2O.json:
@@ -37,7 +39,8 @@ stages:
     deps:
       - ../../../python-ast/examples/depletion/compare_branch_cross_terms.py.ast
       - ../../../python-ast/examples/depletion/compare_burnup_interpolation.py.ast
-      - compare-2O-all.toml
+      - ../../../python-ast/scripts/normalize_toml.py.ast
+      - ../../../toml-values/examples/depletion/p9-gd/compare-2O-all.toml.json
       - table-2O-all.msgpack
     outs:
       - compare-2O-all.json:
@@ -48,7 +51,8 @@ stages:
     deps:
       - ../../../python-ast/examples/depletion/compare_branch_cross_terms.py.ast
       - ../../../python-ast/examples/depletion/compare_burnup_interpolation.py.ast
-      - compare-2P-all.toml
+      - ../../../python-ast/scripts/normalize_toml.py.ast
+      - ../../../toml-values/examples/depletion/p9-gd/compare-2P-all.toml.json
       - table-2P-all.msgpack
       - table-2P.msgpack
     outs:
@@ -58,10 +62,11 @@ stages:
     # grid-2O と同じ比較を 2P で（git で追跡する）
     cmd: python3 ../compare_grid_interpolation.py --json grid-2P.json grid-2P.toml
     deps:
-      - grid-2P.toml
+      - ../../../toml-values/examples/depletion/p9-gd/grid-2P.toml.json
       - ../../../python-ast/examples/depletion/compare_grid_interpolation.py.ast
       - ../../../python-ast/examples/depletion/compare_branch_cross_terms.py.ast
       - ../../../python-ast/examples/depletion/compare_burnup_interpolation.py.ast
+      - ../../../python-ast/scripts/normalize_toml.py.ast
       - fuel-2P.msgpack
     outs:
       - grid-2P.json:

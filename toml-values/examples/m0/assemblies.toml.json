@@ -1,0 +1,783 @@
+{
+ "assembly": {
+  "P001": {
+   "design": "pincell"
+  },
+  "P002": {
+   "design": "pincell"
+  },
+  "P003": {
+   "design": "pincell"
+  },
+  "P004": {
+   "design": "pincell"
+  },
+  "P005": {
+   "design": "pincell"
+  },
+  "P006": {
+   "design": "pincell"
+  },
+  "P007": {
+   "design": "pincell"
+  },
+  "P008": {
+   "design": "pincell"
+  },
+  "P009": {
+   "design": "pincell"
+  },
+  "P010": {
+   "design": "pincell"
+  },
+  "P011": {
+   "design": "pincell"
+  },
+  "P012": {
+   "design": "pincell"
+  },
+  "P013": {
+   "design": "pincell"
+  },
+  "P014": {
+   "design": "pincell"
+  },
+  "P015": {
+   "design": "pincell"
+  },
+  "P016": {
+   "design": "pincell"
+  },
+  "P017": {
+   "design": "pincell"
+  },
+  "P018": {
+   "design": "pincell"
+  },
+  "P019": {
+   "design": "pincell"
+  },
+  "P020": {
+   "design": "pincell"
+  },
+  "P021": {
+   "design": "pincell"
+  },
+  "P022": {
+   "design": "pincell"
+  },
+  "P023": {
+   "design": "pincell"
+  },
+  "P024": {
+   "design": "pincell"
+  },
+  "P025": {
+   "design": "pincell"
+  },
+  "P026": {
+   "design": "pincell"
+  },
+  "P027": {
+   "design": "pincell"
+  },
+  "P028": {
+   "design": "pincell"
+  },
+  "P029": {
+   "design": "pincell"
+  },
+  "P030": {
+   "design": "pincell"
+  },
+  "P031": {
+   "design": "pincell"
+  },
+  "P032": {
+   "design": "pincell"
+  },
+  "P033": {
+   "design": "pincell"
+  },
+  "P034": {
+   "design": "pincell"
+  },
+  "P035": {
+   "design": "pincell"
+  },
+  "P036": {
+   "design": "pincell"
+  },
+  "P037": {
+   "design": "pincell"
+  },
+  "P038": {
+   "design": "pincell"
+  },
+  "P039": {
+   "design": "pincell"
+  },
+  "P040": {
+   "design": "pincell"
+  },
+  "P041": {
+   "design": "pincell"
+  },
+  "P042": {
+   "design": "pincell"
+  },
+  "P043": {
+   "design": "pincell"
+  },
+  "P044": {
+   "design": "pincell"
+  },
+  "P045": {
+   "design": "pincell"
+  },
+  "P046": {
+   "design": "pincell"
+  },
+  "P047": {
+   "design": "pincell"
+  },
+  "P048": {
+   "design": "pincell"
+  },
+  "P049": {
+   "design": "pincell"
+  },
+  "P050": {
+   "design": "pincell"
+  },
+  "P051": {
+   "design": "pincell"
+  },
+  "P052": {
+   "design": "pincell"
+  },
+  "P053": {
+   "design": "pincell"
+  },
+  "P054": {
+   "design": "pincell"
+  },
+  "P055": {
+   "design": "pincell"
+  },
+  "P056": {
+   "design": "pincell"
+  },
+  "P057": {
+   "design": "pincell"
+  },
+  "P058": {
+   "design": "pincell"
+  },
+  "P059": {
+   "design": "pincell"
+  },
+  "P060": {
+   "design": "pincell"
+  },
+  "P061": {
+   "design": "pincell"
+  },
+  "P062": {
+   "design": "pincell"
+  },
+  "P063": {
+   "design": "pincell"
+  },
+  "P064": {
+   "design": "pincell"
+  },
+  "P065": {
+   "design": "pincell"
+  },
+  "P066": {
+   "design": "pincell"
+  },
+  "P067": {
+   "design": "pincell"
+  },
+  "P068": {
+   "design": "pincell"
+  },
+  "P069": {
+   "design": "pincell"
+  },
+  "P070": {
+   "design": "pincell"
+  },
+  "P071": {
+   "design": "pincell"
+  },
+  "P072": {
+   "design": "pincell"
+  },
+  "P073": {
+   "design": "pincell"
+  },
+  "P074": {
+   "design": "pincell"
+  },
+  "P075": {
+   "design": "pincell"
+  },
+  "P076": {
+   "design": "pincell"
+  },
+  "P077": {
+   "design": "pincell"
+  },
+  "P078": {
+   "design": "pincell"
+  },
+  "P079": {
+   "design": "pincell"
+  },
+  "P080": {
+   "design": "pincell"
+  },
+  "P081": {
+   "design": "pincell"
+  },
+  "P082": {
+   "design": "pincell"
+  },
+  "P083": {
+   "design": "pincell"
+  },
+  "P084": {
+   "design": "pincell"
+  },
+  "P085": {
+   "design": "pincell"
+  },
+  "P086": {
+   "design": "pincell"
+  },
+  "P087": {
+   "design": "pincell"
+  },
+  "P088": {
+   "design": "pincell"
+  },
+  "P089": {
+   "design": "pincell"
+  },
+  "P090": {
+   "design": "pincell"
+  },
+  "P091": {
+   "design": "pincell"
+  },
+  "P092": {
+   "design": "pincell"
+  },
+  "P093": {
+   "design": "pincell"
+  },
+  "P094": {
+   "design": "pincell"
+  },
+  "P095": {
+   "design": "pincell"
+  },
+  "P096": {
+   "design": "pincell"
+  },
+  "P097": {
+   "design": "pincell"
+  },
+  "P098": {
+   "design": "pincell"
+  },
+  "P099": {
+   "design": "pincell"
+  },
+  "P100": {
+   "design": "pincell"
+  },
+  "P101": {
+   "design": "pincell"
+  },
+  "P102": {
+   "design": "pincell"
+  },
+  "P103": {
+   "design": "pincell"
+  },
+  "P104": {
+   "design": "pincell"
+  },
+  "P105": {
+   "design": "pincell"
+  },
+  "P106": {
+   "design": "pincell"
+  },
+  "P107": {
+   "design": "pincell"
+  },
+  "P108": {
+   "design": "pincell"
+  },
+  "P109": {
+   "design": "pincell"
+  },
+  "P110": {
+   "design": "pincell"
+  },
+  "P111": {
+   "design": "pincell"
+  },
+  "P112": {
+   "design": "pincell"
+  },
+  "P113": {
+   "design": "pincell"
+  },
+  "P114": {
+   "design": "pincell"
+  },
+  "P115": {
+   "design": "pincell"
+  },
+  "P116": {
+   "design": "pincell"
+  },
+  "P117": {
+   "design": "pincell"
+  },
+  "P118": {
+   "design": "pincell"
+  },
+  "P119": {
+   "design": "pincell"
+  },
+  "P120": {
+   "design": "pincell"
+  },
+  "P121": {
+   "design": "pincell"
+  },
+  "P122": {
+   "design": "pincell"
+  },
+  "P123": {
+   "design": "pincell"
+  },
+  "P124": {
+   "design": "pincell"
+  },
+  "P125": {
+   "design": "pincell"
+  },
+  "P126": {
+   "design": "pincell"
+  },
+  "P127": {
+   "design": "pincell"
+  },
+  "P128": {
+   "design": "pincell"
+  },
+  "P129": {
+   "design": "pincell"
+  },
+  "P130": {
+   "design": "pincell"
+  },
+  "P131": {
+   "design": "pincell"
+  },
+  "P132": {
+   "design": "pincell"
+  },
+  "P133": {
+   "design": "pincell"
+  },
+  "P134": {
+   "design": "pincell"
+  },
+  "P135": {
+   "design": "pincell"
+  },
+  "P136": {
+   "design": "pincell"
+  },
+  "P137": {
+   "design": "pincell"
+  },
+  "P138": {
+   "design": "pincell"
+  },
+  "P139": {
+   "design": "pincell"
+  },
+  "P140": {
+   "design": "pincell"
+  },
+  "P141": {
+   "design": "pincell"
+  },
+  "P142": {
+   "design": "pincell"
+  },
+  "P143": {
+   "design": "pincell"
+  },
+  "P144": {
+   "design": "pincell"
+  },
+  "P145": {
+   "design": "pincell"
+  },
+  "P146": {
+   "design": "pincell"
+  },
+  "P147": {
+   "design": "pincell"
+  },
+  "P148": {
+   "design": "pincell"
+  },
+  "P149": {
+   "design": "pincell"
+  },
+  "P150": {
+   "design": "pincell"
+  },
+  "P151": {
+   "design": "pincell"
+  },
+  "P152": {
+   "design": "pincell"
+  },
+  "P153": {
+   "design": "pincell"
+  },
+  "P154": {
+   "design": "pincell"
+  },
+  "P155": {
+   "design": "pincell"
+  },
+  "P156": {
+   "design": "pincell"
+  },
+  "P157": {
+   "design": "pincell"
+  },
+  "P158": {
+   "design": "pincell"
+  },
+  "P159": {
+   "design": "pincell"
+  },
+  "P160": {
+   "design": "pincell"
+  },
+  "P161": {
+   "design": "pincell"
+  },
+  "P162": {
+   "design": "pincell"
+  },
+  "P163": {
+   "design": "pincell"
+  },
+  "P164": {
+   "design": "pincell"
+  },
+  "P165": {
+   "design": "pincell"
+  },
+  "P166": {
+   "design": "pincell"
+  },
+  "P167": {
+   "design": "pincell"
+  },
+  "P168": {
+   "design": "pincell"
+  },
+  "P169": {
+   "design": "pincell"
+  },
+  "P170": {
+   "design": "pincell"
+  },
+  "P171": {
+   "design": "pincell"
+  },
+  "P172": {
+   "design": "pincell"
+  },
+  "P173": {
+   "design": "pincell"
+  },
+  "P174": {
+   "design": "pincell"
+  },
+  "P175": {
+   "design": "pincell"
+  },
+  "P176": {
+   "design": "pincell"
+  },
+  "P177": {
+   "design": "pincell"
+  },
+  "P178": {
+   "design": "pincell"
+  },
+  "P179": {
+   "design": "pincell"
+  },
+  "P180": {
+   "design": "pincell"
+  },
+  "P181": {
+   "design": "pincell"
+  },
+  "P182": {
+   "design": "pincell"
+  },
+  "P183": {
+   "design": "pincell"
+  },
+  "P184": {
+   "design": "pincell"
+  },
+  "P185": {
+   "design": "pincell"
+  },
+  "P186": {
+   "design": "pincell"
+  },
+  "P187": {
+   "design": "pincell"
+  },
+  "P188": {
+   "design": "pincell"
+  },
+  "P189": {
+   "design": "pincell"
+  },
+  "P190": {
+   "design": "pincell"
+  },
+  "P191": {
+   "design": "pincell"
+  },
+  "P192": {
+   "design": "pincell"
+  },
+  "P193": {
+   "design": "pincell"
+  },
+  "P194": {
+   "design": "pincell"
+  },
+  "P195": {
+   "design": "pincell"
+  },
+  "P196": {
+   "design": "pincell"
+  },
+  "P197": {
+   "design": "pincell"
+  },
+  "P198": {
+   "design": "pincell"
+  },
+  "P199": {
+   "design": "pincell"
+  },
+  "P200": {
+   "design": "pincell"
+  },
+  "P201": {
+   "design": "pincell"
+  },
+  "P202": {
+   "design": "pincell"
+  },
+  "P203": {
+   "design": "pincell"
+  },
+  "P204": {
+   "design": "pincell"
+  },
+  "P205": {
+   "design": "pincell"
+  },
+  "P206": {
+   "design": "pincell"
+  },
+  "P207": {
+   "design": "pincell"
+  },
+  "P208": {
+   "design": "pincell"
+  },
+  "P209": {
+   "design": "pincell"
+  },
+  "P210": {
+   "design": "pincell"
+  },
+  "P211": {
+   "design": "pincell"
+  },
+  "P212": {
+   "design": "pincell"
+  },
+  "P213": {
+   "design": "pincell"
+  },
+  "P214": {
+   "design": "pincell"
+  },
+  "P215": {
+   "design": "pincell"
+  },
+  "P216": {
+   "design": "pincell"
+  },
+  "P217": {
+   "design": "pincell"
+  },
+  "P218": {
+   "design": "pincell"
+  },
+  "P219": {
+   "design": "pincell"
+  },
+  "P220": {
+   "design": "pincell"
+  },
+  "P221": {
+   "design": "pincell"
+  },
+  "P222": {
+   "design": "pincell"
+  },
+  "P223": {
+   "design": "pincell"
+  },
+  "P224": {
+   "design": "pincell"
+  },
+  "P225": {
+   "design": "pincell"
+  },
+  "P226": {
+   "design": "pincell"
+  },
+  "P227": {
+   "design": "pincell"
+  },
+  "P228": {
+   "design": "pincell"
+  },
+  "P229": {
+   "design": "pincell"
+  },
+  "P230": {
+   "design": "pincell"
+  },
+  "P231": {
+   "design": "pincell"
+  },
+  "P232": {
+   "design": "pincell"
+  },
+  "P233": {
+   "design": "pincell"
+  },
+  "P234": {
+   "design": "pincell"
+  },
+  "P235": {
+   "design": "pincell"
+  },
+  "P236": {
+   "design": "pincell"
+  },
+  "P237": {
+   "design": "pincell"
+  },
+  "P238": {
+   "design": "pincell"
+  },
+  "P239": {
+   "design": "pincell"
+  },
+  "P240": {
+   "design": "pincell"
+  },
+  "P241": {
+   "design": "pincell"
+  },
+  "P242": {
+   "design": "pincell"
+  },
+  "P243": {
+   "design": "pincell"
+  },
+  "P244": {
+   "design": "pincell"
+  },
+  "P245": {
+   "design": "pincell"
+  },
+  "P246": {
+   "design": "pincell"
+  },
+  "P247": {
+   "design": "pincell"
+  },
+  "P248": {
+   "design": "pincell"
+  },
+  "P249": {
+   "design": "pincell"
+  },
+  "P250": {
+   "design": "pincell"
+  },
+  "P251": {
+   "design": "pincell"
+  },
+  "P252": {
+   "design": "pincell"
+  },
+  "P253": {
+   "design": "pincell"
+  },
+  "P254": {
+   "design": "pincell"
+  },
+  "P255": {
+   "design": "pincell"
+  },
+  "P256": {
+   "design": "pincell"
+  }
+ },
+ "design": {
+  "pincell": {
+   "bounds": [
+    0.0,
+    366.0
+   ],
+   "layers": [
+    "pincell-fg.msgpack"
+   ]
+  }
+ }
+}

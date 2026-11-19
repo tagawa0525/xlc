@@ -1,0 +1,96 @@
+{
+ "library": "depletion.msgpack",
+ "pitch": 1.26,
+ "azimuthal": 64,
+ "spacing": 0.02,
+ "rows": [
+  "pin"
+ ],
+ "material": {
+  "fuel": {
+   "temperature": 900,
+   "nuclides": {
+    "U-235": 5.105e-05,
+    "U-238": 0.02037,
+    "Pu-238": 4.669e-05,
+    "Pu-239": 0.001465,
+    "Pu-240": 0.0005691,
+    "Pu-241": 0.0002713,
+    "Pu-242": 0.0001413,
+    "Am-241": 3.028e-05,
+    "O-16": 0.04588
+   }
+  },
+  "zirconium": {
+   "temperature": 600,
+   "nuclides": {
+    "Zr-90": 0.0199626,
+    "Zr-91": 0.00435336,
+    "Zr-92": 0.0066542,
+    "Zr-94": 0.00674344,
+    "Zr-96": 0.0010864
+   }
+  },
+  "water": {
+   "temperature": 600,
+   "nuclides": {
+    "H-1": 0.04744,
+    "O-16": 0.02372
+   }
+  }
+ },
+ "cell": {
+  "pin": {
+   "zones": [
+    {
+     "material": "fuel",
+     "radius": 0.41,
+     "rings": 5
+    },
+    {
+     "material": "zirconium",
+     "radius": 0.475,
+     "rings": 1
+    },
+    {
+     "material": "water",
+     "radius": 0.63,
+     "rings": 3
+    },
+    {
+     "material": "water",
+     "radius": 0.75,
+     "rings": 2
+    },
+    {
+     "material": "water",
+     "rings": 1
+    }
+   ],
+   "sectors": 8
+  }
+ },
+ "depletion": {
+  "chain": "chain.msgpack",
+  "power": 38.41,
+  "burnup": [
+   0.1,
+   0.5,
+   1.0,
+   2.0,
+   3.0,
+   5.0
+  ],
+  "materials": [
+   "fuel"
+  ],
+  "output": "lattice-mox1-rings1.msgpack",
+  "few-group": {
+   "bounds": [
+    10000000.0,
+    0.625,
+    1e-05
+   ]
+  }
+ }
+}

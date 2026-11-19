@@ -8,6 +8,10 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/depletion/p9-2A/branch-2A.toml.json
+      hash: md5
+      md5: df36daeb1d9918565a9813485730f280
+      size: 6195
     - path: ../chain.msgpack
       hash: md5
       md5: 1f1de1800363a19f23af2f7b4417c426
@@ -20,10 +24,6 @@ stages:
       hash: md5
       md5: 21f901cc677e02e70d0a24f3964d475e
       size: 275077646
-    - path: branch-2A.toml
-      hash: md5
-      md5: b2a8b4b9d266d83557a01a507a7243f8
-      size: 7212
     outs:
     - path: branch-2A.log
       hash: md5
@@ -44,23 +44,27 @@ stages:
     - path: 
         ../../../python-ast/examples/depletion/compare_branch_cross_terms.py.ast
       hash: md5
-      md5: 7fcfd28ab849fd3f1f0db5e3cd105019
-      size: 41364
+      md5: 3076d3fa5004d039bd39fe6e5799ae81
+      size: 41432
     - path: 
         ../../../python-ast/examples/depletion/compare_burnup_interpolation.py.ast
       hash: md5
       md5: 1fbba180eddd60cc40f8e3c467dc578a
       size: 9792
+    - path: ../../../python-ast/scripts/normalize_toml.py.ast
+      hash: md5
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
+    - path: ../../../toml-values/examples/depletion/p9-2A/thinning-2A.toml.json
+      hash: md5
+      md5: c8993e31eb991027bd4abc9442cbb5d4
+      size: 1824
     - path: table-2A-all-burnups.msgpack
       hash: md5
       md5: c33a630dde56915eb45d069cceeb0a02
       size: 36323004
-    - path: thinning-2A.toml
-      hash: md5
-      md5: 595336cebb35d8b10a8039c9c572c241
-      size: 3002
     outs:
     - path: thinning-2A.json
       hash: md5
-      md5: 5e5d474ec95066b83997007e733a845d
+      md5: 34c14b34001f80a7f8b5b91eff6d20e0
       size: 391006

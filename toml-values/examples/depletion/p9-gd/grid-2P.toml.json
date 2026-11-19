@@ -1,0 +1,79 @@
+{
+ "table": "fuel-2P.msgpack",
+ "scheme": [
+  {
+   "axis": "fuel",
+   "variable": "sqrt",
+   "method": "hermite"
+  },
+  {
+   "axis": "fuel",
+   "variable": "sqrt",
+   "method": "hermite",
+   "points": [
+    560,
+    900,
+    1050,
+    1350
+   ]
+  },
+  {
+   "axis": "fuel",
+   "variable": "sqrt",
+   "method": "hermite",
+   "points": [
+    560,
+    750,
+    1050,
+    1350
+   ]
+  },
+  {
+   "axis": "fuel",
+   "variable": "sqrt",
+   "method": "hermite",
+   "points": [
+    560,
+    900,
+    1350
+   ]
+  },
+  {
+   "axis": "fuel",
+   "variable": "sqrt",
+   "method": "linear"
+  },
+  {
+   "axis": "fuel",
+   "variable": "sqrt",
+   "method": "linear",
+   "points": [
+    560,
+    900,
+    1050,
+    1350
+   ]
+  },
+  {
+   "axis": "fuel",
+   "variable": "sqrt",
+   "method": "linear",
+   "points": [
+    560,
+    750,
+    1050,
+    1350
+   ]
+  },
+  {
+   "axis": "fuel",
+   "variable": "sqrt",
+   "method": "linear",
+   "points": [
+    560,
+    900,
+    1350
+   ]
+  }
+ ]
+}

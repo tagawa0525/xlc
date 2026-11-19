@@ -5,7 +5,7 @@ stages:
   xs:
     cmd: ../../bin/xs xs.toml
     deps:
-      - xs.toml
+      - ../../toml-values/examples/m0/xs.toml.json
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-001_H_001.endf
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-008_O_016.endf
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_235.endf
@@ -17,7 +17,7 @@ stages:
     # 結果の k∞ は標準出力に出るので、ファイルに受ける
     cmd: ../../bin/lattice pincell.toml > lattice.out
     deps:
-      - pincell.toml
+      - ../../toml-values/examples/m0/pincell.toml.json
       - wims69.msgpack
       - ../../bin/lattice
     outs:
@@ -27,10 +27,10 @@ stages:
     # 結果（k_eff、漏れ、集合体ごとの核分裂率）は標準出力に出るので、ファイルに受ける
     cmd: ../../bin/core core.toml > core.out
     deps:
-      - core.toml
-      - cycle.toml
-      - plant.toml
-      - assemblies.toml
+      - ../../toml-values/examples/m0/core.toml.json
+      - ../../toml-values/examples/m0/cycle.toml.json
+      - ../../toml-values/examples/m0/plant.toml.json
+      - ../../toml-values/examples/m0/assemblies.toml.json
       - pincell-fg.msgpack
       - ../../bin/core
     outs:

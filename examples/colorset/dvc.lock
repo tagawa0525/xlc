@@ -8,14 +8,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../toml-values/examples/colorset/assembly-31.toml.json
+      hash: md5
+      md5: 083dc0d84c8b630687a0a8a30e082e03
+      size: 3765
     - path: ../vera/vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: assembly-31.toml
-      hash: md5
-      md5: e558c56b3f9797cf913daa2fa76536b1
-      size: 3456
     outs:
     - path: fg-31.msgpack
       hash: md5
@@ -53,14 +53,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../toml-values/examples/colorset/assembly-21.toml.json
+      hash: md5
+      md5: e17a6d64a22e3f0cca720f92d42138cb
+      size: 3765
     - path: ../vera/vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: assembly-21.toml
-      hash: md5
-      md5: 82b7394ec3370f3b61fdf9bf339c4c51
-      size: 3536
     outs:
     - path: fg-21.msgpack
       hash: md5
@@ -98,18 +98,22 @@ stages:
       md5: d6b0932c73b2aac6e70f1adee0065a71
       size: 7443832
       isexec: true
-    - path: assemblies-nodf.toml
+    - path: ../../toml-values/examples/colorset/assemblies-nodf.toml.json
       hash: md5
-      md5: 68a11e09cc84697e661fb3055d128ec6
-      size: 367
-    - path: case-nodf.toml
+      md5: a4f8311e09a12c775a1c52699ca181f5
+      size: 371
+    - path: ../../toml-values/examples/colorset/case-nodf.toml.json
       hash: md5
-      md5: de6b1fb221197956a8814947c41a4b9b
-      size: 321
-    - path: cycle-nodf.toml
+      md5: 232b0b32ffd1ea43185ed9898ba22f47
+      size: 287
+    - path: ../../toml-values/examples/colorset/cycle-nodf.toml.json
       hash: md5
-      md5: 704182ecfd5bbd3913d1f70fa68250a8
-      size: 169
+      md5: 7a15bab83fd2280d744f9c557fee9671
+      size: 110
+    - path: ../../toml-values/examples/colorset/plant.toml.json
+      hash: md5
+      md5: 73bec4cc223def3eb41c4e3614a48449
+      size: 69
     - path: fg-21-nodf.msgpack
       hash: md5
       md5: 777bc408b797f94091c56c83f02f5bb9
@@ -118,10 +122,6 @@ stages:
       hash: md5
       md5: e3c692cc30dfe123945d2ea70aa8de65
       size: 7584
-    - path: plant.toml
-      hash: md5
-      md5: 5269c1dd3b250d1193cf6d8c6edae3b7
-      size: 134
     outs:
     - path: core-nodf.out
       hash: md5
@@ -139,18 +139,22 @@ stages:
       md5: d6b0932c73b2aac6e70f1adee0065a71
       size: 7443832
       isexec: true
-    - path: assemblies.toml
+    - path: ../../toml-values/examples/colorset/assemblies.toml.json
       hash: md5
-      md5: 0fc99d865892007f9046e71a265aa15f
-      size: 351
-    - path: case.toml
+      md5: 10a7ba1f7cb72ba0110e1e56246433e6
+      size: 361
+    - path: ../../toml-values/examples/colorset/case.toml.json
       hash: md5
-      md5: acdf610d4a89f3c2b995d69a345562d6
-      size: 307
-    - path: cycle.toml
+      md5: 2a8e4a19e32d0dd28688fd8abfbb95dd
+      size: 277
+    - path: ../../toml-values/examples/colorset/cycle.toml.json
       hash: md5
-      md5: 0889c68d85a7acb9988ff067538c89f2
-      size: 198
+      md5: 80e0e2771c2e199021867859a1d5e72e
+      size: 105
+    - path: ../../toml-values/examples/colorset/plant.toml.json
+      hash: md5
+      md5: 73bec4cc223def3eb41c4e3614a48449
+      size: 69
     - path: fg-21.msgpack
       hash: md5
       md5: 85fef4ffba9a08e510c625fd189db42b
@@ -159,10 +163,6 @@ stages:
       hash: md5
       md5: dc49095712c9e8619cd9e90a942ecde8
       size: 7584
-    - path: plant.toml
-      hash: md5
-      md5: 5269c1dd3b250d1193cf6d8c6edae3b7
-      size: 134
     outs:
     - path: core-pins.msgpack
       hash: md5
@@ -179,18 +179,22 @@ stages:
       hash: md5
       md5: 592a6fc11ae7a33daef906ed10360bb6
       size: 7549
-    - path: assemblies.toml
+    - path: ../../toml-values/examples/colorset/assemblies.toml.json
       hash: md5
-      md5: 0fc99d865892007f9046e71a265aa15f
-      size: 351
-    - path: case.toml
+      md5: 10a7ba1f7cb72ba0110e1e56246433e6
+      size: 361
+    - path: ../../toml-values/examples/colorset/case.toml.json
       hash: md5
-      md5: acdf610d4a89f3c2b995d69a345562d6
-      size: 307
-    - path: cycle.toml
+      md5: 2a8e4a19e32d0dd28688fd8abfbb95dd
+      size: 277
+    - path: ../../toml-values/examples/colorset/cycle.toml.json
       hash: md5
-      md5: 0889c68d85a7acb9988ff067538c89f2
-      size: 198
+      md5: 80e0e2771c2e199021867859a1d5e72e
+      size: 105
+    - path: ../../toml-values/examples/colorset/plant.toml.json
+      hash: md5
+      md5: 73bec4cc223def3eb41c4e3614a48449
+      size: 69
     - path: fg-21.msgpack
       hash: md5
       md5: 85fef4ffba9a08e510c625fd189db42b
@@ -199,10 +203,6 @@ stages:
       hash: md5
       md5: dc49095712c9e8619cd9e90a942ecde8
       size: 7584
-    - path: plant.toml
-      hash: md5
-      md5: 5269c1dd3b250d1193cf6d8c6edae3b7
-      size: 134
     outs:
     - path: diffusion-4.msgpack
       hash: md5
@@ -219,18 +219,22 @@ stages:
       hash: md5
       md5: 592a6fc11ae7a33daef906ed10360bb6
       size: 7549
-    - path: assemblies.toml
+    - path: ../../toml-values/examples/colorset/assemblies.toml.json
       hash: md5
-      md5: 0fc99d865892007f9046e71a265aa15f
-      size: 351
-    - path: case.toml
+      md5: 10a7ba1f7cb72ba0110e1e56246433e6
+      size: 361
+    - path: ../../toml-values/examples/colorset/case.toml.json
       hash: md5
-      md5: acdf610d4a89f3c2b995d69a345562d6
-      size: 307
-    - path: cycle.toml
+      md5: 2a8e4a19e32d0dd28688fd8abfbb95dd
+      size: 277
+    - path: ../../toml-values/examples/colorset/cycle.toml.json
       hash: md5
-      md5: 0889c68d85a7acb9988ff067538c89f2
-      size: 198
+      md5: 80e0e2771c2e199021867859a1d5e72e
+      size: 105
+    - path: ../../toml-values/examples/colorset/plant.toml.json
+      hash: md5
+      md5: 73bec4cc223def3eb41c4e3614a48449
+      size: 69
     - path: fg-21.msgpack
       hash: md5
       md5: 85fef4ffba9a08e510c625fd189db42b
@@ -239,10 +243,6 @@ stages:
       hash: md5
       md5: dc49095712c9e8619cd9e90a942ecde8
       size: 7584
-    - path: plant.toml
-      hash: md5
-      md5: 5269c1dd3b250d1193cf6d8c6edae3b7
-      size: 134
     outs:
     - path: diffusion-8.msgpack
       hash: md5
@@ -260,18 +260,22 @@ stages:
       hash: md5
       md5: 592a6fc11ae7a33daef906ed10360bb6
       size: 7549
-    - path: assemblies-nodf.toml
+    - path: ../../toml-values/examples/colorset/assemblies-nodf.toml.json
       hash: md5
-      md5: 68a11e09cc84697e661fb3055d128ec6
-      size: 367
-    - path: case-nodf.toml
+      md5: a4f8311e09a12c775a1c52699ca181f5
+      size: 371
+    - path: ../../toml-values/examples/colorset/case-nodf.toml.json
       hash: md5
-      md5: de6b1fb221197956a8814947c41a4b9b
-      size: 321
-    - path: cycle-nodf.toml
+      md5: 232b0b32ffd1ea43185ed9898ba22f47
+      size: 287
+    - path: ../../toml-values/examples/colorset/cycle-nodf.toml.json
       hash: md5
-      md5: 704182ecfd5bbd3913d1f70fa68250a8
-      size: 169
+      md5: 7a15bab83fd2280d744f9c557fee9671
+      size: 110
+    - path: ../../toml-values/examples/colorset/plant.toml.json
+      hash: md5
+      md5: 73bec4cc223def3eb41c4e3614a48449
+      size: 69
     - path: fg-21-nodf.msgpack
       hash: md5
       md5: 777bc408b797f94091c56c83f02f5bb9
@@ -280,10 +284,6 @@ stages:
       hash: md5
       md5: e3c692cc30dfe123945d2ea70aa8de65
       size: 7584
-    - path: plant.toml
-      hash: md5
-      md5: 5269c1dd3b250d1193cf6d8c6edae3b7
-      size: 134
     outs:
     - path: diffusion-nodf-8.msgpack
       hash: md5
@@ -301,14 +301,14 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../toml-values/examples/colorset/colorset.toml.json
+      hash: md5
+      md5: e89c2a48deac92f539a25e100a3c6547
+      size: 11511
     - path: ../vera/vera.msgpack
       hash: md5
       md5: 31bac92b01a88cd4eaf30544652a4925
       size: 552311375
-    - path: colorset.toml
-      hash: md5
-      md5: 8b1f51963c1e783d7adc9b5a49f49265
-      size: 11153
     outs:
     - path: colorset.out
       hash: md5
@@ -389,18 +389,22 @@ stages:
       md5: d6b0932c73b2aac6e70f1adee0065a71
       size: 7443832
       isexec: true
-    - path: assemblies-node.toml
+    - path: ../../toml-values/examples/colorset/assemblies-node.toml.json
       hash: md5
-      md5: a9d151c0cf1b0715872a08b765485406
-      size: 564
-    - path: case-node.toml
+      md5: cbf7f4ee03954cb7aeae82adeb51f983
+      size: 581
+    - path: ../../toml-values/examples/colorset/case-node.toml.json
       hash: md5
-      md5: c44bdabc5921c8c01c91f96c264db962
-      size: 330
-    - path: cycle-node.toml
+      md5: f42ec7b009780558bdfa0efac0d3ddcf
+      size: 246
+    - path: ../../toml-values/examples/colorset/cycle-node.toml.json
       hash: md5
-      md5: 7b1acd66df861da774092bb055357979
-      size: 207
+      md5: 08458838e7869d409275bfcc81e38832
+      size: 110
+    - path: ../../toml-values/examples/colorset/plant.toml.json
+      hash: md5
+      md5: 73bec4cc223def3eb41c4e3614a48449
+      size: 69
     - path: fg-node-21a.msgpack
       hash: md5
       md5: 16ddc18729894ee37df4c4885766fb98
@@ -417,10 +421,6 @@ stages:
       hash: md5
       md5: d9356a732a931650251c9a2a5a47aa4b
       size: 485
-    - path: plant.toml
-      hash: md5
-      md5: 5269c1dd3b250d1193cf6d8c6edae3b7
-      size: 134
     outs:
     - path: core-node.out
       hash: md5

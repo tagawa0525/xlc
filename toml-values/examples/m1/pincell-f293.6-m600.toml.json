@@ -1,0 +1,50 @@
+{
+ "library": "m1.msgpack",
+ "self-shielding": false,
+ "few-group": {
+  "output": "pincell-fg-f293.6-m600.msgpack",
+  "bounds": [
+   10000000.0,
+   0.625,
+   1e-05
+  ]
+ },
+ "pitch": 1.26,
+ "azimuthal": 32,
+ "spacing": 0.05,
+ "rows": [
+  "pin"
+ ],
+ "material": {
+  "fuel": {
+   "temperature": 293.6,
+   "nuclides": {
+    "U-235": 0.000728143,
+    "U-238": 0.02247284,
+    "O-16": 0.04640196
+   }
+  },
+  "water": {
+   "temperature": 600,
+   "nuclides": {
+    "H-1": 0.04947415,
+    "O-16": 0.02473708
+   }
+  }
+ },
+ "cell": {
+  "pin": {
+   "zones": [
+    {
+     "material": "fuel",
+     "radius": 0.4096,
+     "rings": 3
+    },
+    {
+     "material": "water",
+     "rings": 2
+    }
+   ]
+  }
+ }
+}

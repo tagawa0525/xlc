@@ -6,7 +6,7 @@ stages:
   lattice-6-fuel:
     cmd: mkdir -p lattice-6 && ../../../bin/lattice lattice-6-fuel.toml > lattice-6-fuel.out
     deps:
-      - lattice-6-fuel.toml
+      - ../../../toml-values/examples/vera/p6/lattice-6-fuel.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -16,7 +16,7 @@ stages:
   lattice-6-zgrid:
     cmd: mkdir -p lattice-6 && ../../../bin/lattice lattice-6-zgrid.toml > lattice-6-zgrid.out
     deps:
-      - lattice-6-zgrid.toml
+      - ../../../toml-values/examples/vera/p6/lattice-6-zgrid.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -25,7 +25,7 @@ stages:
   lattice-6-igrid:
     cmd: mkdir -p lattice-6 && ../../../bin/lattice lattice-6-igrid.toml > lattice-6-igrid.out
     deps:
-      - lattice-6-igrid.toml
+      - ../../../toml-values/examples/vera/p6/lattice-6-igrid.toml.json
       - ../vera.msgpack
       - ../../../bin/lattice
     outs:
@@ -34,7 +34,7 @@ stages:
   axial-6:
     cmd: mkdir -p axial-6 && RUST_LOG=debug ../../../bin/lattice axial-6.toml > axial-6.out 2> axial-6.log
     deps:
-      - axial-6.toml
+      - ../../../toml-values/examples/vera/p6/axial-6.toml.json
       - ../vera.msgpack
       - medium-6-fuel.msgpack
       - ../../../bin/lattice
@@ -45,10 +45,10 @@ stages:
   core-6:
     cmd: RUST_LOG=debug ../../../bin/core core-6.toml > core-6.out 2> core-6.log
     deps:
-      - core-6.toml
-      - core-6-cycle.toml
-      - core-6-plant.toml
-      - core-6-assemblies.toml
+      - ../../../toml-values/examples/vera/p6/core-6.toml.json
+      - ../../../toml-values/examples/vera/p6/core-6-cycle.toml.json
+      - ../../../toml-values/examples/vera/p6/core-6-plant.toml.json
+      - ../../../toml-values/examples/vera/p6/core-6-assemblies.toml.json
       - axial-6
       - lattice-6/fuel.msgpack
       - lattice-6/zgrid.msgpack
@@ -60,10 +60,10 @@ stages:
   core-6-low-power:
     cmd: RUST_LOG=debug ../../../bin/core core-6-low-power.toml > core-6-low-power.out 2> core-6-low-power.log
     deps:
-      - core-6-low-power.toml
-      - core-6-cycle.toml
-      - core-6-plant.toml
-      - core-6-assemblies.toml
+      - ../../../toml-values/examples/vera/p6/core-6-low-power.toml.json
+      - ../../../toml-values/examples/vera/p6/core-6-cycle.toml.json
+      - ../../../toml-values/examples/vera/p6/core-6-plant.toml.json
+      - ../../../toml-values/examples/vera/p6/core-6-assemblies.toml.json
       - axial-6
       - lattice-6/fuel.msgpack
       - lattice-6/zgrid.msgpack
@@ -75,10 +75,10 @@ stages:
   core-6-isothermal:
     cmd: RUST_LOG=debug ../../../bin/core core-6-isothermal.toml > core-6-isothermal.out 2> core-6-isothermal.log
     deps:
-      - core-6-isothermal.toml
-      - core-6-cycle.toml
-      - core-6-plant.toml
-      - core-6-assemblies.toml
+      - ../../../toml-values/examples/vera/p6/core-6-isothermal.toml.json
+      - ../../../toml-values/examples/vera/p6/core-6-cycle.toml.json
+      - ../../../toml-values/examples/vera/p6/core-6-plant.toml.json
+      - ../../../toml-values/examples/vera/p6/core-6-assemblies.toml.json
       - axial-6
       - lattice-6/fuel.msgpack
       - lattice-6/zgrid.msgpack
@@ -91,10 +91,11 @@ stages:
     cmd: python3 ../compare_p6.py --json compare-6.json lattice-6-fuel.toml core-6.toml core-6-low-power.toml core-6-isothermal.toml core-6.out core-6-low-power.out core-6-isothermal.out
     deps:
       - ../../../python-ast/examples/vera/compare_p6.py.ast
-      - lattice-6-fuel.toml
-      - core-6.toml
-      - core-6-low-power.toml
-      - core-6-isothermal.toml
+      - ../../../python-ast/scripts/normalize_toml.py.ast
+      - ../../../toml-values/examples/vera/p6/lattice-6-fuel.toml.json
+      - ../../../toml-values/examples/vera/p6/core-6.toml.json
+      - ../../../toml-values/examples/vera/p6/core-6-low-power.toml.json
+      - ../../../toml-values/examples/vera/p6/core-6-isothermal.toml.json
       - core-6.out
       - core-6-low-power.out
       - core-6-isothermal.out

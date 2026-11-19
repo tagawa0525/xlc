@@ -1,0 +1,152 @@
+{
+ "cross-sections": "c5g7-xs.toml",
+ "pin-powers": "pins.msgpack",
+ "pitch": 1.26,
+ "azimuthal": 64,
+ "spacing": 0.05,
+ "boundary": {
+  "right": "vacuum",
+  "bottom": "vacuum"
+ },
+ "rows": [
+  "u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   m43 m43 m43 m43 m43 m43 m43 m43 m43 m43 m43 m43 m43 m43 m43 m43 m43 w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   m43 m70 m70 m70 m70 m70 m70 m70 m70 m70 m70 m70 m70 m70 m70 m70 m43 w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "u   u   u   u   u   gt  u   u   gt  u   u   gt  u   u   u   u   u   m43 m70 m70 m70 m70 gt  m70 m70 gt  m70 m70 gt  m70 m70 m70 m70 m43 w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "u   u   u   gt  u   u   u   u   u   u   u   u   u   gt  u   u   u   m43 m70 m70 gt  m70 m87 m87 m87 m87 m87 m87 m87 m70 gt  m70 m70 m43 w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   m43 m70 m70 m70 m87 m87 m87 m87 m87 m87 m87 m87 m87 m70 m70 m70 m43 w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "u   u   gt  u   u   gt  u   u   gt  u   u   gt  u   u   gt  u   u   m43 m70 gt  m87 m87 gt  m87 m87 gt  m87 m87 gt  m87 m87 gt  m70 m43 w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   m43 m70 m70 m87 m87 m87 m87 m87 m87 m87 m87 m87 m87 m87 m70 m70 m43 w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   m43 m70 m70 m87 m87 m87 m87 m87 m87 m87 m87 m87 m87 m87 m70 m70 m43 w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "u   u   gt  u   u   gt  u   u   fc  u   u   gt  u   u   gt  u   u   m43 m70 gt  m87 m87 gt  m87 m87 fc  m87 m87 gt  m87 m87 gt  m70 m43 w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   m43 m70 m70 m87 m87 m87 m87 m87 m87 m87 m87 m87 m87 m87 m70 m70 m43 w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   m43 m70 m70 m87 m87 m87 m87 m87 m87 m87 m87 m87 m87 m87 m70 m70 m43 w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "u   u   gt  u   u   gt  u   u   gt  u   u   gt  u   u   gt  u   u   m43 m70 gt  m87 m87 gt  m87 m87 gt  m87 m87 gt  m87 m87 gt  m70 m43 w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   m43 m70 m70 m70 m87 m87 m87 m87 m87 m87 m87 m87 m87 m70 m70 m70 m43 w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "u   u   u   gt  u   u   u   u   u   u   u   u   u   gt  u   u   u   m43 m70 m70 gt  m70 m87 m87 m87 m87 m87 m87 m87 m70 gt  m70 m70 m43 w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "u   u   u   u   u   gt  u   u   gt  u   u   gt  u   u   u   u   u   m43 m70 m70 m70 m70 gt  m70 m70 gt  m70 m70 gt  m70 m70 m70 m70 m43 w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   m43 m70 m70 m70 m70 m70 m70 m70 m70 m70 m70 m70 m70 m70 m70 m70 m43 w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   m43 m43 m43 m43 m43 m43 m43 m43 m43 m43 m43 m43 m43 m43 m43 m43 m43 w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "m43 m43 m43 m43 m43 m43 m43 m43 m43 m43 m43 m43 m43 m43 m43 m43 m43 u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "m43 m70 m70 m70 m70 m70 m70 m70 m70 m70 m70 m70 m70 m70 m70 m70 m43 u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "m43 m70 m70 m70 m70 gt  m70 m70 gt  m70 m70 gt  m70 m70 m70 m70 m43 u   u   u   u   u   gt  u   u   gt  u   u   gt  u   u   u   u   u   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "m43 m70 m70 gt  m70 m87 m87 m87 m87 m87 m87 m87 m70 gt  m70 m70 m43 u   u   u   gt  u   u   u   u   u   u   u   u   u   gt  u   u   u   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "m43 m70 m70 m70 m87 m87 m87 m87 m87 m87 m87 m87 m87 m70 m70 m70 m43 u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "m43 m70 gt  m87 m87 gt  m87 m87 gt  m87 m87 gt  m87 m87 gt  m70 m43 u   u   gt  u   u   gt  u   u   gt  u   u   gt  u   u   gt  u   u   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "m43 m70 m70 m87 m87 m87 m87 m87 m87 m87 m87 m87 m87 m87 m70 m70 m43 u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "m43 m70 m70 m87 m87 m87 m87 m87 m87 m87 m87 m87 m87 m87 m70 m70 m43 u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "m43 m70 gt  m87 m87 gt  m87 m87 fc  m87 m87 gt  m87 m87 gt  m70 m43 u   u   gt  u   u   gt  u   u   fc  u   u   gt  u   u   gt  u   u   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "m43 m70 m70 m87 m87 m87 m87 m87 m87 m87 m87 m87 m87 m87 m70 m70 m43 u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "m43 m70 m70 m87 m87 m87 m87 m87 m87 m87 m87 m87 m87 m87 m70 m70 m43 u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "m43 m70 gt  m87 m87 gt  m87 m87 gt  m87 m87 gt  m87 m87 gt  m70 m43 u   u   gt  u   u   gt  u   u   gt  u   u   gt  u   u   gt  u   u   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "m43 m70 m70 m70 m87 m87 m87 m87 m87 m87 m87 m87 m87 m70 m70 m70 m43 u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "m43 m70 m70 gt  m70 m87 m87 m87 m87 m87 m87 m87 m70 gt  m70 m70 m43 u   u   u   gt  u   u   u   u   u   u   u   u   u   gt  u   u   u   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "m43 m70 m70 m70 m70 gt  m70 m70 gt  m70 m70 gt  m70 m70 m70 m70 m43 u   u   u   u   u   gt  u   u   gt  u   u   gt  u   u   u   u   u   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "m43 m70 m70 m70 m70 m70 m70 m70 m70 m70 m70 m70 m70 m70 m70 m70 m43 u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "m43 m43 m43 m43 m43 m43 m43 m43 m43 m43 m43 m43 m43 m43 m43 m43 m43 u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   u   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w",
+  "w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w   w"
+ ],
+ "cell": {
+  "u": {
+   "zones": [
+    {
+     "material": "UO2",
+     "radius": 0.54,
+     "rings": 1
+    },
+    {
+     "material": "water",
+     "rings": 1
+    }
+   ]
+  },
+  "m43": {
+   "zones": [
+    {
+     "material": "MOX43",
+     "radius": 0.54,
+     "rings": 1
+    },
+    {
+     "material": "water",
+     "rings": 1
+    }
+   ]
+  },
+  "m70": {
+   "zones": [
+    {
+     "material": "MOX70",
+     "radius": 0.54,
+     "rings": 1
+    },
+    {
+     "material": "water",
+     "rings": 1
+    }
+   ]
+  },
+  "m87": {
+   "zones": [
+    {
+     "material": "MOX87",
+     "radius": 0.54,
+     "rings": 1
+    },
+    {
+     "material": "water",
+     "rings": 1
+    }
+   ]
+  },
+  "gt": {
+   "zones": [
+    {
+     "material": "GT",
+     "radius": 0.54,
+     "rings": 1
+    },
+    {
+     "material": "water",
+     "rings": 1
+    }
+   ]
+  },
+  "fc": {
+   "zones": [
+    {
+     "material": "FC",
+     "radius": 0.54,
+     "rings": 1
+    },
+    {
+     "material": "water",
+     "rings": 1
+    }
+   ]
+  },
+  "w": {
+   "zones": [
+    {
+     "material": "water",
+     "rings": 1
+    }
+   ]
+  }
+ }
+}

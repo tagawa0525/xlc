@@ -1,0 +1,9 @@
+{
+ "problem": "1B",
+ "cross-sections": "openmc-library/cross_sections.xml",
+ "particles": 1000000,
+ "batches": 450,
+ "inactive": 50,
+ "seed": 1,
+ "threads": 16
+}

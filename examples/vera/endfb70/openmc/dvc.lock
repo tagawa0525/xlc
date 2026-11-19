@@ -32,10 +32,11 @@ stages:
       hash: md5
       md5: a96a3978071877b65e870a65d8be4f00
       size: 6083
-    - path: openmc-1B.toml
+    - path: 
+        ../../../../toml-values/examples/vera/endfb70/openmc/openmc-1B.toml.json
       hash: md5
-      md5: bb345f1682e5f75c5a457427fe7ffaf1
-      size: 484
+      md5: 970cbfe469ed4d48fe137ed4a94007ff
+      size: 162
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -1090,10 +1091,11 @@ stages:
       hash: md5
       md5: 9d2f53ffbbdab6514418cef40a7e4a79
       size: 2936
-    - path: openmc-library.toml
+    - path: 
+        ../../../../toml-values/examples/vera/endfb70/openmc/openmc-library.toml.json
       hash: md5
-      md5: 73134ca2484ebaaec9b1e424e4c65ac4
-      size: 4339
+      md5: 4e4605c779c235e4e941dab6d8cebf1b
+      size: 4386
     - path: openmc-library/neutron
       hash: md5
       md5: a89719cf1e2fd0f28b2264af857bc685.dir

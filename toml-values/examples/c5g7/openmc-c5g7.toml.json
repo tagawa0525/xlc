@@ -1,0 +1,7 @@
+{
+ "particles": 1000000,
+ "batches": 400,
+ "inactive": 100,
+ "seed": 2,
+ "threads": 16
+}

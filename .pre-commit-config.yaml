@@ -37,6 +37,16 @@ repos:
         files: ^(.*dvc\.yaml|python-ast/.*|.*\.py)$
         pass_filenames: false # 渡されたファイルでなく、すべての例の dvc.yaml と正規形を見る
         verbose: true
+      - id: toml-values
+        name: example stages depend on the current TOML forms
+        # TOML、正規形、dvc.yaml、dvc.lock、比較の JSON だけの変更は .py の差分が無く、run-checks.sh が Python のテストを実行しない
+        # ので、ここで検査する（ADR-0254）。JSON の `inputs` と dvc.lock の照合（#0295）も同じテストが行う。比較のスクリプトの
+        # md5 の書き方を変えたコミットも、その場で止める（.py）
+        entry: python3 scripts/test_normalize_toml.py RepositoryDepsTest JsonInputsTest
+        language: system
+        files: ^(.*dvc\.(yaml|lock)|toml-values/.*|.*\.(toml|json|py))$
+        pass_filenames: false # 渡されたファイルでなく、すべての例の dvc.yaml、正規形、追跡している JSON を見る
+        verbose: true
       - id: references-shell
         name: references-shell.txt matches the references devShell
         # references-shell のステージは always_changed で dvc repro まで書き直されないので、flake の変更で食い違っても

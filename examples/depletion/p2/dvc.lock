@@ -13,10 +13,10 @@ stages:
       md5: dde810c1fe3594b1ab0b8236de7b51dc.dir
       size: 1212542189
       nfiles: 561
-    - path: xs.toml
+    - path: ../../../toml-values/examples/depletion/p2/xs.toml.json
       hash: md5
-      md5: 328a6251dd3a7557951d5282a856ca46
-      size: 80286
+      md5: 462e8cf71f2bf2836ddbe68f02fcdffa
+      size: 117424
     outs:
     - path: xs-range.toml
       hash: md5
@@ -8013,6 +8013,10 @@ stages:
     cmd: nix develop ../../..#references -c python3 ../../vera/openmc_library.py
       index openmc-library.toml openmc-library
     deps:
+    - path: ../../../toml-values/examples/depletion/p2/openmc-library.toml.json
+      hash: md5
+      md5: 18afd68f2fc50b3041ff9ace12e12dd5
+      size: 12931
     - path: ../../openmc_input.py
       hash: md5
       md5: 05f4884e00c89e6d62c6b0e62b847fd0
@@ -8021,10 +8025,6 @@ stages:
       hash: md5
       md5: e4669790daf4049f7048ffc781c148f2
       size: 5188
-    - path: openmc-library.toml
-      hash: md5
-      md5: 2d57dbf9f03820f6a320ee96876b84cf
-      size: 12392
     - path: openmc-library/neutron
       hash: md5
       md5: dbea17f5cb0528c464d3618da2dfec4c.dir
@@ -8108,6 +8108,10 @@ stages:
       md5: f98234e2f601b6afcaf2b4e2a2c2a2b0
       size: 3072016
       isexec: true
+    - path: ../../../toml-values/examples/depletion/p2/xs.toml.json
+      hash: md5
+      md5: 462e8cf71f2bf2836ddbe68f02fcdffa
+      size: 117424
     - path: xs-nuclides
       hash: md5
       md5: 8601185a60f5bc7f9e05a86716fdc893.dir
@@ -8117,10 +8121,6 @@ stages:
       hash: md5
       md5: 74fbedef2186ca159d4e33c92bd3d4ff
       size: 35
-    - path: xs.toml
-      hash: md5
-      md5: 328a6251dd3a7557951d5282a856ca46
-      size: 80286
     outs:
     - path: depletion.msgpack
       hash: md5
@@ -8134,6 +8134,10 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/depletion/p2/lattice-2A.toml.json
+      hash: md5
+      md5: 3b10b9b434dafee95ebbfaaaca8141bc
+      size: 4060
     - path: ../chain.msgpack
       hash: md5
       md5: 1f1de1800363a19f23af2f7b4417c426
@@ -8142,10 +8146,6 @@ stages:
       hash: md5
       md5: 975be970e7d0ff588e506ff0be5a7980
       size: 1482667012
-    - path: lattice-2A.toml
-      hash: md5
-      md5: f0372a6d3d71bf6ae811409a9ae0da12
-      size: 4147
     outs:
     - path: lattice-2A.log
       hash: md5
@@ -8191,6 +8191,10 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/depletion/p2/lattice-2F.toml.json
+      hash: md5
+      md5: cd2d4b5eff8f0542bded0c9ed921ac07
+      size: 5306
     - path: ../chain.msgpack
       hash: md5
       md5: 1f1de1800363a19f23af2f7b4417c426
@@ -8199,10 +8203,6 @@ stages:
       hash: md5
       md5: 975be970e7d0ff588e506ff0be5a7980
       size: 1482667012
-    - path: lattice-2F.toml
-      hash: md5
-      md5: 8d365f86a45df00b81483cef10d9dc4a
-      size: 5153
     outs:
     - path: lattice-2F.log
       hash: md5
@@ -8224,6 +8224,10 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/depletion/p2/lattice-2N.toml.json
+      hash: md5
+      md5: 00bc18ab10ca21836c8c3c85e1b5d8c5
+      size: 5885
     - path: ../chain.msgpack
       hash: md5
       md5: 1f1de1800363a19f23af2f7b4417c426
@@ -8232,10 +8236,6 @@ stages:
       hash: md5
       md5: 975be970e7d0ff588e506ff0be5a7980
       size: 1482667012
-    - path: lattice-2N.toml
-      hash: md5
-      md5: b7406e3485b21c0a6ee13baee0b839fd
-      size: 5686
     outs:
     - path: lattice-2N.log
       hash: md5
@@ -8305,6 +8305,10 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/depletion/p2/lattice-2O.toml.json
+      hash: md5
+      md5: ca3cedf502388a4a6fb1d3c1ecd28200
+      size: 8382
     - path: ../chain.msgpack
       hash: md5
       md5: 1f1de1800363a19f23af2f7b4417c426
@@ -8313,10 +8317,6 @@ stages:
       hash: md5
       md5: 975be970e7d0ff588e506ff0be5a7980
       size: 1482667012
-    - path: lattice-2O.toml
-      hash: md5
-      md5: 9f26148c7bfb5c57e16398b49f920d08
-      size: 7626
     outs:
     - path: lattice-2O.log
       hash: md5
@@ -8362,6 +8362,10 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/depletion/p2/lattice-2P.toml.json
+      hash: md5
+      md5: 13b8445c1b945d718aefc00049a085d4
+      size: 8382
     - path: ../chain.msgpack
       hash: md5
       md5: 1f1de1800363a19f23af2f7b4417c426
@@ -8370,10 +8374,6 @@ stages:
       hash: md5
       md5: 975be970e7d0ff588e506ff0be5a7980
       size: 1482667012
-    - path: lattice-2P.toml
-      hash: md5
-      md5: fcfb87897eb2200eae6efbde010a81be
-      size: 7599
     outs:
     - path: lattice-2P.log
       hash: md5
@@ -8395,6 +8395,10 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/depletion/p2/lattice-2M.toml.json
+      hash: md5
+      md5: 220c178b540e09ffb15628f8ccaa2bd1
+      size: 5108
     - path: ../chain.msgpack
       hash: md5
       md5: 1f1de1800363a19f23af2f7b4417c426
@@ -8403,10 +8407,6 @@ stages:
       hash: md5
       md5: 975be970e7d0ff588e506ff0be5a7980
       size: 1482667012
-    - path: lattice-2M.toml
-      hash: md5
-      md5: 7ea885f9e5420ac4578bb0b830cf1c1c
-      size: 4973
     outs:
     - path: lattice-2M.log
       hash: md5
@@ -8477,6 +8477,11 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: 
+        ../../../toml-values/examples/depletion/p2/lattice-2A-density.toml.json
+      hash: md5
+      md5: 2a0f17fb64aa9062aea40bc4de3791ab
+      size: 4069
     - path: ../chain.msgpack
       hash: md5
       md5: 1f1de1800363a19f23af2f7b4417c426
@@ -8485,10 +8490,6 @@ stages:
       hash: md5
       md5: 975be970e7d0ff588e506ff0be5a7980
       size: 1482667012
-    - path: lattice-2A-density.toml
-      hash: md5
-      md5: 2ac6b68d5670351b5aa9eb2e55a1894f
-      size: 4155
     outs:
     - path: lattice-2A-density.log
       hash: md5
@@ -8535,6 +8536,10 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
+    - path: ../../../toml-values/examples/depletion/p2/lattice-2A-rods.toml.json
+      hash: md5
+      md5: d5615b4ed780bebc9de1ef03ccf96831
+      size: 5235
     - path: ../chain.msgpack
       hash: md5
       md5: 1f1de1800363a19f23af2f7b4417c426
@@ -8543,10 +8548,6 @@ stages:
       hash: md5
       md5: 975be970e7d0ff588e506ff0be5a7980
       size: 1482667012
-    - path: lattice-2A-rods.toml
-      hash: md5
-      md5: 16840ba6ff7e6b6111f6502420f784d3
-      size: 5157
     outs:
     - path: lattice-2A-rods.log
       hash: md5

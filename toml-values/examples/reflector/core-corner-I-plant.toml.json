@@ -1,0 +1,28 @@
+{
+ "pitch": 21.5,
+ "height": 21.5,
+ "map": [
+  "I@90  C",
+  "*     I"
+ ],
+ "reflector": {
+  "I": {
+   "bounds": [
+    0.0,
+    21.5
+   ],
+   "layers": [
+    "fg-I-reflector.msgpack"
+   ]
+  },
+  "C": {
+   "bounds": [
+    0.0,
+    21.5
+   ],
+   "layers": [
+    "fg-corner-corner.msgpack"
+   ]
+  }
+ }
+}

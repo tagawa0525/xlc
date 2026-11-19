@@ -1,0 +1,36 @@
+{
+ "design": {
+  "31": {
+   "bounds": [
+    0.0,
+    21.5
+   ],
+   "layers": [
+    "fg-31.msgpack"
+   ]
+  },
+  "21": {
+   "bounds": [
+    0.0,
+    21.5
+   ],
+   "layers": [
+    "fg-21.msgpack"
+   ]
+  }
+ },
+ "assembly": {
+  "A31": {
+   "design": "31"
+  },
+  "B31": {
+   "design": "31"
+  },
+  "A21": {
+   "design": "21"
+  },
+  "B21": {
+   "design": "21"
+  }
+ }
+}

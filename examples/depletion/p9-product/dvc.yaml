@@ -8,7 +8,7 @@ stages:
     # 燃焼点ごとの k∞ は標準出力、燃焼の時間の内訳はログ（標準エラー）
     cmd: ../../../bin/lattice lattice-2A.toml > lattice-2A.out 2> lattice-2A.log
     deps:
-      - lattice-2A.toml
+      - ../../../toml-values/examples/depletion/p9-product/lattice-2A.toml.json
       - ../p2/depletion.msgpack
       - ../chain.msgpack
       - ../../../bin/lattice
@@ -19,7 +19,7 @@ stages:
   branch-2A:
     cmd: ../../../bin/lattice branch-2A.toml > branch-2A.out 2> branch-2A.log
     deps:
-      - branch-2A.toml
+      - ../../../toml-values/examples/depletion/p9-product/branch-2A.toml.json
       - lattice-2A.msgpack
       - ../p2/depletion.msgpack
       - ../chain.msgpack
@@ -34,7 +34,8 @@ stages:
     deps:
       - ../../../python-ast/examples/depletion/compare_branch_cross_terms.py.ast
       - ../../../python-ast/examples/depletion/compare_burnup_interpolation.py.ast
-      - compare-2A.toml
+      - ../../../python-ast/scripts/normalize_toml.py.ast
+      - ../../../toml-values/examples/depletion/p9-product/compare-2A.toml.json
       - table-2A.msgpack
     outs:
       - compare-2A.json:
@@ -43,10 +44,11 @@ stages:
     # 格子点の間の内挿の誤差（ADR-0239 の確認）の、core の式と内挿の変数と方式の候補の要約（数十 KB。git で追跡する）
     cmd: python3 ../compare_grid_interpolation.py --json grid-2A.json grid-2A.toml
     deps:
-      - grid-2A.toml
+      - ../../../toml-values/examples/depletion/p9-product/grid-2A.toml.json
       - ../../../python-ast/examples/depletion/compare_grid_interpolation.py.ast
       - ../../../python-ast/examples/depletion/compare_branch_cross_terms.py.ast
       - ../../../python-ast/examples/depletion/compare_burnup_interpolation.py.ast
+      - ../../../python-ast/scripts/normalize_toml.py.ast
       - table-2A.msgpack
     outs:
       - grid-2A.json:

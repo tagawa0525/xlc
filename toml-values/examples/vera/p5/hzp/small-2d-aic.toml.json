@@ -1,0 +1,42 @@
+{
+ "cycle": "small-2d-aic-cycle.toml",
+ "axial-mesh": [
+  0.0,
+  21.5
+ ],
+ "radial-nodes": 1,
+ "boundary": {
+  "x": [
+   "vacuum",
+   "vacuum"
+  ],
+  "y": [
+   "vacuum",
+   "vacuum"
+  ],
+  "z": [
+   "reflective",
+   "reflective"
+  ]
+ },
+ "state": {
+  "out": {
+   "boron": 1300,
+   "b10": 0.199,
+   "moderator": 565,
+   "fuel": 565,
+   "banks": {
+    "D": 1
+   }
+  },
+  "in": {
+   "boron": 1300,
+   "b10": 0.199,
+   "moderator": 565,
+   "fuel": 565,
+   "banks": {
+    "D": 0
+   }
+  }
+ }
+}

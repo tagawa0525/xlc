@@ -1,0 +1,1319 @@
+{
+ "library": "../vera.msgpack",
+ "self-shielding": false,
+ "pitch": 1.0,
+ "azimuthal": 32,
+ "spacing": 0.05,
+ "boundary": {
+  "left": "vacuum",
+  "right": "vacuum"
+ },
+ "few-group": {
+  "bounds": [
+   10000000.0,
+   0.625,
+   1e-05
+  ],
+  "axial": true,
+  "nodes": [
+   {
+    "output": "axial-6/lower-water.msgpack",
+    "columns": [
+     1,
+     50
+    ],
+    "rows": [
+     1,
+     1
+    ],
+    "reflector": true
+   },
+   {
+    "output": "axial-6/lower-plate.msgpack",
+    "columns": [
+     51,
+     55
+    ],
+    "rows": [
+     1,
+     1
+    ],
+    "reflector": true
+   },
+   {
+    "output": "axial-6/bottom-nozzle.msgpack",
+    "columns": [
+     56,
+     60
+    ],
+    "rows": [
+     1,
+     1
+    ],
+    "reflector": true
+   },
+   {
+    "output": "axial-6/lower-gap-plug.msgpack",
+    "columns": [
+     61,
+     66
+    ],
+    "rows": [
+     1,
+     1
+    ],
+    "reflector": true
+   },
+   {
+    "output": "axial-6/fuel-01.msgpack",
+    "columns": [
+     67,
+     70
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-02.msgpack",
+    "columns": [
+     71,
+     78
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-03.msgpack",
+    "columns": [
+     79,
+     86
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-04.msgpack",
+    "columns": [
+     87,
+     94
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-05.msgpack",
+    "columns": [
+     95,
+     102
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-06.msgpack",
+    "columns": [
+     103,
+     110
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-07.msgpack",
+    "columns": [
+     111,
+     118
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-08.msgpack",
+    "columns": [
+     119,
+     126
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-09.msgpack",
+    "columns": [
+     127,
+     130
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-10.msgpack",
+    "columns": [
+     131,
+     138
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-11.msgpack",
+    "columns": [
+     139,
+     146
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-12.msgpack",
+    "columns": [
+     147,
+     154
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-13.msgpack",
+    "columns": [
+     155,
+     162
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-14.msgpack",
+    "columns": [
+     163,
+     170
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-15.msgpack",
+    "columns": [
+     171,
+     178
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-16.msgpack",
+    "columns": [
+     179,
+     182
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-17.msgpack",
+    "columns": [
+     183,
+     190
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-18.msgpack",
+    "columns": [
+     191,
+     198
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-19.msgpack",
+    "columns": [
+     199,
+     206
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-20.msgpack",
+    "columns": [
+     207,
+     214
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-21.msgpack",
+    "columns": [
+     215,
+     222
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-22.msgpack",
+    "columns": [
+     223,
+     230
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-23.msgpack",
+    "columns": [
+     231,
+     234
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-24.msgpack",
+    "columns": [
+     235,
+     242
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-25.msgpack",
+    "columns": [
+     243,
+     250
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-26.msgpack",
+    "columns": [
+     251,
+     258
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-27.msgpack",
+    "columns": [
+     259,
+     266
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-28.msgpack",
+    "columns": [
+     267,
+     274
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-29.msgpack",
+    "columns": [
+     275,
+     282
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-30.msgpack",
+    "columns": [
+     283,
+     286
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-31.msgpack",
+    "columns": [
+     287,
+     294
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-32.msgpack",
+    "columns": [
+     295,
+     302
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-33.msgpack",
+    "columns": [
+     303,
+     310
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-34.msgpack",
+    "columns": [
+     311,
+     318
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-35.msgpack",
+    "columns": [
+     319,
+     326
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-36.msgpack",
+    "columns": [
+     327,
+     334
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-37.msgpack",
+    "columns": [
+     335,
+     338
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-38.msgpack",
+    "columns": [
+     339,
+     346
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-39.msgpack",
+    "columns": [
+     347,
+     354
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-40.msgpack",
+    "columns": [
+     355,
+     362
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-41.msgpack",
+    "columns": [
+     363,
+     370
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-42.msgpack",
+    "columns": [
+     371,
+     378
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-43.msgpack",
+    "columns": [
+     379,
+     386
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-44.msgpack",
+    "columns": [
+     387,
+     390
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-45.msgpack",
+    "columns": [
+     391,
+     398
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-46.msgpack",
+    "columns": [
+     399,
+     406
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-47.msgpack",
+    "columns": [
+     407,
+     414
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-48.msgpack",
+    "columns": [
+     415,
+     422
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/fuel-49.msgpack",
+    "columns": [
+     423,
+     430
+    ],
+    "rows": [
+     1,
+     1
+    ]
+   },
+   {
+    "output": "axial-6/plenum.msgpack",
+    "columns": [
+     431,
+     448
+    ],
+    "rows": [
+     1,
+     1
+    ],
+    "reflector": true
+   },
+   {
+    "output": "axial-6/upper-plug-gap.msgpack",
+    "columns": [
+     449,
+     452
+    ],
+    "rows": [
+     1,
+     1
+    ],
+    "reflector": true
+   },
+   {
+    "output": "axial-6/top-nozzle.msgpack",
+    "columns": [
+     453,
+     462
+    ],
+    "rows": [
+     1,
+     1
+    ],
+    "reflector": true
+   },
+   {
+    "output": "axial-6/upper-plate.msgpack",
+    "columns": [
+     463,
+     470
+    ],
+    "rows": [
+     1,
+     1
+    ],
+    "reflector": true
+   },
+   {
+    "output": "axial-6/upper-water.msgpack",
+    "columns": [
+     471,
+     520
+    ],
+    "rows": [
+     1,
+     1
+    ],
+    "reflector": true
+   }
+  ]
+ },
+ "widths": [
+  {
+   "size": 1.0,
+   "count": 50
+  },
+  {
+   "size": 1.0,
+   "count": 5
+  },
+  {
+   "size": 1.2106,
+   "count": 5
+  },
+  {
+   "size": 1.057,
+   "count": 4
+  },
+  {
+   "size": 0.835,
+   "count": 2
+  },
+  {
+   "size": 0.9665,
+   "count": 4
+  },
+  {
+   "size": 1.0263875,
+   "count": 8
+  },
+  {
+   "size": 1.0264,
+   "count": 8
+  },
+  {
+   "size": 1.0263875,
+   "count": 8
+  },
+  {
+   "size": 1.0264,
+   "count": 8
+  },
+  {
+   "size": 1.0263875,
+   "count": 8
+  },
+  {
+   "size": 1.0264,
+   "count": 8
+  },
+  {
+   "size": 1.0263875,
+   "count": 8
+  },
+  {
+   "size": 0.9525,
+   "count": 4
+  },
+  {
+   "size": 1.008125,
+   "count": 8
+  },
+  {
+   "size": 1.008125,
+   "count": 8
+  },
+  {
+   "size": 1.008125,
+   "count": 8
+  },
+  {
+   "size": 1.008125,
+   "count": 8
+  },
+  {
+   "size": 1.008125,
+   "count": 8
+  },
+  {
+   "size": 1.008125,
+   "count": 8
+  },
+  {
+   "size": 0.9525,
+   "count": 4
+  },
+  {
+   "size": 1.008125,
+   "count": 8
+  },
+  {
+   "size": 1.008125,
+   "count": 8
+  },
+  {
+   "size": 1.008125,
+   "count": 8
+  },
+  {
+   "size": 1.008125,
+   "count": 8
+  },
+  {
+   "size": 1.008125,
+   "count": 8
+  },
+  {
+   "size": 1.008125,
+   "count": 8
+  },
+  {
+   "size": 0.9525,
+   "count": 4
+  },
+  {
+   "size": 1.008125,
+   "count": 8
+  },
+  {
+   "size": 1.008125,
+   "count": 8
+  },
+  {
+   "size": 1.008125,
+   "count": 8
+  },
+  {
+   "size": 1.008125,
+   "count": 8
+  },
+  {
+   "size": 1.008125,
+   "count": 8
+  },
+  {
+   "size": 1.008125,
+   "count": 8
+  },
+  {
+   "size": 0.9525,
+   "count": 4
+  },
+  {
+   "size": 1.008125,
+   "count": 8
+  },
+  {
+   "size": 1.008125,
+   "count": 8
+  },
+  {
+   "size": 1.008125,
+   "count": 8
+  },
+  {
+   "size": 1.008125,
+   "count": 8
+  },
+  {
+   "size": 1.008125,
+   "count": 8
+  },
+  {
+   "size": 1.008125,
+   "count": 8
+  },
+  {
+   "size": 0.9525,
+   "count": 4
+  },
+  {
+   "size": 1.008125,
+   "count": 8
+  },
+  {
+   "size": 1.008125,
+   "count": 8
+  },
+  {
+   "size": 1.008125,
+   "count": 8
+  },
+  {
+   "size": 1.008125,
+   "count": 8
+  },
+  {
+   "size": 1.008125,
+   "count": 8
+  },
+  {
+   "size": 1.008125,
+   "count": 8
+  },
+  {
+   "size": 0.9525,
+   "count": 4
+  },
+  {
+   "size": 0.99015,
+   "count": 8
+  },
+  {
+   "size": 0.99015,
+   "count": 8
+  },
+  {
+   "size": 0.99015,
+   "count": 8
+  },
+  {
+   "size": 0.99015,
+   "count": 8
+  },
+  {
+   "size": 0.99015,
+   "count": 8
+  },
+  {
+   "size": 0.8556,
+   "count": 10
+  },
+  {
+   "size": 0.9665,
+   "count": 4
+  },
+  {
+   "size": 0.8945,
+   "count": 4
+  },
+  {
+   "size": 0.835,
+   "count": 2
+  },
+  {
+   "size": 1.0645,
+   "count": 2
+  },
+  {
+   "size": 0.8827,
+   "count": 10
+  },
+  {
+   "size": 0.95,
+   "count": 8
+  },
+  {
+   "size": 1.0,
+   "count": 50
+  }
+ ],
+ "heights": [
+  {
+   "size": 1.0
+  }
+ ],
+ "rows": [
+  "water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water plate plate plate plate plate bnozzle bnozzle bnozzle bnozzle bnozzle s6_053 s6_053 s6_053 s6_053 s10_281 s10_281 medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel s377_711 s377_711 s377_711 s377_711 s377_711 s377_711 s377_711 s377_711 s377_711 s377_711 s386_267 s386_267 s386_267 s386_267 s390_133 s390_133 s390_133 s390_133 s393_711 s393_711 s395_381 s395_381 tnozzle tnozzle tnozzle tnozzle tnozzle tnozzle tnozzle tnozzle tnozzle tnozzle plate plate plate plate plate plate plate plate water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water"
+ ],
+ "material": {
+  "medium-fuel": {
+   "medium": "medium-6-fuel.msgpack"
+  },
+  "water": {
+   "temperature": 565,
+   "water": {
+    "density": 0.742713,
+    "boron": 1300,
+    "b10": 0.199
+   }
+  },
+  "zircaloy": {
+   "temperature": 565,
+   "nuclides": {
+    "Cr-50": 3.30121e-06,
+    "Cr-52": 6.36606e-05,
+    "Cr-53": 7.2186e-06,
+    "Cr-54": 1.79686e-06,
+    "Fe-54": 8.68307e-06,
+    "Fe-56": 0.000136306,
+    "Fe-57": 3.14789e-06,
+    "Fe-58": 4.18926e-07,
+    "Zr-90": 0.0218865,
+    "Zr-91": 0.00477292,
+    "Zr-92": 0.00729551,
+    "Zr-94": 0.00739335,
+    "Zr-96": 0.0011911,
+    "Sn-112": 4.68066e-06,
+    "Sn-114": 3.18478e-06,
+    "Sn-115": 1.64064e-06,
+    "Sn-116": 7.01616e-05,
+    "Sn-117": 3.70592e-05,
+    "Sn-118": 0.000116872,
+    "Sn-119": 4.14504e-05,
+    "Sn-120": 0.000157212,
+    "Sn-122": 2.23417e-05,
+    "Sn-124": 2.79392e-05
+   }
+  },
+  "ss304": {
+   "temperature": 565,
+   "nuclides": {
+    "C-12": 0.000317461,
+    "C-13": 3.43358e-06,
+    "Si-28": 0.00158197,
+    "Si-29": 8.03653e-05,
+    "Si-30": 5.30394e-05,
+    "P-31": 6.99938e-05,
+    "Cr-50": 0.000764915,
+    "Cr-52": 0.0147506,
+    "Cr-53": 0.0016726,
+    "Cr-54": 0.000416346,
+    "Mn-55": 0.00175387,
+    "Fe-54": 0.00344776,
+    "Fe-56": 0.0541225,
+    "Fe-57": 0.00124992,
+    "Fe-58": 0.000166342,
+    "Ni-58": 0.00530854,
+    "Ni-60": 0.00204484,
+    "Ni-61": 8.88879e-05,
+    "Ni-62": 0.000283413,
+    "Ni-64": 7.2177e-05
+   }
+  },
+  "inconel": {
+   "temperature": 565,
+   "nuclides": {
+    "Si-28": 0.00404885,
+    "Si-29": 0.000205685,
+    "Si-30": 0.000135748,
+    "Ti-46": 0.000212518,
+    "Ti-47": 0.000191652,
+    "Ti-48": 0.00189901,
+    "Ti-49": 0.00013936,
+    "Ti-50": 0.000133435,
+    "Cr-50": 0.000618222,
+    "Cr-52": 0.0119218,
+    "Cr-53": 0.00135184,
+    "Cr-54": 0.000336501,
+    "Fe-54": 0.000361353,
+    "Fe-56": 0.00567247,
+    "Fe-57": 0.000131002,
+    "Fe-58": 1.7434e-05,
+    "Ni-58": 0.0417608,
+    "Ni-60": 0.0160862,
+    "Ni-61": 0.000699255,
+    "Ni-62": 0.00222953,
+    "Ni-64": 0.000567796
+   }
+  },
+  "plate": {
+   "mix": [
+    {
+     "material": "ss304",
+     "volume": 0.5
+    },
+    {
+     "material": "water",
+     "volume": 0.5
+    }
+   ]
+  },
+  "bnozzle": {
+   "mix": [
+    {
+     "material": "ss304",
+     "volume": 0.27923
+    },
+    {
+     "material": "water",
+     "volume": 0.72077
+    }
+   ]
+  },
+  "tnozzle": {
+   "mix": [
+    {
+     "material": "ss304",
+     "volume": 0.19147
+    },
+    {
+     "material": "water",
+     "volume": 0.80853
+    }
+   ]
+  },
+  "s6_053": {
+   "mix": [
+    {
+     "material": "zircaloy",
+     "volume": 0.00814154
+    },
+    {
+     "material": "water",
+     "volume": 0.99185846
+    }
+   ]
+  },
+  "s10_281": {
+   "mix": [
+    {
+     "material": "zircaloy",
+     "volume": 0.41296353
+    },
+    {
+     "material": "water",
+     "volume": 0.58703647
+    }
+   ]
+  },
+  "s377_711": {
+   "mix": [
+    {
+     "material": "zircaloy",
+     "volume": 0.09946938
+    },
+    {
+     "material": "void",
+     "volume": 0.31349415
+    },
+    {
+     "material": "water",
+     "volume": 0.58703647
+    }
+   ]
+  },
+  "s386_267": {
+   "mix": [
+    {
+     "material": "zircaloy",
+     "volume": 0.09946938
+    },
+    {
+     "material": "void",
+     "volume": 0.31349415
+    },
+    {
+     "material": "inconel",
+     "volume": 0.06948616
+    },
+    {
+     "material": "water",
+     "volume": 0.51755031
+    }
+   ]
+  },
+  "s390_133": {
+   "mix": [
+    {
+     "material": "zircaloy",
+     "volume": 0.09946938
+    },
+    {
+     "material": "void",
+     "volume": 0.31349415
+    },
+    {
+     "material": "water",
+     "volume": 0.58703647
+    }
+   ]
+  },
+  "s393_711": {
+   "mix": [
+    {
+     "material": "zircaloy",
+     "volume": 0.41296353
+    },
+    {
+     "material": "water",
+     "volume": 0.58703647
+    }
+   ]
+  },
+  "s395_381": {
+   "mix": [
+    {
+     "material": "zircaloy",
+     "volume": 0.00814154
+    },
+    {
+     "material": "water",
+     "volume": 0.99185846
+    }
+   ]
+  }
+ },
+ "branches": {
+  "boron": {
+   "ppm": [
+    1300
+   ],
+   "materials": [
+    "water",
+    "plate",
+    "bnozzle",
+    "tnozzle",
+    "s6_053",
+    "s10_281",
+    "s377_711",
+    "s386_267",
+    "s390_133",
+    "s393_711",
+    "s395_381"
+   ]
+  },
+  "moderator": {
+   "temperature": [
+    565,
+    570,
+    580,
+    590,
+    600,
+    610
+   ],
+   "density": [
+    0.742713,
+    0.732936,
+    0.711901,
+    0.688335,
+    0.661165,
+    0.62829
+   ],
+   "materials": [
+    "water",
+    "zircaloy",
+    "ss304",
+    "inconel",
+    "plate",
+    "bnozzle",
+    "tnozzle",
+    "s6_053",
+    "s10_281",
+    "s377_711",
+    "s386_267",
+    "s390_133",
+    "s393_711",
+    "s395_381"
+   ]
+  },
+  "fuel": {
+   "temperature": [
+    565,
+    600,
+    750,
+    900,
+    1050,
+    1200
+   ],
+   "materials": [
+    "medium-fuel"
+   ]
+  }
+ },
+ "cell": {
+  "water": {
+   "zones": [
+    {
+     "material": "water",
+     "rings": 1
+    }
+   ]
+  },
+  "plate": {
+   "zones": [
+    {
+     "material": "plate",
+     "rings": 1
+    }
+   ]
+  },
+  "bnozzle": {
+   "zones": [
+    {
+     "material": "bnozzle",
+     "rings": 1
+    }
+   ]
+  },
+  "s6_053": {
+   "zones": [
+    {
+     "material": "s6_053",
+     "rings": 1
+    }
+   ]
+  },
+  "s10_281": {
+   "zones": [
+    {
+     "material": "s10_281",
+     "rings": 1
+    }
+   ]
+  },
+  "medium-fuel": {
+   "zones": [
+    {
+     "material": "medium-fuel",
+     "rings": 1
+    }
+   ]
+  },
+  "s377_711": {
+   "zones": [
+    {
+     "material": "s377_711",
+     "rings": 1
+    }
+   ]
+  },
+  "s386_267": {
+   "zones": [
+    {
+     "material": "s386_267",
+     "rings": 1
+    }
+   ]
+  },
+  "s390_133": {
+   "zones": [
+    {
+     "material": "s390_133",
+     "rings": 1
+    }
+   ]
+  },
+  "s393_711": {
+   "zones": [
+    {
+     "material": "s393_711",
+     "rings": 1
+    }
+   ]
+  },
+  "s395_381": {
+   "zones": [
+    {
+     "material": "s395_381",
+     "rings": 1
+    }
+   ]
+  },
+  "tnozzle": {
+   "zones": [
+    {
+     "material": "tnozzle",
+     "rings": 1
+    }
+   ]
+  }
+ }
+}

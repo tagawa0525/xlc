@@ -1,0 +1,42 @@
+{
+ "design": {
+  "lattice-I": {
+   "bounds": [
+    0.0,
+    21.5
+   ],
+   "layers": [
+    "fg-I-fuel.msgpack"
+   ]
+  },
+  "lattice-corner": {
+   "bounds": [
+    0.0,
+    21.5
+   ],
+   "layers": [
+    "fg-corner-fuel.msgpack"
+   ]
+  },
+  "assembly-2B": {
+   "bounds": [
+    0.0,
+    21.5
+   ],
+   "layers": [
+    "fg-2B.msgpack"
+   ]
+  }
+ },
+ "assembly": {
+  "F01": {
+   "design": "lattice-I"
+  },
+  "F02": {
+   "design": "assembly-2B"
+  },
+  "F03": {
+   "design": "lattice-corner"
+  }
+ }
+}

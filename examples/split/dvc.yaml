@@ -6,7 +6,7 @@ stages:
     # 結果の k∞ は標準出力に出るので、ファイルに受ける
     cmd: ../../bin/lattice assembly-1.toml > lattice-1.out
     deps:
-      - assembly-1.toml
+      - ../../toml-values/examples/split/assembly-1.toml.json
       - ../vera/vera.msgpack
       - ../../bin/lattice
     outs:
@@ -17,7 +17,7 @@ stages:
     # 結果の k∞ は標準出力に出るので、ファイルに受ける
     cmd: ../../bin/lattice assembly-2.toml > lattice-2.out
     deps:
-      - assembly-2.toml
+      - ../../toml-values/examples/split/assembly-2.toml.json
       - ../vera/vera.msgpack
       - ../../bin/lattice
     outs:
@@ -27,10 +27,10 @@ stages:
     # 結果（k_eff、漏れ、集合体ごとの核分裂率）は標準出力に出るので、ファイルに受ける
     cmd: ../../bin/core case-1.toml > core-1.out
     deps:
-      - case-1.toml
-      - cycle-1.toml
-      - plant.toml
-      - assemblies-1.toml
+      - ../../toml-values/examples/split/case-1.toml.json
+      - ../../toml-values/examples/split/cycle-1.toml.json
+      - ../../toml-values/examples/split/plant.toml.json
+      - ../../toml-values/examples/split/assemblies-1.toml.json
       - fg-1.msgpack
       - ../../bin/core
     outs:
@@ -40,10 +40,10 @@ stages:
     # 結果（k_eff、漏れ、集合体ごとの核分裂率）は標準出力に出るので、ファイルに受ける
     cmd: ../../bin/core case-2.toml > core-2.out
     deps:
-      - case-2.toml
-      - cycle-2.toml
-      - plant.toml
-      - assemblies-2.toml
+      - ../../toml-values/examples/split/case-2.toml.json
+      - ../../toml-values/examples/split/cycle-2.toml.json
+      - ../../toml-values/examples/split/plant.toml.json
+      - ../../toml-values/examples/split/assemblies-2.toml.json
       - fg-2.msgpack
       - ../../bin/core
     outs:

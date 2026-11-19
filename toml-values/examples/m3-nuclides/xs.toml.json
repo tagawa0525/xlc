@@ -1,0 +1,278 @@
+{
+ "output": "m3-nuclides.msgpack",
+ "endf-directory": "../../references/endf/ENDF-B-VIII.0_neutrons",
+ "sigma0": [
+  10000000000.0,
+  100000.0,
+  10000.0,
+  1000.0,
+  300,
+  100,
+  30,
+  10,
+  1
+ ],
+ "nuclide": {
+  "C-12": {
+   "endf": "n-006_C_012.endf",
+   "temperatures": [
+    560,
+    565,
+    570,
+    600
+   ]
+  },
+  "C-13": {
+   "endf": "n-006_C_013.endf",
+   "temperatures": [
+    560,
+    565,
+    570,
+    600
+   ]
+  },
+  "Si-28": {
+   "endf": "n-014_Si_028.endf",
+   "temperatures": [
+    560,
+    565,
+    570,
+    600
+   ]
+  },
+  "Si-29": {
+   "endf": "n-014_Si_029.endf",
+   "temperatures": [
+    560,
+    565,
+    570,
+    600
+   ]
+  },
+  "Si-30": {
+   "endf": "n-014_Si_030.endf",
+   "temperatures": [
+    560,
+    565,
+    570,
+    600
+   ]
+  },
+  "P-31": {
+   "endf": "n-015_P_031.endf",
+   "temperatures": [
+    560,
+    565,
+    570,
+    600
+   ]
+  },
+  "Ti-46": {
+   "endf": "n-022_Ti_046.endf",
+   "temperatures": [
+    560,
+    565,
+    570,
+    600
+   ]
+  },
+  "Ti-47": {
+   "endf": "n-022_Ti_047.endf",
+   "temperatures": [
+    560,
+    565,
+    570,
+    600
+   ]
+  },
+  "Ti-48": {
+   "endf": "n-022_Ti_048.endf",
+   "temperatures": [
+    560,
+    565,
+    570,
+    600
+   ]
+  },
+  "Ti-49": {
+   "endf": "n-022_Ti_049.endf",
+   "temperatures": [
+    560,
+    565,
+    570,
+    600
+   ]
+  },
+  "Ti-50": {
+   "endf": "n-022_Ti_050.endf",
+   "temperatures": [
+    560,
+    565,
+    570,
+    600
+   ]
+  },
+  "Mn-55": {
+   "endf": "n-025_Mn_055.endf",
+   "temperatures": [
+    560,
+    565,
+    570,
+    600
+   ]
+  },
+  "Ni-58": {
+   "endf": "n-028_Ni_058.endf",
+   "temperatures": [
+    560,
+    565,
+    570,
+    600
+   ]
+  },
+  "Ni-60": {
+   "endf": "n-028_Ni_060.endf",
+   "temperatures": [
+    560,
+    565,
+    570,
+    600
+   ]
+  },
+  "Ni-61": {
+   "endf": "n-028_Ni_061.endf",
+   "temperatures": [
+    560,
+    565,
+    570,
+    600
+   ]
+  },
+  "Ni-62": {
+   "endf": "n-028_Ni_062.endf",
+   "temperatures": [
+    560,
+    565,
+    570,
+    600
+   ]
+  },
+  "Ni-64": {
+   "endf": "n-028_Ni_064.endf",
+   "temperatures": [
+    560,
+    565,
+    570,
+    600
+   ]
+  },
+  "Ag-107": {
+   "endf": "n-047_Ag_107.endf",
+   "temperatures": [
+    560,
+    565,
+    570,
+    600
+   ]
+  },
+  "Ag-109": {
+   "endf": "n-047_Ag_109.endf",
+   "temperatures": [
+    560,
+    565,
+    570,
+    600
+   ]
+  },
+  "Cd-106": {
+   "endf": "n-048_Cd_106.endf",
+   "temperatures": [
+    560,
+    565,
+    570,
+    600
+   ]
+  },
+  "Cd-108": {
+   "endf": "n-048_Cd_108.endf",
+   "temperatures": [
+    560,
+    565,
+    570,
+    600
+   ]
+  },
+  "Cd-110": {
+   "endf": "n-048_Cd_110.endf",
+   "temperatures": [
+    560,
+    565,
+    570,
+    600
+   ]
+  },
+  "Cd-111": {
+   "endf": "n-048_Cd_111.endf",
+   "temperatures": [
+    560,
+    565,
+    570,
+    600
+   ]
+  },
+  "Cd-112": {
+   "endf": "n-048_Cd_112.endf",
+   "temperatures": [
+    560,
+    565,
+    570,
+    600
+   ]
+  },
+  "Cd-113": {
+   "endf": "n-048_Cd_113.endf",
+   "temperatures": [
+    560,
+    565,
+    570,
+    600
+   ]
+  },
+  "Cd-114": {
+   "endf": "n-048_Cd_114.endf",
+   "temperatures": [
+    560,
+    565,
+    570,
+    600
+   ]
+  },
+  "Cd-116": {
+   "endf": "n-048_Cd_116.endf",
+   "temperatures": [
+    560,
+    565,
+    570,
+    600
+   ]
+  },
+  "In-113": {
+   "endf": "n-049_In_113.endf",
+   "temperatures": [
+    560,
+    565,
+    570,
+    600
+   ]
+  },
+  "In-115": {
+   "endf": "n-049_In_115.endf",
+   "temperatures": [
+    560,
+    565,
+    570,
+    600
+   ]
+  }
+ }
+}

@@ -1,0 +1,125 @@
+{
+ "table": "table-2A.msgpack",
+ "scheme": [
+  {
+   "axis": "boron",
+   "variable": "value",
+   "method": "linear"
+  },
+  {
+   "axis": "boron",
+   "variable": "value",
+   "method": "hermite"
+  },
+  {
+   "axis": "boron",
+   "variable": "value",
+   "method": "lagrange"
+  },
+  {
+   "axis": "boron",
+   "variable": "value",
+   "method": "spline"
+  },
+  {
+   "axis": "moderator",
+   "variable": "value",
+   "method": "linear"
+  },
+  {
+   "axis": "moderator",
+   "variable": "value",
+   "method": "hermite"
+  },
+  {
+   "axis": "moderator",
+   "variable": "value",
+   "method": "lagrange"
+  },
+  {
+   "axis": "moderator",
+   "variable": "value",
+   "method": "spline"
+  },
+  {
+   "axis": "moderator",
+   "variable": "density",
+   "method": "linear"
+  },
+  {
+   "axis": "moderator",
+   "variable": "density",
+   "method": "hermite"
+  },
+  {
+   "axis": "moderator",
+   "variable": "density",
+   "method": "lagrange"
+  },
+  {
+   "axis": "moderator",
+   "variable": "density",
+   "method": "spline"
+  },
+  {
+   "axis": "fuel",
+   "variable": "sqrt",
+   "method": "linear"
+  },
+  {
+   "axis": "fuel",
+   "variable": "sqrt",
+   "method": "hermite"
+  },
+  {
+   "axis": "fuel",
+   "variable": "sqrt",
+   "method": "lagrange"
+  },
+  {
+   "axis": "fuel",
+   "variable": "sqrt",
+   "method": "spline"
+  },
+  {
+   "axis": "fuel",
+   "variable": "value",
+   "method": "linear"
+  },
+  {
+   "axis": "fuel",
+   "variable": "value",
+   "method": "hermite"
+  },
+  {
+   "axis": "fuel",
+   "variable": "value",
+   "method": "lagrange"
+  },
+  {
+   "axis": "fuel",
+   "variable": "value",
+   "method": "spline"
+  },
+  {
+   "axis": "fuel",
+   "variable": "log",
+   "method": "linear"
+  },
+  {
+   "axis": "fuel",
+   "variable": "log",
+   "method": "hermite"
+  },
+  {
+   "axis": "fuel",
+   "variable": "log",
+   "method": "lagrange"
+  },
+  {
+   "axis": "fuel",
+   "variable": "log",
+   "method": "spline"
+  }
+ ]
+}

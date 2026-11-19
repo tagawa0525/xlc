@@ -1,0 +1,370 @@
+{
+ "library": "../p2/depletion.msgpack",
+ "ufg-tolerance": 0.0001,
+ "few-group": {
+  "output": "table-2A.msgpack",
+  "bounds": [
+   10000000.0,
+   0.625,
+   1e-05
+  ]
+ },
+ "pitch": 1.26,
+ "azimuthal": 30,
+ "spacing": 0.03,
+ "gap": {
+  "width": 0.04,
+  "material": "water"
+ },
+ "rows": [
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin pin pin gt  pin pin gt  pin pin gt  pin pin pin pin pin",
+  "pin pin pin gt  pin pin pin pin pin pin pin pin pin gt  pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin gt  pin pin gt  pin pin gt  pin pin gt  pin pin gt  pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin gt  pin pin gt  pin pin it  pin pin gt  pin pin gt  pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin gt  pin pin gt  pin pin gt  pin pin gt  pin pin gt  pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin gt  pin pin pin pin pin pin pin pin pin gt  pin pin pin",
+  "pin pin pin pin pin gt  pin pin gt  pin pin gt  pin pin pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin"
+ ],
+ "material": {
+  "fuel-0": {
+   "temperature": 900,
+   "nuclides": {
+    "U-234": 6.11864e-06,
+    "U-235": 0.000718132,
+    "U-236": 3.29861e-06,
+    "U-238": 0.0221546,
+    "O-16": 0.0457642
+   }
+  },
+  "fuel-1": {
+   "temperature": 900,
+   "nuclides": {
+    "U-234": 6.11864e-06,
+    "U-235": 0.000718132,
+    "U-236": 3.29861e-06,
+    "U-238": 0.0221546,
+    "O-16": 0.0457642
+   }
+  },
+  "fuel-2": {
+   "temperature": 900,
+   "nuclides": {
+    "U-234": 6.11864e-06,
+    "U-235": 0.000718132,
+    "U-236": 3.29861e-06,
+    "U-238": 0.0221546,
+    "O-16": 0.0457642
+   }
+  },
+  "fuel-3": {
+   "temperature": 900,
+   "nuclides": {
+    "U-234": 6.11864e-06,
+    "U-235": 0.000718132,
+    "U-236": 3.29861e-06,
+    "U-238": 0.0221546,
+    "O-16": 0.0457642
+   }
+  },
+  "fuel-4": {
+   "temperature": 900,
+   "nuclides": {
+    "U-234": 6.11864e-06,
+    "U-235": 0.000718132,
+    "U-236": 3.29861e-06,
+    "U-238": 0.0221546,
+    "O-16": 0.0457642
+   }
+  },
+  "zircaloy": {
+   "temperature": 580,
+   "nuclides": {
+    "Cr-50": 3.30121e-06,
+    "Cr-52": 6.36606e-05,
+    "Cr-53": 7.2186e-06,
+    "Cr-54": 1.79686e-06,
+    "Fe-54": 8.68307e-06,
+    "Fe-56": 0.000136306,
+    "Fe-57": 3.14789e-06,
+    "Fe-58": 4.18926e-07,
+    "Zr-90": 0.0218865,
+    "Zr-91": 0.00477292,
+    "Zr-92": 0.00729551,
+    "Zr-94": 0.00739335,
+    "Zr-96": 0.0011911,
+    "Sn-112": 4.68066e-06,
+    "Sn-114": 3.18478e-06,
+    "Sn-115": 1.64064e-06,
+    "Sn-116": 7.01616e-05,
+    "Sn-117": 3.70592e-05,
+    "Sn-118": 0.000116872,
+    "Sn-119": 4.14504e-05,
+    "Sn-120": 0.000157212,
+    "Sn-122": 2.23417e-05,
+    "Sn-124": 2.79392e-05
+   }
+  },
+  "water": {
+   "temperature": 580,
+   "water": {
+    "density": 0.711901,
+    "boron": 650,
+    "b10": 0.199
+   }
+  }
+ },
+ "cell": {
+  "pin": {
+   "zones": [
+    {
+     "material": "fuel-0",
+     "radius": 0.18317868871678278,
+     "rings": 1
+    },
+    {
+     "material": "fuel-1",
+     "radius": 0.25905378592099365,
+     "rings": 1
+    },
+    {
+     "material": "fuel-2",
+     "radius": 0.3172747957213116,
+     "rings": 1
+    },
+    {
+     "material": "fuel-3",
+     "radius": 0.36635737743356556,
+     "rings": 1
+    },
+    {
+     "material": "fuel-4",
+     "radius": 0.4096,
+     "rings": 1
+    },
+    {
+     "material": "void",
+     "radius": 0.418,
+     "rings": 1
+    },
+    {
+     "material": "zircaloy",
+     "radius": 0.475,
+     "rings": 1
+    },
+    {
+     "material": "water",
+     "radius": 0.63,
+     "rings": 3
+    },
+    {
+     "material": "water",
+     "radius": 0.75,
+     "rings": 2
+    },
+    {
+     "material": "water",
+     "rings": 1
+    }
+   ],
+   "sectors": 8
+  },
+  "gt": {
+   "zones": [
+    {
+     "material": "water",
+     "radius": 0.561,
+     "rings": 3
+    },
+    {
+     "material": "zircaloy",
+     "radius": 0.602,
+     "rings": 1
+    },
+    {
+     "material": "water",
+     "radius": 0.75,
+     "rings": 2
+    },
+    {
+     "material": "water",
+     "rings": 1
+    }
+   ],
+   "sectors": 8
+  },
+  "it": {
+   "zones": [
+    {
+     "material": "water",
+     "radius": 0.559,
+     "rings": 3
+    },
+    {
+     "material": "zircaloy",
+     "radius": 0.605,
+     "rings": 1
+    },
+    {
+     "material": "water",
+     "radius": 0.75,
+     "rings": 2
+    },
+    {
+     "material": "water",
+     "rings": 1
+    }
+   ],
+   "sectors": 8
+  }
+ },
+ "branches": {
+  "boron": {
+   "ppm": [
+    0,
+    325,
+    650,
+    975,
+    1300,
+    1625
+   ],
+   "materials": [
+    "water"
+   ]
+  },
+  "moderator": {
+   "temperature": [
+    560,
+    570,
+    580,
+    590,
+    600,
+    610,
+    615
+   ],
+   "density": [
+    0.752074,
+    0.732936,
+    0.711901,
+    0.688335,
+    0.661165,
+    0.62829,
+    0.608215
+   ],
+   "materials": [
+    "water",
+    "zircaloy"
+   ]
+  },
+  "fuel": {
+   "temperature": [
+    560,
+    900,
+    1050,
+    1350
+   ],
+   "materials": [
+    "fuel-0",
+    "fuel-1",
+    "fuel-2",
+    "fuel-3",
+    "fuel-4"
+   ]
+  }
+ },
+ "history": {
+  "file": "../p9-product/lattice-2A.msgpack",
+  "chain": "../chain.msgpack",
+  "burnup": [
+   0,
+   0.1,
+   0.25,
+   0.5,
+   0.75,
+   1,
+   2,
+   4,
+   5,
+   6,
+   7,
+   8,
+   9,
+   10,
+   11,
+   12,
+   14,
+   16,
+   20,
+   24,
+   28,
+   32,
+   36,
+   40,
+   48,
+   56,
+   60
+  ],
+  "off-nominal-burnup": [
+   0,
+   0.1,
+   0.25,
+   0.5,
+   1,
+   2,
+   4,
+   6,
+   10,
+   16,
+   24,
+   32,
+   40,
+   48,
+   60
+  ],
+  "micro": [
+   "U-234",
+   "U-235",
+   "U-236",
+   "U-238",
+   "Np-237",
+   "Np-239",
+   "Pu-238",
+   "Pu-239",
+   "Pu-240",
+   "Pu-241",
+   "Pu-242",
+   "Am-241",
+   "Am-243",
+   "Xe-135",
+   "Sm-147",
+   "Sm-149",
+   "Sm-150",
+   "Sm-151",
+   "Sm-152",
+   "Gd-152",
+   "Gd-154",
+   "Gd-155",
+   "Gd-156",
+   "Gd-157",
+   "Gd-158",
+   "Gd-160",
+   "Cm-242",
+   "Cm-244",
+   "Eu-153",
+   "I-135",
+   "Pm-148m"
+  ],
+  "derivative": [
+   "Pu-240"
+  ]
+ }
+}

@@ -1,0 +1,8 @@
+{
+ "plant": "core-corner-I-plant.toml",
+ "inventory": "core-assemblies.toml",
+ "loading": [
+  ".    .",
+  "F03  ."
+ ]
+}

@@ -204,10 +204,10 @@ stages:
       hash: md5
       md5: ff8fb554e0893e672e95bf060817f087
       size: 17400580
-    - path: xs.toml
+    - path: ../../toml-values/examples/reflector/xs.toml.json
       hash: md5
-      md5: 86dff844b8b4ff3d1ad887a1654a656a
-      size: 4035
+      md5: cb3b6f10ef5620cd827ead759fe6489c
+      size: 4347
     outs:
     - path: reflector.msgpack
       hash: md5
@@ -221,10 +221,10 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
-    - path: assembly-3A.toml
+    - path: ../../toml-values/examples/reflector/assembly-3A.toml.json
       hash: md5
-      md5: 0107f2369a20bece2ce53525ae16d94f
-      size: 3783
+      md5: 43d082a55dc9e362763d863a38207e26
+      size: 3761
     - path: reflector.msgpack
       hash: md5
       md5: a940c1a47eb47bff6ed09c2816ac357c
@@ -251,10 +251,10 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
-    - path: axial-3A-16.toml
+    - path: ../../toml-values/examples/reflector/axial-3A-16.toml.json
       hash: md5
-      md5: f33fe16435a8d371bcb3fa3f38f19e7c
-      size: 11754
+      md5: a831ef1a8da99223d16245714be222a0
+      size: 12188
     - path: medium-3A.msgpack
       hash: md5
       md5: c57396e018581aba917887e95f0d2bdd
@@ -286,10 +286,10 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
-    - path: axial-3A-32.toml
+    - path: ../../toml-values/examples/reflector/axial-3A-32.toml.json
       hash: md5
-      md5: 946c86616da71e24349e5e948bb3a361
-      size: 13560
+      md5: bf7758ec272f87e3acb0137bcba97507
+      size: 14970
     - path: medium-3A.msgpack
       hash: md5
       md5: c57396e018581aba917887e95f0d2bdd
@@ -321,10 +321,10 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
-    - path: axial-3A-fine.toml
+    - path: ../../toml-values/examples/reflector/axial-3A-fine.toml.json
       hash: md5
-      md5: 35ac2dfe8df85aabce434a97561aa5f6
-      size: 14740
+      md5: 44ea6d466b583016ae5955e0ea4256fa
+      size: 15162
     - path: medium-3A.msgpack
       hash: md5
       md5: c57396e018581aba917887e95f0d2bdd
@@ -356,27 +356,29 @@ stages:
       md5: d6b0932c73b2aac6e70f1adee0065a71
       size: 7443832
       isexec: true
+    - path: 
+        ../../toml-values/examples/reflector/core-axial-assemblies-16.toml.json
+      hash: md5
+      md5: 5d97cd4c93bfbb834a603c6b7e10819c
+      size: 1883
+    - path: ../../toml-values/examples/reflector/core-axial-plant.toml.json
+      hash: md5
+      md5: 2c21acca2c39f958a642ea34692df9d6
+      size: 58
+    - path: 
+        ../../toml-values/examples/reflector/core-axial-slab-16-cycle.toml.json
+      hash: md5
+      md5: 7b6f738dec17df061ca1e3a4d1792c32
+      size: 115
+    - path: ../../toml-values/examples/reflector/core-axial-slab-16.toml.json
+      hash: md5
+      md5: 3c9ceb08299cda387f5f0be1abb2f4e1
+      size: 509
     - path: axial-16
       hash: md5
       md5: 50f08c52714574e3912ef937181ecab2.dir
       size: 12361
       nfiles: 25
-    - path: core-axial-assemblies-16.toml
-      hash: md5
-      md5: 7ca848b39e45a2de936b0c9c7df1c3cc
-      size: 1673
-    - path: core-axial-plant.toml
-      hash: md5
-      md5: 1566cd8b50d876d511e0245137a01db1
-      size: 255
-    - path: core-axial-slab-16-cycle.toml
-      hash: md5
-      md5: 3d88378019a56d2f575a51a3599ebf78
-      size: 236
-    - path: core-axial-slab-16.toml
-      hash: md5
-      md5: e5eaf4972dc0cae13643271f30f07182
-      size: 719
     outs:
     - path: core-axial-slab-16.log
       hash: md5
@@ -416,27 +418,29 @@ stages:
       md5: d6b0932c73b2aac6e70f1adee0065a71
       size: 7443832
       isexec: true
+    - path: 
+        ../../toml-values/examples/reflector/core-axial-assemblies-16.toml.json
+      hash: md5
+      md5: 5d97cd4c93bfbb834a603c6b7e10819c
+      size: 1883
+    - path: 
+        ../../toml-values/examples/reflector/core-axial-fstar-16-cycle.toml.json
+      hash: md5
+      md5: 7bba6ee0a5c96c63f95233606a9e6847
+      size: 116
+    - path: ../../toml-values/examples/reflector/core-axial-fstar-16.toml.json
+      hash: md5
+      md5: 9479cebc18cf5395dc7b1f80b1a302e3
+      size: 510
+    - path: ../../toml-values/examples/reflector/core-axial-plant.toml.json
+      hash: md5
+      md5: 2c21acca2c39f958a642ea34692df9d6
+      size: 58
     - path: axial-16
       hash: md5
       md5: 50f08c52714574e3912ef937181ecab2.dir
       size: 12361
       nfiles: 25
-    - path: core-axial-assemblies-16.toml
-      hash: md5
-      md5: 7ca848b39e45a2de936b0c9c7df1c3cc
-      size: 1673
-    - path: core-axial-fstar-16-cycle.toml
-      hash: md5
-      md5: becd860bc4e2470878adb88d065c6da6
-      size: 224
-    - path: core-axial-fstar-16.toml
-      hash: md5
-      md5: 62381d007243b7303422bdf7c06f28c0
-      size: 707
-    - path: core-axial-plant.toml
-      hash: md5
-      md5: 1566cd8b50d876d511e0245137a01db1
-      size: 255
     - path: fg-3A.msgpack
       hash: md5
       md5: 301e42712f7d1eddade7aeca6d6d1362
@@ -497,27 +501,29 @@ stages:
       md5: d6b0932c73b2aac6e70f1adee0065a71
       size: 7443832
       isexec: true
+    - path: 
+        ../../toml-values/examples/reflector/core-axial-assemblies-32.toml.json
+      hash: md5
+      md5: 8601a0bb993f0069dfe33500fa671312
+      size: 2602
+    - path: ../../toml-values/examples/reflector/core-axial-plant.toml.json
+      hash: md5
+      md5: 2c21acca2c39f958a642ea34692df9d6
+      size: 58
+    - path: 
+        ../../toml-values/examples/reflector/core-axial-slab-32-cycle.toml.json
+      hash: md5
+      md5: 3684d01ee79719e8d74a533a9a342e2c
+      size: 115
+    - path: ../../toml-values/examples/reflector/core-axial-slab-32.toml.json
+      hash: md5
+      md5: f58de0bf7a67f17ac655b9b5e421c9ff
+      size: 684
     - path: axial-32
       hash: md5
       md5: 9ec80470ffe57a0c7693a663379ef72f.dir
       size: 20249
       nfiles: 41
-    - path: core-axial-assemblies-32.toml
-      hash: md5
-      md5: f3706317bcbef58d7f3936c858a3deae
-      size: 2296
-    - path: core-axial-plant.toml
-      hash: md5
-      md5: 1566cd8b50d876d511e0245137a01db1
-      size: 255
-    - path: core-axial-slab-32-cycle.toml
-      hash: md5
-      md5: 6d53ffcb29baab70738d17a31b39aa78
-      size: 236
-    - path: core-axial-slab-32.toml
-      hash: md5
-      md5: d953923ad23415aae04ae3f97f4db7d7
-      size: 862
     outs:
     - path: core-axial-slab-32.log
       hash: md5
@@ -557,27 +563,29 @@ stages:
       md5: d6b0932c73b2aac6e70f1adee0065a71
       size: 7443832
       isexec: true
+    - path: 
+        ../../toml-values/examples/reflector/core-axial-assemblies-32.toml.json
+      hash: md5
+      md5: 8601a0bb993f0069dfe33500fa671312
+      size: 2602
+    - path: 
+        ../../toml-values/examples/reflector/core-axial-fstar-32-cycle.toml.json
+      hash: md5
+      md5: e0e300ee1f7e2a4e9c93ce2cc3291463
+      size: 116
+    - path: ../../toml-values/examples/reflector/core-axial-fstar-32.toml.json
+      hash: md5
+      md5: 26205d818c6ebe9367003e42b905be00
+      size: 685
+    - path: ../../toml-values/examples/reflector/core-axial-plant.toml.json
+      hash: md5
+      md5: 2c21acca2c39f958a642ea34692df9d6
+      size: 58
     - path: axial-32
       hash: md5
       md5: 9ec80470ffe57a0c7693a663379ef72f.dir
       size: 20249
       nfiles: 41
-    - path: core-axial-assemblies-32.toml
-      hash: md5
-      md5: f3706317bcbef58d7f3936c858a3deae
-      size: 2296
-    - path: core-axial-fstar-32-cycle.toml
-      hash: md5
-      md5: 1c68daba700c75c38cf6404eb5ccb739
-      size: 224
-    - path: core-axial-fstar-32.toml
-      hash: md5
-      md5: dd69e65766c0a8f7879973d62fe136ec
-      size: 850
-    - path: core-axial-plant.toml
-      hash: md5
-      md5: 1566cd8b50d876d511e0245137a01db1
-      size: 255
     - path: fg-3A.msgpack
       hash: md5
       md5: 301e42712f7d1eddade7aeca6d6d1362
@@ -638,27 +646,29 @@ stages:
       md5: d6b0932c73b2aac6e70f1adee0065a71
       size: 7443832
       isexec: true
+    - path: 
+        ../../toml-values/examples/reflector/core-axial-assemblies-fine.toml.json
+      hash: md5
+      md5: 79ffe667cf3c697ef84da9f1072fa8c2
+      size: 1963
+    - path: ../../toml-values/examples/reflector/core-axial-plant.toml.json
+      hash: md5
+      md5: 2c21acca2c39f958a642ea34692df9d6
+      size: 58
+    - path: 
+        ../../toml-values/examples/reflector/core-axial-slab-fine-cycle.toml.json
+      hash: md5
+      md5: 1b4aad01560d6d27538ed67b01ab06df
+      size: 119
+    - path: ../../toml-values/examples/reflector/core-axial-slab-fine.toml.json
+      hash: md5
+      md5: 40e86805b905f558720d06864949795f
+      size: 511
     - path: axial-fine
       hash: md5
       md5: dc7d139393df5b248c34fc37247f60bd.dir
       size: 12361
       nfiles: 25
-    - path: core-axial-assemblies-fine.toml
-      hash: md5
-      md5: 244432dbe4764661401cb35f11493671
-      size: 1755
-    - path: core-axial-plant.toml
-      hash: md5
-      md5: 1566cd8b50d876d511e0245137a01db1
-      size: 255
-    - path: core-axial-slab-fine-cycle.toml
-      hash: md5
-      md5: 624e7eca30966afdf443e20d8d41b4d0
-      size: 240
-    - path: core-axial-slab-fine.toml
-      hash: md5
-      md5: ad859ad324e6b5517f8e42a9249a84a5
-      size: 723
     outs:
     - path: core-axial-slab-fine.log
       hash: md5
@@ -698,27 +708,29 @@ stages:
       md5: d6b0932c73b2aac6e70f1adee0065a71
       size: 7443832
       isexec: true
+    - path: 
+        ../../toml-values/examples/reflector/core-axial-assemblies-fine.toml.json
+      hash: md5
+      md5: 79ffe667cf3c697ef84da9f1072fa8c2
+      size: 1963
+    - path: 
+        ../../toml-values/examples/reflector/core-axial-fstar-fine-cycle.toml.json
+      hash: md5
+      md5: 664972c8af06c035f6eab862b3ad0995
+      size: 120
+    - path: ../../toml-values/examples/reflector/core-axial-fstar-fine.toml.json
+      hash: md5
+      md5: f788149a4bac1d523efd9de003f2e958
+      size: 512
+    - path: ../../toml-values/examples/reflector/core-axial-plant.toml.json
+      hash: md5
+      md5: 2c21acca2c39f958a642ea34692df9d6
+      size: 58
     - path: axial-fine
       hash: md5
       md5: dc7d139393df5b248c34fc37247f60bd.dir
       size: 12361
       nfiles: 25
-    - path: core-axial-assemblies-fine.toml
-      hash: md5
-      md5: 244432dbe4764661401cb35f11493671
-      size: 1755
-    - path: core-axial-fstar-fine-cycle.toml
-      hash: md5
-      md5: 88b1664993552b075367c16e34717b03
-      size: 228
-    - path: core-axial-fstar-fine.toml
-      hash: md5
-      md5: 8681c90e173cc8c81c105bedb952494f
-      size: 711
-    - path: core-axial-plant.toml
-      hash: md5
-      md5: 1566cd8b50d876d511e0245137a01db1
-      size: 255
     - path: fg-3A.msgpack
       hash: md5
       md5: 301e42712f7d1eddade7aeca6d6d1362
@@ -779,10 +791,10 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
-    - path: reflector-corner.toml
+    - path: ../../toml-values/examples/reflector/reflector-corner.toml.json
       hash: md5
-      md5: 4be7c4e38c6422fe443f0af1b6b3e998
-      size: 10091
+      md5: 940d7ccbb796944de266bbdbfa621c98
+      size: 10020
     - path: reflector.msgpack
       hash: md5
       md5: a940c1a47eb47bff6ed09c2816ac357c
@@ -825,22 +837,24 @@ stages:
       md5: d6b0932c73b2aac6e70f1adee0065a71
       size: 7443832
       isexec: true
-    - path: core-assemblies.toml
+    - path: ../../toml-values/examples/reflector/core-assemblies.toml.json
       hash: md5
-      md5: 531e7bca56db17df769ac27f4b8e083f
-      size: 530
-    - path: core-corner-outline-cycle.toml
+      md5: 4f3af5ba33c888f412440ad48e2a0c71
+      size: 490
+    - path: 
+        ../../toml-values/examples/reflector/core-corner-outline-cycle.toml.json
       hash: md5
-      md5: db1498a91dd4231d045ef71d27076427
-      size: 254
-    - path: core-corner-outline-plant.toml
+      md5: 6cde1f3f5dd4f6ddb1aedfb73f980840
+      size: 147
+    - path: 
+        ../../toml-values/examples/reflector/core-corner-outline-plant.toml.json
       hash: md5
-      md5: 0645914d0cfd0427e9238fc7b78910e7
-      size: 533
-    - path: core-corner-outline.toml
+      md5: c513386122981eca6ded0a2c953628e8
+      size: 415
+    - path: ../../toml-values/examples/reflector/core-corner-outline.toml.json
       hash: md5
-      md5: 17f9080e8eb49db4389f2dec15c7a749
-      size: 550
+      md5: fc2cdab732e085ef1ca1507a1ad405e6
+      size: 333
     - path: fg-corner-corner.msgpack
       hash: md5
       md5: 53a44041cfb053bff56f64b84b3a3f99
@@ -879,10 +893,10 @@ stages:
       md5: b54520abc189139cc6b34ae570f84061
       size: 11161856
       isexec: true
-    - path: reflector-I.toml
+    - path: ../../toml-values/examples/reflector/reflector-I.toml.json
       hash: md5
-      md5: 880e570f65181a668c4454db9b0cb15f
-      size: 6551
+      md5: 5090188eaf9c9c37063cd434ff402e6b
+      size: 6418
     - path: reflector.msgpack
       hash: md5
       md5: a940c1a47eb47bff6ed09c2816ac357c
@@ -917,22 +931,22 @@ stages:
       md5: d6b0932c73b2aac6e70f1adee0065a71
       size: 7443832
       isexec: true
-    - path: core-assemblies.toml
+    - path: ../../toml-values/examples/reflector/core-assemblies.toml.json
       hash: md5
-      md5: 531e7bca56db17df769ac27f4b8e083f
-      size: 530
-    - path: core-corner-I-cycle.toml
+      md5: 4f3af5ba33c888f412440ad48e2a0c71
+      size: 490
+    - path: ../../toml-values/examples/reflector/core-corner-I-cycle.toml.json
       hash: md5
-      md5: 7c3be576b8063c2d304945575d701c62
-      size: 232
-    - path: core-corner-I-plant.toml
+      md5: 968b437566f986eaf730e06c55f683a4
+      size: 120
+    - path: ../../toml-values/examples/reflector/core-corner-I-plant.toml.json
       hash: md5
-      md5: 9d44e23f8ed7c8232df06887efcac1ec
-      size: 610
-    - path: core-corner-I.toml
+      md5: 40a3fcc994a9f4831b72abde7d5f10ef
+      size: 300
+    - path: ../../toml-values/examples/reflector/core-corner-I.toml.json
       hash: md5
-      md5: 90e801a3b574d2d1c0678d212539f9f5
-      size: 464
+      md5: 3e1e85e3743ba5c05915f82fcdab178b
+      size: 292
     - path: fg-I-reflector.msgpack
       hash: md5
       md5: 3b2d360015ad55462a18a3422b8b6382
@@ -967,22 +981,22 @@ stages:
       md5: d6b0932c73b2aac6e70f1adee0065a71
       size: 7443832
       isexec: true
-    - path: core-assemblies.toml
+    - path: ../../toml-values/examples/reflector/core-assemblies.toml.json
       hash: md5
-      md5: 531e7bca56db17df769ac27f4b8e083f
-      size: 530
-    - path: core-corner-cycle.toml
+      md5: 4f3af5ba33c888f412440ad48e2a0c71
+      size: 490
+    - path: ../../toml-values/examples/reflector/core-corner-cycle.toml.json
       hash: md5
-      md5: 497f07da351296a0465ae31ea841269d
-      size: 198
-    - path: core-corner-plant.toml
+      md5: 4140a2d63a1cc104630b107f8ad3e7ce
+      size: 118
+    - path: ../../toml-values/examples/reflector/core-corner-plant.toml.json
       hash: md5
-      md5: 12046447724b19eddedd795544ea5afd
-      size: 428
-    - path: core-corner.toml
+      md5: 7c7a6e7219f03a05dd4d03056e707cb5
+      size: 396
+    - path: ../../toml-values/examples/reflector/core-corner.toml.json
       hash: md5
-      md5: 945dbc62566e31565a777c958fc9fcc6
-      size: 591
+      md5: 05f18dfd142ac49575f06683cd51f390
+      size: 288
     - path: fg-corner-corner.msgpack
       hash: md5
       md5: 53a44041cfb053bff56f64b84b3a3f99

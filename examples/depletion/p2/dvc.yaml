@@ -21,7 +21,7 @@ stages:
     # ポイントワイズの範囲は、すべての核種の分離共鳴の上端で決まる。核種ごとのステージの入力にするため、先に求める（ADR-0138）
     cmd: ../../../bin/xs range xs.toml xs-range.toml
     deps:
-      - xs.toml
+      - ../../../toml-values/examples/depletion/p2/xs.toml.json
       - ../../../references/endf/ENDF-B-VIII.0_neutrons
       - ../../../bin/xs
     outs:
@@ -47,7 +47,7 @@ stages:
   xs:
     cmd: ../../../bin/xs assemble xs.toml xs-range.toml xs-nuclides
     deps:
-      - xs.toml
+      - ../../../toml-values/examples/depletion/p2/xs.toml.json
       - xs-range.toml
       - xs-nuclides
       - ../../../bin/xs
@@ -89,7 +89,7 @@ stages:
       - ../../../python-ast/examples/vera/openmc_library.py.ast
       - ../../../python-ast/examples/openmc_input.py.ast
       - references-shell.txt
-      - openmc-library.toml
+      - ../../../toml-values/examples/depletion/p2/openmc-library.toml.json
       - openmc-library/neutron
       - openmc-library/thermal
     outs:
@@ -101,7 +101,7 @@ stages:
     do:
       cmd: ../../../bin/lattice lattice-${item}.toml > lattice-${item}.out 2> lattice-${item}.log
       deps:
-        - lattice-${item}.toml
+        - ../../../toml-values/examples/depletion/p2/lattice-${item}.toml.json
         - depletion.msgpack
         - ../chain.msgpack
         - ../../../bin/lattice

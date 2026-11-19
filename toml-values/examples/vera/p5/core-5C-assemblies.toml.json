@@ -1,0 +1,702 @@
+{
+ "design": {
+  "21": {
+   "bounds": [
+    0.0,
+    21.5
+   ],
+   "layers": [
+    "lattice/21.msgpack"
+   ]
+  },
+  "21-b4c": {
+   "bounds": [
+    0.0,
+    21.5
+   ],
+   "layers": [
+    "lattice/21-b4c.msgpack"
+   ]
+  },
+  "26-b4c": {
+   "bounds": [
+    0.0,
+    21.5
+   ],
+   "layers": [
+    "lattice/26-b4c.msgpack"
+   ]
+  },
+  "26-p16": {
+   "bounds": [
+    0.0,
+    21.5
+   ],
+   "layers": [
+    "lattice/26-p16.msgpack"
+   ]
+  },
+  "26-p20": {
+   "bounds": [
+    0.0,
+    21.5
+   ],
+   "layers": [
+    "lattice/26-p20.msgpack"
+   ]
+  },
+  "26-p24": {
+   "bounds": [
+    0.0,
+    21.5
+   ],
+   "layers": [
+    "lattice/26-p24.msgpack"
+   ]
+  },
+  "31-I": {
+   "bounds": [
+    0.0,
+    21.5
+   ],
+   "layers": [
+    "lattice/reflector-I-fuel.msgpack"
+   ]
+  },
+  "31-corner": {
+   "bounds": [
+    0.0,
+    21.5
+   ],
+   "layers": [
+    "lattice/reflector-corner-fuel.msgpack"
+   ]
+  },
+  "31-p12": {
+   "bounds": [
+    0.0,
+    21.5
+   ],
+   "layers": [
+    "lattice/31-p12.msgpack"
+   ]
+  },
+  "31-p12-I": {
+   "bounds": [
+    0.0,
+    21.5
+   ],
+   "layers": [
+    "lattice/reflector-I-31-p12-fuel.msgpack"
+   ]
+  },
+  "31-p16": {
+   "bounds": [
+    0.0,
+    21.5
+   ],
+   "layers": [
+    "lattice/31-p16.msgpack"
+   ]
+  },
+  "31-p24": {
+   "bounds": [
+    0.0,
+    21.5
+   ],
+   "layers": [
+    "lattice/31-p24.msgpack"
+   ]
+  },
+  "31-p8-I": {
+   "bounds": [
+    0.0,
+    21.5
+   ],
+   "layers": [
+    "lattice/reflector-I-31-p8-fuel.msgpack"
+   ]
+  }
+ },
+ "assembly": {
+  "L01": {
+   "design": "31-corner"
+  },
+  "K01": {
+   "design": "31-p8-I"
+  },
+  "J01": {
+   "design": "31-I"
+  },
+  "H01": {
+   "design": "31-p12-I"
+  },
+  "G01": {
+   "design": "31-I"
+  },
+  "F01": {
+   "design": "31-p8-I"
+  },
+  "E01": {
+   "design": "31-corner"
+  },
+  "N02": {
+   "design": "31-corner"
+  },
+  "M02": {
+   "design": "31-I"
+  },
+  "L02": {
+   "design": "31-p16"
+  },
+  "K02": {
+   "design": "21"
+  },
+  "J02": {
+   "design": "31-p24"
+  },
+  "H02": {
+   "design": "21"
+  },
+  "G02": {
+   "design": "31-p24"
+  },
+  "F02": {
+   "design": "21"
+  },
+  "E02": {
+   "design": "31-p16"
+  },
+  "D02": {
+   "design": "31-I"
+  },
+  "C02": {
+   "design": "31-corner"
+  },
+  "P03": {
+   "design": "31-corner"
+  },
+  "N03": {
+   "design": "31-p12"
+  },
+  "M03": {
+   "design": "26-p24"
+  },
+  "L03": {
+   "design": "21"
+  },
+  "K03": {
+   "design": "26-p16"
+  },
+  "J03": {
+   "design": "21"
+  },
+  "H03": {
+   "design": "26-p20"
+  },
+  "G03": {
+   "design": "21"
+  },
+  "F03": {
+   "design": "26-p16"
+  },
+  "E03": {
+   "design": "21"
+  },
+  "D03": {
+   "design": "26-p24"
+  },
+  "C03": {
+   "design": "31-p12"
+  },
+  "B03": {
+   "design": "31-corner"
+  },
+  "P04": {
+   "design": "31-I"
+  },
+  "N04": {
+   "design": "26-p24"
+  },
+  "M04": {
+   "design": "26-b4c"
+  },
+  "L04": {
+   "design": "26-p20"
+  },
+  "K04": {
+   "design": "21"
+  },
+  "J04": {
+   "design": "26-p20"
+  },
+  "H04": {
+   "design": "21-b4c"
+  },
+  "G04": {
+   "design": "26-p20"
+  },
+  "F04": {
+   "design": "21"
+  },
+  "E04": {
+   "design": "26-p20"
+  },
+  "D04": {
+   "design": "26-b4c"
+  },
+  "C04": {
+   "design": "26-p24"
+  },
+  "B04": {
+   "design": "31-I"
+  },
+  "R05": {
+   "design": "31-corner"
+  },
+  "P05": {
+   "design": "31-p16"
+  },
+  "N05": {
+   "design": "21"
+  },
+  "M05": {
+   "design": "26-p20"
+  },
+  "L05": {
+   "design": "21"
+  },
+  "K05": {
+   "design": "26-p20"
+  },
+  "J05": {
+   "design": "21"
+  },
+  "H05": {
+   "design": "26-p20"
+  },
+  "G05": {
+   "design": "21"
+  },
+  "F05": {
+   "design": "26-p20"
+  },
+  "E05": {
+   "design": "21"
+  },
+  "D05": {
+   "design": "26-p20"
+  },
+  "C05": {
+   "design": "21"
+  },
+  "B05": {
+   "design": "31-p16"
+  },
+  "A05": {
+   "design": "31-corner"
+  },
+  "R06": {
+   "design": "31-p8-I"
+  },
+  "P06": {
+   "design": "21"
+  },
+  "N06": {
+   "design": "26-p16"
+  },
+  "M06": {
+   "design": "21"
+  },
+  "L06": {
+   "design": "26-p20"
+  },
+  "K06": {
+   "design": "21"
+  },
+  "J06": {
+   "design": "26-p24"
+  },
+  "H06": {
+   "design": "21"
+  },
+  "G06": {
+   "design": "26-p24"
+  },
+  "F06": {
+   "design": "21"
+  },
+  "E06": {
+   "design": "26-p20"
+  },
+  "D06": {
+   "design": "21"
+  },
+  "C06": {
+   "design": "26-p16"
+  },
+  "B06": {
+   "design": "21"
+  },
+  "A06": {
+   "design": "31-p8-I"
+  },
+  "R07": {
+   "design": "31-I"
+  },
+  "P07": {
+   "design": "31-p24"
+  },
+  "N07": {
+   "design": "21"
+  },
+  "M07": {
+   "design": "26-p20"
+  },
+  "L07": {
+   "design": "21"
+  },
+  "K07": {
+   "design": "26-p24"
+  },
+  "J07": {
+   "design": "21"
+  },
+  "H07": {
+   "design": "26-p20"
+  },
+  "G07": {
+   "design": "21"
+  },
+  "F07": {
+   "design": "26-p24"
+  },
+  "E07": {
+   "design": "21"
+  },
+  "D07": {
+   "design": "26-p20"
+  },
+  "C07": {
+   "design": "21"
+  },
+  "B07": {
+   "design": "31-p24"
+  },
+  "A07": {
+   "design": "31-I"
+  },
+  "R08": {
+   "design": "31-p12-I"
+  },
+  "P08": {
+   "design": "21"
+  },
+  "N08": {
+   "design": "26-p20"
+  },
+  "M08": {
+   "design": "21-b4c"
+  },
+  "L08": {
+   "design": "26-p20"
+  },
+  "K08": {
+   "design": "21"
+  },
+  "J08": {
+   "design": "26-p20"
+  },
+  "H08": {
+   "design": "21-b4c"
+  },
+  "G08": {
+   "design": "26-p20"
+  },
+  "F08": {
+   "design": "21"
+  },
+  "E08": {
+   "design": "26-p20"
+  },
+  "D08": {
+   "design": "21-b4c"
+  },
+  "C08": {
+   "design": "26-p20"
+  },
+  "B08": {
+   "design": "21"
+  },
+  "A08": {
+   "design": "31-p12-I"
+  },
+  "R09": {
+   "design": "31-I"
+  },
+  "P09": {
+   "design": "31-p24"
+  },
+  "N09": {
+   "design": "21"
+  },
+  "M09": {
+   "design": "26-p20"
+  },
+  "L09": {
+   "design": "21"
+  },
+  "K09": {
+   "design": "26-p24"
+  },
+  "J09": {
+   "design": "21"
+  },
+  "H09": {
+   "design": "26-p20"
+  },
+  "G09": {
+   "design": "21"
+  },
+  "F09": {
+   "design": "26-p24"
+  },
+  "E09": {
+   "design": "21"
+  },
+  "D09": {
+   "design": "26-p20"
+  },
+  "C09": {
+   "design": "21"
+  },
+  "B09": {
+   "design": "31-p24"
+  },
+  "A09": {
+   "design": "31-I"
+  },
+  "R10": {
+   "design": "31-p8-I"
+  },
+  "P10": {
+   "design": "21"
+  },
+  "N10": {
+   "design": "26-p16"
+  },
+  "M10": {
+   "design": "21"
+  },
+  "L10": {
+   "design": "26-p20"
+  },
+  "K10": {
+   "design": "21"
+  },
+  "J10": {
+   "design": "26-p24"
+  },
+  "H10": {
+   "design": "21"
+  },
+  "G10": {
+   "design": "26-p24"
+  },
+  "F10": {
+   "design": "21"
+  },
+  "E10": {
+   "design": "26-p20"
+  },
+  "D10": {
+   "design": "21"
+  },
+  "C10": {
+   "design": "26-p16"
+  },
+  "B10": {
+   "design": "21"
+  },
+  "A10": {
+   "design": "31-p8-I"
+  },
+  "R11": {
+   "design": "31-corner"
+  },
+  "P11": {
+   "design": "31-p16"
+  },
+  "N11": {
+   "design": "21"
+  },
+  "M11": {
+   "design": "26-p20"
+  },
+  "L11": {
+   "design": "21"
+  },
+  "K11": {
+   "design": "26-p20"
+  },
+  "J11": {
+   "design": "21"
+  },
+  "H11": {
+   "design": "26-p20"
+  },
+  "G11": {
+   "design": "21"
+  },
+  "F11": {
+   "design": "26-p20"
+  },
+  "E11": {
+   "design": "21"
+  },
+  "D11": {
+   "design": "26-p20"
+  },
+  "C11": {
+   "design": "21"
+  },
+  "B11": {
+   "design": "31-p16"
+  },
+  "A11": {
+   "design": "31-corner"
+  },
+  "P12": {
+   "design": "31-I"
+  },
+  "N12": {
+   "design": "26-p24"
+  },
+  "M12": {
+   "design": "26-b4c"
+  },
+  "L12": {
+   "design": "26-p20"
+  },
+  "K12": {
+   "design": "21"
+  },
+  "J12": {
+   "design": "26-p20"
+  },
+  "H12": {
+   "design": "21-b4c"
+  },
+  "G12": {
+   "design": "26-p20"
+  },
+  "F12": {
+   "design": "21"
+  },
+  "E12": {
+   "design": "26-p20"
+  },
+  "D12": {
+   "design": "26-b4c"
+  },
+  "C12": {
+   "design": "26-p24"
+  },
+  "B12": {
+   "design": "31-I"
+  },
+  "P13": {
+   "design": "31-corner"
+  },
+  "N13": {
+   "design": "31-p12"
+  },
+  "M13": {
+   "design": "26-p24"
+  },
+  "L13": {
+   "design": "21"
+  },
+  "K13": {
+   "design": "26-p16"
+  },
+  "J13": {
+   "design": "21"
+  },
+  "H13": {
+   "design": "26-p20"
+  },
+  "G13": {
+   "design": "21"
+  },
+  "F13": {
+   "design": "26-p16"
+  },
+  "E13": {
+   "design": "21"
+  },
+  "D13": {
+   "design": "26-p24"
+  },
+  "C13": {
+   "design": "31-p12"
+  },
+  "B13": {
+   "design": "31-corner"
+  },
+  "N14": {
+   "design": "31-corner"
+  },
+  "M14": {
+   "design": "31-I"
+  },
+  "L14": {
+   "design": "31-p16"
+  },
+  "K14": {
+   "design": "21"
+  },
+  "J14": {
+   "design": "31-p24"
+  },
+  "H14": {
+   "design": "21"
+  },
+  "G14": {
+   "design": "31-p24"
+  },
+  "F14": {
+   "design": "21"
+  },
+  "E14": {
+   "design": "31-p16"
+  },
+  "D14": {
+   "design": "31-I"
+  },
+  "C14": {
+   "design": "31-corner"
+  },
+  "L15": {
+   "design": "31-corner"
+  },
+  "K15": {
+   "design": "31-p8-I"
+  },
+  "J15": {
+   "design": "31-I"
+  },
+  "H15": {
+   "design": "31-p12-I"
+  },
+  "G15": {
+   "design": "31-I"
+  },
+  "F15": {
+   "design": "31-p8-I"
+  },
+  "E15": {
+   "design": "31-corner"
+  }
+ }
+}

@@ -20,7 +20,7 @@ stages:
   chain:
     cmd: ../../bin/chain chain.toml
     deps:
-      - chain.toml
+      - ../../toml-values/examples/depletion/chain.toml.json
       - ../../references/endf/ENDF-B-VIII.0_decay
       - ../../references/endf/ENDF-B-VIII.0_nfy
       - ../../references/endf/ENDF-B-VIII.0_neutrons
@@ -41,7 +41,7 @@ stages:
     # ポイントワイズの範囲は、すべての核種の分離共鳴の上端で決まる。核種ごとのステージの入力にするため、先に求める（ADR-0138）
     cmd: ../../bin/xs range xs.toml xs-range.toml
     deps:
-      - xs.toml
+      - ../../toml-values/examples/depletion/xs.toml.json
       - ../../references/endf/ENDF-B-VIII.0_neutrons
       - ../../bin/xs
     outs:
@@ -67,7 +67,7 @@ stages:
   xs:
     cmd: ../../bin/xs assemble xs.toml xs-range.toml xs-nuclides
     deps:
-      - xs.toml
+      - ../../toml-values/examples/depletion/xs.toml.json
       - xs-range.toml
       - xs-nuclides
       - ../../bin/xs
@@ -109,7 +109,7 @@ stages:
       - ../../python-ast/examples/vera/openmc_library.py.ast
       - ../../python-ast/examples/openmc_input.py.ast
       - references-shell.txt
-      - openmc-library.toml
+      - ../../toml-values/examples/depletion/openmc-library.toml.json
       - openmc-library/neutron
       - openmc-library/thermal
     outs:
@@ -127,7 +127,7 @@ stages:
         - references-shell.txt
         - openmc-library
         - openmc-chain.xml
-        - openmc-1C-${item}.toml
+        - ../../toml-values/examples/depletion/openmc-1C-${item}.toml.json
       outs:
         - openmc-1C-${item}
   openmc-1C-extract:
@@ -138,7 +138,7 @@ stages:
         - ../../python-ast/examples/depletion/openmc_depletion.py.ast
         - references-shell.txt
         - openmc-1C-${item}
-        - openmc-1C-${item}.toml
+        - ../../toml-values/examples/depletion/openmc-1C-${item}.toml.json
       outs:
         - openmc-1C-${item}.msgpack
   lattice-1C:
@@ -147,7 +147,7 @@ stages:
     do:
       cmd: ../../bin/lattice lattice-1C-${item}.toml > lattice-1C-${item}.out 2> lattice-1C-${item}.log
       deps:
-        - lattice-1C-${item}.toml
+        - ../../toml-values/examples/depletion/lattice-1C-${item}.toml.json
         - depletion.msgpack
         - chain.msgpack
         - ../../bin/lattice
@@ -159,7 +159,7 @@ stages:
     # 集合体の燃焼の時間の内訳（ADR-0173）。1 ステップだけ
     cmd: ../../bin/lattice lattice-2A.toml > lattice-2A.out 2> lattice-2A.log
     deps:
-      - lattice-2A.toml
+      - ../../toml-values/examples/depletion/lattice-2A.toml.json
       - depletion.msgpack
       - chain.msgpack
       - ../../bin/lattice
@@ -194,7 +194,7 @@ stages:
       - references-shell.txt
       - openmc-library
       - openmc-chain.xml
-      - openmc-mox1-rings1.toml
+      - ../../toml-values/examples/depletion/openmc-mox1-rings1.toml.json
     outs:
       - openmc-mox1-rings1
   openmc-mox1-extract:
@@ -204,14 +204,14 @@ stages:
       - ../../python-ast/examples/mox/openmc_model.py.ast
       - references-shell.txt
       - openmc-mox1-rings1
-      - openmc-mox1-rings1.toml
+      - ../../toml-values/examples/depletion/openmc-mox1-rings1.toml.json
     outs:
       - openmc-mox1-rings1.msgpack
   lattice-mox1:
     # xlc の MOX-1 の燃焼（ADR-0206）。k∞ は標準出力、時間の内訳はログ（標準エラー）に出る
     cmd: ../../bin/lattice lattice-mox1-rings1.toml > lattice-mox1-rings1.out 2> lattice-mox1-rings1.log
     deps:
-      - lattice-mox1-rings1.toml
+      - ../../toml-values/examples/depletion/lattice-mox1-rings1.toml.json
       - depletion.msgpack
       - chain.msgpack
       - ../../bin/lattice
