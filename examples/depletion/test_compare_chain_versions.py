@@ -254,6 +254,14 @@ class Differences(unittest.TestCase):
         ]
         self.assertEqual([(y["a"], y["b"]) for y in yields], [(0.0024, 0.0024)])
 
+    def test_the_watched_parents_show_their_decay_and_fission_q(self):
+        watched = self.summary["watched"]
+        u235 = next(w for w in watched["nuclides"] if w["nuclide"] == "U-235")
+        self.assertEqual(u235["half_life"], {"a": 2.2e16, "b": 2.2e16})
+        self.assertEqual(u235["fission_q"], {"a": 1.934e8, "b": 1.935e8})
+        xe = next(w for w in watched["nuclides"] if w["nuclide"] == "Xe-135")
+        self.assertIsNone(xe["fission_q"])
+
     def test_a_watched_nuclide_stable_in_both_has_no_half_life(self):
         nuclides = chain_nuclides() + [nuclide("Nd-143", 60, 143)]
         summary = compare_chain_versions.summarize(build(nuclides), build(nuclides))
