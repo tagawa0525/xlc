@@ -409,8 +409,9 @@ docs/0258-settle-open-points で比べ始め、ADR-0260 に分けた。DVC の�
   読み手は crates/outputs の `read-outputs` で、出力の `format` の名前で各形式の `from_msgpack` を選び、`xs range` の書く範囲の
   TOML は xs のライブラリの読み手で読む（案 E1）
 - 対象は、xlc の実行ファイルを呼ぶステージ（deps に `binary-forms/` の実行ファイルの正規形を持つステージ）の deps のうち、
-  計算の出力で xlc の形式のもの（`.msgpack` と、xlc の実行ファイルを呼ぶステージが書く TOML）のすべてである。Python の
-  ステージが書く入力の TOML や JSON は、xlc の形式でないので読まない。出力の置き場は: 例の lock のステージ（ほかの例の lock のステージを含む）の outs のファイル、outs の
+  計算の出力で xlc の形式のもの（`.msgpack` と、`xs range` の書く範囲の TOML）のすべてである。`.msgpack` は書き手（Python の
+  ステージを含む）によらず読む（xlc の読み手は xlc の形式の MessagePack しか受けない）。ほかの TOML（xlc の書く要約、Python の
+  書く入力）と JSON には Rust の形式の読み手が無いので読まず、数だけを出す。出力の置き場は: 例の lock のステージ（ほかの例の lock のステージを含む）の outs のファイル、outs の
   ディレクトリの中のファイル、deps のディレクトリの下にあるステージの outs（核種ごとのライブラリ）、`.dvc` で保管した生成物
   （ADR-0222）。直下の `dvc.lock` の出力（`build` と正規形）は計算の出力でないので読まない。lock に hash の無い（流していない）
   ステージの出力は対象にしない
@@ -485,7 +486,7 @@ ADR-0257）は、上の段の実装のブランチで、その ADR の決定と�
   段 5（`scripts/check-readable-outputs.py` と crates/outputs の `read-outputs`）も入り、スキル topic-start のマージの節と compute の
   形式の項が検査を指す
 - 形式を変える修正の検査は、実行ファイルを変えうるブランチの run-checks.sh に約 25 秒を足す（main の出力の 2001 ファイル、
-  6 GB を 1 コアで読んで 23.7 秒、全体で 24.8 秒。「確認」の段 5）。読むのは 1 ファイルずつで、記憶は最大で約 9.4 GB を使う
+  6 GB を 1 コアで読んで 20.6〜23.7 秒、全体で 21.4〜24.8 秒。「確認」の段 5）。読むのは 1 ファイルずつで、記憶は最大で約 9.4 GB を使う
   （p2 のライブラリ 1.5 GB を読むとき）。数分を超えないので、対象を変えた crate の読む形式に絞ることはしない
 - 差分を読んで判断する残りは 2 つある。Python のツールの読み手が古い出力を読めるか（検討した案の Python のツールの読み手を
   入れる案）と、形を変えずに項目の意味だけを変えた修正である。後者は、形式の名前を変える決まり（スキル topic-start のマージの節と
@@ -609,19 +610,21 @@ ADR-0257）は、上の段の実装のブランチで、その ADR の決定と�
   - scripts/test_check_readable_outputs.py（読み手を偽物に替えた一時のリポジトリで）: xlc の実行ファイルを呼ぶステージの deps の
     上流の outs、ディレクトリの outs の中のファイル（ディレクトリ全体と、その中の 1 つのファイルを deps にしたもの）、deps の
     ディレクトリの下の outs、`.dvc` の生成物、範囲の TOML を 1 回ずつ読み、Python のステージだけが読む出力、直下の lock の出力、
-    md5 の無い出力、Python のステージが書いて xlc のステージが読む TOML と JSON を読まないこと。読めない出力ごとに、パス、md5、書いたステージ（`.dvc` の生成物はその `.dvc`）を出して終了
+    md5 の無い出力、Python のステージが書いて xlc のステージが読む TOML と JSON、xlc のステージが書く範囲でない TOML を
+    読まないこと。読めない出力ごとに、パス、md5、書いたステージ（`.dvc` の生成物はその `.dvc`）を出して終了
     コード 1 になること。open の issue に md5 で結び付けた出力（`.dir` の md5 で結び付けたディレクトリの中のファイルを含む）は
     `ALLOWED:` で通り、ほかの読めない出力では止まること。閉じた issue、無い issue、`#NNNN` の形でない issue の項で止まること。
-    一覧の項の型の誤りで、traceback でなく `STOP:` で止まること。キャッシュに無い出力、読み手の失敗で止まること。`build` の
+    一覧の項の型の誤りと、同じ md5 の 2 つの項で、traceback でなく `STOP:` で止まること。キャッシュに無い出力、読み手の失敗で止まること。`build` の
     deps を変えない差分では読まず、crates/ か Cargo.lock を変えた差分、crates/ の外へ動かした差分、crates/ に追跡していない
     ファイルを足した差分では読むこと。マージの hook の中でも一時のリポジトリだけに触れるよう、テストの git は GIT_ の変数を外す
 
   - crates/outputs/tests/check.rs: 本番の読み手で、媒質の出力が読めれば終了コード 0、形式の名前を変えた出力では、その出力と
     書いたステージを出して 1、open の issue に結び付ければ 0 になること
-  - 実際の出力（検査は xlc d03eff4ae、lock は main 10824a18b と同じ。出力を戻していない worktree、手元、1 コア、2026-11-20）:
+  - 実際の出力（検査は xlc 2591cc2d0、lock は main 10824a18b と同じ。出力を戻していない worktree、手元、1 コア、2026-11-20）:
     `scripts/check-readable-outputs.py` は、crates/ と Cargo.lock の差分で読み、23 の例の lock と 766 の `.dvc` から 2027 の出力
     （ファイルで 2001。中身の同じものは 1 回読む）を読んで、読めない出力は 0、xlc の形式でない出力は 0、終了コード 0。読む時間
-    23.7 秒、全体 24.8 秒、最大の記憶 9.4 GB。ファイルの形式は `xlc-table` 1224、`xlc-multigroup` 738（核種ごとのライブラリを含む）、`xlc-medium` 36、
+    20.6 秒、全体 21.4 秒、最大の記憶 9.4 GB（d03eff4ae では 23.7 秒と 24.8 秒。読む時間は回ごとに数秒ずれる）。読み手は
+    run-checks.sh の cargo test の後に `cargo build -p xlc-outputs` を流しても作り直されず（`-v` で `Compiling` が 0）、ビルドの時間は足さない。ファイルの形式は `xlc-table` 1224、`xlc-multigroup` 738（核種ごとのライブラリを含む）、`xlc-medium` 36、
     `xlc-chain` 1、`xlc-depletion-history` 1、範囲の TOML 1（4 つの出力が同じ中身）。媒質の読み手と書き手に必須の項目を
     1 つ足した作業ツリー（検査は xlc 85442c8f6）では、43 の媒質の出力（36 ファイル）を `UNREADABLE:`（`missing field`）に出して
     終了コード 1、全体 27.8 秒（試しの変更はコミットせずに戻した）
