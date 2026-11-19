@@ -39,6 +39,13 @@ class Image:
         self.rodata += text + (b"\x00" if nul else b"x")
         return addr, len(text)
 
+    def last_string(self, text: bytes) -> tuple[int, int]:
+        """.rodata の最後のバイトで終わるように文字列を置く。"""
+        self.rodata += b"y" * (SIZE - len(text) - len(self.rodata))
+        addr = RODATA_ADDR + len(self.rodata)
+        self.rodata += text
+        return addr, len(text)
+
     def place(self, data: bytes) -> int:
         """8 バイト境界に構造体を置き、.data.rel.ro の中の位置。"""
         self.relro += b"\x00" * (-len(self.relro) % 8)
@@ -166,6 +173,40 @@ class NormalizeTest(unittest.TestCase):
         data, counts = norm.normalize(image.build())
         self.assertEqual((u32(data, plain + 16), u32(data, plain + 20)), (5, 6))
         self.assertEqual((u32(data, zero + 16), u32(data, zero + 20)), (5, 0))
+        self.assertEqual(counts["location"], 1)
+
+    def test_location_in_the_last_slot_of_the_section_is_zeroed(self):
+        image, _ = stage_image()
+        ptr, length = image.string(b"crates/a/src/z.rs", nul=True)
+        image.relro += b"\x00" * (SIZE - 24 - len(image.relro))
+        last = image.place(struct.pack("<QQII", ptr, length, 9, 3))
+        self.assertEqual(last + 24, SIZE)
+        data, counts = norm.normalize(image.build())
+        self.assertEqual((u32(data, last + 16), u32(data, last + 20)), (0, 0))
+        self.assertEqual(counts["location"], 2)
+
+    def test_metadata_whose_strings_end_the_section_is_zeroed(self):
+        image, _ = stage_image()
+        # スパンの名前を .rodata の最後に置く（後ろに読めるバイトが無い）
+        span = image.metadata(b"sweep", b"crates/a/src/x.rs", 77)
+        ptr, length = image.last_string(b"coarse")
+        image.relro[span + 8 : span + 24] = struct.pack("<QQ", ptr, length)
+        data, counts = norm.normalize(image.build())
+        self.assertEqual(u32(data, span + 4), 0)
+        self.assertEqual(counts["metadata"], 4)
+
+    def test_metadata_file_followed_by_nul_keeps_the_fields_after_it(self):
+        image, _ = stage_image()
+        # スパンだけのファイル。file!() の文字列の後ろが偶然 NUL で、後ろのフィールドが 0 でない
+        span = image.metadata(b"homogenize", b"crates/a/src/only_spans.rs", 12)
+        ptr, length = image.string(b"crates/a/src/only_spans.rs", nul=True)
+        file = span + 8 + FILE_DISTANCE
+        image.relro[file : file + 16] = struct.pack("<QQ", ptr, length)
+        image.relro[file + 16 : file + 24] = struct.pack("<II", 3, 4)
+        before = image.build()
+        data, counts = norm.normalize(before)
+        self.assertEqual(u32(data, span + 4), 0)
+        self.assertEqual((u32(data, file + 16), u32(data, file + 20)), (3, 4))
         self.assertEqual(counts["location"], 1)
 
     def test_stage_event_named_by_line_is_an_error(self):
