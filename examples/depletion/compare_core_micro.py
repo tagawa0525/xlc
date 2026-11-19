@@ -20,19 +20,7 @@ import sys
 from pathlib import Path
 
 import msgpack
-from core_history import single_state
-
-# core の燃焼度と履歴とテーブルの燃焼点の一致の許容（core は出力密度 × EFPD で、履歴は燃焼度の点から時間を求めて燃焼させる）
-BURNUP_TOLERANCE = 1e-9
-
-
-def same_burnup(a: float, b: float) -> bool:
-    return abs(a - b) <= BURNUP_TOLERANCE * max(1.0, abs(b))
-
-
-def rho_pcm(base: float, k: float) -> float:
-    """`base` から `k` への反応度の差 (pcm)"""
-    return (1.0 / base - 1.0 / k) * 1e5
+from core_history import rho_pcm, same_burnup, single_state
 
 
 def check_core(core: dict) -> None:

@@ -23,15 +23,10 @@ import sys
 from pathlib import Path
 
 import msgpack
-from core_history import default_midpoints, single_state
+from core_history import default_midpoints, rho_pcm, single_state
 
 # 追う数密度（Xe-135 とその先行核、停止の間に Pm-149 の崩壊で増える Sm-149）
 NUCLIDES = ["I-135", "Xe-135", "Sm-149"]
-
-
-def rho_pcm(base: float, k: float) -> float:
-    """`base` から `k` への反応度の差 (pcm)"""
-    return (1.0 / base - 1.0 / k) * 1e5
 
 
 def check_core(name: str, core: dict, cycle: dict) -> None:

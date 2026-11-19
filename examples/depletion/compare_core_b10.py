@@ -23,16 +23,12 @@ from pathlib import Path
 
 import msgpack
 import tomllib
+from core_history import rho_pcm
 
 STATE = re.compile(r"b(\d+)-p(\d+)-u(\d+)|nominal-p(\d+)-u(\d+)")
 K_LINE = re.compile(r"k-eff (\S+)")
 # テーブルの格子点の状態の core の k と k∞ の差の許容 (pcm)
 NOMINAL_TOLERANCE = 0.01
-
-
-def rho_pcm(base: float, k: float) -> float:
-    """`base` から `k` への反応度の差 (pcm)"""
-    return (1.0 / base - 1.0 / k) * 1e5
 
 
 def core_ks(out: str) -> dict[str, float]:
