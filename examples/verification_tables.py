@@ -505,8 +505,9 @@ def depletion_single_k(sources: list[dict]) -> str:
 
 
 def depletion_dilute_absorbers(sources: list[dict]) -> str:
-    """輸送しない核種を無限希釈の吸収体として数えた燃焼（ADR-0261、#0292）: 燃焼点ごとの、65 核種を輸送する核種にした燃焼からの
-    反応度の差と、その内訳（examples/depletion/issue-0292/compare_dilute.py の docstring）"""
+    """輸送しない核種を無限希釈の吸収体として数えた燃焼（ADR-0261、#0292）: 燃焼点ごとの反応度の差。初めの 3 列は 65 核種を輸送する
+    核種にした燃焼（吸収体を数えない）から、後の 2 列は 65 核種を輸送して残りを数えた燃焼から（examples/depletion/issue-0292/compare_dilute.py
+    の docstring）"""
     (s,) = sources
     if s.get("format") != "xlc-compare-dilute-absorbers":
         raise TableError("not an xlc-compare-dilute-absorbers summary")
