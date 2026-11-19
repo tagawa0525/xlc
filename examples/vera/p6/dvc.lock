@@ -280,8 +280,8 @@ stages:
       size: 7402
     - path: ../../../python-ast/scripts/normalize_toml.py.ast
       hash: md5
-      md5: 829baa23a7d6698630de51de138a9f40
-      size: 822
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     - path: ../../../toml-values/examples/vera/p6/core-6-isothermal.toml.json
       hash: md5
       md5: 69fd93fb7e7d4ad0f62233a5ba5549be

@@ -4928,7 +4928,7 @@ python3 examples/depletion/compare_grid_interpolation.py --report examples/deple
 
 #### 計算
 
-上の「計算」と同じ実行（xlc 68251719、分岐点は main の d6cc90d9、2026-11-16、Slurm 903 の `grid-2A` のステージ。JSON の md5 fb07a017。2026-11-19 に、TOML の入力の md5 を値の正規形のものにして同じ上流から書き直した（xlc e327c56c。値は前の 0f607cea と同じ。ADR-0254）。
+上の「計算」と同じ実行（xlc 68251719、分岐点は main の d6cc90d9、2026-11-16、Slurm 903 の `grid-2A` のステージ。JSON の md5 fb07a017。2026-11-19 に、TOML の入力の md5 を値の正規形のものにして同じ上流から書き直した（xlc e327c56c、分岐点は main の 92b0751e。数値は前の JSON（md5 0f607cea）と同じ。ADR-0254）。
 下の「内挿の変数と方式の候補」も同じ実行）。上流のテーブルは同じジョブの `table-2A.msgpack`（md5 e0b2a95a）。
 
 #### 結果
