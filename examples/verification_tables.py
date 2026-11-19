@@ -638,7 +638,7 @@ def depletion_assembly_k(sources: list[dict]) -> str:
     rows = [
         [
             burnup_label(b),
-            f"{signed(k['diff_pcm'], 0)} ± {k['openmc_std_pcm']:.0f}",
+            assembly_k_diff(k),
             signed(k["change_pcm"], 0),
         ]
         for b, k in zip(s["burnup"], s["k"], strict=True)
@@ -657,6 +657,11 @@ def depletion_assembly_summary(sources: list[dict]) -> str:
     rows = []
     for source in sources:
         s = assembly_checked(source)
+        missing = {"burnup", "k", "pins"} - s.keys()
+        if missing:
+            raise TableError(
+                f"{s.get('problem')}: no {sorted(missing)}; rerun the stage"
+            )
         burnup, k, pins = s["burnup"], s["k"], s["pins"]
         if not len(burnup) == len(k) == len(pins):
             raise TableError(
@@ -673,7 +678,8 @@ def depletion_assembly_summary(sources: list[dict]) -> str:
                 burnup_label(burnup[largest]),
                 assembly_k_diff(k[-1]),
                 burnup_label(burnup[-1]),
-                str(sum(abs(x["diff_pcm"]) > 150 for x in k)),
+                # 描く差と同じ丸め（整数の pcm）で数える。+150.4 を「+150」と描きながら超えたと数えない
+                str(sum(abs(round(x["diff_pcm"])) > 150 for x in k)),
                 f"{100 * min(rms):.3f}〜{100 * max(rms):.3f}",
             ]
         )
