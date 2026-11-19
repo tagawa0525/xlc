@@ -12,12 +12,14 @@
   `skipif`）と、テストの本文の中の skip は集めない
 - provisional: 例の入力（examples の TOML と YAML）の注釈（値の後ろの注釈を含む）の「確かめていない」「暫定」「仮の」
   「仮に」「仮置き」「未確認」。同じ行が指す issue を見る（前後の行の issue は、別の話のことがある）
-- excluded: 例の入力の注釈で、除外の語（外す、除いた、省く など）のすぐ前後に issue の番号があるもの。その番号を見る
+- excluded: 例の入力の注釈で、「外す」「外した」「外して」を含むもの（issue の番号の有無によらない）と、ほかの除外の語
+  （除いた、省く など）のすぐ前後に issue の番号があるもの。語のすぐ前後の番号を見る（同じ行の離れた番号と、次の行の番号は
+  数えない）
 
 印は、開いている issue（追跡している docs/issues/NNNN-*.md の `status: open`）を 1 つ以上指す。rust-ignore と
-python-skip は ADR（決めた除外）でもよい。excluded は issue を引く除外だけを集めるので、止めるのは、引いた issue が
-どれも閉じている行（理由が消えたのに外したまま）。issue を引かない除外の語は、一般の語（不連続因子を外した定数）
-なので集めない。`.textlintignore` が issue のファイルそのものを、その issue の番号で外す項目は、閉じた後も通す
+python-skip は ADR（決めた除外）でもよい。前提を並べる一覧の issue（LIST_ISSUE）は、項目ごとの解消の条件を持たないので
+理由に数えない。「除く」「省く」は形の説明（Hf は除き、1 点ずつ除く）に多く使うので、issue を引く行だけを集める。
+`.textlintignore` が issue のファイルそのものを、その issue の番号で外す項目は、閉じた後も通す
 （語の調査の表のように、ファイルが残るかぎり外す）。docs/issues/ に無い番号（ほかのリポジトリの issue、色の符号）は
 理由に数えず、ほかに理由が無いときに知らせる。
 
@@ -46,12 +48,16 @@ PYTHON_SKIP = re.compile(
     r"^\s*@((unittest|pytest\.mark|mark)\.)?(skip|xfail|expectedFailure)\b"
 )
 PROVISIONAL = re.compile(r"確かめていない|暫定|仮の|仮に|仮置き|未確認")
+# 番号の有無によらず集める除外の語。「外さない」は除外でないので含めない
+REMOVING = re.compile(r"外[すし]")
 # 除外の語と issue の番号が、文をまたがずに 16 文字以内で並ぶもの。離れた issue は、同じ行の別の話のことがある
 # （「H-1 を除く全核種に…履歴（#NNNN）の温度」）
 DROPPING = r"(?:外[すし]|除[くいき]|省[くいき]|除外)"
 EXCLUDED_BEFORE = re.compile(rf"#(\d{{4}})(?!\w)[^。#]{{0,16}}{DROPPING}")
 EXCLUDED_AFTER = re.compile(rf"{DROPPING}[^。#]{{0,16}}#(\d{{4}})(?!\w)")
 REVIEW_LEFTOVER = re.compile(r"review|leftover")
+# 前提を並べる一覧の issue。項目を指すだけでは、その項目を解消する条件にならない
+LIST_ISSUE = "0293"
 # 開いている issue のほかに、ADR を理由にできる印（決めた除外。参照の出力が要るテストなど）
 ADR_ALLOWED = {"rust-ignore", "python-skip"}
 
@@ -127,7 +133,7 @@ def input_markers(path, text):
         adjacent = tuple(
             EXCLUDED_BEFORE.findall(comment) + EXCLUDED_AFTER.findall(comment)
         )
-        if adjacent:
+        if adjacent or REMOVING.search(comment):
             yield Marker(path, number, "excluded", line.strip(), adjacent, ())
 
 
@@ -160,7 +166,11 @@ def violations(markers, statuses):
     """印ごとに、開いている issue（種類によっては ADR）を指さないものを、修正方法つきの文で返す。"""
     found = []
     for marker in markers:
-        known = [issue for issue in marker.issues if issue in statuses]
+        known = [
+            issue
+            for issue in marker.issues
+            if issue in statuses and issue != LIST_ISSUE
+        ]
         if any(statuses[issue] == "open" for issue in known):
             continue
         if marker.kind in ADR_ALLOWED and marker.adrs:
@@ -171,7 +181,12 @@ def violations(markers, statuses):
         unknown = "、".join(
             f"#{issue}" for issue in marker.issues if issue not in statuses
         )
-        if known:
+        if LIST_ISSUE in marker.issues and not known:
+            found.append(
+                f"{where}\n  #{LIST_ISSUE} は前提を並べる一覧で、項目を解消する条件を持たないので理由に数えません。"
+                "その項目を解消する開いている issue を同じ行に書いてください"
+            )
+        elif known:
             closed = "、".join(f"#{issue}" for issue in known)
             found.append(
                 f"{where}\n  指している issue（{closed}）は閉じています。理由が消えたなら外したものを戻し、"
