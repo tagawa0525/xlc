@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-11-19
 requires: [ADR-0130, ADR-0159, ADR-0210, ADR-0212]
 supersedes: []
@@ -76,7 +76,7 @@ ADR-0159 は Rust のステージの deps をビルドした実行ファイル�
 - 案 M1（採用）: dvc.lock の TOML の deps の項目を、lock が記録した版の正規形の項目に書き換える
 - 案 M2: ADR-0159 と ADR-0210 のとおり、分岐点で changed でなかったステージを `dvc commit` で付け直す。出力を worktree に
   戻す必要があり（`dvc commit` は出力の hash を取り直す）、実行ファイルの差で changed のステージ（2026-11-19 の main で、静的に
-  数えて 1,047。下の「確認」）は付け直せないので、新しい deps のパスの差が changed の理由に加わる
+  数えて 1,048。下の「確認」）は付け直せないので、新しい deps のパスの差が changed の理由に加わる
 
 ## 決定と理由
 
@@ -117,8 +117,8 @@ ADR-0159 の deps の規則（ステージの入力と、ステージが呼ぶ�
 deps のパスを替えると、TOML を deps に持つステージの lock が食い違う。`dvc commit` の代わりに、例の dvc.lock の deps の項目を
 書き換える（案 M1）:
 
-- ステージごとに、ステージの出力でない TOML の deps の項目を、正規形のパスと、lock が記録した版（md5 の同じ blob を git の履歴と、
-  #0141 の書き換えの前の控え `~/.local/share/history-rewrite/xlc-2026-10-21/original.git` から探す）の正規形の md5 と大きさに
+- ステージごとに、ステージの出力でない TOML の deps の項目を、正規形のパスと、lock が記録した版（md5 の同じ blob を git の履歴から探す。
+  #0141 の書き換えの前の控え（ADR-0210 の移行が使った `~/.local/share/history-rewrite/`）は、2026-11-19 には残っていなかった）の正規形の md5 と大きさに
   替える。版が見つからない項目は替えず、そのステージは changed のまま残す
 - lock が記録した TOML が今のファイルと同じなら、書き換えた項目は `dvc commit` が書くものと同じになる。違えば、記録した版の
   正規形と今の正規形が比べられる。値の差なら changed のまま、コメントだけの差なら changed でなくなる（ADR-0210 の移行の 2 つ目と
@@ -131,4 +131,56 @@ deps のパスを替えると、TOML を deps に持つステージの lock が�
 
 ### 帰結
 
+- コメント、空白、引用符と数の書き方だけの修正では、`toml-values` のそのファイルのステージだけが走り、正規形が変わらなければ
+  計算のステージは走らない。語を直すために入力を検査から外す理由は無くなる。値（型と順を含む）を変えれば下流は changed になる
+- 例のステージに TOML を deps として足すときは、正規形のパスを書き、`toml-values` の foreach にも足す。`RepositoryDepsTest` が
+  食い違い（TOML のままの deps、並びに無い正規形、使われない並び、ステージの出力を並べたもの、今の TOML と違う正規形）を止める。
+  `toml-values/` は git で追跡する生成物で、手で直さない。TOML を変えたブランチは `toml-values` を実行し、正規形とリポジトリの
+  直下の `dvc.lock` をコミットする
+- run-checks.sh は .py の差分があるときだけ Python のテストを実行するので、pre-commit の hook `toml-values` が、`dvc.yaml`、
+  `dvc.lock`、`toml-values/`、TOML、JSON を変えるコミットで `RepositoryDepsTest` と `JsonInputsTest` を実行する
+- 比較のスクリプトが JSON の `inputs` に TOML を書くときは `input_md5` を使う。使わなければ `JsonInputsTest` が止める
+- ほかのブランチ（feat/0279-off-history-comparison、feat/0293-upstream-pin-measurements）が examples/depletion に足した入力は、
+  main への rebase の後に `RepositoryDepsTest` が止めるので、そこで正規形に替える
+- `dvc status examples/<問題>/dvc.yaml` は上流の `toml-values` を示さない（ADR-0210 の帰結の `python-ast` と同じ）。rebase の後の
+  手順（/dvc-relock）は、`build` と `python-ast` に続けて `toml-values` を実行する
+- リポジトリの直下の `dvc.yaml` のステージは 436 増える。正規形は 3.2 MB（`du -sh toml-values`）
+- examples/vera の `openmc-1B-model` と `openmc-1B-extract` の lock が記録した `p1/openmc-1B.toml`（md5 20533ee6）は git の履歴に
+  無く、移行で書き換えていない（どちらも .py の deps でも changed で、TOML の差の理由は「変わった」から「消えた」と「足した」に
+  変わる）
+- 実行ファイルの行の位置の差（#0110）は、この ADR の範囲の外
+
 ### 確認
+
+テスト（`scripts/test_normalize_toml.py`、`scripts/run-python-tests.sh` が実行する）:
+
+- `InvariantTest`: コメント、空白と改行、引用符と文字列の書き方、数の書き方（`1e10` と `1.0e10` など）、表の書き方で正規形が
+  変わらない
+- `ValueChangeTest`: 値、整数と浮動小数、真偽値と数、符号つきの 0、表のキーの順、配列の順、文字列と数、キーの追加で正規形が
+  変わる。正規形を読み直すと、`tomllib` の値とキーの順に戻る
+- `FailureTest`: 構文の誤り、日時、`nan` と `inf` で止まる
+- `InputMd5Test`: TOML は正規形の md5、ほかはバイトの md5
+- `RepositoryDepsTest`: 帰結の 2 つ目の食い違い。例の dvc.yaml の foreach と補間を例が使う形だけ解く（DVC の Python の API は
+  python-tests の devShell に無い）。DVC の API で解決した deps の TOML の集合（436）と一致した（2026-11-19）
+- `JsonInputsTest`（#0295）: 追跡している比較の JSON の `inputs` が、それを書いたステージの dvc.lock の deps と同じ md5 を持つ
+- examples/test_record_provenance.py の `Inputs`: `record_provenance.py` の照合が、TOML の入力を正規形の deps と比べる
+
+2026-11-19、ブランチ feat/0145-toml-normal-form（分岐点は main 92b0751ef）で測った:
+
+- `dvc repro dvc.yaml:python-ast dvc.yaml:toml-values`（初めての 436 本と、変えた .py の 5 本）は 4 分 45 秒、変わらないときの
+  `dvc repro -s dvc.yaml:toml-values` は 1.2 秒
+- 移行: 675 の項目（355 ステージ）を書き換えた。505 は lock の記録が今のファイルと同じ、170 は履歴の古い版、3 は版が見つからない
+  （上の帰結）。`scripts/compare-dvc-lock.py e327c56ca~1 e327c56ca` は 23 の lock で違い 0（cmd、outs、params は同じ）
+- changed のステージを、DVC の API で解決したステージと dvc.lock と今のファイルで静的に数えた（上流の出力は lock の outs の
+  とおりとし、ディレクトリの deps は比べない。全体の `dvc status` は 15 分で終わらないことがある。#0268）。分岐点は 1,462
+  ステージのうち 1,064 が changed（実行ファイルの差が 1,048）。移行の後も changed の集合は同じ 1,064 で、理由は 1,279 ステージで
+  同じ、169 ステージは TOML の差（記録した版と今の版の正規形が同じ。examples/core の `assemblies.toml` の 51 ほか）が理由から
+  外れ、どれも実行ファイルの差などで changed のまま、2 ステージは上の `openmc-1B`。比較のスクリプトを変えた 12 ステージは、
+  再実行の前に changed になり、再実行（565aec357。`-s` で 67 秒）の後に changed でなくなった。JSON の差は `inputs` の md5 の
+  行だけで、examples/core の `compare.out` は同じ
+- 付け直した OpenMC の参照解（examples/depletion の `openmc-1C@rings1`、`@rings4`、`openmc-mox1`）は、移行の後も `dvc status` で
+  up to date（e327c56ca）
+- 仕組みの試し（e327c56ca の上で、試した後に戻した）: examples/colorset/case.toml の先頭の注釈、空白と行末の注釈、引用符と、
+  examples/depletion/openmc-1C-rings1.toml の先頭の注釈を変えて `toml-values` を実行すると、正規形は変わらず、colorset の
+  `diffusion-4` と depletion の `openmc-1C@rings1` は up to date のままだった。値（`radial-nodes` 1 → 2、`power` 38.41 → 38.410001）を
+  変えると、どちらも正規形の deps が `modified` の changed になった
