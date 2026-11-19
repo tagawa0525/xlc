@@ -67,7 +67,7 @@ rebase を終える（手で行を選んで混ぜない。1 のコマンドが�
    - `examples/<問題>/dvc.yaml` を渡すと、`dvc status` をその例と上流に限る（ブランチが触れた例だけを見るとき）
    - `CHANGED:` は残した changed のステージで、そのままでよい（ADR-0130）
 
-2. 終了コード 1 なら、`STOP:` の行の場所で原因を調べる。手で `dvc repro` して埋めない:
+2. 終了コード 1 なら、`STOP:` の行の場所で原因を調べ、直したら 1 をやり直す。手で `dvc repro` して埋めない:
 
    - 戻らない出力（`MISSING:`）: 上流のステージを所有するブランチか main の記録を確かめてから、ユーザーに聞く。`references` が
      main の `references/` を指すかは `realpath references` と main の `references/` の `realpath` を比べる（symlink なので文字列の
@@ -172,7 +172,7 @@ nix develop -c scripts/dvc-checkout.py examples/<問題>/dvc.yaml
 nix develop -c dvc status --with-deps examples/<問題>/dvc.yaml
 ```
 
-changed のステージの数は、前半の 2 と同じく `nix develop -c scripts/count-changed-stages.py examples/<問題>/dvc.yaml` で数える。
+changed のステージの数は `nix develop -c scripts/count-changed-stages.py examples/<問題>/dvc.yaml` で数える（`dvc status` の文字列を grep で数えると誤る）。
 
 `-P` ではなく、ブランチが `dvc.yaml` を足した、または変えた例ごとに行う。`dvc status` の changed が、前半で走らせ
 なかったステージ（deps が `dvc.lock` と合わないステージ）と、その下流のステージだけであることを確かめる。`references-shell`

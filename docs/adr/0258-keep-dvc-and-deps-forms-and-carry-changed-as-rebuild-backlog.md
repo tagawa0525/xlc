@@ -195,8 +195,8 @@ toml-values だけを変えた 37 で、`build` を変えた 189 は案 P2 で�
 
 どちらの案でも、rebase の pick では pre-commit の hook が走らないので、rebase の後に正規形を書き直すのは付け直しのコマンドである。
 
-rebase の後に、付け直しのコマンドがどの計算のステージを再実行するか（今は、スキル dvc-relock の前半の 3 の「数秒で終わると
-分かっているステージだけ実行する」を人が選んでいる）:
+rebase の後に、付け直しのコマンドがどの計算のステージを再実行するか（この ADR の前は、スキル dvc-relock の前半の 3 の「数秒で終わると
+分かっているステージだけ実行する」を人が選んでいた）:
 
 - 案 T1（この ADR の前の版が勧めた）: ステージごとの実行時間を記録し、付け直しのコマンドが、changed のステージのうち前回の時間が閾値より
   短いものだけを再実行する。記録が無いステージは実行せず、一覧に出す。同じ記録から、changed のステージの時間の和（作り直しの
@@ -522,17 +522,21 @@ ADR-0257）は、上の段の実装のブランチで、その ADR の決定と�
     `changed outs` を両方持つステージでは止まらず、changed に残すこと。`--run` が無ければ、`build` と正規形のほかに何も実行しない
     こと。`--run` のステージを挙げた順に `scripts/dvc-repro.py -s` で実行し、`--allow-reference` をそのステージにだけ渡すこと
     （`--run` に無いステージの `--allow-reference` は、何も実行せずに止まる）。check-dvc-lock.sh に、ブランチのコミットで変わった
-    lock を渡すこと。`COMMIT:` に、始める前から変わっていたファイルを出さず、コマンドが書き換えたファイルだけを出すこと
-  - 実際の例（コマンドは xlc 2d015ca01。main 5e67e41e7 から分岐して examples/vera/compare_k.py に注釈を 1 行足したコミットを、
-    その上に rebase した使い捨てのブランチ。手元、区分は試行、2026-11-20）: `scripts/dvc-relock.py --run
-    examples/vera/dvc.yaml:lattice-1B examples/vera/dvc.yaml` は終了コード 0 で 56 秒。python-ast が直下の `dvc.lock` の
-    compare_k.py の md5 を書き直し（注釈だけなので正規形は変わらない）、lattice-1B は `-s` の経路で run cache から戻った。lock の
-    差分は直下の `dvc.lock` の 1 項と、examples/vera/dvc.lock の lattice-1B の `binary-forms/lattice.md5` の 1 行で、`COMMIT:` はこの
-    2 つだった。lock を戻して、スキルの前の手順（`scripts/dvc-checkout.py`、4 組の `dvc repro -s`、`dvc status`、
-    `scripts/check-references-shell.sh`、`scripts/dvc-repro.py -s`、`scripts/check-dvc-lock.sh`）を手で行うと、`git diff` はバイトで
-    同じで、残った changed のステージ（examples/vera の 81）も同じだった。examples/vera/references-shell.txt に 1 行足すと、
-    `changed outs` だけの `examples/vera/dvc.yaml:references-shell` で終了コード 1 で止まり、lattice-1B は実行されなかった
-    （試しの変更はコミットせずに戻した）
+    lock を、作業ツリーを書き換える前と後に渡し、前で止まれば何も書き換えず `COMMIT:` も出さないこと。`build` と正規形を 1 つの `dvc repro -s` で
+    実行すること。`--run` の後の `dvc status` でも `changed outs` だけのステージで止まること。止まったときも `RAN:` と `COMMIT:` を
+    出すこと。`COMMIT:` に、始める前から変わっていた記録を出さず、コマンドが書き換えたファイルと、コミットしていない lock と正規形
+    （止まった前の実行が書き換えたもの）を出すこと
+  - 実際の例（コマンドは xlc 6eb0c233d、読めない lock の例だけ b14ab23d2。main 5e67e41e7 から分岐して examples/vera/compare_k.py に
+    注釈を 1 行足したコミットを、その上に rebase した使い捨てのブランチ。手元、区分は試行、2026-11-20）:
+    `scripts/dvc-relock.py --run examples/vera/dvc.yaml:lattice-1B examples/vera/dvc.yaml` は終了コード 0 で 36 秒。python-ast が
+    直下の `dvc.lock` の compare_k.py の md5 を書き直し（注釈だけなので正規形は変わらない）、lattice-1B は `-s` の経路で run cache
+    から戻った。lock の差分は直下の `dvc.lock` の 1 項と、examples/vera/dvc.lock の lattice-1B の `binary-forms/lattice.md5` の 1 行で、
+    `COMMIT:` はこの 2 つだった。lock を戻して、スキルの前の手順（`scripts/dvc-checkout.py`、4 組の `dvc repro -s`、`dvc status`、
+    `scripts/check-references-shell.sh`、`scripts/dvc-repro.py -s`、`scripts/check-dvc-lock.sh`）を手で行った結果と、`git diff` は
+    バイトで同じで、残った changed のステージ（examples/vera の 81）も同じだった。examples/vera/references-shell.txt に 1 行足すと、
+    `changed outs` だけの `examples/vera/dvc.yaml:references-shell` で終了コード 1 で止まり、lattice-1B は実行されず、`RAN: none` と、
+    正規形が書き直した `COMMIT: dvc.lock` を出した。examples/vera/dvc.lock の `schema: '2.0'` の行を消すと、始めの lock の確認で
+    終了コード 1 で止まり、ほかの部品は呼ばれず、`COMMIT:` を出さなかった（試しの変更はコミットせずに戻した）
 - 段 4: `design-records check`、docs の整合性の検査
 - 段 5: 検査のテスト（必須の項目を足した読み手で古い出力が読めずに止まること、名前を変えた読み手で止まること、省ける項目を
   持つ出力と持たない出力の両方を読むこと、ディレクトリの outs の中のファイルと `.dvc` の生成物を読むこと、issue に結び付けた
