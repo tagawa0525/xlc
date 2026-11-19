@@ -114,7 +114,7 @@ pub(crate) fn fine_medium(
 }
 
 /// 平板の格子計算が読む媒質が、ライブラリの群境界 `bounds` と、平板の分岐の軸 `axes`（名前、点、密度、B-10 の
-/// 割合。分岐がなければ空）に一致することを確かめる。分岐の状態ごとに、媒質の同じ状態を使う（ADR-0128）
+/// 割合。分岐がなければ空）に一致することを確かめる。ブランチ条件ごとに、媒質の同じ状態を使う（ADR-0128）
 pub fn check_medium(medium: &Medium, bounds: &[f64], axes: &[Axis]) -> Result<(), String> {
     if medium.bounds != bounds {
         return Err(format!(

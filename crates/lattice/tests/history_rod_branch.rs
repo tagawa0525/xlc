@@ -1,4 +1,4 @@
-//! 燃焼の履歴からの分岐（`[history]`。ADR-0187）と制御棒の分岐（`[branches.rod]`。ADR-0224）を組んだ 1 つの入力（ADR-0225）:
+//! 燃焼の履歴からの分岐（`[history]`。ADR-0187）と制御棒のブランチ（`[branches.rod]`。ADR-0224）を組んだ 1 つの入力（ADR-0225）:
 //! テーブルの各状態（少数群定数、追う核種の微視的断面積と数密度の微分）が、基準の形状のセルを置き換えた別の入力で同じ履歴を
 //! 読んだ格子計算の状態とビットで一致する（値ごとの別の格子計算をまとめた形と同じ問題を解く）。制御棒の値の状態は、その値の
 //! 燃焼点（`rod-burnup`）だけで解く。
@@ -249,7 +249,7 @@ materials = ["fuel"]
 output = "history.msgpack"
 "#;
 
-/// 履歴からの分岐の、制御棒の値のない部分（燃焼点 0、0.5、2.0。公称でない状態は 0 と 2.0）。格子は `branched` で少数群定数の
+/// 履歴からの分岐の、制御棒の値のない部分（燃焼点 0、0.5、2.0。ブランチ条件は 0 と 2.0）。格子は `branched` で少数群定数の
 /// ファイルを足したもの
 const BRANCHES: &str = r#"
 [branches]
@@ -371,14 +371,14 @@ fn history_rod_branches_match_separate_lattices() {
     assert_eq!(burnups(&rods), all);
     assert_eq!(rods.axes[..rods.axes.len() - 1], out.axes[..]);
     assert_eq!(rods.heavy_metal, out.heavy_metal);
-    // 履歴からの分岐のテーブルは、どの状態も κΣf を持つ（ADR-0190）
+    // 履歴からのブランチのテーブルは、どの状態も κΣf を持つ（ADR-0190）
     for table in [&rods, &out] {
         assert!(table.states.iter().all(|s| s.kappa_fission.is_some()));
     }
     let micro = rods.micro.as_ref().unwrap();
     let out_micro = out.micro.as_ref().unwrap();
     let kinetics = rods.kinetics.as_ref().unwrap();
-    // 冷却計算の断面積は、棒のない値の公称の状態（履歴の輸送）の燃焼度の点ごとの値
+    // 冷却計算の断面積は、棒のない値の基準条件（履歴の輸送）の燃焼度の点ごとの値
     let cooling = rods.cooling.as_ref().unwrap();
     assert_eq!(Some(cooling), out.cooling.as_ref());
     assert_eq!(cooling.points.len(), all.len());

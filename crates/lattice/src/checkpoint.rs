@@ -1,4 +1,4 @@
-//! 長い計算（燃焼の点、分岐の状態）を途中で止めても、書き終えた点と状態から再開するためのチェックポイント（ADR-0196）。
+//! 長い計算（燃焼の点、ブランチ条件）を途中で止めても、書き終えた点と状態から再開するためのチェックポイント（ADR-0196）。
 //!
 //! フィールド名付きの map 形式の MessagePack: `format` ("xlc-lattice-checkpoint"), `fingerprint`（`Fingerprint`）と、燃焼なら
 //! `depletion: {history（`xlc-depletion-history` のバイト列）, next（次の点の組成 [燃焼の領域][チェーンの核種]）, start（直前の
@@ -65,7 +65,7 @@ pub struct SavedState {
     pub micro: Option<Vec<MicroNuclide>>,
     /// 履歴からの分岐の動特性のデータ（ADR-0238）
     pub kinetics: Option<KineticsState>,
-    /// 履歴からの分岐の公称の状態の、冷却計算の核種ごとの 1 群の微視的断面積（ADR-0238）
+    /// 履歴からの分岐の基準条件の、冷却計算の核種ごとの 1 群の微視的断面積（ADR-0238）
     pub cooling: Option<Vec<CoolingNuclide>>,
 }
 
@@ -436,7 +436,7 @@ fn few_group(value: rmpv::Value) -> anyhow::Result<FewGroup> {
     }
 }
 
-/// 分岐の状態のうち `present`（[軸] の格子点の数 `counts` の直積の順の番号。増える順）を順に解く。`solve` は状態を、MOC の反復を始める解
+/// ブランチ条件のうち `present`（[軸] の格子点の数 `counts` の直積の順の番号。増える順）を順に解く。`solve` は状態を、MOC の反復を始める解
 /// （`branches::Starts`。ADR-0195）から解き、結果と収束した解を返す。`checkpoint` があれば、書いてある状態を `restored` に渡して
 /// （今の実行の出力に合わなければ `restored` がエラーを返し、残りの状態を解く前に止まる）使い、書いてある始める解から続きの
 /// 状態を解いて、状態を解き終えるたびに書く

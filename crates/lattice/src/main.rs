@@ -1,14 +1,14 @@
 //! 格子計算を行い、少数群定数のテーブル、セルごとの核分裂率、細かい群の媒質（ADR-0128）を書き出すコマンド。
 //! 入力に分岐（`[branches]`）があれば、状態ごとに格子計算を解き、軸の直積の順の状態をテーブルにする（ADR-0097）。
-//! 制御棒の分岐（`[branches.rod]`）があれば、値ごとにセルを置き換えた形状で同じ状態を解き、制御棒の軸を最後に足す（ADR-0224）。
+//! 制御棒のブランチ（`[branches.rod]`）があれば、値ごとにセルを置き換えた形状で同じ状態を解き、制御棒の軸を最後に足す（ADR-0224）。
 //! 入力に燃焼（`[depletion]`）があれば、燃焼点ごとの k∞、数密度、ピン出力、少数群定数を燃焼の履歴のファイルに書く（ADR-0173、ADR-0181）。
 //! `continue` があれば、その燃焼の履歴の燃焼点から、この入力の条件で燃焼を続ける（ADR-0215 の確認）。
 //! 入力に燃焼の履歴（`[history]`）があれば、選んだ燃焼点の組成で分岐を解き、燃焼度の軸を持つテーブルにする（ADR-0187）。
-//! 制御棒の分岐と組めば、値ごとの形状の燃焼の領域で同じ組成を解き、制御棒の値はその値の燃焼点だけで解く（ADR-0225）。
+//! 制御棒のブランチと組めば、値ごとの形状の燃焼の領域で同じ組成を解き、制御棒の値はその値の燃焼点だけで解く（ADR-0225）。
 //! 入力に k の感度（`[sensitivity]`）があれば、1 つの状態の前向きと随伴の解から核種の数密度の k の感度を求め、TOML に書く（ADR-0247）。
 //!
 //! 使い方: lattice <入力ファイル>
-//!         lattice histories <入力ファイル>（履歴の補正の残り R を公称のテーブルに書き足す。`xlc_lattice::residual`。ADR-0215）
+//!         lattice histories <入力ファイル>（履歴の補正の残り R をベース計算のテーブルに書き足す。`xlc_lattice::residual`。ADR-0215）
 //!
 //! 入力ファイル中のライブラリと出力のパスは、入力ファイルのあるディレクトリからの相対パス。
 //!
@@ -82,7 +82,7 @@ fn main() -> ExitCode {
         [input] => init_logging()
             .and_then(|()| use_allowed_cpus())
             .and_then(|()| run(Path::new(input))),
-        // 履歴の補正の残り R を公称のテーブルに書き足す（ADR-0215。格子計算は解かない）
+        // 履歴の補正の残り R をベース計算のテーブルに書き足す（ADR-0215。格子計算は解かない）
         [command, input] if command == "histories" => {
             init_logging().and_then(|()| xlc_lattice::residual::run(Path::new(input)))
         }
@@ -473,10 +473,10 @@ fn run(path: &Path) -> anyhow::Result<()> {
             .join(", ")
     };
 
-    // 分岐の状態ごとに格子計算を解き、出力ごとの少数群定数を状態の順に集める（ADR-0097）
+    // ブランチ条件ごとに格子計算を解き、出力ごとの少数群定数を状態の順に集める（ADR-0097）
     let plain = input.branch_states();
     let count = history_branches.as_ref().map_or(plain.len(), |h| h.len());
-    // 値ごとの解く状態（軸の直積の順の番号）: 部分格子の状態と、公称でない状態を解く燃焼点（ADR-0200）。履歴からの分岐の制御棒の
+    // 値ごとの解く状態（軸の直積の順の番号）: 部分格子の状態と、ブランチ条件を解く燃焼点（ADR-0200）。履歴からの分岐の制御棒の
     // 値は、その値の燃焼点（ADR-0225）。履歴のない分岐は、どの値も同じ状態
     let present_states: Vec<Vec<usize>> = (0..rods)
         .map(|rod| {
@@ -503,7 +503,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
         .enumerate()
         .flat_map(|(rod, states)| states.iter().map(move |&state| rod * count + state))
         .collect();
-    // 分岐の状態は `[branches]` の `shielding` の解き方で自己遮蔽する（ADR-0201）。燃料でない物質が直前の状態と同じなら、燃料の
+    // ブランチ条件は `[branches]` の `shielding` の解き方で自己遮蔽する（ADR-0201）。燃料でない物質が直前の状態と同じなら、燃料の
     // ピンの Dancoff 係数を持ち越す（ADR-0194）
     // 自己遮蔽の組成（shielding-file か shielding-burnup）があれば、燃焼の領域の物質も参照の自己遮蔽から状態の組成で作り直す
     // （`HistoryBranches::shield_with`、`HistoryBranches::shield_at`）
@@ -519,7 +519,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
     let mut shielder: Option<(usize, BranchShielder)> = None;
     let mut finished_shieldings = 0;
     // 数密度の微分（ADR-0221）の摂動の組成を解き直すとき（`derivative-shielding = "solved"` と一般化摂動。ADR-0249）は、微分の
-    // 核種ごとの自己遮蔽で、公称の組成と同じ解き方で自己遮蔽する（参照は摂動の参照の組成で解いたもの）。公称の状態の自己遮蔽と
+    // 核種ごとの自己遮蔽で、公称の組成と同じ解き方で自己遮蔽する（参照は摂動の参照の組成で解いたもの）。基準条件の自己遮蔽と
     // 参照を混ぜないよう、核種ごとに別に持つ。制御棒の値の自己遮蔽と同じく、今の値の形状のものだけを持つ。既定の、状態の自己遮蔽の
     // まま作り直す摂動は持たない
     let derivatives = history_branches
@@ -530,7 +530,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
     let mut finished_derivative_shieldings = 0;
     let mut finished_ratios = 0;
     // 比で求める参照（ADR-0250）の基準。摂動の組成を解き直す微分（摂動の参照の組成は比の基準と組まない）と、自己遮蔽の組成で燃焼の
-    // 領域を作り直す分岐（参照の番号が分岐の状態に続く）は、比で求めない
+    // 領域を作り直す分岐（参照の番号がブランチ条件に続く）は、比で求めない
     let anchors = input.branches.as_ref().and_then(|b| b.anchors());
     if anchors.is_some()
         && history_branches
@@ -543,7 +543,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
             shown(path)
         ));
     }
-    // 今の値の形状の、燃料の組成によらない前処理（燃料のピンの Dancoff 係数と移行の割合の区間の表）。公称の状態と摂動の組成の
+    // 今の値の形状の、燃料の組成によらない前処理（燃料のピンの Dancoff 係数と移行の割合の区間の表）。基準条件と摂動の組成の
     // 自己遮蔽で共有する（燃料の数密度だけを変える摂動は、状態の Dancoff 係数を持ち越す。ADR-0194）。Dancoff 係数は呼び出し側
     // （状態と微分の核種）の数だけ、最後に使った違う入力の結果を持つ（燃料でない燃焼の領域の数密度を変える摂動も、それぞれ 1 つ持つ）
     let mut reuse: Option<(usize, ShieldingReuse)> = None;
@@ -633,7 +633,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
         });
         // 状態と、その参照と摂動の組成の自己遮蔽は、自己遮蔽を持つ燃焼度の点のもの（自由ガスの核の表が格子点を捨てる単位。
         // ADR-0248）。shielding-burnup の間の点は自己遮蔽を解かないので、その前の自己遮蔽の点に数え、表を捨てない。
-        // 履歴からの分岐でない分岐の状態は、すべて 1 つの組成の点
+        // 履歴からの分岐でないブランチ条件は、すべて 1 つの組成の点
         reuse.at_point(
             history_branches
                 .as_ref()
@@ -653,7 +653,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
         // 自己遮蔽した状態の物質と、履歴からの分岐の微視的断面積（ADR-0216）に使う燃料の自己遮蔽
         let held = match &source {
             Source::Library(library) if input.self_shielding => {
-                // 参照（ホウ素が公称の状態）の番号と、その物質の作り方。履歴からの分岐は燃焼度の点ごとに参照を持つ
+                // 参照（ホウ素が基準条件）の番号と、その物質の作り方。履歴からの分岐は燃焼度の点ごとに参照を持つ
                 let (reference, nominal): (_, Box<dyn FnOnce() -> Vec<MaterialInput>>) =
                     match (&history_branches, &input.branches) {
                         (Some(h), _) => {
@@ -728,7 +728,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
                         .with_context(context)?;
                     named.push((mixture.name.clone(), mixed));
                 }
-                // 媒質は分岐の状態と同じ番号の状態（軸が同じことは確かめてある）
+                // 媒質はブランチ条件と同じ番号の状態（軸が同じことは確かめてある）
                 for (m, medium) in input.media.iter().zip(&media) {
                     let from = medium
                         .states
@@ -803,7 +803,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
                         )?;
                         Ok((shielded.materials, shielded.region_material))
                     };
-                // 参照（ホウ素が公称の状態）から作る状態の自己遮蔽は、参照の組成で解いてホウ素の軸の物質だけを作り直すので、
+                // 参照（ホウ素が基準条件）から作る状態の自己遮蔽は、参照の組成で解いてホウ素の軸の物質だけを作り直すので、
                 // 摂動の組成をそのまま解き直す口は状態と同じ作り方にならない。その状態では口を渡さない（shielded はエラー）
                 let reference = match (&history_branches, &input.branches) {
                     (Some(h), _) => h.reference(solved % count).is_some(),
@@ -1237,7 +1237,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
             }
             _ => None,
         };
-        // 動特性のデータと、公称の状態の冷却計算の断面積（ADR-0238）。どちらも格子全体の少数群定数のファイルを求める（入力の検査）
+        // 動特性のデータと、基準条件の冷却計算の断面積（ADR-0238）。どちらも格子全体の少数群定数のファイルを求める（入力の検査）
         let (kinetics, cooling) = match &history_branches {
             Some(h) => {
                 let (Source::Library(library), Some(fuel), Some(output), Some(few)) = (
@@ -1371,7 +1371,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
     let mut by_solve: Vec<Option<SavedState>> = states.into_iter().map(Some).collect();
     let mut micro_states: Vec<Vec<MicroNuclide>> = Vec::new();
     let mut kinetics_states: Vec<KineticsState> = Vec::new();
-    // 燃焼度の点（点の番号の最初。燃焼度は最初の軸）ごとの、公称の状態の冷却計算の断面積
+    // 燃焼度の点（点の番号の最初。燃焼度は最初の軸）ごとの、基準条件の冷却計算の断面積
     let mut cooling_points: Vec<Option<Vec<CoolingNuclide>>> =
         vec![None; history_branches.as_ref().map_or(0, |h| h.points())];
     let per_state: Vec<Vec<Vec<FewGroup>>> = order

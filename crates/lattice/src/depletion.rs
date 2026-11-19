@@ -597,7 +597,7 @@ pub fn solved_names(
 }
 
 /// 燃焼の領域 `regions` の数密度 `densities`（[領域][核種]）の重金属の質量 (g、高さ 1 cm あたり)。`heavy(i)` は核種 i が重金属
-/// （Z ≥ 90）ならその AWR、ほかは `None`。燃焼の出力の規格化と燃焼度の定義（ADR-0173）に使い、履歴からの分岐のテーブルにも
+/// （Z ≥ 90）ならその AWR、ほかは `None`。燃焼の出力の規格化と燃焼度の定義（ADR-0173）に使い、履歴からのブランチのテーブルにも
 /// 同じ式で書く（ADR-0190）。重金属がなければエラー
 pub(crate) fn heavy_metal_mass(
     regions: &[DepletionRegion],

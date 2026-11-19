@@ -75,7 +75,7 @@ fn states(count: usize) -> Vec<SavedState> {
                     delayed_chi: vec![vec![0.9, 0.1]],
                     inverse_velocity: vec![5.0e-8, 2.0e-6 / 3.0],
                 }),
-                // 公称の状態だけが持つ
+                // 基準条件だけが持つ
                 cooling: (i % 2 == 0).then(|| {
                     vec![CoolingNuclide {
                         fission: 40.0 / 3.0,

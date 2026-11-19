@@ -5,7 +5,7 @@ use xlc_format::table::{
 
 use super::*;
 
-/// 公称の状態の定数 `state` に、線形の補正を足したもの
+/// 基準条件の定数 `state` に、線形の補正を足したもの
 fn linear(state: &FewGroup, micro: &[MicroNuclide], delta: &[f64]) -> FewGroup {
     let mut f = state.clone();
     add_linear_correction(&mut f, micro, delta);
@@ -66,8 +66,8 @@ fn sigma(s: f64, derivative: bool) -> MicroNuclide {
 
 const NUCLIDES: [&str; 2] = ["U-235", "Pu-240"];
 
-/// 公称のテーブル: 燃焼度 0、10、20、ホウ素 1300 ppm、減速材 565 K と 0.743 g/cm³（公称）と 600 K と 0.661 g/cm³、燃料 565 K。
-/// 公称でない状態は 0 と 20 で解く。Pu-240 は数密度の微分を持つ
+/// ベース計算のテーブル: 燃焼度 0、10、20、ホウ素 1300 ppm、減速材 565 K と 0.743 g/cm³（公称）と 600 K と 0.661 g/cm³、燃料 565 K。
+/// ブランチ条件は 0 と 20 で解く。Pu-240 は数密度の微分を持つ
 fn nominal() -> Table {
     let axes = vec![
         Axis::Burnup {
@@ -110,7 +110,7 @@ fn nominal() -> Table {
     table
 }
 
-/// 履歴の分岐の自分の条件（600 K と 0.661 g/cm³）のテーブル: 燃焼度 0 と 20、状態 1 つ
+/// 履歴ブランチの自分の条件（600 K と 0.661 g/cm³）のテーブル: 燃焼度 0 と 20、状態 1 つ
 fn branch() -> Table {
     let axes = vec![
         Axis::Burnup {
@@ -141,8 +141,8 @@ fn branch() -> Table {
     table
 }
 
-/// 履歴の分岐の組成のうち追う核種だけを公称の組成に足したハイブリッドを、同じ条件で解いたテーブル: 分岐と同じ軸、点、追う核種、
-/// 均質化した数密度で、定数と微視的断面積が違う。燃焼度 0 は組成が公称と同じなので、公称のテーブルの条件の状態（点 1）と同じ定数と
+/// 履歴ブランチの組成のうち追う核種だけを公称の組成に足したハイブリッドを、同じ条件で解いたテーブル: 分岐と同じ軸、点、追う核種、
+/// 均質化した数密度で、定数と微視的断面積が違う。燃焼度 0 は組成が公称と同じなので、ベース計算のテーブルの条件の状態（点 1）と同じ定数と
 /// 反応率の微視的断面積
 fn hybrid() -> Table {
     let mut table = branch();
@@ -180,11 +180,11 @@ fn linearizations_are_the_hybrid_less_the_linearly_corrected_nominal_condition()
     let (h0, hb, rod) = residuals(&n, MODERATOR_DENSITY, ROD_OUT, &pair()).unwrap();
     assert_eq!((h0, hb), (0.743, 0.661));
     assert_eq!(rod.rod, ROD_OUT);
-    // 公称のテーブルが条件の状態を解いた燃焼度の点
+    // ベース計算のテーブルが条件の状態を解いた燃焼度の点
     assert_eq!(rod.burnup, vec![0.0, 20.0]);
     let micro = n.micro.as_ref().unwrap();
     let branch_micro = b.micro.as_ref().unwrap();
-    // 公称のテーブルの条件の状態の点（燃焼度 0 と 20）と、分岐のテーブルの点
+    // ベース計算のテーブルの条件の状態の点（燃焼度 0 と 20）と、ブランチのテーブルの点
     for (k, (&p, &u)) in [1usize, 4].iter().zip(&[0usize, 2]).enumerate() {
         let f0 = &n.states[p];
         // L は、追う核種だけが分岐と同じハイブリッドの定数から、線形の補正を足した公称の条件の定数を引いたもの
@@ -284,14 +284,14 @@ fn untracked_parts_are_the_branch_less_the_hybrid() {
 
 #[test]
 fn branch_densities_are_held_at_each_residual_point() {
-    // core が L の重みの指標を作る、履歴の分岐の均質化した数密度 N̄ᵢ^j
+    // core が L の重みの指標を作る、履歴ブランチの均質化した数密度 N̄ᵢ^j
     let (_, _, rod) = residuals(&nominal(), MODERATOR_DENSITY, ROD_OUT, &pair()).unwrap();
     assert_eq!(rod.densities, branch().micro.unwrap().densities);
 }
 
 #[test]
 fn the_nominal_condition_with_the_correction_and_both_parts_is_the_branch() {
-    // core が履歴の分岐の点（w = 1、ノードの数密度が分岐のもの、L の指標の比が 1）で返す定数は、分岐の格子計算の定数（ADR-0215）
+    // core が履歴ブランチの点（w = 1、ノードの数密度が分岐のもの、L の指標の比が 1）で返す定数は、ブランチ計算の定数（ADR-0215）
     let n = nominal();
     let b = branch();
     let (_, _, rod) = residuals(&n, MODERATOR_DENSITY, ROD_OUT, &pair()).unwrap();
@@ -377,12 +377,12 @@ fn branch_conditions_differ_from_the_nominal_state_on_the_variable_axis_only() {
         assert!(!err.contains("  "), "{err}");
         err
     };
-    // 公称のテーブルの格子点でない
+    // ベース計算のテーブルの格子点でない
     let err = fails(&|b| b.axes[2] = Axis::moderator(vec![610.0], vec![0.661]).with_nominal(610.0));
     assert!(err.contains("point"), "{err}");
     let err = fails(&|b| b.axes[2] = Axis::moderator(vec![600.0], vec![0.65]).with_nominal(600.0));
     assert!(err.contains("point"), "{err}");
-    // 公称の状態そのもの
+    // 基準条件そのもの
     let err = fails(&|b| b.axes[2] = Axis::moderator(vec![565.0], vec![0.743]).with_nominal(565.0));
     assert!(err.contains("moderator"), "{err}");
     // 変数の軸のほかが公称と違う
@@ -405,7 +405,7 @@ fn branch_conditions_differ_from_the_nominal_state_on_the_variable_axis_only() {
     .unwrap_err()
     .to_string();
     assert!(err.contains("moderator"), "{err}");
-    // 分岐のテーブルは状態 1 つ
+    // ブランチのテーブルは状態 1 つ
     let err = fails(&|b| {
         b.axes[2] = Axis::moderator(vec![565.0, 600.0], vec![0.743, 0.661]).with_nominal(600.0)
     });
@@ -432,7 +432,7 @@ fn branch_burnups_are_those_solved_at_the_condition() {
     b.validate().unwrap();
     let mut h = b.clone();
     h.states = vec![few(1.5), few(6.0), few(3.5)];
-    // 公称のテーブルは条件の状態を 10 で解いていない
+    // ベース計算のテーブルは条件の状態を 10 で解いていない
     let err = residuals(
         &n,
         MODERATOR_DENSITY,
@@ -559,7 +559,7 @@ fn rate_residuals_split_at_the_hybrid_like_the_constants() {
 
 #[test]
 fn branch_tables_with_other_reactions_or_fission_are_errors() {
-    // 分岐かハイブリッドのどちらかの反応の並びか核分裂の有無が、公称のテーブルと違えばエラー
+    // 分岐かハイブリッドのどちらかの反応の並びか核分裂の有無が、ベース計算のテーブルと違えばエラー
     let n = nominal();
     let changes: Vec<fn(&mut MicroNuclide)> = vec![
         |x| x.reactions[0].mt = 103,
@@ -633,15 +633,15 @@ branches = { out = { branch = "b.msgpack", hybrid = "h.msgpack" } }
     for bad in [
         // 履歴がない
         "nominal = \"n\"\noutput = \"o\"\n",
-        // 分岐のテーブルがない
+        // ブランチのテーブルがない
         "nominal = \"n\"\noutput = \"o\"\n[[history]]\nvariable = \"moderator-density\"\nbranches = {}\n",
         // 知らない項目
         "nominal = \"n\"\noutput = \"o\"\nextra = 1\n[[history]]\nvariable = \"moderator-density\"\nbranches = { out = { branch = \"b\", hybrid = \"h\" } }\n",
-        // 出力が公称のテーブル（読んだファイルを上書きしない）
+        // 出力がベース計算のテーブル（読んだファイルを上書きしない）
         "nominal = \"n\"\noutput = \"n\"\n[[history]]\nvariable = \"moderator-density\"\nbranches = { out = { branch = \"b\", hybrid = \"h\" } }\n",
         // ハイブリッドのテーブルがない（U と L に分けられない）
         "nominal = \"n\"\noutput = \"o\"\n[[history]]\nvariable = \"moderator-density\"\nbranches = { out = { branch = \"b\" } }\n",
-        // 分岐のテーブルだけの形（R を 1 つで持つ前の形）
+        // ブランチのテーブルだけの形（R を 1 つで持つ前の形）
         "nominal = \"n\"\noutput = \"o\"\n[[history]]\nvariable = \"moderator-density\"\nbranches = { out = \"b\" }\n",
     ] {
         assert!(ResidualInput::parse(bad).is_err(), "{bad}");
@@ -669,7 +669,7 @@ fn run_writes_the_nominal_table_with_the_history_residuals() {
         history_correction(&expected, MODERATOR_DENSITY, &[(ROD_OUT.into(), pair())]).unwrap(),
     ];
     assert_eq!(written, expected);
-    // R を持つ公称のテーブルに重ねて足さない
+    // R を持つベース計算のテーブルに重ねて足さない
     std::fs::write(dir.join("n.msgpack"), written.to_msgpack().unwrap()).unwrap();
     let err = run(&input).unwrap_err().to_string();
     assert!(err.contains("already"), "{err}");
@@ -678,7 +678,7 @@ fn run_writes_the_nominal_table_with_the_history_residuals() {
 
 #[test]
 fn branch_values_on_axes_the_nominal_table_lacks_are_errors() {
-    // 公称のテーブルに燃料の軸が無いと、分岐の燃料の温度を照らせず、温度の差の効きが R に混ざる
+    // ベース計算のテーブルに燃料の軸が無いと、分岐の燃料の温度を照らせず、温度の差の効きが R に混ざる
     let mut n = nominal();
     n.axes.remove(3);
     for p in &mut n.points {
@@ -742,7 +742,7 @@ fn run_does_not_overwrite_the_tables_it_reads() {
     let hybrid_bytes = hybrid().to_msgpack().unwrap();
     std::fs::write(dir.join("h.msgpack"), &hybrid_bytes).unwrap();
     let input = dir.join("histories.toml");
-    // 同じファイルを別の書き方で指す出力（公称のテーブル、分岐のテーブル、ハイブリッドのテーブル）
+    // 同じファイルを別の書き方で指す出力（ベース計算のテーブル、ブランチのテーブル、ハイブリッドのテーブル）
     for output in ["./n.msgpack", "b.msgpack", "./h.msgpack"] {
         std::fs::write(
             &input,
@@ -850,9 +850,9 @@ fn with_rod_axis(table: &Table, s: f64) -> Table {
     rodded
 }
 
-/// 制御棒の履歴の分岐（一生を制御棒を入れて燃焼させた組成）の、公称の状態を制御棒の値 out と aic で解いたテーブルと、その追う核種を
+/// 制御棒の履歴ブランチ（一生を制御棒を入れて燃焼させた組成）の、基準条件を制御棒の値 out と aic で解いたテーブルと、その追う核種を
 /// 公称の組成に入れたハイブリッドの、同じ条件のテーブル（燃焼度 0、10、20。燃焼度 0 は組成が公称と同じなので、`with_rod_axis(&nominal(), 4.0)`
-/// の公称の状態と同じ定数）
+/// の基準条件と同じ定数）
 fn rod_pair() -> BranchTables {
     let single = |states: [f64; 3], sigmas: [f64; 3]| {
         let axes = vec![
@@ -900,10 +900,10 @@ fn rod_histories_take_each_rod_value_of_the_branch_at_the_nominal_state() {
     let tables = rod_pair();
     for (r, rod) in [ROD_OUT, "aic"].into_iter().enumerate() {
         let (h0, hb, entry) = residuals(&nominal, RODS, rod, &tables).unwrap();
-        // 履歴の分岐は一生を制御棒を入れて燃焼させた割合 1、公称の燃焼は 0
+        // 履歴ブランチは一生を制御棒を入れて燃焼させた割合 1、ベース計算は 0
         assert_eq!((h0, hb), (0.0, 1.0));
         assert_eq!(entry.rod, rod);
-        // 公称の状態はどの燃焼度でも解いてある
+        // 基準条件はどの燃焼度でも解いてある
         assert_eq!(entry.burnup, vec![0.0, 10.0, 20.0]);
         let micro = nominal.micro.as_ref().unwrap();
         let branch_micro = tables.branch.micro.as_ref().unwrap();
@@ -915,7 +915,7 @@ fn rod_histories_take_each_rod_value_of_the_branch_at_the_nominal_state() {
                 &tables.hybrid.states[at(&tables.hybrid)],
             );
             assert_eq!(entry.untracked[k], difference(b, h));
-            // 公称のテーブルの、その制御棒の値の公称の状態に線形の補正を足した定数との差が L
+            // ベース計算のテーブルの、その制御棒の値の基準条件に線形の補正を足した定数との差が L
             let p = nominal.point_index(&[k, 0, 0, 0, r]).unwrap();
             let delta: Vec<f64> = (0..2)
                 .map(|i| branch_micro.densities[k][i] - micro.densities[k][i])
@@ -947,7 +947,7 @@ fn rod_values_missing_from_the_branch_rod_axis_are_errors() {
         .unwrap_err()
         .to_string();
     assert!(err.contains("b4c"), "{err}");
-    // 制御棒の履歴の分岐の条件は、どの連続の軸も公称の状態
+    // 制御棒の履歴ブランチの条件は、どの連続の軸も基準条件
     let mut off = rod_pair();
     for t in [&mut off.branch, &mut off.hybrid] {
         t.axes[2] = Axis::moderator(vec![600.0], vec![0.661]).with_nominal(600.0);
