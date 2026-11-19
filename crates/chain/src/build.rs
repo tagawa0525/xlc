@@ -1,5 +1,6 @@
 //! ADR-0164 の規則で、読んだ評価から全核種の燃焼チェーンを組み立てる。
 
+use std::borrow::Cow;
 use std::collections::{BTreeMap, HashMap};
 
 use anyhow::{Result, anyhow, bail};
@@ -558,11 +559,78 @@ fn nearest_yields(target: Key, yields: &[&YieldEvaluation]) -> Option<usize> {
     (0..yields.len()).min_by_key(|&i| distance(&yields[i].material))
 }
 
-/// 評価からチェーンを組み立てる。評価の順は問わない。
+/// 天然の元素の評価（A = 0）を、`isotopes`（名前）のうち同じ元素の核種の評価にする（ADR-0262）。天然の元素の評価のない
+/// 核種、どの核種にも当てない天然の元素の評価は止める。返すのは、天然の元素の評価を除いた評価と当てた評価
+fn assign_natural<'a>(
+    neutrons: &'a [NeutronEvaluation],
+    isotopes: &[String],
+    nuclides: &[Nuclide],
+    warnings: &mut Vec<String>,
+) -> Result<Vec<Cow<'a, NeutronEvaluation>>> {
+    let mut listed: Vec<Key> = Vec::with_capacity(isotopes.len());
+    for name in isotopes {
+        let nuclide = nuclides
+            .iter()
+            .find(|n| &n.name == name)
+            .ok_or_else(|| anyhow!("{name} of natural-isotopes is not in the decay data"))?;
+        if nuclide.state != 0 {
+            bail!("{name} of natural-isotopes is an excited state");
+        }
+        let k = (nuclide.z, nuclide.a, 0);
+        if listed.contains(&k) {
+            bail!("{name} appears twice in natural-isotopes");
+        }
+        listed.push(k);
+    }
+    let (natural, own): (Vec<_>, Vec<_>) = neutrons
+        .iter()
+        .partition(|n| n.material.z > 0 && n.material.a == 0);
+    let mut out: Vec<Cow<'a, NeutronEvaluation>> = own.into_iter().map(Cow::Borrowed).collect();
+    let mut elements = Vec::new();
+    for evaluation in natural {
+        let z = evaluation.material.z;
+        if elements.contains(&z) {
+            bail!("two natural evaluations of Z = {z} in the neutron data");
+        }
+        elements.push(z);
+        let takers: Vec<Key> = listed.iter().copied().filter(|k| k.0 == z).collect();
+        if takers.is_empty() {
+            bail!(
+                "the natural evaluation of Z = {z} applies to no nuclide; list the isotopes it stands for in natural-isotopes"
+            );
+        }
+        let names: Vec<String> = takers.iter().map(|&k| name(k)).collect::<Result<_>>()?;
+        warnings.push(format!(
+            "the natural evaluation of Z = {z} gives the reactions of {}",
+            names.join(", ")
+        ));
+        for (z, a, state) in takers {
+            let mut assigned = evaluation.clone();
+            assigned.material = Material {
+                z,
+                a,
+                state,
+                excitation: 0.0,
+                ..evaluation.material
+            };
+            out.push(Cow::Owned(assigned));
+        }
+    }
+    if let Some(&k) = listed.iter().find(|k| !elements.contains(&k.0)) {
+        bail!(
+            "{} of natural-isotopes has no natural evaluation of its element in the neutron data",
+            name(k)?
+        );
+    }
+    Ok(out)
+}
+
+/// 評価からチェーンを組み立てる。評価の順は問わない。`natural_isotopes` は天然の元素の評価を当てる核種の名前（ADR-0262）。
 pub fn build(
     decays: &[DecayEvaluation],
     neutrons: &[NeutronEvaluation],
     yields: &[YieldEvaluation],
+    natural_isotopes: &[String],
 ) -> Result<Built> {
     let mut warnings = Vec::new();
     // 中性子そのもの（Z = 0）はチェーンに入れない
@@ -630,6 +698,7 @@ pub fn build(
             );
         }
     }
+    let neutrons = assign_natural(neutrons, natural_isotopes, &nuclides, &mut warnings)?;
     let mut fissionable = Vec::new();
     let mut seen = std::collections::HashSet::new();
     // 中性子そのものの評価（n + n）もチェーンに入れない

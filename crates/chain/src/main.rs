@@ -6,10 +6,13 @@
 //!
 //! ```toml
 //! output = "chain.msgpack"                                         # 書くチェーン（xlc_depletion::chain の形式）
-//! decay-directory = "../../references/endf/ENDF-B-VIII.0_decay"    # decay の評価（*.endf をすべて読む）
+//! decay-directory = "../../references/endf/ENDF-B-VIII.0_decay"    # decay の評価（*.endf をすべて読む。1 つのファイルに複数の物質があってよい）
 //! nfy-directory = "../../references/endf/ENDF-B-VIII.0_nfy"        # 中性子の核分裂の収率
 //! neutron-directory = "../../references/endf/ENDF-B-VIII.0_neutrons"  # 中性子の反応
 //! ```
+//!
+//! `natural-isotopes` は、天然の元素の評価（A = 0）を当てる核種の名前を挙げる（ADR-0262。省くと空。ENDF/B-VIII.0 には
+//! 要らない。ENDF/B-VII.1 なら `["C-12", "C-13"]`）。天然の元素の評価があって当てる核種がなければ止める
 //!
 //! データにないものを規則で補った箇所は警告（tracing の warn）として標準エラーに出す。
 
@@ -39,6 +42,9 @@ struct Input {
     decay_directory: PathBuf,
     nfy_directory: PathBuf,
     neutron_directory: PathBuf,
+    /// 天然の元素の評価を当てる核種（ADR-0262）
+    #[serde(default)]
+    natural_isotopes: Vec<String>,
 }
 
 fn main() -> ExitCode {
@@ -97,16 +103,20 @@ fn endf_files(directory: &Path) -> Result<Vec<PathBuf>> {
     Ok(files)
 }
 
-/// ファイルをすべて並列に読み、`read` で評価にする
-fn read_all<T: Send>(directory: &Path, read: impl Fn(&str) -> Result<T> + Sync) -> Result<Vec<T>> {
-    endf_files(directory)?
+/// ファイルをすべて並列に読み、`read` で評価にする（1 つのファイルが複数の物質の評価を持ちうる）
+fn read_all<T: Send>(
+    directory: &Path,
+    read: impl Fn(&str) -> Result<Vec<T>> + Sync,
+) -> Result<Vec<T>> {
+    let per_file: Vec<Vec<T>> = endf_files(directory)?
         .par_iter()
         .map(|path| {
             let text =
                 std::fs::read_to_string(path).with_context(|| format!("{}", path.display()))?;
             read(&text).with_context(|| format!("{}", path.display()))
         })
-        .collect()
+        .collect::<Result<_>>()?;
+    Ok(per_file.into_iter().flatten().collect())
 }
 
 fn run(path: &Path) -> Result<()> {
@@ -124,7 +134,7 @@ fn run(path: &Path) -> Result<()> {
         neutrons = neutrons.len(),
         "read the evaluations"
     );
-    let built = build(&decays, &neutrons, &yields)?;
+    let built = build(&decays, &neutrons, &yields, &input.natural_isotopes)?;
     for warning in &built.warnings {
         xlc_log::warn!("{warning}");
     }

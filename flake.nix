@@ -103,8 +103,8 @@
         decay = endfZip "decay" "9087395f6d74fe35b47bb4c8b37ef53b44e67569196c933f835a53cdf8d03d5e";
         nfy = endfZip "nfy" "92c5371fdb21eecf4989f48828671b904186abc6386b3d7510c8fcee2ee5ffcf";
       };
-      # 検証用の ENDF/B-VII.0（仕様書の KENO-VI と核データの版を揃えて比べる。ADR-0175）。NNDC の zip は
-      # ディレクトリを持たない平らな形なので、VIII.0 と同じ ENDF-B-VII.0_<part>/ に展開する
+      # 検証用の ENDF/B-VII.0（仕様書の KENO-VI と核データの版を揃えて比べる。ADR-0175）と、版ごとの燃焼チェーンの decay と
+      # nfy（#0303）。NNDC の zip はディレクトリを持たない平らな形なので、VIII.0 と同じ ENDF-B-VII.0_<part>/ に展開する
       endfViiZip =
         part: sha256:
         pkgs.fetchurl {
@@ -114,14 +114,51 @@
       endfViiZips = {
         neutrons = endfViiZip "n" "935a1c8156958072df7363239f8c7a6a514e1d20a4053986549b9b4e093f23b9";
         thermal_scatt = endfViiZip "tsl" "754d4e41280a7339b9c352378c7b16dd659d9dad244dd4c68dafa444e86f160e";
+        decay = endfViiZip "dec" "0778766165d723ddfa41c44a3f3bdb46d15c631c57364196d7cf012a65b84046";
+        nfy = endfViiZip "nfy" "13f5589462965a572c582af5129ff9c903e12e4f43bdc6b156a958296cdbaf96";
       };
-      # zip ごとの ENDF-B-VIII.0_<part>/ と ENDF-B-VII.0_<part>/ を 1 つの木に並べる（references/endf の形。入力の
-      # TOML と dvc.yaml が指す）
+      # 版ごとの燃焼チェーン（#0303）の ENDF/B-VII.1。zip は <part>/ のディレクトリを持つ
+      endfVii1Zip =
+        part: sha256:
+        pkgs.fetchurl {
+          url = "https://www.nndc.bnl.gov/endf-b7.1/zips/ENDF-B-VII.1-${part}.zip";
+          inherit sha256;
+        };
+      endfVii1Zips = {
+        neutrons = endfVii1Zip "neutrons" "ed106bfddb537cf46ac944536baec3b03b08d92a8efd97ff4e782531a82f99f3";
+        decay = endfVii1Zip "decay" "25edd580cd36533194d43ae71503b7e2eebe29141f973c1621e2b026bb671df8";
+        nfy = endfVii1Zip "nfy" "6338f5466ede3fee50008adc3d24af0923df6ac051800be133c34a210c0f54c3";
+      };
+      # 版ごとの燃焼チェーン（#0303）の ENDF/B-VIII.1。tar.gz は <part>-version.VIII.1/ のディレクトリを持つ
+      endfViii1Tar =
+        part: sha256:
+        pkgs.fetchurl {
+          url = "https://www.nndc.bnl.gov/endf-releases/releases/B-VIII.1/${part}/${part}-version.VIII.1.tar.gz";
+          inherit sha256;
+        };
+      endfViii1Tars = {
+        neutrons = endfViii1Tar "neutrons" "decff90016bfb5c25c8d4c7fb8d81f94ff2f104853165f0fe6a21bf61c4164e4";
+        decay = endfViii1Tar "decay" "8639581a4882b35855f7e98e14e537470c6b4b2a6d0673b8ac982baaa50a9d79";
+        nfy = endfViii1Tar "nfy" "2cf9b251c66fb0d8da96d03ad017fc3893cd3387a1d5f8cec37223c76319716a";
+      };
+      # 版と部分ごとの ENDF-B-<版>_<part>/ を 1 つの木に並べる（references/endf の形。入力の TOML と dvc.yaml が指す）。
+      # 中のディレクトリの名前が版で違うので、VII.1 と VIII.1 は一時の場所に展開してから名前を揃える
       endf = pkgs.runCommand "endf" { nativeBuildInputs = [ pkgs.unzip ]; } ''
         mkdir -p $out
         ${lib.concatMapStrings (zip: "unzip -q ${zip} -d $out\n") (lib.attrValues endfZips)}
         ${lib.concatStrings (
           lib.mapAttrsToList (part: zip: "unzip -q ${zip} -d $out/ENDF-B-VII.0_${part}\n") endfViiZips
+        )}
+        ${lib.concatStrings (
+          lib.mapAttrsToList (
+            part: zip: "unzip -q ${zip} -d unpack-vii1 && mv unpack-vii1/${part} $out/ENDF-B-VII.1_${part}\n"
+          ) endfVii1Zips
+        )}
+        ${lib.concatStrings (
+          lib.mapAttrsToList (part: tar: ''
+            mkdir -p unpack-viii1 && tar -xzf ${tar} -C unpack-viii1
+            mv unpack-viii1/${part}-version.VIII.1 $out/ENDF-B-VIII.1_${part}
+          '') endfViii1Tars
         )}
       '';
 
@@ -288,6 +325,14 @@
         endf-nfy = endfZips.nfy;
         endfb70-neutrons = endfViiZips.neutrons;
         endfb70-thermal-scatt = endfViiZips.thermal_scatt;
+        endfb70-decay = endfViiZips.decay;
+        endfb70-nfy = endfViiZips.nfy;
+        endfb71-neutrons = endfVii1Zips.neutrons;
+        endfb71-decay = endfVii1Zips.decay;
+        endfb71-nfy = endfVii1Zips.nfy;
+        endfb81-neutrons = endfViii1Tars.neutrons;
+        endfb81-decay = endfViii1Tars.decay;
+        endfb81-nfy = endfViii1Tars.nfy;
         inherit endf njoy2016 openmc;
         openmc-python = referencesPython;
       };

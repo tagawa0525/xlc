@@ -113,6 +113,35 @@ VIII.0 との違い（入力 `examples/vera/endfb70/xs.toml` で吸収する）:
 - 天然の C は `n-006_C_000.endf` だけで、C-12 と C-13 のファイルはない
 - `tsl-HinH2O.endf` の温度に 573.6 K はない（550 K と 600 K はある）。H-1 は 550 K と 600 K で処理する
 
+### 版ごとの燃焼チェーンの decay、nfy、neutrons（#0303）
+
+本番の版を決め直す検討（#0303）で版ごとの燃焼を比べるため、ENDF/B-VII.0、VII.1、VIII.1 の decay、nfy、neutrons も同じ形で
+固定し（`.#endfb70-decay`、`.#endfb70-nfy`、`.#endfb71-<part>`、`.#endfb81-<part>`）、`.#endf` の木に
+`ENDF-B-<版>_<part>/` として並べる（VII.0 の neutrons は上の検証用のもの）。取得は 2026-11-20。版ごとのチェーンの入力は
+`examples/depletion/endfb71/chain.toml`、`endfb81/chain.toml`（VIII.0 は `examples/depletion/chain.toml`）。
+
+| アーカイブ                                                                                                  | `.endf` の数 | sha256                                                           |
+| ----------------------------------------------------------------------------------------------------------- | ------------ | ---------------------------------------------------------------- |
+| https://www.nndc.bnl.gov/endf-b7.0/zips/dec-ENDF-VII0.endf.zip (4.9 MB)                                     | 1            | 0778766165d723ddfa41c44a3f3bdb46d15c631c57364196d7cf012a65b84046 |
+| https://www.nndc.bnl.gov/endf-b7.0/zips/nfy-ENDF-VII0.endf.zip (1.7 MB)                                     | 31           | 13f5589462965a572c582af5129ff9c903e12e4f43bdc6b156a958296cdbaf96 |
+| https://www.nndc.bnl.gov/endf-b7.1/zips/ENDF-B-VII.1-neutrons.zip (226.5 MB)                                | 423          | ed106bfddb537cf46ac944536baec3b03b08d92a8efd97ff4e782531a82f99f3 |
+| https://www.nndc.bnl.gov/endf-b7.1/zips/ENDF-B-VII.1-decay.zip (14.4 MB)                                    | 3821         | 25edd580cd36533194d43ae71503b7e2eebe29141f973c1621e2b026bb671df8 |
+| https://www.nndc.bnl.gov/endf-b7.1/zips/ENDF-B-VII.1-nfy.zip (1.7 MB)                                       | 31           | 6338f5466ede3fee50008adc3d24af0923df6ac051800be133c34a210c0f54c3 |
+| https://www.nndc.bnl.gov/endf-releases/releases/B-VIII.1/neutrons/neutrons-version.VIII.1.tar.gz (343.7 MB) | 558          | decff90016bfb5c25c8d4c7fb8d81f94ff2f104853165f0fe6a21bf61c4164e4 |
+| https://www.nndc.bnl.gov/endf-releases/releases/B-VIII.1/decay/decay-version.VIII.1.tar.gz (10.6 MB)        | 3821         | 8639581a4882b35855f7e98e14e537470c6b4b2a6d0673b8ac982baaa50a9d79 |
+| https://www.nndc.bnl.gov/endf-releases/releases/B-VIII.1/nfy/nfy-version.VIII.1.tar.gz (1.5 MB)             | 31           | 2cf9b251c66fb0d8da96d03ad017fc3893cd3387a1d5f8cec37223c76319716a |
+
+形の違い（展開の仕方は flake.nix の `endf`）:
+
+- VII.0 の decay は、全核種（3,838 の物質）を 1 つのファイル `dec-ENDF-VII0.endf` に並べる。`bin/chain` はテープの物質を
+  すべて読む
+- VII.1 の zip は `<part>/`、VIII.1 の tar.gz は `<part>-version.VIII.1/`（`.endf` のほかに README.md などがある）の
+  ディレクトリを持つので、`ENDF-B-<版>_<part>/` に名前を揃える
+- VII.0 の neutrons には天然の C、V、Zn、VII.1 には天然の C の評価（A = 0）があり、チェーンの入力の `natural-isotopes` で
+  当てる核種を挙げる（ADR-0262）。VIII.1 にはない
+- VII.0 の decay は Nb-88m の励起エネルギーを -1000 eV と書き（VII.1 以降は 1e6 eV）、チェーンの検査が負の励起エネルギーで止めるので、
+  VII.0 のチェーンの入力はまだ無い（#0303）
+
 ## 仕様書の PDF
 
 VERA、C5G7、MOX の仕様書は再配布できないので、URL と sha256 だけを docs/specs.sha256 に書く。URL から

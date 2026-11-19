@@ -6,6 +6,13 @@ fn rec(fields: [&str; 6], mat: i32, mf: u32, mt: u32) -> String {
     format!("{data}{mat:4}{mf:2}{mt:3}\n")
 }
 
+/// 物質を 1 つだけ持つテープの評価
+fn only<T>(evaluations: Result<Vec<T>>) -> T {
+    let mut evaluations = evaluations.unwrap();
+    assert_eq!(evaluations.len(), 1);
+    evaluations.remove(0)
+}
+
 const BLANK: [&str; 6] = ["", "", "", "", "", ""];
 const TAPE_ID: &str =
     " test tape                                                           1 0  0\n";
@@ -81,14 +88,14 @@ fn am242m_decay() -> String {
 #[test]
 fn reads_the_material_of_a_metastable_state() {
     let tape = Tape::parse(&am242m_decay()).unwrap();
-    let m = read_material(&tape).unwrap();
+    let m = read_material(&tape, 3580).unwrap();
     assert_eq!((m.mat, m.z, m.a, m.state), (3580, 95, 242, 1));
     assert_eq!(m.excitation, 48_630.0);
 }
 
 #[test]
 fn reads_decay_modes_ratios_and_energies() {
-    let e = read_decay(&am242m_decay()).unwrap();
+    let e = only(read_decay(&am242m_decay()));
     assert_eq!((e.material.z, e.material.a, e.material.state), (95, 242, 1));
     let d = e.decay;
     assert!(!d.stable);
@@ -148,7 +155,7 @@ fn reads_each_digit_of_rtyp_as_a_step() {
         ("2.6", vec![Step::EcBetaPlus, Step::SpontaneousFission]),
     ];
     for (rtyp, steps) in cases {
-        let d = read_decay(&decay_with_rtyp(rtyp, "1.0")).unwrap().decay;
+        let d = only(read_decay(&decay_with_rtyp(rtyp, "1.0"))).decay;
         assert_eq!(d.modes[0].steps, steps, "{rtyp}");
         assert_eq!(d.modes[0].final_state, 1);
     }
@@ -186,7 +193,7 @@ fn reads_a_stable_nuclide_without_modes() {
         rec(BLANK, mat, 0, 0),
     ]
     .concat();
-    let d = read_decay(&text).unwrap().decay;
+    let d = only(read_decay(&text)).decay;
     assert!(d.stable);
     assert!(d.modes.is_empty());
 }
@@ -265,7 +272,7 @@ fn am241_neutron() -> String {
 
 #[test]
 fn reads_mf3_reactions_and_final_states() {
-    let e = read_neutron(&am241_neutron(), &[16, 102, 103]).unwrap();
+    let e = only(read_neutron(&am241_neutron(), &[16, 102, 103]));
     assert_eq!((e.material.z, e.material.a, e.material.state), (95, 241, 0));
     assert_eq!(e.mts, vec![1, 16, 18, 102]);
     // 核分裂の Q は MT18 の QI（QM ではない）
@@ -346,7 +353,7 @@ fn u235_yields() -> String {
 
 #[test]
 fn reads_independent_yields_per_energy() {
-    let e = read_yields(&u235_yields()).unwrap();
+    let e = only(read_yields(&u235_yields()));
     assert_eq!((e.material.z, e.material.a), (92, 235));
     assert_eq!(
         e.tables,
@@ -397,8 +404,74 @@ fn rejects_a_yield_count_that_differs_from_the_header() {
     assert!(read_yields(&text).is_err());
 }
 
+/// `tape` の後に続ける、MAT を `mat` に替えた Am-242m の物質（テープの識別行を除く）
+fn am242m_as(mat: &str) -> String {
+    am242m_decay().replace("3580", mat).replace(TAPE_ID, "")
+}
+
 #[test]
-fn rejects_a_tape_with_several_materials() {
-    let second = am242m_decay().replace("3580", "3581").replace(TAPE_ID, "");
-    assert!(read_decay(&(am242m_decay() + &second)).is_err());
+fn reads_every_material_of_a_tape_in_tape_order() {
+    // ENDF/B-VII.0 の decay は全核種を 1 つのテープに並べる
+    let second = am242m_as("3581").replace("9.524200+4", "9.524300+4");
+    let decays = read_decay(&(am242m_decay() + &second)).unwrap();
+    let keys: Vec<_> = decays
+        .iter()
+        .map(|d| (d.material.mat, d.material.z, d.material.a))
+        .collect();
+    assert_eq!(keys, vec![(3580, 95, 242), (3581, 95, 243)]);
+    assert_eq!(decays[1].decay.half_life, 4.449622e9);
+}
+
+#[test]
+fn reads_every_material_of_a_neutron_tape() {
+    let second = am241_neutron()
+        .replace("9543", "9546")
+        .replace(TAPE_ID, "")
+        .replace("9.524100+4", "9.524300+4");
+    let neutrons = read_neutron(&(am241_neutron() + &second), &[102]).unwrap();
+    let keys: Vec<_> = neutrons
+        .iter()
+        .map(|n| (n.material.z, n.material.a))
+        .collect();
+    assert_eq!(keys, vec![(95, 241), (95, 243)]);
+}
+
+#[test]
+fn rejects_a_mat_that_appears_again_after_another_material() {
+    // 同じ MAT の 2 つの物質は MAT では引き分けられない
+    let text = am242m_decay() + &am242m_as("3581") + &am242m_as("3580");
+    let error = read_decay(&text).unwrap_err();
+    assert!(format!("{error:#}").contains("MAT 3580"), "{error:#}");
+}
+
+#[test]
+fn rejects_a_tape_without_materials() {
+    assert!(read_decay(TAPE_ID).is_err());
+}
+
+#[test]
+fn rejects_a_mat_that_comes_back_without_its_own_header() {
+    // 戻ってきた MAT 3580 の MF8 は、MAT で引くと最初の物質の MF8 に隠れる
+    let mf8_only: String = am242m_as("3580")
+        .lines()
+        .filter(|line| &line[70..72] == " 8")
+        .map(|line| format!("{line}\n"))
+        .collect();
+    let text = am242m_decay() + &am242m_as("3581") + &mf8_only;
+    let error = read_decay(&text).unwrap_err();
+    assert!(format!("{error:#}").contains("MAT 3580"), "{error:#}");
+}
+
+#[test]
+fn names_the_mat_of_a_material_without_mf1() {
+    let without_header: String = am242m_as("3581")
+        .lines()
+        .filter(|line| &line[70..72] != " 1")
+        .map(|line| format!("{line}\n"))
+        .collect();
+    let error = read_decay(&(am242m_decay() + &without_header)).unwrap_err();
+    assert!(
+        format!("{error:#}").contains("MAT 3581 has no MF1/MT451"),
+        "{error:#}"
+    );
 }

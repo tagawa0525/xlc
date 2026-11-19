@@ -1,0 +1,7 @@
+# 全核種の燃焼チェーン（ADR-0164）を ENDF/B-VII.1 から作る入力。版ごとの燃焼の比較（#0303）に使う
+output = "chain.msgpack"
+decay-directory = "../../../references/endf/ENDF-B-VII.1_decay"
+nfy-directory = "../../../references/endf/ENDF-B-VII.1_nfy"
+neutron-directory = "../../../references/endf/ENDF-B-VII.1_neutrons"
+# 天然の C の評価（A = 0）を、天然に存在する同位体に当てる（ADR-0262）
+natural-isotopes = ["C-12", "C-13"]
