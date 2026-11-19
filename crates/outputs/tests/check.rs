@@ -117,9 +117,24 @@ mod tempfile_dir {
     }
 }
 
+/// マージの hook の中の run-checks.sh から呼ばれると、git が GIT_DIR や GIT_INDEX_FILE を渡す。一時のリポジトリの git と
+/// 検査がそれを継ぐと、本物のリポジトリを読み書きする
+#[allow(
+    clippy::disallowed_methods,
+    reason = "a test: keep the caller's GIT_* out of the temp repository (ADR-0137)"
+)]
+fn isolated(mut command: Command) -> Command {
+    for (key, _) in std::env::vars_os() {
+        if key.to_string_lossy().starts_with("GIT_") {
+            command.env_remove(key);
+        }
+    }
+    command
+}
+
 fn git(root: &Path, args: &[&str]) {
     // 利用者の git の hook（core.hooksPath）を一時のリポジトリに掛けない
-    let status = Command::new("git")
+    let status = isolated(Command::new("git"))
         .arg("-C")
         .arg(root)
         .args(["-c", "core.hooksPath=/dev/null"])
@@ -177,7 +192,7 @@ impl Repo {
     fn check(&self) -> Output {
         let script =
             Path::new(env!("CARGO_MANIFEST_DIR")).join("../../scripts/check-readable-outputs.py");
-        Command::new("python3")
+        isolated(Command::new("python3"))
             .arg(script)
             .arg("--all")
             .arg("--cache")

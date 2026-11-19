@@ -212,10 +212,17 @@ resolution:
 """
 
 
+# マージの hook の中の run-checks.sh から呼ばれると、git が GIT_DIR や GIT_INDEX_FILE を渡す。一時のリポジトリの git と
+# 検査がそれを継ぐと、本物のリポジトリを読み書きする
+ENV = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+
+
 def git(root, *args):
     # 利用者の git の hook（core.hooksPath）を一時のリポジトリに掛けない
     command = ["git", "-C", str(root), "-c", "core.hooksPath=/dev/null", *args]
-    return subprocess.run(command, check=True, capture_output=True, text=True).stdout
+    return subprocess.run(
+        command, check=True, capture_output=True, text=True, env=ENV
+    ).stdout
 
 
 class CheckReadableOutputs(unittest.TestCase):
@@ -287,6 +294,7 @@ class CheckReadableOutputs(unittest.TestCase):
             capture_output=True,
             text=True,
             check=False,
+            env=ENV,
         )
 
     def read_lines(self):
