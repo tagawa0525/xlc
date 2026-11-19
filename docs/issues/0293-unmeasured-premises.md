@@ -1,7 +1,7 @@
 ---
 type: Issue
 status: open
-labels: [depletion, verification, xs, lattice, core]
+labels: [depletion, verification, xs, lattice, core, list]
 opened: 2026-11-19
 closed:
 milestone: M4
