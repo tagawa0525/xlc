@@ -148,6 +148,47 @@ class CapturedRatios(unittest.TestCase):
             self.assertAlmostEqual(ratios["X"][t], expected / decayed, places=10)
 
 
+class Ranking(unittest.TestCase):
+    def point(self, burnup, k_inf, shares):
+        return {
+            "burnup": burnup,
+            "k_inf": k_inf,
+            "untransported_all": {
+                n: {"fraction": f, "captured_ratio": r} for n, (f, r) in shares.items()
+            },
+        }
+
+    def test_nuclides_rank_by_their_largest_reactivity_over_burnup_with_the_rest_summed(
+        self,
+    ):
+        points = [
+            self.point(
+                10.0, 1.0, {"A": (1e-4, 1.0), "B": (5e-4, 0.5), "C": (1e-5, 1.0)}
+            ),
+            self.point(
+                60.0, 0.5, {"A": (4e-4, 0.5), "B": (1e-4, 1.0), "C": (2e-5, 1.0)}
+            ),
+        ]
+        result = ua.ranking(points)
+        rows = result["ranking"]
+        # A: max(10, 40) = 40 pcm、B: max(25, 20) = 25、C: max(1, 4) = 4
+        self.assertEqual([r["nuclide"] for r in rows], ["A", "B", "C"])
+        self.assertAlmostEqual(rows[0]["max_pcm"], 40.0)
+        self.assertEqual(rows[0]["burnup"], 60.0)
+        self.assertAlmostEqual(rows[1]["max_pcm"], 25.0)
+        self.assertEqual(rows[1]["burnup"], 10.0)
+        self.assertAlmostEqual(rows[0]["rest_pcm"], 29.0)
+        self.assertAlmostEqual(rows[1]["rest_pcm"], 4.0)
+        self.assertAlmostEqual(rows[2]["rest_pcm"], 0.0)
+        # 残りの和が 50 pcm 以下になるのは 1 つ目から、5 pcm 以下は 2 つ目から
+        self.assertEqual(result["counts"], {"50.0": 1, "5.0": 2})
+
+    def test_nuclides_xs_does_not_transport_are_marked(self):
+        points = [self.point(10.0, 1.0, {"Pm-147": (1e-4, 1.0), "Xe-131": (1e-5, 1.0)})]
+        rows = ua.ranking(points)["ranking"]
+        self.assertEqual([r["xs_excluded"] for r in rows], [True, False])
+
+
 class Category(unittest.TestCase):
     def test_tracked_nuclides_come_first_then_the_transported_ones(self):
         transportable = {"U-235", "Rh-103"}
