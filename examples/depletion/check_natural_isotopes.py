@@ -13,6 +13,7 @@ xs の入力ごとに、各核種の評価の MF1/MT451 の ZA（HEAD）と LISO
 標準出力には、xs の入力ごとに天然の元素の評価を当てた核種と、`natural-isotopes` のうちライブラリに無い核種を書く。
 """
 
+import itertools
 import sys
 from pathlib import Path
 
@@ -29,18 +30,27 @@ def endf_number(field: str) -> float:
     return float(s)
 
 
-def endf_za(path: Path) -> tuple[int, int, int]:
-    """評価の MF1/MT451 の最初の記録（HEAD）の ZA と 2 つ目の記録の LISO を (Z, A, LISO) にする"""
+def endf_identity(path: Path) -> tuple[int, int, int]:
+    """評価の MF1/MT451 の最初の記録（HEAD）の ZA と 2 つ目の記録の LISO を (Z, A, LISO) にする（ファイルの先頭の 2 つの記録だけを読む）"""
     with path.open() as f:
-        records = [
-            line
-            for line in f
-            if line[70:72].strip() == "1" and line[72:75].strip() == "451"
-        ][:2]
+        records = list(
+            itertools.islice(
+                (
+                    line
+                    for line in f
+                    if line[70:72].strip() == "1" and line[72:75].strip() == "451"
+                ),
+                2,
+            )
+        )
     if len(records) < 2:
         raise SystemExit(f"{path}: no MF1/MT451 HEAD and CONT records")
     za = round(endf_number(records[0][0:11]))
-    return za // 1000, za % 1000, int(records[1][33:44])
+    try:
+        liso = int(records[1][33:44])
+    except ValueError:
+        raise SystemExit(f"{path}: no LISO in the second MF1/MT451 record") from None
+    return za // 1000, za % 1000, liso
 
 
 def check(
@@ -63,7 +73,7 @@ def check(
         if name not in nuclides:
             errors.append(f"{name} is not in the chain")
             continue
-        z, a, liso = endf_za(endf / entry["endf"])
+        z, a, liso = endf_identity(endf / entry["endf"])
         if a == 0:
             if z != nuclides[name][0]:
                 errors.append(

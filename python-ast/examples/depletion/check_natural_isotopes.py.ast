@@ -1,3 +1,4 @@
+import itertools
 import sys
 from pathlib import Path
 import msgpack
@@ -10,13 +11,17 @@ def endf_number(field: str) -> float:
             return float(s[:i] + 'e' + s[i:])
     return float(s)
 
-def endf_za(path: Path) -> tuple[int, int, int]:
+def endf_identity(path: Path) -> tuple[int, int, int]:
     with path.open() as f:
-        records = [line for line in f if line[70:72].strip() == '1' and line[72:75].strip() == '451'][:2]
+        records = list(itertools.islice((line for line in f if line[70:72].strip() == '1' and line[72:75].strip() == '451'), 2))
     if len(records) < 2:
         raise SystemExit(f'{path}: no MF1/MT451 HEAD and CONT records')
     za = round(endf_number(records[0][0:11]))
-    return (za // 1000, za % 1000, int(records[1][33:44]))
+    try:
+        liso = int(records[1][33:44])
+    except ValueError:
+        raise SystemExit(f'{path}: no LISO in the second MF1/MT451 record') from None
+    return (za // 1000, za % 1000, liso)
 
 def check(chain_input: dict, chain_dir: Path, chain: dict, xs_input: dict, xs_dir: Path) -> dict:
     errors = []
@@ -31,7 +36,7 @@ def check(chain_input: dict, chain_dir: Path, chain: dict, xs_input: dict, xs_di
         if name not in nuclides:
             errors.append(f'{name} is not in the chain')
             continue
-        z, a, liso = endf_za(endf / entry['endf'])
+        z, a, liso = endf_identity(endf / entry['endf'])
         if a == 0:
             if z != nuclides[name][0]:
                 errors.append(f"{name}: {entry['endf']} is the natural evaluation of Z = {z}")
