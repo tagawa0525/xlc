@@ -8493,3 +8493,72 @@ stages:
       hash: md5
       md5: 8c99fb98ef79a011ec315d7319afb0a1
       size: 162
+  toml-values@examples/depletion/endfb71/chain.toml:
+    cmd: python3 scripts/normalize_toml.py examples/depletion/endfb71/chain.toml
+      toml-values/examples/depletion/endfb71/chain.toml.json
+    deps:
+    - path: examples/depletion/endfb71/chain.toml
+      hash: md5
+      md5: 878160cdd21d8a5d58765d108cf1fd16
+      size: 483
+    - path: python-ast/scripts/normalize_toml.py.ast
+      hash: md5
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
+    outs:
+    - path: toml-values/examples/depletion/endfb71/chain.toml.json
+      hash: md5
+      md5: d88d56d62f646b5649ba83c55d597ace
+      size: 279
+  python-ast@examples/depletion/compare_chain_versions.py:
+    cmd: python3 scripts/normalize_python.py 
+      examples/depletion/compare_chain_versions.py 
+      python-ast/examples/depletion/compare_chain_versions.py.ast
+    deps:
+    - path: examples/depletion/compare_chain_versions.py
+      hash: md5
+      md5: efb47eb4c506af29f46156376700fead
+      size: 20521
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/depletion/compare_chain_versions.py.ast
+      hash: md5
+      md5: 07e35d9815dea8bb932d8eef9ebb66a1
+      size: 12788
+  toml-values@examples/depletion/endfb81/chain.toml:
+    cmd: python3 scripts/normalize_toml.py examples/depletion/endfb81/chain.toml
+      toml-values/examples/depletion/endfb81/chain.toml.json
+    deps:
+    - path: examples/depletion/endfb81/chain.toml
+      hash: md5
+      md5: 0222f4054d832af8be7e7fabc62b687c
+      size: 354
+    - path: python-ast/scripts/normalize_toml.py.ast
+      hash: md5
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
+    outs:
+    - path: toml-values/examples/depletion/endfb81/chain.toml.json
+      hash: md5
+      md5: 691bde4f5d49048014516a7a21092a93
+      size: 236
+  toml-values@examples/depletion/endfb70/chain.toml:
+    cmd: python3 scripts/normalize_toml.py examples/depletion/endfb70/chain.toml
+      toml-values/examples/depletion/endfb70/chain.toml.json
+    deps:
+    - path: examples/depletion/endfb70/chain.toml
+      hash: md5
+      md5: 559838c400b7b46313bfd585c831379b
+      size: 676
+    - path: python-ast/scripts/normalize_toml.py.ast
+      hash: md5
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
+    outs:
+    - path: toml-values/examples/depletion/endfb70/chain.toml.json
+      hash: md5
+      md5: cff385bafa10677bc93a2d2f7e518d8a
+      size: 395

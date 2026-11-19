@@ -27,6 +27,46 @@ stages:
       - ../../binary-forms/chain.md5
     outs:
       - chain.msgpack
+  chain-version:
+    # 版ごとの燃焼チェーン（ADR-0262、ADR-0263。本番の版を決める比較、#0303）。VIII.0 は上の chain。入力の endf-* のディレクトリが
+    # ENDF の版の decay、nfy、neutrons を指す
+    foreach:
+      endfb70: ENDF-B-VII.0
+      endfb71: ENDF-B-VII.1
+      endfb81: ENDF-B-VIII.1
+    do:
+      cmd: ../../bin/chain ${key}/chain.toml
+      deps:
+        - ../../toml-values/examples/depletion/${key}/chain.toml.json
+        - ../../references/endf/${item}_decay
+        - ../../references/endf/${item}_nfy
+        - ../../references/endf/${item}_neutrons
+        - ../../binary-forms/chain.md5
+      outs:
+        - ${key}/chain.msgpack
+  compare-chain-versions:
+    # 隣り合う版のチェーンを値で比べた要約（JSON）と、その文章（#0303）
+    foreach:
+      70-71:
+        a: endfb70/chain.msgpack
+        b: endfb71/chain.msgpack
+      71-80:
+        a: endfb71/chain.msgpack
+        b: chain.msgpack
+      80-81:
+        a: chain.msgpack
+        b: endfb81/chain.msgpack
+    do:
+      cmd: python3 compare_chain_versions.py --json compare-chain-versions-${key}.json ${item.a} ${item.b} > compare-chain-versions-${key}.txt
+      deps:
+        - ../../python-ast/examples/depletion/compare_chain_versions.py.ast
+        - ${item.a}
+        - ${item.b}
+      outs:
+        - compare-chain-versions-${key}.json:
+            cache: false
+        - compare-chain-versions-${key}.txt:
+            cache: false
   openmc-chain:
     cmd: nix develop ../..#references -c python3 openmc_chain.py ../../references/endf openmc-chain.xml
     deps:

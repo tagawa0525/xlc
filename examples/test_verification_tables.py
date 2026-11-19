@@ -714,6 +714,93 @@ class DrawP6(unittest.TestCase):
             vt.p6_checks([{"format": "xlc-compare-p3"}])
 
 
+def chain_versions(a: str, b: str, half_life_differ: int) -> dict:
+    """compare_chain_versions.py の要約（量は 2 つだけ）"""
+    quantity = {
+        "compared": 10,
+        "differ": 0,
+        "one_sided": 0,
+        "above": {"1e-06": 0, "0.001": 0, "0.01": 0},
+        "largest": [],
+    }
+    return {
+        "format": "xlc-compare-chain-versions",
+        "inputs": [{"path": a, "md5": "0" * 32}, {"path": b, "md5": "1" * 32}],
+        "quantities": {
+            "half_life": {
+                **quantity,
+                "differ": half_life_differ,
+                "one_sided": 1,
+                "above": {"1e-06": 3, "0.001": 2, "0.01": 1},
+            },
+            "fission_yields": quantity,
+        },
+    }
+
+
+class DrawChainVersions(unittest.TestCase):
+    def test_rows_put_each_quantity_of_each_pair_of_versions(self):
+        table = vt.chain_versions(
+            [
+                chain_versions("endfb70/chain.msgpack", "endfb71/chain.msgpack", 4),
+                chain_versions("chain.msgpack", "endfb81/chain.msgpack", 0),
+            ]
+        )
+        rows = [
+            [c.strip() for c in line.strip("|").split("|")]
+            for line in table.split("\n")[2:]
+        ]
+        self.assertEqual(
+            rows,
+            [
+                ["VII.0 → VII.1", "half_life", "10", "4", "1", "3", "2", "1"],
+                ["VII.0 → VII.1", "fission_yields", "10", "0", "0", "0", "0", "0"],
+                ["VIII.0 → VIII.1", "half_life", "10", "0", "1", "3", "2", "1"],
+                ["VIII.0 → VIII.1", "fission_yields", "10", "0", "0", "0", "0", "0"],
+            ],
+        )
+
+    def test_a_chain_of_no_known_version_is_an_error(self):
+        with self.assertRaises(vt.TableError):
+            vt.chain_versions(
+                [chain_versions("other/chain.msgpack", "chain.msgpack", 0)]
+            )
+
+    def test_another_summary_is_an_error(self):
+        with self.assertRaises(vt.TableError):
+            vt.chain_versions([{"format": "xlc-compare-depletion"}])
+
+    def test_a_summary_without_two_inputs_is_an_error(self):
+        s = chain_versions("endfb70/chain.msgpack", "endfb71/chain.msgpack", 0)
+        s["inputs"] = s["inputs"][:1]
+        with self.assertRaises(vt.TableError):
+            vt.chain_versions([s])
+
+    def test_an_input_without_a_path_is_an_error(self):
+        s = chain_versions("endfb70/chain.msgpack", "endfb71/chain.msgpack", 0)
+        del s["inputs"][0]["path"]
+        with self.assertRaises(vt.TableError):
+            vt.chain_versions([s])
+
+    def test_a_summary_without_the_one_sided_counts_is_an_error(self):
+        s = chain_versions("endfb70/chain.msgpack", "endfb71/chain.msgpack", 0)
+        del s["quantities"]["half_life"]["one_sided"]
+        with self.assertRaises(vt.TableError):
+            vt.chain_versions([s])
+
+    def test_summaries_with_different_thresholds_are_an_error(self):
+        other = chain_versions("chain.msgpack", "endfb81/chain.msgpack", 0)
+        for q in other["quantities"].values():
+            q["above"] = {"1e-05": 0}
+        with self.assertRaises(vt.TableError):
+            vt.chain_versions(
+                [
+                    chain_versions("endfb70/chain.msgpack", "endfb71/chain.msgpack", 0),
+                    other,
+                ]
+            )
+
+
 class DrawDepletion(unittest.TestCase):
     def test_k_rows_list_each_case_by_burnup(self):
         table = vt.depletion_k(

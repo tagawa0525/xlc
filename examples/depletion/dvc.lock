@@ -45,7 +45,7 @@ stages:
     deps:
     - path: ../../binary-forms/chain.md5
       hash: md5
-      md5: ce6b6e5cd2a0f8f0634152431a422d9d
+      md5: 8391b8ec885103684ffcf5db0ad6415a
       size: 33
     - path: ../../references/endf/ENDF-B-VIII.0_decay
       hash: md5
@@ -5614,3 +5614,174 @@ stages:
       hash: md5
       md5: 51c99f18af180e778658d17df5726bb1
       size: 4045
+  chain-version@endfb70:
+    cmd: ../../bin/chain endfb70/chain.toml
+    deps:
+    - path: ../../binary-forms/chain.md5
+      hash: md5
+      md5: 8391b8ec885103684ffcf5db0ad6415a
+      size: 33
+    - path: ../../references/endf/ENDF-B-VII.0_decay
+      hash: md5
+      md5: 0f845606f52cf46a57b36218aea18a85.dir
+      size: 36499734
+      nfiles: 1
+    - path: ../../references/endf/ENDF-B-VII.0_neutrons
+      hash: md5
+      md5: 48c057110a0cd8d1a04d52246e1d5fa6.dir
+      size: 408193809
+      nfiles: 393
+    - path: ../../references/endf/ENDF-B-VII.0_nfy
+      hash: md5
+      md5: d550efd00cf67c11693148319c55c4b8.dir
+      size: 6921538
+      nfiles: 31
+    - path: ../../toml-values/examples/depletion/endfb70/chain.toml.json
+      hash: md5
+      md5: cff385bafa10677bc93a2d2f7e518d8a
+      size: 395
+    outs:
+    - path: endfb70/chain.msgpack
+      hash: md5
+      md5: 5c4c81940ae00f9e9cdcd561ac4610a3
+      size: 3650797
+  chain-version@endfb71:
+    cmd: ../../bin/chain endfb71/chain.toml
+    deps:
+    - path: ../../binary-forms/chain.md5
+      hash: md5
+      md5: 8391b8ec885103684ffcf5db0ad6415a
+      size: 33
+    - path: ../../references/endf/ENDF-B-VII.1_decay
+      hash: md5
+      md5: c01393c8e641bbd2d167346e799e4a7f.dir
+      size: 68162391
+      nfiles: 3821
+    - path: ../../references/endf/ENDF-B-VII.1_neutrons
+      hash: md5
+      md5: e480b32a811b36d4c1257a9c3fb7f68a.dir
+      size: 839330424
+      nfiles: 423
+    - path: ../../references/endf/ENDF-B-VII.1_nfy
+      hash: md5
+      md5: d4f48371bdb124376a87893323bb38d2.dir
+      size: 7061742
+      nfiles: 31
+    - path: ../../toml-values/examples/depletion/endfb71/chain.toml.json
+      hash: md5
+      md5: d88d56d62f646b5649ba83c55d597ace
+      size: 279
+    outs:
+    - path: endfb71/chain.msgpack
+      hash: md5
+      md5: 32ee4517036e5333f7c38a69b34adeed
+      size: 4380622
+  compare-chain-versions@71-80:
+    cmd: python3 compare_chain_versions.py --json 
+      compare-chain-versions-71-80.json endfb71/chain.msgpack chain.msgpack > 
+      compare-chain-versions-71-80.txt
+    deps:
+    - path: ../../python-ast/examples/depletion/compare_chain_versions.py.ast
+      hash: md5
+      md5: 07e35d9815dea8bb932d8eef9ebb66a1
+      size: 12788
+    - path: chain.msgpack
+      hash: md5
+      md5: 1f1de1800363a19f23af2f7b4417c426
+      size: 4613695
+    - path: endfb71/chain.msgpack
+      hash: md5
+      md5: 32ee4517036e5333f7c38a69b34adeed
+      size: 4380622
+    outs:
+    - path: compare-chain-versions-71-80.json
+      hash: md5
+      md5: 1f35657e42e5537a9fd6e070d8cd4d30
+      size: 62998
+    - path: compare-chain-versions-71-80.txt
+      hash: md5
+      md5: 0b4b24f614ed7aa97b40746ce37995da
+      size: 28315
+  chain-version@endfb81:
+    cmd: ../../bin/chain endfb81/chain.toml
+    deps:
+    - path: ../../binary-forms/chain.md5
+      hash: md5
+      md5: 8391b8ec885103684ffcf5db0ad6415a
+      size: 33
+    - path: ../../references/endf/ENDF-B-VIII.1_decay
+      hash: md5
+      md5: 8d5ffe79a1d2b60b42b86a784a0802f9.dir
+      size: 63925132
+      nfiles: 3823
+    - path: ../../references/endf/ENDF-B-VIII.1_neutrons
+      hash: md5
+      md5: e62a62fb1f8b3e076cd3f0744ae1c5f3.dir
+      size: 1342498390
+      nfiles: 562
+    - path: ../../references/endf/ENDF-B-VIII.1_nfy
+      hash: md5
+      md5: 5510439f2875814475c09ac460da03bd.dir
+      size: 6671295
+      nfiles: 35
+    - path: ../../toml-values/examples/depletion/endfb81/chain.toml.json
+      hash: md5
+      md5: 691bde4f5d49048014516a7a21092a93
+      size: 236
+    outs:
+    - path: endfb81/chain.msgpack
+      hash: md5
+      md5: 4b08493286f1d7840d777ac2cbfa9877
+      size: 4613905
+  compare-chain-versions@70-71:
+    cmd: python3 compare_chain_versions.py --json 
+      compare-chain-versions-70-71.json endfb70/chain.msgpack 
+      endfb71/chain.msgpack > compare-chain-versions-70-71.txt
+    deps:
+    - path: ../../python-ast/examples/depletion/compare_chain_versions.py.ast
+      hash: md5
+      md5: 07e35d9815dea8bb932d8eef9ebb66a1
+      size: 12788
+    - path: endfb70/chain.msgpack
+      hash: md5
+      md5: 5c4c81940ae00f9e9cdcd561ac4610a3
+      size: 3650797
+    - path: endfb71/chain.msgpack
+      hash: md5
+      md5: 32ee4517036e5333f7c38a69b34adeed
+      size: 4380622
+    outs:
+    - path: compare-chain-versions-70-71.json
+      hash: md5
+      md5: 4174c971889ade6d6ca9d4a0aa3eecfe
+      size: 78750
+    - path: compare-chain-versions-70-71.txt
+      hash: md5
+      md5: 2aeacbd3fc894177ee3e43f3910d9302
+      size: 33397
+  compare-chain-versions@80-81:
+    cmd: python3 compare_chain_versions.py --json 
+      compare-chain-versions-80-81.json chain.msgpack endfb81/chain.msgpack > 
+      compare-chain-versions-80-81.txt
+    deps:
+    - path: ../../python-ast/examples/depletion/compare_chain_versions.py.ast
+      hash: md5
+      md5: 07e35d9815dea8bb932d8eef9ebb66a1
+      size: 12788
+    - path: chain.msgpack
+      hash: md5
+      md5: 1f1de1800363a19f23af2f7b4417c426
+      size: 4613695
+    - path: endfb81/chain.msgpack
+      hash: md5
+      md5: 4b08493286f1d7840d777ac2cbfa9877
+      size: 4613905
+    outs:
+    - path: compare-chain-versions-80-81.json
+      hash: md5
+      md5: 3fcbafedb2326e4677f375f81374e149
+      size: 60709
+    - path: compare-chain-versions-80-81.txt
+      hash: md5
+      md5: dc8b361a28f5ed7fab47cb0aae529b60
+      size: 27682
