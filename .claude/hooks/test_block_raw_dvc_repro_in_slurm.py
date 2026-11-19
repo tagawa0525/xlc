@@ -45,6 +45,7 @@ ALLOWED = [
     f"{SLURM} 'scripts/dvc-repro.py --max-stages 10 examples/vera/dvc.yaml'",
     f"{SLURM} 'nix develop -c scripts/dvc-repro.py --max-stages 3 --allow-reference examples/vera/dvc.yaml:openmc-1B examples/vera/dvc.yaml'",
     f"{SLURM} 'python3 examples/stage_runner.py examples/vera/dvc.yaml xs-nuclide'",
+    f"{SLURM} 'scripts/dvc-repro.py -s examples/vera/dvc.yaml:lattice-1B'",
     f"{SLURM} 'python3 examples/stage_runner.py examples/vera/dvc.yaml xs-nuclide && scripts/dvc-repro.py --max-stages 1 examples/vera/dvc.yaml:xs'",
     f"{SLURM} 'target/release/lattice x.toml'",
     f"{SLURM} 'echo dvc repro'",
@@ -93,6 +94,8 @@ class HookProcessTest(unittest.TestCase):
         self.assertEqual(r.returncode, 2)
         self.assertIn("scripts/dvc-repro.py --max-stages", r.stderr)
         self.assertIn("--allow-reference", r.stderr)
+        # 上流を飛ばす実行も、Slurm ではラッパーの -s の経路へ導く（ADR-0258）
+        self.assertIn("scripts/dvc-repro.py -s", r.stderr)
 
     def test_allowed_command_exits_0_silently(self):
         r = run_hook(bash(ALLOWED[3]))

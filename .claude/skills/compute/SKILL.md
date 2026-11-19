@@ -37,8 +37,11 @@ description: xlc で計算を流す前に読む。Slurm の投げ方と区分、
   [--allow-reference <yaml>:<ステージか組>]... <目標>` にする（走りうるステージを数え、上限を超えるか許していない参照解が入れば
   何も実行せずに止まる。生の `dvc repro` を `slurm-run.sh` に渡すと hook が止める。ADR-0257）。重いステージを 1 本ずつ流す、または参照解の待ちで全体が失敗するときは、
   目標を指定する `dvc repro <yaml>:<ステージ>`（上流の changed は実行される。ADR-0184）。`-s` は上流を飛ばすので、rebase のあとに
-  数秒のステージを再実行する /dvc-relock と、上流の changed が deps だけで outs が `dvc.lock` のとおりのときに、数秒の下流を
-  `dvc.lock` の上流の出力で再実行するときだけに使う（確かめ方と除く項目は ADR-0184 の決定の `-s` の項。記録には上流の出どころを別に書く）。実行したら `dvc.lock` をコミットする（上流の `build`、`python-ast`、`binary-forms`、`toml-values` が書き換えたリポジトリの直下の `dvc.lock`、`python-ast/`、`binary-forms/`、`toml-values/` も。ADR-0159、ADR-0210、ADR-0255、ADR-0254）
+  数秒のステージを再実行する /dvc-relock と、上流の changed が deps だけで outs が `dvc.lock` のとおりのときに、目標だけを
+  `dvc.lock` の上流の出力で実行するとき（重さによらない）だけに使う。例のステージの `-s` は、手元でも Slurm でも
+  `scripts/dvc-repro.py -s [--allow-reference <yaml>:<ステージ>] <yaml>:<ステージ>` で実行する（上流が `changed outs`、
+  `changed command`、`changed checksum` を持てば何も実行せずに止まり、changed の正規形は先に実行する。生の `dvc repro -s` は
+  上流を確かめない。ADR-0184、ADR-0258）。記録には上流の出どころを別に書く。実行したら `dvc.lock` をコミットする（上流の `build`、`python-ast`、`binary-forms`、`toml-values` が書き換えたリポジトリの直下の `dvc.lock`、`python-ast/`、`binary-forms/`、`toml-values/` も。ADR-0159、ADR-0210、ADR-0255、ADR-0254）
 - 核種ごとの xs のステージ（`xs-nuclide`）は、`dvc repro` でなく `python3 examples/stage_runner.py <yaml> xs-nuclide` で流す（changed の
   ものを CPU 時間の長い順に同時に実行して `dvc commit` する。上流の changed も実行する。下流の `xs` は続けて `scripts/dvc-repro.py --max-stages 1 <yaml>:xs`。ADR-0193）。
   runner が書き直す CPU 時間の記録 `<yaml のディレクトリ>/stage-cpu-seconds.json` も `dvc.lock` と一緒にコミットする

@@ -41,7 +41,7 @@ scripts/dvc-checkout.py examples/vera/dvc.yaml
 （ADR-0136）。スクリプトを直してモデルが変わらなければ model.xml の md5 が同じで、`openmc-1B` は再実行しない。model.xml が変わる
 直し（タリーを足すなど）は、`openmc-1B` を再実行する。`model.xml` の生成だけを確かめるときは、
 `dvc repro examples/vera/dvc.yaml:openmc-1B-model`（上流は `references-shell` と、直下の `python-ast` と `toml-values` のステージで、どれも
-数秒。手元でよい。`-s` は付けない: スキル compute が `-s` を許す例外に当たらず、上流の changed も数秒で実行できる）。
+数秒。手元でよい。上流の changed も数秒で実行できるので、上流を飛ばす `-s` は要らない）。
 
 `dvc repro` は `default` の devShell で実行する（`references` の devShell の中では cargo と dvc がない）。ライブラリの
 63 ステージを含み、全体で 40〜60 分かかるので、全体を Slurm で流す。ジョブは `scripts/dvc-repro.py` で、先にリポジトリの直下で

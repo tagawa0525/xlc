@@ -55,8 +55,11 @@ issues: []
 
 - 使い方: `scripts/dvc-repro.py --max-stages <N> [--allow-reference <yaml>:<ステージか foreach の組>]... [--count-only]
   [--no-run-cache] (-P | <dvc repro の目標>...)`（default の devShell で、リポジトリの直下から。目標は cwd からの相対で、ステージの名前は
-  直下からのパスなので、ほかの場所では止まる）。`-s` と、ほかの dvc repro のオプションは、走るステージの
-  数え方を変えうるので受けない（`-s` は手元の数秒の再実行に使う）
+  直下からのパスなので、ほかの場所では止まる）。ほかの dvc repro のオプションは、走るステージの数え方を変えうるので受けない
+- `-s`: `scripts/dvc-repro.py -s [--allow-reference …]... [--count-only] [--no-run-cache] <yaml>:<ステージか foreach の組>`。
+  走るのは目標だけなので、`--max-stages` の代わりに、上流の出力が `dvc.lock` のとおりかを確かめてから `dvc repro -s <目標>` を
+  実行する（中身は ADR-0258 の決定と理由の「実行」、条件は ADR-0184 の決定の `-s` の 2 つ目の例外）。参照解の目標は、ほかの
+  経路と同じく `--allow-reference` に挙げたときだけ実行する
 - 範囲: `dvc repro --dry -f <目標>` が並べるステージ（目標とその上流。`-f` で changed によらずすべてを並べる）と、その cmd
 - 走りうるステージ: 範囲のうち、`dvc status --json --with-deps <目標>` が changed と示すものと、`dvc dag --dot <目標>`（目標ごと）
   の辺でその下流にあるもの。dvc status と `dvc repro --dry` は上流が出力を書き換えた後に走る下流を示さないので足す。上流が
@@ -93,8 +96,8 @@ issues: []
 ### 確認
 
 - `scripts/test_dvc_repro.py`: 参照解のステージを含む目標、上限を超える目標で止まって dvc repro を呼ばず、通る目標で
-  dvc repro を呼ぶこと（PATH に置いた偽の dvc で）。下流の数え、references-shell の扱い、組の許可、`-s` とリポジトリの直下の外を
-  受けないこと、ログで `STOP:` が一覧の後に来ること
+  dvc repro を呼ぶこと（PATH に置いた偽の dvc で）。下流の数え、references-shell の扱い、組の許可、リポジトリの直下の外を
+  受けないこと、ログで `STOP:` が一覧の後に来ること。`-s` の経路のテストは ADR-0258 の「確認」にある
 - `.claude/hooks/test_block_raw_dvc_repro_in_slurm.py`: `slurm-run.sh` に生の dvc repro を渡すコマンドを止め、ラッパー、
   stage_runner、手元の `dvc repro` と `dvc repro -s` を止めないこと。`slurm-run.sh … 2>&1 | tail` のように fd の番号が後に続いても
   止めること。`.claude/hooks/test_block_raw_dvc_checkout.py` は `2>/dev/null dvc checkout` を止めること
@@ -104,3 +107,11 @@ issues: []
   ものは無い）。参照解の openmc-1B-model、openmc-1B、openmc-1B-extract を許していないので、何も実行せずに終了コード 1 で止まった。
   changed の deps は xs と lattice の正規形（`binary-forms/xs.md5` が 62 ステージ、`binary-forms/lattice.md5` が 16）、openmc-1B-model と
   openmc-1B-extract は python-ast の 5 つと入力の正規形、openmc-1B は model.xml、ライブラリ、入力と cmd（同じ日に `dvc status --json` で数えた）。dvc の呼び出しは repro --dry 7.2 秒、dag 9.0 秒、status 41.1 秒（手元。references-shell.txt は devShell と同じ）
+
+## 変更
+
+- 2026-11-20: 決定と理由の「使い方」の項から `-s` を受けないことを外し、`-s` の経路の項を足した。前は「`-s` と、ほかの dvc repro
+  のオプションは、走るステージの数え方を変えうるので受けない（`-s` は手元の数秒の再実行に使う）」。ADR-0258 が `-s` を数秒の
+  ステージに限る条件をやめ、上流を流し直さずに重いステージを Slurm に流す経路をこのラッパーに置いたため（ADR-0258 の決定と
+  理由の「実行」）。`-s` で走るのは目標だけなので、走るステージを数える目的（意図しない上流の実行を防ぐ）は、上流の確認で
+  果たす。`slurm-run.sh` の外の `dvc repro` を止めない決定は変えない（手元の生の `-s` を止めないことは ADR-0258 の「実行」で決めた）

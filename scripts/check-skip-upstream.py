@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""`dvc repro -s <yaml>:<ステージ>` の 2 つ目の例外（ADR-0184 の決定の `-s` の項）のうち、`dvc status` で分かる条件を判定する（#0220）。
+"""`dvc repro -s <yaml>:<ステージ>` の上流の出力が dvc.lock のとおりか（ADR-0184 の決定の `-s` の項）のうち、`dvc status` で分かる条件を判定する（#0220）。
+scripts/dvc-repro.py の `-s` の経路が blockers を使う（ADR-0258）。
 
 使い方: scripts/check-skip-upstream.py <yaml>:<ステージ>
 
@@ -8,7 +9,7 @@
 直下の dvc.yaml の正規形のステージ（`python-ast`、`toml-values`、`binary-forms`）は、`changed deps` だけでも止める: 下流の cmd は
 元の .py、TOML、bin/ を読むので、先に実行して changed でなくしないと、dvc.lock に古い正規形の md5 が入る（ADR-0184、ADR-0254、ADR-0255）。
 目標のステージ自身の変更は再実行の理由なので数えない（foreach の目標 `<yaml>:<名前>` は、`<名前>@<項目>` のすべてが目標）。
-目標が数秒で終わるか（例外の条件）は判定しない。知らない種類の変更は ValueError で止める。
+知らない種類の変更は ValueError で止める。
 
 `dvc status` に出ない条件は判定しない: `references-shell.txt` は devShell が変わっても `dvc status` に出ないので、
 `scripts/check-references-shell.sh` で確かめる（ADR-0184）。
@@ -81,8 +82,8 @@ def main(argv):
         print(
             "ERROR: 上流に changed deps でない変更か、changed の正規形のステージ（"
             + "、".join(name.rstrip("@") for name in RUN_FIRST)
-            + "）がある。正規形のステージは先に dvc repro <そのステージ> で実行し（上流の build も走りうる。数秒で済まなければ"
-            " -s の例外に当たらない）、ほかは -s を使わず dvc repro <目標> で上流から実行する（ADR-0184）",
+            + "）がある。正規形のステージは先に dvc repro -s <そのステージ> で実行し（scripts/dvc-repro.py -s は自動で行う）、"
+            "ほかは上流の出力を dvc.lock のとおりに戻すか、-s を使わず上流から実行する（ADR-0184、ADR-0258）",
             file=sys.stderr,
         )
         return 1

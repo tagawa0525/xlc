@@ -3,7 +3,7 @@
 
 stdin の JSON（`tool_name`、`tool_input.command`）を読む。コマンドの中の `slurm-run.sh` の呼び出しの最後の引数（ジョブの
 コマンド）が dvc の repro を直接呼べば、理由と scripts/dvc-repro.py の使い方を stderr に出して終了コード 2（Claude Code が
-ツールの呼び出しを止める）。そうでなければ 0。`slurm-run.sh` の外の dvc repro（手元の `-s` の再実行など）は止めない。
+ツールの呼び出しを止める）。そうでなければ 0。`slurm-run.sh` の外の dvc repro（手元の再実行など）は止めない。
 コマンドを読めなければ（閉じていない引用）止めずに 1 で知らせる。
 
 hook はシェルから devShell の外で実行されるので、標準ライブラリだけを使う（コマンドの読み方は同じディレクトリの shell_words）。
@@ -26,8 +26,13 @@ OpenMC）や目標の上流のライブラリの作り直しまでが走る（20
 
 走りうるステージ（changed とその下流）が --max-stages を超えるか、--allow-reference に挙げていない参照解のステージ
 （cmd を references の devShell で包んだ NJOY と OpenMC）が入れば、何も実行せずに終了コード 1 で止まる。投げる前に数を
-見るなら、手元で同じ引数に --count-only を足す。上流を飛ばす数秒の dvc repro -s は Slurm に投げず手元で実行する
-（/dvc-relock、ADR-0184）。核種ごとの xs のステージは examples/stage_runner.py で流す。
+見るなら、手元で同じ引数に --count-only を足す。上流を流し直さずに 1 本だけ実行するときは、--max-stages の代わりに -s を付け、
+目標を 1 つの <yaml>:<ステージか foreach の組> にする:
+
+  scripts/dvc-repro.py -s [--allow-reference <yaml>:<ステージ>] <yaml>:<ステージ>
+
+上流の出力が dvc.lock のとおりでなければ（changed outs、changed command、changed checksum）、何も実行せずに止まる（ADR-0258）。
+核種ごとの xs のステージは examples/stage_runner.py で流す。
 """
 
 
