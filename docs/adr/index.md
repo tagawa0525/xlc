@@ -257,3 +257,4 @@
 * [ADR-0259: examples の計算は 1 ケース 1 ディレクトリに置き、本番も検討もステージで流して検討は凍結し、ケースの文書を結果の置き場にして OKF で結ぶ](0259-keep-each-example-case-in-one-directory.md)
 * [ADR-0260: ファイルを動かしたときは、中身のハッシュで同じファイルかを判定して dvc.lock のパスだけを書き換え、再計算にしない](0260-rewrite-lock-paths-by-content-hash-when-files-move.md)
 * [ADR-0262: 燃焼チェーンは、天然の元素の中性子の評価（A = 0）を、入力が挙げた同じ元素の核種の反応として当てる](0262-apply-natural-evaluations-to-listed-isotopes.md)
+* [ADR-0263: 燃焼チェーンは、負の ELIS を持つ準安定状態を、入力が挙げたときだけ励起エネルギーの分からない準位（0）として受け入れる](0263-list-isomers-with-unknown-excitation.md)

@@ -48,7 +48,7 @@ resolution:
   （項目 3）」）。ENDF/B-VIII.1 の論文の XIV.D.4 は、核分裂あたりのエネルギーの仮定が燃焼に伴う反応度の傾きに最も強く効くと書く。版の燃焼の
   反応度の差を測るときと文献と比べるときは、規格化の定義をそろえる
 
-関係する ADR: [ADR-0262](../adr/0262-apply-natural-evaluations-to-listed-isotopes.md)（版ごとのチェーンの天然の元素の評価）。本番の版を決めた決定は「問題」の冒頭に挙げた
+関係する ADR: [ADR-0262](../adr/0262-apply-natural-evaluations-to-listed-isotopes.md)（版ごとのチェーンの天然の元素の評価）、[ADR-0263](../adr/0263-list-isomers-with-unknown-excitation.md)（VII.0 の Nb-88m の負の ELIS）。本番の版を決めた決定は「問題」の冒頭に挙げた
 
 ## 完了の条件
 
