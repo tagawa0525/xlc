@@ -13,7 +13,7 @@ resolution:
 
 ## 問題
 
-- 中性子のファイルの全部を 1 つずつ `xs range` に通すと（1 核種だけの入力。2026-11-20、xlc 9a5525c5）、止まるファイルは次の 3 つで、
+- 中性子のファイルの全部を 1 つずつ `xs range` に通すと（1 核種だけの入力。2026-11-20、xlc a15e0a0f）、止まるファイルは次の 3 つで、
   分離共鳴の SLBW（LRF=1）で止まるファイルは無い（ADR-0265）。ファイルの数は VII.0 が 393、VII.1 が 423、VIII.0 が 557、VIII.1 が 558
   - VII.0 の天然の V と Zn: 複数の同位体（NIS = 2、5）の MF2 で、「NIS=2 isotopes are not supported」
   - VIII.1 の Sr-88: 分離共鳴のバックグラウンドの R 行列（KBK = 1）で、「background R-matrix (KBK=1) ... are not supported」

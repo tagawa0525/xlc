@@ -75,7 +75,7 @@ NJOY2016 の RECONR は、範囲ごとの共鳴の部分（`csslbw` の結果）
 - ポテンシャル散乱（crates/xs/src/process/tests.rs）: `resolved_range_has_its_top_and_potential_scattering`
 - MF2 の読み込みの J（crates/xs/src/endf/mf2/tests.rs）: `slbw_reads_resonances_whose_spin_equals_the_target_spin`、
   `mlbw_rejects_resonances_whose_spin_equals_the_target_spin`
-- NJOY との比較（xlc 9a5525c5、2026-11-20）: VII.1 の Xe-135、Pm-148m、VII.0 の Pu-238、Pu-242、Am-241 の 0 K の再構成を、NJOY2016 の
+- NJOY との比較（xlc a15e0a0f、2026-11-20）: VII.1 の Xe-135、Pm-148m、VII.0 の Pu-238、Pu-242、Am-241 の 0 K の再構成を、NJOY2016 の
   RECONR（許容誤差 1e-3）の PENDF と `compare_njoy_pendf` で比べた。分離共鳴の範囲の全断面積、核分裂、捕獲の相対差の最大は 9.7e-4〜1.0e-3 で、
   許容誤差の 2 倍を超える点は無い。弾性散乱の 2 倍を超える点は、Pu-238 と Pu-242 の NJOY の値が 3.9e-4 b 以下の点だけで、差の絶対値は
   1.7e-6 b 以下（NJOY の丸めと 1e-8 b の下限。値と入力は examples/depletion/verification.md の「版ごとのライブラリの分離共鳴の SLBW」）
