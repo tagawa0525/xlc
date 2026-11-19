@@ -54,5 +54,6 @@ ENSDF で励起エネルギーの分からない準位の値で、同じ Nb-88m 
 
 - 規則: crates/chain/src/build/tests.rs（`records_a_listed_negative_isomer_excitation_as_not_given`、
   `rejects_an_unlisted_negative_isomer_excitation`、`rejects_a_listed_isomer_whose_excitation_is_not_negative`、
-  `rejects_a_ground_state_with_an_excitation`）
+  `rejects_a_listed_isomer_whose_excitation_is_not_a_number`、`rejects_an_isomer_listed_twice_in_unknown_excitations`、
+  `reports_a_repeated_decay_evaluation_before_its_negative_excitation`、`rejects_a_ground_state_with_an_excitation`）
 - 実データ: VII.0 の入力で `bin/chain` が終了コード 0 でチェーンを作る（#0303 の経緯）
