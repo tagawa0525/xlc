@@ -292,6 +292,17 @@ class Hook(Repository):
         )
         self.assertEqual(self.calls(), [])
 
+    def test_a_dvc_yaml_the_hook_cannot_resolve_stops_naming_the_file(self):
+        self.write(
+            "examples/v/dvc.yaml",
+            EXAMPLE_YAML.replace("${item.toml}.json", "${unknown}.json"),
+        )
+        r = self.run_hook()
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("STOP: examples/v/dvc.yaml", r.stderr)
+        self.assertNotIn("Traceback", r.stderr)
+        self.assertEqual(self.calls(), [])
+
     def test_running_outside_the_repository_root_is_refused(self):
         r = self.run_hook(cwd=self.repo / "examples" / "v")
         self.assertEqual(r.returncode, 1)
