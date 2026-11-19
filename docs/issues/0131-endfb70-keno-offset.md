@@ -13,35 +13,37 @@ resolution:
 
 ## 問題
 
-ADR-0175 の検証用ライブラリ（ENDF/B-VII.0。examples/vera/endfb70/xs.toml）で xlc が止まった核種はなく、1B〜1D、2A〜2K、2Q、
-3A、3B を解けた。ただし xlc − KENO-VI の k の差は、ENDF/B-VIII.0 で xlc − OpenMC が示す手法の差より大きい
-（examples/vera/verification-endfb70.md、数値は 5dac88dd、2026-10-15）。
+出典は examples/vera/verification-endfb70.md の「NJOY で処理した ENDF/B-VII.0 の OpenMC との比較（1B、1D、2B）」（xlc は d6cc90d9、OpenMC は
+c4991e00、比較は fb3bd439、2026-11-20）。値はそこに書き、ここには未解決の点だけを並べる。
 
-- 15 の格子（ピンセルと集合体）で、VII.0 の xlc − KENO-VI は平均 +165 pcm（+115〜+270）。VIII.0 の xlc − OpenMC は平均 +39 pcm
-  （−69〜+108）。核データの版を揃えれば、差は VIII.0 の OpenMC との差と同程度になると見込んでいたが、そうならなかった
-- 同じ xlc の k が、ライブラリを VIII.0 から VII.0 に替えると平均 +75 pcm 動く（−78〜+173）。OpenMC（VIII.0）と KENO-VI（VII.0）の
-  k の差から見込む動き（KENO-VI − OpenMC）は平均 −52 pcm（−129〜+37）で、差し引くと平均 +127 pcm が説明できない。
-  1B、1C、1D、2A〜2D、2I、2Q では xlc の動きが +98〜+173 pcm
-- 1B〜1D は 600 K 以上の等温で、S(α,β) の温度の内挿も天然の C も効かない（C を含まない）。ほかの核種は燃料（U、O）と被覆管、水
+題名の差は、1B、1D、2B では、主に同じ ENDF/B-VII.0 を NJOY で処理した OpenMC と KENO-VI の差で、xlc の VII.0 の処理の誤りではなかった
+（ライブラリを VIII.0 から VII.0 に替えたときの k の動きが、xlc と OpenMC で 25 pcm 以内で合う）。残る点:
 
-## 候補（確かめていない）
-
-- xlc の VII.0 のファイルの扱い（共鳴の再構成、ドップラー拡がり、非分離共鳴、MF4/MF5/MF6 の違い）。VII.0 でだけ起きる処理の誤り
-- KENO-VI の連続エネルギーのライブラリ（AMPX）と NJOY の処理の差。同じ評価済みデータでも処理が違う
-- KENO-VI の入力（公開されていない）とモデルの解釈の差
-- 仕様書の KENO-VI が 565 K（2A、2Q）で S(α,β) の温度を補正していること
-
-## 完了の条件
-
-NJOY で処理した ENDF/B-VII.0 で OpenMC を解き（2D の小さな問題、1B と 2B など。ADR-0175 が許す診断）、OpenMC（VII.0）− KENO-VI が
-小さければ原因は xlc の VII.0 の処理、大きければ KENO-VI との処理の差かモデルの解釈、と分けられる。分けた結果を ADR と記録に書く。
+- OpenMC（NJOY、VII.0）− KENO-VI が 600 K で約 +100 pcm、1200 K で約 +180 pcm ある原因を分けていない。候補（確かめていない）:
+  - KENO-VI の連続エネルギーのライブラリ（AMPX）と NJOY の処理の差
+  - KENO-VI の入力（公開されていない）とモデルの解釈の差。xlc と OpenMC は同じ解釈（ギャップは真空、Hf を除く）なので、2 つの比較では分けられない
+  - 共鳴の散乱の扱い（自由ガスの範囲、DBRC）。温度で差が変わる分の候補（#0083）
+- ライブラリを替えたときの k の動きが、xlc で OpenMC より +17〜+25 pcm 大きい（統計誤差の 2.2〜3.5 倍、3 問題とも同じ符号）。原因は確かめていない。
+  核種ごとの動き（1B の xlc。記録の「核種を 1 つずつ VII.0 に替えた xlc の k の動き」）を OpenMC の側で同じ入れ替えと比べれば、核種に分けられる
+- 測ったのは 1B、1D、2B だけ。吸収体のある集合体（2E〜2K）、565 K（2A、2Q。仕様書の KENO-VI は S(α,β) の温度を補正している）、3A、3B の
+  OpenMC（VII.0）は無い
 
 関係する ADR: ADR-0175
 
+## 完了の条件
+
+残る点を詰めるか、詰めないと決めて閉じる。KENO-VI の入力が無いので、OpenMC − KENO-VI の原因は xlc の側からは分けられない。+17〜+25 pcm を
+核種に分けるなら、1B の OpenMC を核種を 1 つずつ VII.0 に替えたライブラリで解く（試行の入力の形は、ブランチ fix/0131-endfb70-keno-offset の
+作業ツリーに作ったが実行もコミットもしていない。1 本は 100 万粒子・150 世代）。
+
+## 検討して捨てた形
+
+- xlc の VII.0 のファイルの扱い（共鳴の再構成、ドップラー拡がり、非分離共鳴、MF4/MF5/MF6）が差の主因という見方: NJOY で処理した同じ VII.0 の
+  OpenMC が、版を替えたときに xlc と 25 pcm 以内で同じだけ動くので、主因ではない（上の出典）
+
 ## 経緯
 
-- 2026-10-15: 診断は保留（使用量のため）。ブランチ feat/0131-openmc-endfb70-diagnosisに、`examples/vera/endfb70/openmc/` のステージ
-  （ライブラリ 600 K の 33 核種 + H in H2O、1B 450 世代・2B 500 世代の OpenMC、比較 `compare_openmc_keno.py` と表 `endfb70-openmc`）を用意した。
-- 実行したのは `openmc-neutron`、`openmc-thermal`、`openmc-index` までで、`openmc-run@1B` の途中でジョブ 380 を止めた。ライブラリのステージの `endfb70/openmc/dvc.lock` はコミット済み（main への rebase の後も有効）。未実行（lock に項目がない）のは `openmc-model@2B`、`openmc-run`、`openmc-extract`、`compare-1B`、`compare-2B`。
-- 再開は、main に rebase し（ブランチがマージされていれば不要）、`scripts/dvc-checkout.py examples/vera/endfb70/dvc.yaml dvc.yaml` のあと、`slurm-run.sh -t 100 openmc-endfb70-1B-2B 'nix develop -c dvc repro examples/vera/endfb70/openmc/dvc.yaml'`（約 80 分、排他）。
-- そのあと `verification-endfb70.md` に `<!-- table: endfb70-openmc -->` の節を足し、`endfb70/openmc/dvc.lock` を更新してコミットする。
+- 2026-10-15: ADR-0175 の検証用ライブラリの最初の比較で、差が VIII.0 の OpenMC との差より大きいことが分かった。診断は使用量のため保留し、
+  `examples/vera/endfb70/openmc/` のステージを用意した
+- 2026-11-19: Slurm 961 で 1B、1D、2B の OpenMC（ENDF/B-VII.0）を解いた
+- 2026-11-20: 3 者の比較から、差の主な部分が OpenMC（NJOY）と KENO-VI の間にあると分かった

@@ -74,6 +74,9 @@ xlc の xs は ENDF/B-VII.0 のすべての核種で止まらず、ピンセル 
   xlc − OpenMC（平均 +39 pcm）と同程度にはならなかった。核データの版の差だけで残りが説明できる、という見込みは k では
   成り立たない。原因は確かめていない（#0131）
 - ピン出力: 吸収体のある集合体で、xlc − KENO-VI の RMS は VIII.0 の 0.45〜0.61 倍に下がる
+- NJOY で処理した ENDF/B-VII.0 の OpenMC（1B、1D、2B。c4991e00、2026-11-19）: VII.0 の xlc − KENO-VI（+196〜+204 pcm）のうち、+94〜+181 pcm は
+  同じ評価済みデータの OpenMC と KENO-VI の間にあり、ライブラリを VIII.0 から VII.0 に替えたときの k の動きは xlc と OpenMC で 25 pcm 以内で合う。
+  `examples/vera/verification-endfb70.md` の「NJOY で処理した ENDF/B-VII.0 の OpenMC との比較（1B、1D、2B）」（#0131）
 
 ## 帰結
 
@@ -82,5 +85,6 @@ xlc の xs は ENDF/B-VII.0 のすべての核種で止まらず、ピンセル 
   `ENDF-B-VII.0_neutrons/`、`ENDF-B-VII.0_thermal_scatt/` として足す（docs/environment.md）。VIII.0 のディレクトリの中身は変わらない
 - 処理の差（AMPX と xlc）は分けられない。分けるには、同じ処理の参照（NJOY の VII.0 での OpenMC）が要り、2D の小さな
   問題でだけ作る
-- ENDF/B-VII.0 での k の差が VIII.0 の OpenMC との差より大きい原因は未解決（#0131）。NJOY で処理した ENDF/B-VII.0 の OpenMC
-  （2D の小さな問題）が、分ける次の手になる
+- VII.0 の xlc − KENO-VI の k の差は、手法の差だけではない。1B、1D、2B では、処理かモデルの解釈の差（OpenMC（NJOY）− KENO-VI）が
+  +94〜+181 pcm を占める（「確認」）。k については、KENO-VI との直接の比較から xlc の手法の差を 100 pcm より細かく読めない。
+  その原因（AMPX と NJOY の処理、KENO-VI のモデルの解釈、共鳴の散乱の扱い）は分けていない（#0131）

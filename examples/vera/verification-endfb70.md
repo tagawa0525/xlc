@@ -120,10 +120,17 @@ OpenMC の統計誤差、OpenMC − KENO-VI の ± は OpenMC と KENO-VI の統
 - 同じ VII.0 での OpenMC − KENO-VI の変化は +81 ± 12 pcm（+100 → +181）、xlc − KENO-VI の変化は −6 ± 10 pcm（+204 → +198）。
   燃料の温度による k の変化は、xlc と KENO-VI が統計誤差の中で同じで、OpenMC だけが小さい: 1B から 1D の反応度の変化
   （1/k_1B − 1/k_1D）は、VII.0 で xlc −1422、KENO-VI −1422、OpenMC −1360 pcm、VIII.0 で xlc −1416、OpenMC −1352 pcm
-- どのコードの温度の変化が正しいかは、この比較では決まらない。OpenMC の参照解は、分離共鳴を持つ核種の散乱を 400 kT より下で断面積一定の
-  自由ガスとして扱い、共鳴の上方散乱（DBRC など）を使っていない（ADR-0204 の背景）。KENO-VI がこれを使ったかは入力が公開されておらず
-  確かめていない（候補）。xlc の自己遮蔽の減速計算も断面積一定の自由ガスで、共鳴の形を入れた散乱核は使っていないが、自由ガスにする
-  入射エネルギーの上限が OpenMC の 400 kT でなく、温度によらない 31 eV である（ADR-0243）
+- xlc − OpenMC の変化のうち −65 pcm は、自己遮蔽の減速計算で分離共鳴を持つ核種を自由ガスにする入射エネルギーの上限の違いによる。OpenMC の上限は
+  400 kT（600 K で 20.7 eV、1200 K で 41.4 eV。ADR-0204 の背景）で、燃料の温度とともに U-238 の 20.872 eV と 36.683 eV の共鳴を越える。xlc の既定は
+  温度によらない 31 eV（ADR-0243）。xlc の上限を 400 kT にして 1B と 1D を解くと（試行の入力 `trials/0083-free-gas-cap/<版>/pincell-<問題>-400kt.toml`、
+  コミット aa40c344。計算は「計算」）、k は既定から 1B で −24 pcm（VII.0 1.183952、VIII.0 1.182411）、1D で +42 pcm（VII.0 1.165001、VIII.0 1.163582）動き、
+  2 つの版で動きは 0.1 pcm 以内で同じ。同じ上限にした xlc − OpenMC は、VII.0 で 1B +80 ± 4、1D +59 ± 5 pcm（変化 −21 ± 6 pcm）、VIII.0 で
+  1B +63 ± 6、1D +38 ± 7 pcm（変化 −25 ± 9 pcm）。残る −21〜−25 pcm は ± の 2.7〜3.2 倍で、原因は確かめていない
+- 上限を 400 kT にした xlc − KENO-VI の変化は +60 ± 10 pcm（+180 → +240）で、既定の 31 eV の −6 ± 10 pcm より大きい。KENO-VI の温度の変化は、
+  xlc の 2 つの上限のうち 31 eV の側と合う。KENO-VI の共鳴の散乱の扱い（自由ガスの範囲、共鳴の上方散乱の DBRC など）は入力が公開されておらず
+  確かめていない
+- どの扱いの温度の変化が正しいかは、この比較では決まらない。OpenMC の参照解も xlc も断面積一定の自由ガスで、共鳴の形を入れた散乱核
+  （ADR-0243 の案 7）は使っていない。決めるには、その散乱核を使った参照（OpenMC の `resonance_scattering` と 0 K の弾性散乱の断面積）が要る
 
 ### 核種を 1 つずつ VII.0 に替えた xlc の k の動き（1B）
 
@@ -151,7 +158,8 @@ OpenMC の統計誤差、OpenMC − KENO-VI の ± は OpenMC と KENO-VI の統
   [#0131](../../docs/issues/0131-endfb70-keno-offset.md)）。測ったのは 1B、1D、2B だけで、吸収体のある集合体（2E〜2K）と 3A、3B の OpenMC（VII.0）は無い。
   したがって「KENO-VI との差の残りは xlc の手法の差」とは、版を揃えても k については言えない。
 - 燃料の温度による xlc − OpenMC の変化（1B から 1D）は、VII.0 で −87 ± 6 pcm、VIII.0 で −90 ± 9 pcm と版によらず、xlc − KENO-VI の変化は
-  −6 ± 10 pcm（「燃料の温度による変化」）。xlc と KENO-VI の温度の変化が合い、OpenMC が小さい。どれが正しいかは決まっていない
+  −6 ± 10 pcm（「燃料の温度による変化」）。xlc − OpenMC の変化のうち −65 pcm は、
+  重い核種を自由ガスにする上限の違い（xlc は 31 eV、OpenMC は 400 kT）で、同じ上限では −21 ± 6、−25 ± 9 pcm が残る。どの扱いが正しいかは決まっていない
   （[#0083](../../docs/issues/0083-fuel-temperature-slope.md)）。
 - ピン出力: 吸収体のある集合体（2E〜2H、2J、2K）で、VII.0 のライブラリの xlc − KENO-VI の RMS は VIII.0 の 0.48〜0.60 倍に下がる
   （上の表。3B のピン出力も 0.086% と 0.149%）。2B〜2D、2A、2I、2Q と 3A は両方で同じ程度。軸方向の出力の差の RMS は 3A、3B とも
@@ -176,6 +184,10 @@ OpenMC（ENDF/B-VII.0）の 1B、1D、2B は c4991e00（ブランチ fix/0131-en
 （最初の 50 世代を捨てる）、2B は 500 世代（最初の 100 世代を捨てる）。比較（`compare-1B`、`compare-1D`、`compare-2B`）は fb3bd439（分岐点は main の bb8f2869）、
 2026-11-20 に手元で実行した。上流の xlc のステージ（`endfb70/dvc.yaml` の `pincell`、`assembly`）は deps（実行ファイルの正規形）だけが changed で、
 出力は `endfb70/dvc.lock` のとおりなので、`dvc repro -s` で lock の出力（上の d6cc90d9 の Slurm 898 のもの）を読んだ（ADR-0184）。
+
+自由ガスの上限を変えた 1B と 1D の試行は aa40c344（ブランチ fix/0131-endfb70-keno-offset、分岐点は main の bb8f2869）、2026-11-20、Slurm 966
+（`xlc-0083-free-gas-cap`）で、2 つの版のライブラリ（Slurm 897、898 のもの）に `bin/lattice` を既定（31 eV）と `ufg-free-gas = { heavy = 400 }` の入力で
+実行した（`trials/0083-free-gas-cap/<版>/pincell-<問題>-<上限>.toml`）。既定の 4 本の k は「格子」の表の出どころの値と 6 桁で一致する。
 
 核種を 1 つずつ替えた 1B の試行は 0500a720（main。試行の入力は追跡していない状態で実行し、同じ入力を 1867c08a でコミットした）、2026-11-19 に手元で
 `bin/xs assemble <場合>/xs.toml examples/vera/xs-range.toml <場合>/nuclides` と `bin/lattice <場合>/pincell-1B.toml` を実行した。
