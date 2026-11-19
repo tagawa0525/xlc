@@ -45,7 +45,7 @@ examples/ にコミットしていて、対比のために表の最後に並べ�
   examples/vera/dvc.yaml で、OpenMC のライブラリ（核種ごと）と VERA 1B（OpenMC → 抽出、xs → lattice → 比較）を
   端から端まで通した。残り（同じ形で足す）:
   - 済（ADR-0175）: VERA 1C〜2K の OpenMC のステージは作らず、xlc の lattice と KENO-VI との比較を examples/vera/dvc.yaml の
-    `keno-pincell`（1B〜1D）と `keno-assembly`（2A〜2Q）のステージにした。1E は入力が無く、docs/plans/m4-depletion.md の 5 の残り
+    `keno-pincell`（1B〜1D）と `keno-assembly`（2A〜2K、2Q）のステージにした。1E と 2L〜2P は examples/vera/p1、p2 に入力が無く、docs/plans/m4-depletion.md の 5 の残り（HZP）
   - 済（ADR-0152）: 燃料の実効断面積の tally は、標準のタリーの組の WIMS 69 群（モジュールの定数）に入り、xlc のライブラリを
     deps にしない。入力の `effective-xs-groups` はなくした
   - 済（ADR-0136）: OpenMC のステージを「入力とスクリプト → model.xml」と「model.xml とライブラリ → statepoint」に分ける
@@ -93,4 +93,4 @@ examples/ にコミットしていて、対比のために表の最後に並べ�
   `references/openmc/endfb80-565`（565 K を含む endfb80 の上位集合）で `endfb80` を置き換えるかは決めていない。
   `references/history-rewrite/` は #0077 が閉じるまで消さない
 - 2026-10-21: `references/history-rewrite/`（1 度目の書き換えのツール）は、#0141 で nixfiles の history-rewrite に置き換えて消した
-- 2026-11-19: 仕様書に KENO-VI の値がある問題は KENO-VI と直接比べ、OpenMC の参照解は参照のない問題と診断だけに作ることになった（ADR-0175）ので、完了の条件の VERA 1C〜2K の項を、KENO-VI と比べるステージ（1B〜1D、2A〜2Q）で済んだと書き直した
+- 2026-11-19: 仕様書に KENO-VI の値がある問題は KENO-VI と直接比べ、OpenMC の参照解は参照のない問題と診断だけに作ることになった（ADR-0175）ので、完了の条件の VERA 1C〜2K の項を、KENO-VI と比べるステージ（1B〜1D、2A〜2K、2Q）で済んだと書き直した
