@@ -9,6 +9,7 @@
 //! decay-directory = "../../references/endf/ENDF-B-VIII.0_decay"    # decay の評価（*.endf をすべて読む。1 つのファイルに複数の物質があってよい）
 //! nfy-directory = "../../references/endf/ENDF-B-VIII.0_nfy"        # 中性子の核分裂の収率
 //! neutron-directory = "../../references/endf/ENDF-B-VIII.0_neutrons"  # 中性子の反応
+//! natural-isotopes = ["C-12", "C-13"]  # 天然の元素の評価（A = 0）を当てる核種（ADR-0262）。省くと空で、天然の元素の評価があれば止める
 //! ```
 //!
 //! データにないものを規則で補った箇所は警告（tracing の warn）として標準エラーに出す。
@@ -39,6 +40,9 @@ struct Input {
     decay_directory: PathBuf,
     nfy_directory: PathBuf,
     neutron_directory: PathBuf,
+    /// 天然の元素の評価を当てる核種（ADR-0262）
+    #[serde(default)]
+    natural_isotopes: Vec<String>,
 }
 
 fn main() -> ExitCode {
@@ -128,7 +132,7 @@ fn run(path: &Path) -> Result<()> {
         neutrons = neutrons.len(),
         "read the evaluations"
     );
-    let built = build(&decays, &neutrons, &yields)?;
+    let built = build(&decays, &neutrons, &yields, &input.natural_isotopes)?;
     for warning in &built.warnings {
         xlc_log::warn!("{warning}");
     }
