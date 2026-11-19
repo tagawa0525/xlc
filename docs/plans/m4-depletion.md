@@ -343,10 +343,10 @@ AWS（c7a のスポット。$0.015〜0.023/物理コア時間。ADR-0151）の�
 
 入力は examples/depletion/p2/（`p2_inputs.py` が OpenMC の `openmc-<ジョブ>.toml` と xlc の `lattice-<ジョブ>.toml` を同じ表から書く）。ジョブは
 `2A`、`2F`、`2M`、`2N`、`2O`、`2P`、`2A-density`、`2A-rods`。ライブラリは作ってある（`scripts/dvc-checkout.py examples/depletion/p2/dvc.yaml` で戻す）。
-OpenMC の参照解は AWS、xlc は手元の Slurm（排他）で、互いに独立なので同時に進めてよい。
+OpenMC の参照解も xlc も、今は r995 の Slurm で流す（AWS は枠が無い。ユーザー 2026-11-19）。下の 1 と 2 は AWS の手順で、枠が戻ったときのもの。OpenMC を Slurm に投げる形はこの計画にまだ無い（スキル openmc-reference、スキル slurm-run）。
 
 1. 前提: `aws login`（約 12 時間で切れる）。worktree で `scripts/dvc-checkout.py dvc.yaml examples/depletion/dvc.yaml examples/depletion/p2/dvc.yaml`（`bin/`、チェーン、ライブラリ）
-2. OpenMC を AWS に流す（リポジトリの直下から。名前 `m4-assembly` は比較のステージの deps が決める）。最初に `--dry-run`:
+2. OpenMC を AWS に流す（枠が戻ったとき。リポジトリの直下から。名前 `m4-assembly` は比較のステージの deps が決める）。最初に `--dry-run`:
 
    ```sh
    jobs=$(printf 'examples/depletion/p2/openmc-%s.toml ' 2A 2O 2P 2M 2F 2N 2A-density 2A-rods)

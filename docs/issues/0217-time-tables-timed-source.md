@@ -25,8 +25,8 @@ resolution:
 決める前に要ること:
 
 - OpenMC の行: 1C の時間の表（examples/depletion/verification.md）の OpenMC の時間は Slurm 409（`sacct` で Partition は main、
-  2026-10-15。`sacct -S 2026-10-01 -r timed` の最も古いジョブは 514 で 2026-10-24）の値で、案のとおりに止めると今の表が落ちる。CLAUDE.md の
-  「計算」は数時間の OpenMC の参照解を AWS のスポットに回し、集合体の時間の表（`depletion_assembly_times`）は「OpenMC の時間は
+  2026-10-15。`sacct -S 2026-10-01 -r timed` の最も古いジョブは 514 で 2026-10-24）の値で、案のとおりに止めると今の表が落ちる。2026-11-19 までの CLAUDE.md の
+  「計算」は数時間の OpenMC の参照解を AWS のスポットに回し（今は r995 の Slurm で流す。ユーザー 2026-11-19）、集合体の時間の表（`depletion_assembly_times`）は「OpenMC の時間は
   AWS の機種によるので載せない」（関数の docstring）。1C の表も OpenMC の時間を外すか、timed のパーティションの前の排他のジョブを
   認めるかを決める
 - チェックポイント: チェックポイントから再開した履歴の `seconds` は前後の実行の和で、パーティションが違うジョブが混ざりうる。

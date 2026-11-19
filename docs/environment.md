@@ -166,7 +166,10 @@ worktree でなく main の flake とスクリプトが使われる。たとえ�
 
 ## 外部の計算機（AWS）
 
-r995 で待ち時間が長くなる OpenMC の参照解は、AWS EC2 の c7a のスポットで流す（ADR-0151。検討ステージ）。c7a は vCPU が物理コアで、
+**今は使わない**。AWS の枠が無いので、数時間の OpenMC の参照解も r995 の Slurm で流す（ユーザー 2026-11-19。流し方はスキル openmc-reference と
+CLAUDE.md の「計算」）。この節以下の手順とツール（examples/aws/）は、枠が戻って使うときのために残す。
+
+AWS を使うときは、r995 で待ち時間が長くなる OpenMC の参照解を、AWS EC2 の c7a のスポットで流す（ADR-0151。検討ステージ）。c7a は vCPU が物理コアで、
 x86_64 の nix のクロージャをそのまま送れる。本番は次の節の「自己完結な実行」（ADR-0155）で流す。手元から ssh で起動、終了、送る、実行、回収するツールも次の節にある。
 
 ユーザーが用意するもの:
@@ -188,15 +191,15 @@ x86_64 の nix のクロージャをそのまま送れる。本番は次の節�
 - 結果（数十 MB）を回収する
 - VM を削除する（方式 B）
 
-## 参照の仕様書の写し
+## 参照の仕様書のコピー
 
 仕様書のテキスト版が `references/vera/spec.txt`（VERA）と `references/c5g7/spec.txt`（C5G7）にある。C5G7 の 2D の
 参照 k は 1.186550（MCNP。examples/c5g7/verification.md）。
 
 ## 外部の計算機での参照解（Problem 3、5-2D、燃焼）
 
-Problem 3、5-2D と燃焼の本番（数時間の実行を 5 本）は、r995 でなく外部の VM（AWS、GCP など）で流す。VM には Nix だけを入れ、
-OpenMC と Python API は手元でビルドしたクロージャを送る（VM で再ビルドしない）。Slurm は使わない。VM は中断されうる（スポット）ので、
+Problem 3、5-2D と燃焼の本番（数時間の実行を 5 本）は、外部の VM（AWS、GCP など）で流せる（今は使わず r995 の Slurm で流す。上の「外部の計算機（AWS）」）。VM には Nix だけを入れ、
+OpenMC と Python API は手元でビルドしたクロージャを送る（VM で再ビルドしない）。VM の上では Slurm は使わない。VM は中断されうる（スポット）ので、
 入力の `statepoint-interval` で途中の statepoint を書き、中断のあとは `--restart` で再開する。
 
 AWS の本番は、次の「自己完結な実行」で流す（ADR-0155）。手元から ssh で進める「ツールを使う手順」以下は、AWS 以外の VM と、
@@ -292,7 +295,7 @@ VM にはキーペアを付けず、VPC の既定のセキュリティグルー�
 `--sync-minutes`、`--az`、`--on-demand`（スポットに戻すのは `--spot`）は、指定がなければ最後の起動の記録（`launches/`）の値を使う（最後の起動が auto の選択で `--on-demand` の指定がなければ `--type` は auto になり、`--az` は引き継がない。ADR-0171）。
 `--statepoint-interval <世代>`（定義の `progress` が `statepoint` の実行だけ）は、その起動の OpenMC の実行だけ、入力の `statepoint-interval` を上書きする（S3 の `src/` の入力は
 書き換えない。中断が続くときに失う分を縮める。ADR-0168）。記録から引き継がず毎回明示し、指定がなければ入力の値になる。
-参照解の statepoint の間隔は物理の結果に影響しないが、記録には起動し直しで使った間隔を書く（`launches/` の `STATEPOINT_INTERVAL`）。
+参照解の statepoint の間隔は物理の結果に影響を与えないが、記録には起動し直しで使った間隔を書く（`launches/` の `STATEPOINT_INTERVAL`）。
 起動し直しの VM は、そのときの手元の `aws_run.sh` が作る user-data で起動する（`TOOLS_COMMIT`）。走っている VM は古いまま。`done` が 0 の
 ジョブと、VM が走っているジョブは飛ばす。0 でないジョブ（失敗）は飛ばして示し、ほかのジョブは起動する（終わりの状態は 1。`boot-*.log` を見て、原因を直してから
 `--job <ジョブ名> --retry-failed` を付けると、`done` を S3 から消して起動し直す。S3 の `log` で原因を確かめてから使う）。最後の進み具合（最後の世代の statepoint、最後の区間）があって `done` が
@@ -348,8 +351,8 @@ VM にはキーペアを付けず、VPC の既定のセキュリティグルー�
 
 #### 機種と AZ の自動選択（`--type auto`、ADR-0171）
 
-数時間の OpenMC の参照解は AWS のスポット（`--type auto`）、xlc の計算は条件が変わりやすく無駄になりうるので r995 の Slurm で流す（ユーザー
-2026-10-14）。オンデマンドと m7a 系は使わない（メモリが余る機種で、独断の予備だった。ユーザー 2026-10-13）。短い OpenMC（分単位）はローカルでよい。
+AWS を使うときは、数時間の OpenMC の参照解を AWS のスポット（`--type auto`）、xlc の計算は条件が変わりやすく無駄になりうるので r995 の Slurm で流す（ユーザー
+2026-10-14）。今は AWS の枠が無いので、数時間の OpenMC の参照解も r995 の Slurm で流す（ユーザー 2026-11-19）。オンデマンドと m7a 系は使わない（メモリが余る機種で、独断の予備だった。ユーザー 2026-10-13）。短い OpenMC（分単位）はローカルでよい。
 候補を足すとき（新しい世代の機種など）は、速度とメモリが合うかを確かめて `examples/aws/aws_types.toml` に足す。
 
 `aws_run.sh --type auto`（新しい実行と起動し直しの両方）は、`examples/aws/aws_types.toml` の候補の機種（c8a.4xlarge、c8a.8xlarge、
