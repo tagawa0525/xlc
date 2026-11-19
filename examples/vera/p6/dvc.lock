@@ -276,8 +276,12 @@ stages:
     deps:
     - path: ../../../python-ast/examples/vera/compare_p6.py.ast
       hash: md5
-      md5: 1c619453ac6d193fb5e3c33d968ef908
-      size: 7334
+      md5: 3a6dda24ef275506af1b49456368a4d3
+      size: 7402
+    - path: ../../../python-ast/scripts/normalize_toml.py.ast
+      hash: md5
+      md5: 829baa23a7d6698630de51de138a9f40
+      size: 822
     - path: ../../../toml-values/examples/vera/p6/core-6-isothermal.toml.json
       hash: md5
       md5: 69fd93fb7e7d4ad0f62233a5ba5549be
@@ -309,5 +313,5 @@ stages:
     outs:
     - path: compare-6.json
       hash: md5
-      md5: 09012252d3d25819b529b64d51ff6bf2
+      md5: 72a6f90fd3f48cb824d048ca54cdb220
       size: 10189

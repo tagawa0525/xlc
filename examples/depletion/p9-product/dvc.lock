@@ -79,13 +79,17 @@ stages:
     - path: 
         ../../../python-ast/examples/depletion/compare_branch_cross_terms.py.ast
       hash: md5
-      md5: 7fcfd28ab849fd3f1f0db5e3cd105019
-      size: 41364
+      md5: 3076d3fa5004d039bd39fe6e5799ae81
+      size: 41432
     - path: 
         ../../../python-ast/examples/depletion/compare_burnup_interpolation.py.ast
       hash: md5
       md5: 1fbba180eddd60cc40f8e3c467dc578a
       size: 9792
+    - path: ../../../python-ast/scripts/normalize_toml.py.ast
+      hash: md5
+      md5: 829baa23a7d6698630de51de138a9f40
+      size: 822
     - path: 
         ../../../toml-values/examples/depletion/p9-product/compare-2A.toml.json
       hash: md5
@@ -98,7 +102,7 @@ stages:
     outs:
     - path: compare-2A.json
       hash: md5
-      md5: 56472845047367cf7c865870852517fc
+      md5: 4d345dbfc404f24ad63eb183ad2bf21d
       size: 24227
   grid-2A:
     cmd: python3 ../compare_grid_interpolation.py --json grid-2A.json 
@@ -107,8 +111,8 @@ stages:
     - path: 
         ../../../python-ast/examples/depletion/compare_branch_cross_terms.py.ast
       hash: md5
-      md5: 7fcfd28ab849fd3f1f0db5e3cd105019
-      size: 41364
+      md5: 3076d3fa5004d039bd39fe6e5799ae81
+      size: 41432
     - path: 
         ../../../python-ast/examples/depletion/compare_burnup_interpolation.py.ast
       hash: md5
@@ -117,8 +121,12 @@ stages:
     - path: 
         ../../../python-ast/examples/depletion/compare_grid_interpolation.py.ast
       hash: md5
-      md5: 966df2466ff82607590ba264dad24057
-      size: 12370
+      md5: 57e00ad3d1dc384e847240be2925e694
+      size: 12390
+    - path: ../../../python-ast/scripts/normalize_toml.py.ast
+      hash: md5
+      md5: 829baa23a7d6698630de51de138a9f40
+      size: 822
     - path: ../../../toml-values/examples/depletion/p9-product/grid-2A.toml.json
       hash: md5
       md5: bc4f2b2c2dc7313ab11c319a976b015d
@@ -130,5 +138,5 @@ stages:
     outs:
     - path: grid-2A.json
       hash: md5
-      md5: 0f607ceae0e20e4cd9a62e8c69c02fda
+      md5: fb07a017ff8bc7eae7283b65183f6cb0
       size: 136031

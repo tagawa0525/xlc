@@ -7,8 +7,8 @@ stages:
     - path: 
         ../../../python-ast/examples/depletion/compare_branch_cross_terms.py.ast
       hash: md5
-      md5: 7fcfd28ab849fd3f1f0db5e3cd105019
-      size: 41364
+      md5: 3076d3fa5004d039bd39fe6e5799ae81
+      size: 41432
     - path: 
         ../../../python-ast/examples/depletion/compare_burnup_interpolation.py.ast
       hash: md5
@@ -17,8 +17,12 @@ stages:
     - path: 
         ../../../python-ast/examples/depletion/compare_grid_interpolation.py.ast
       hash: md5
-      md5: 966df2466ff82607590ba264dad24057
-      size: 12370
+      md5: 57e00ad3d1dc384e847240be2925e694
+      size: 12390
+    - path: ../../../python-ast/scripts/normalize_toml.py.ast
+      hash: md5
+      md5: 829baa23a7d6698630de51de138a9f40
+      size: 822
     - path: 
         ../../../toml-values/examples/depletion/p9-fuel-points/fuel-points-2A.toml.json
       hash: md5
@@ -31,7 +35,7 @@ stages:
     outs:
     - path: fuel-points-2A.json
       hash: md5
-      md5: 3d359784b3d853537c579bdc97a2ece6
+      md5: 4c697dbf6fe3833a968ad9843a5bd8ce
       size: 48271
   fuel-points-2O:
     cmd: python3 ../compare_grid_interpolation.py --json fuel-points-2O.json 
@@ -40,8 +44,8 @@ stages:
     - path: 
         ../../../python-ast/examples/depletion/compare_branch_cross_terms.py.ast
       hash: md5
-      md5: 7fcfd28ab849fd3f1f0db5e3cd105019
-      size: 41364
+      md5: 3076d3fa5004d039bd39fe6e5799ae81
+      size: 41432
     - path: 
         ../../../python-ast/examples/depletion/compare_burnup_interpolation.py.ast
       hash: md5
@@ -50,8 +54,12 @@ stages:
     - path: 
         ../../../python-ast/examples/depletion/compare_grid_interpolation.py.ast
       hash: md5
-      md5: 966df2466ff82607590ba264dad24057
-      size: 12370
+      md5: 57e00ad3d1dc384e847240be2925e694
+      size: 12390
+    - path: ../../../python-ast/scripts/normalize_toml.py.ast
+      hash: md5
+      md5: 829baa23a7d6698630de51de138a9f40
+      size: 822
     - path: 
         ../../../toml-values/examples/depletion/p9-fuel-points/fuel-points-2O.toml.json
       hash: md5
@@ -64,5 +72,5 @@ stages:
     outs:
     - path: fuel-points-2O.json
       hash: md5
-      md5: bb2ad1f7c48307882a2d41977540fcce
+      md5: b39d65076918bfa07ab67d1f269d8657
       size: 57979

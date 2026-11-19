@@ -44,13 +44,17 @@ stages:
     - path: 
         ../../../python-ast/examples/depletion/compare_branch_cross_terms.py.ast
       hash: md5
-      md5: 7fcfd28ab849fd3f1f0db5e3cd105019
-      size: 41364
+      md5: 3076d3fa5004d039bd39fe6e5799ae81
+      size: 41432
     - path: 
         ../../../python-ast/examples/depletion/compare_burnup_interpolation.py.ast
       hash: md5
       md5: 1fbba180eddd60cc40f8e3c467dc578a
       size: 9792
+    - path: ../../../python-ast/scripts/normalize_toml.py.ast
+      hash: md5
+      md5: 829baa23a7d6698630de51de138a9f40
+      size: 822
     - path: ../../../toml-values/examples/depletion/p9-2A/thinning-2A.toml.json
       hash: md5
       md5: c8993e31eb991027bd4abc9442cbb5d4
@@ -62,5 +66,5 @@ stages:
     outs:
     - path: thinning-2A.json
       hash: md5
-      md5: 5e5d474ec95066b83997007e733a845d
+      md5: 34c14b34001f80a7f8b5b91eff6d20e0
       size: 391006

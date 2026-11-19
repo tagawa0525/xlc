@@ -1955,8 +1955,8 @@ stages:
       size: 3682
     - path: ../../python-ast/examples/core/rods_cases.py.ast
       hash: md5
-      md5: 4a07cffd7a65dcec2ee500bc76284b30
-      size: 4904
+      md5: c7ef8028d48ddadd7af97a6ea33120e4
+      size: 5126
     - path: out/fine-0.125-116.out
       hash: md5
       md5: 141a4edc0f3b2fbc2893a2a3d6d42dd5
