@@ -69,7 +69,8 @@
   "O16": {
    "endf": "../../../../references/endf/ENDF-B-VII.0_neutrons/n-008_O_016.endf",
    "temperatures": [
-    600
+    600,
+    1200
    ]
   },
   "Sn112": {
@@ -135,25 +136,29 @@
   "U234": {
    "endf": "../../../../references/endf/ENDF-B-VII.0_neutrons/n-092_U_234.endf",
    "temperatures": [
-    600
+    600,
+    1200
    ]
   },
   "U235": {
    "endf": "../../../../references/endf/ENDF-B-VII.0_neutrons/n-092_U_235.endf",
    "temperatures": [
-    600
+    600,
+    1200
    ]
   },
   "U236": {
    "endf": "../../../../references/endf/ENDF-B-VII.0_neutrons/n-092_U_236.endf",
    "temperatures": [
-    600
+    600,
+    1200
    ]
   },
   "U238": {
    "endf": "../../../../references/endf/ENDF-B-VII.0_neutrons/n-092_U_238.endf",
    "temperatures": [
-    600
+    600,
+    1200
    ]
   },
   "Zr90": {
