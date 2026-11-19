@@ -7,7 +7,7 @@
 TOMLDecodeError、日時（TOML の date と time）は TypeError、nan と inf は ValueError で止まる（元のファイルの md5 に戻さない）。
 
 比較のスクリプトが JSON の `inputs` に書く入力の md5 は、TOML なら正規形の md5（`input_md5`）にする。ステージの
-deps が記録する md5 と同じ値になり、コメントだけの直しで JSON が古くならない。
+deps が記録する md5 と同じ値になり、コメントだけの修正で JSON が古くならない。
 """
 
 import hashlib
