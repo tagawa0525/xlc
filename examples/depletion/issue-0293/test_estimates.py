@@ -60,6 +60,11 @@ class CumulativeYields(unittest.TestCase):
         self.assertAlmostEqual(cumulative[1], 0.01 + 0.08)
         self.assertAlmostEqual(cumulative[2], 0.001 + 0.02 + 0.09)
 
+    def test_a_decay_that_returns_to_itself_is_an_error(self):
+        loop = {"modes": [{"ratio": 1.0, "products": [{"nuclide": 0, "count": 1}]}]}
+        with self.assertRaises(SystemExit):
+            estimates.cumulative_yields({"nuclides": [{"decay": loop}]}, {0: 1.0})
+
 
 class YieldPoints(unittest.TestCase):
     def test_nuclides_without_both_points_use_one_yield(self):
@@ -67,6 +72,17 @@ class YieldPoints(unittest.TestCase):
             estimates.yield_points({"energies": [0.0253, 5e5, 1.4e7]}), (0, 1)
         )
         self.assertIsNone(estimates.yield_points({"energies": [5e5, 1.4e7]}))
+        self.assertIsNone(estimates.yield_points({"energies": [0.0253]}))
+
+    def test_points_off_the_thermal_and_fast_energies_take_the_nearest_on_each_side(
+        self,
+    ):
+        self.assertEqual(
+            estimates.yield_points({"energies": [0.0253, 2e6, 1.4e7]}), (0, 1)
+        )
+        self.assertEqual(
+            estimates.yield_points({"energies": [0.0253, 5e5, 2e6]}), (0, 1)
+        )
 
 
 class BurnupShift(unittest.TestCase):
