@@ -126,6 +126,11 @@ OpenMC の統計誤差、OpenMC − KENO-VI の ± は OpenMC と KENO-VI の統
   コミット 45e0a205。計算は「計算」）、k は既定から 1B で −24 pcm（VII.0 1.183952、VIII.0 1.182411）、1D で +42 pcm（VII.0 1.165001、VIII.0 1.163582）動き、
   2 つの版で動きは 0.1 pcm 以内で同じ。同じ上限にした xlc − OpenMC は、VII.0 で 1B +80 ± 4、1D +59 ± 5 pcm（変化 −21 ± 6 pcm）、VIII.0 で
   1B +63 ± 6、1D +38 ± 7 pcm（変化 −25 ± 9 pcm）。残る −21〜−25 pcm は ± の 2.7〜3.2 倍で、原因は確かめていない
+- 残りは、軽い核種（分離共鳴を持たない核種）の上限の違い（xlc は 1 keV（ADR-0246）、OpenMC は 400 kT）では説明できない。軽い核種の上限も
+  400 kT にすると（`ufg-free-gas = { heavy = 400, upper = 400 }`。試行の入力 `trials/0083-free-gas-cap/<版>/pincell-<問題>-400kt-both.toml`、
+  コミット c4c0b7ff。計算は「計算」）、k は VII.0 で 1B 1.184172、1D 1.165226、VIII.0 で 1B 1.182633、1D 1.163809 になり、重い核種だけを 400 kT にした k から
+  1B で +22.0、+22.2 pcm、1D で +22.5、+22.7 pcm 動く。動きは燃料の温度で 0.5 pcm しか変わらず、xlc − OpenMC は VII.0 で 1B +102 ± 4、
+  1D +82 ± 5 pcm（変化 −21 ± 6 pcm）、VIII.0 で 1B +85 ± 6、1D +61 ± 7 pcm（変化 −24 ± 9 pcm）で、変化は重い核種だけを揃えたときと同じ
 - 上限を 400 kT にした xlc − KENO-VI の変化は +60 ± 10 pcm（+180 → +240）で、既定の 31 eV の −6 ± 10 pcm より大きい。KENO-VI の温度の変化は、
   xlc の 2 つの上限のうち 31 eV の側と合う。KENO-VI の共鳴の散乱の扱い（自由ガスの範囲、共鳴の上方散乱の DBRC など）は入力が公開されておらず
   確かめていない
@@ -188,7 +193,10 @@ OpenMC（ENDF/B-VII.0）の 1B、1D、2B は 53be609d（ブランチ fix/0131-en
 自由ガスの上限を変えた 1B と 1D の試行は 45e0a205（ブランチ fix/0131-endfb70-keno-offset、分岐点は main の bb8f2869）、2026-11-20、Slurm 966
 （`xlc-0083-free-gas-cap`）で、2 つの版のライブラリ（Slurm 897、898 のもの）に `bin/lattice` を既定（31 eV）と `ufg-free-gas = { heavy = 400 }` の入力で
 実行した（`trials/0083-free-gas-cap/<版>/pincell-<問題>-<上限>.toml`）。既定の 4 本の k は「格子」の表の出どころの値と 6 桁で一致する。
+軽い核種の上限も 400 kT にした 4 本は c4c0b7ff（同じブランチ、分岐点は main の 28668154）、2026-11-20、Slurm 967（`xlc-0083-both-caps-0131-swap`）で、
+同じライブラリに `bin/lattice` を実行した。
 
 核種を 1 つずつ替えた 1B の試行は 0500a720（main。試行の入力は追跡していない状態で実行し、同じ入力を cd2e5aa9 でコミットした）、2026-11-19 に手元で
 `bin/xs assemble <場合>/xs.toml examples/vera/xs-range.toml <場合>/nuclides` と `bin/lattice <場合>/pincell-1B.toml` を実行した。
-すべて VIII.0 とすべて VII.0 の場合の k は、Slurm 897、898 のライブラリの値（上の表の出どころ）と 6 桁で一致する。入力をコミットした後の再実行はしていない。
+すべて VIII.0 とすべて VII.0 の場合の k は、Slurm 897、898 のライブラリの値（上の表の出どころ）と 6 桁で一致する。Slurm 967（c4c0b7ff、2026-11-20）で、
+cd2e5aa9 の入力と同じ内容のファイル（363 個の git の hash が一致）から 11 の場合を再実行し、k はどれも前の値と 6 桁で一致した。
