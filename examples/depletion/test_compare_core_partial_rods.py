@@ -5,6 +5,7 @@
 
 import sys
 import unittest
+import unittest.mock
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -235,6 +236,27 @@ class Summary(unittest.TestCase):
             change(partial[1][1])
             with self.assertRaises(SystemExit):
                 compare_core_partial_rods.summarize(out, rodded, partial)
+
+
+class MainPartialRodsEmptyPathTest(unittest.TestCase):
+    def test_an_empty_history_path_is_rejected_before_reading(self):
+        with (
+            unittest.mock.patch.object(
+                sys,
+                "argv",
+                [
+                    "compare_core_partial_rods.py",
+                    "--json",
+                    "out.json",
+                    "out.msgpack",
+                    "rodded.msgpack",
+                    "0.5=a.msgpack",
+                    "1.0=",
+                ],
+            ),
+            self.assertRaises(SystemExit),
+        ):
+            compare_core_partial_rods.main()
 
 
 if __name__ == "__main__":
