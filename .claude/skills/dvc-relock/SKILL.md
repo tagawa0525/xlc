@@ -123,6 +123,9 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。マー�
    nix develop -c scripts/dvc-repro.py -s <yaml>:<ステージ>
    ```
 
+   参照解のステージ（cmd が references の devShell で包まれたもの。数秒の `openmc-1B-model` も含む）は、ラッパーが止めるので、
+   再実行すると決めたものだけを `--allow-reference <yaml>:<ステージ>` に挙げる。
+
    スキル compute は `-s` を、/dvc-relock と、上流の changed が deps だけで outs が `dvc.lock` のとおりのときに目標だけを
    `dvc.lock` の上流の出力で実行する例外だけに限る（確かめ方は ADR-0184 の決定で、上のラッパーが通す）。rebase のあとの relock は ADR-0130 の「数秒で終わるステージだけ再実行してよい」の手段として、重いステージを
    巻き込まないために `-s` を使う。`-s` は上流を実行しない。上流が `dvc status` で changed のステージには、その例外のほかは使わない
