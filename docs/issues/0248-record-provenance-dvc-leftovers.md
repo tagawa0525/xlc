@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [tooling, dvc]
 opened: 2026-11-06
-closed:
+closed: 2026-11-19
 milestone:
 blocked-by: []
-resolution:
+resolution: "コミット fef926d17"
 ---
 
 # record_provenance.py の .dvc の読み方の残り
@@ -92,3 +92,4 @@ resolution:
 - 2026-11-07: 修正方法はユーザーが親に任せた（ユーザー 2026-11-07 の判断の要約）。例外の周で、スキルの .dvc の項から X と行の
   コミットの祖先の関係で確かめる手順を外し、Y の行が無いときは書かずに原因を直す扱いにした。X の裏づけを未解決の点として
   残し、この issue を今の未解決の点の一覧に組み直した
+- 2026-11-19: 点ごとに確かめて閉じた（扱いは閉じるコミットの本文）。docstring と判定の食い違いは fef926d17 で直した。記録の X の裏づけは、手段が無いまま（検討して捨てた形の節）
