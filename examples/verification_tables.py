@@ -1417,7 +1417,7 @@ def core_acceleration_runs(sources: list[dict], label: str = "CMFD（ADR-0232）
                     f"{r['iterations']:,}",
                     f"{low:,}〜{high:,}",
                     f"{r['eigenvalue_seconds']:.1f}",
-                    f"{fast:.2f}〜{slow:.2f}",
+                    f"{fast:.3f}〜{slow:.3f}",
                     f"{r['seconds']:.1f}",
                 ]
             )
@@ -1483,7 +1483,7 @@ def core_threads_runs(sources: list[dict]) -> str:
                     f"{r['iterations']:,}",
                     f"{low:,}〜{high:,}",
                     f"{r['eigenvalue_seconds']:.1f}",
-                    f"{fast:.2f}〜{slow:.2f}",
+                    f"{fast:.3f}〜{slow:.3f}",
                     f"{r['seconds']:.1f}",
                     same,
                 ]
