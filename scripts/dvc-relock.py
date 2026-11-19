@@ -126,9 +126,14 @@ def worktree_files() -> dict[str, str]:
     return state
 
 
-def run(command: list[str], what: str) -> None:
+def run(command: list[str], what: str, quiet: bool = False) -> None:
+    """quiet なら、dvc の出力を失敗したときだけ出す（正規形の dvc repro は、飛ばした数百のステージを 1 行ずつ出す）"""
     print(f"RUNNING: {' '.join(command)}", flush=True)
-    if subprocess.run(command, check=False).returncode != 0:
+    result = subprocess.run(command, capture_output=quiet, text=True, check=False)
+    if result.returncode != 0:
+        if quiet:
+            sys.stdout.write(result.stdout)
+            sys.stderr.write(result.stderr)
         raise Stop(what)
 
 
@@ -177,7 +182,7 @@ def relock(args: argparse.Namespace) -> int:
         "outputs did not come back as dvc.lock records them (see MISSING: above)",
     )
     for stage in FORMS:
-        run(["dvc", "repro", "-s", stage], f"dvc repro -s {stage} failed")
+        run(["dvc", "repro", "-s", stage], f"dvc repro -s {stage} failed", quiet=True)
     status = dvc_status(args.targets)
     if stuck := outs_only(status):
         raise Stop(
