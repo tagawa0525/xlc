@@ -10294,7 +10294,7 @@ python3 $T --report issue-0292/absorption-2A.json
 
 ### 計算
 
-セルの燃焼とテーブルは 8021936e9（実行したのは rebase の前の同じ変更 c2c3e4184、分岐点 ef018e8ae）の `bin/lattice`（md5 c3b3bba1）と
+セルの燃焼とテーブルは ecc12d834（実行したのは rebase の前の同じ変更 c2c3e4184、分岐点 ef018e8ae）の `bin/lattice`（md5 c3b3bba1）と
 p2 のライブラリ（md5 975be970）で、2026-11-19、Slurm 939（MOX）、940（U）、941（Gd）。割り込まれうるジョブで、時間は記録に使わない。
 比較は同じコミットで手元。入力の md5 は JSON の `inputs`（2A は履歴 0f5c5d1f とテーブル 078e571d、2O は 837733fd と 17001a10、セルは
 U 72d681bb と 024861be、MOX 3c0306da と 36d4239f、Gd 512ac23e と f87e907e）。セルのテーブルの燃焼度 0.1 MWd/kg の k∞ は履歴の k∞ と
@@ -10389,7 +10389,7 @@ for f in u mox gd; do python3 issue-0292/compare_added.py --json issue-0292/adde
 #### 計算
 
 ライブラリのコピーは Slurm 942（`bin/xs` は直下の dvc.lock の build の出力。ライブラリの md5 9eeecb5d）、燃焼は Slurm 952（U）、958（MOX）、
-959（Gd）。2026-11-19、`bin/lattice` md5 c3b3bba1、ブランチの 69990afd1 の時点（入力の燃料のセルは 8021936e9 と同じ）。割り込まれうる
+959（Gd）。2026-11-19、`bin/lattice` md5 c3b3bba1、ブランチの 50c04b40c の時点（入力の燃料のセルは ecc12d834 と同じ）。割り込まれうる
 ジョブで、時間は記録に使わない（自己遮蔽の時間の比は、同じ種類のジョブの目安）。
 
 #### 結果
