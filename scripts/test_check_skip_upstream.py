@@ -84,6 +84,30 @@ class Blockers(unittest.TestCase):
             ],
         )
 
+    def test_changed_binary_forms_upstream_blocks(self):
+        # 下流の cmd は bin/ を呼び、deps は binary-forms の正規形（ADR-0255）
+        status = {
+            "build": [{"changed deps": {"crates": "modified"}}],
+            "binary-forms@xs": [{"changed deps": {"bin/xs": "modified"}}],
+        }
+        self.assertEqual(
+            skip.blockers(status, TARGET), [("binary-forms@xs", ["changed deps"])]
+        )
+
+    def test_members_of_a_foreach_target_are_the_target(self):
+        status = {
+            "toml-values@examples/vera/xs.toml": [
+                {"changed deps": {"examples/vera/xs.toml": "modified"}}
+            ],
+        }
+        self.assertEqual(skip.blockers(status, "dvc.yaml:toml-values"), [])
+        status = {
+            "examples/vera/dvc.yaml:xs-nuclide@U235": [
+                {"changed outs": {"U235.msgpack": "modified"}}
+            ],
+        }
+        self.assertEqual(skip.blockers(status, "examples/vera/dvc.yaml:xs-nuclide"), [])
+
     def test_root_stage_target_matches_the_key_without_the_yaml(self):
         status = {"build": [{"changed outs": {"bin/xs": "modified"}}]}
         self.assertEqual(skip.blockers(status, "dvc.yaml:build"), [])
