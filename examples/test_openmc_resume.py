@@ -30,6 +30,13 @@ class ChdirModel:
             for n in range(1, self.generations + 1):
                 Path(f"statepoint.{n:03d}.h5").write_bytes(b"")
                 time.sleep(self.pause)
+            # 間引きのスレッドが遅れても落ちないように、最新の `KEEP` 個になるまで待つ（効かない間引きでは期限まで待って残りを見る）
+            deadline = time.monotonic() + 10.0
+            while (
+                len(list(Path().glob("statepoint.*.h5"))) > openmc_resume.KEEP
+                and time.monotonic() < deadline
+            ):
+                time.sleep(self.pause)
             self.left_at_end = sorted(p.name for p in Path().glob("statepoint.*.h5"))
         finally:
             os.chdir(back)
