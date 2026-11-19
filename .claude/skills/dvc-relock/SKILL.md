@@ -31,7 +31,7 @@ allowed-tools:
 # dvc.lock の整理（rebase のあとと、マージのあと）
 
 `dvc.yaml` のある例（examples/m0、examples/vera など）を含むブランチの、マージの前後の手順。決定は
-ADR-0130 の「帰結」、規則は CLAUDE.md の「計算」にある。
+ADR-0130 の「帰結」、規則はスキル compute にある。
 
 - 記録（verification.md、ADR）の数値には、実行したコミットと分岐点（main のコミット）を書く
 - rebase で deps が変わっても、重いステージは再実行しない。分岐点にそこまでのブランチのコミットを当て直して復元する
@@ -106,7 +106,7 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。マー�
 
    - 再実行してよい: 数秒で終わる lattice の問題（lattice-1B）と、その出力だけを入力にする小さなステージ（`compare-*`）
    - 実行しない: xs（約 9 分）、OpenMC（40〜60 分）、ライブラリ（核種ごと、逐次で約 30 分）、数分かかる lattice の問題
-     （Slurm で流す重さ。CLAUDE.md の「計算」）
+     （Slurm で流す重さ。スキル compute）
      ライブラリの核種ごとのステージを作り直すときは、relock の中でなく、Slurm で `examples/stage_runner.py` を流す（ADR-0193）
    - `references-shell` は `always_changed` なので `dvc status` に常に出る。対象から外す。ただし出力の `references-shell.txt` は
      `dvc repro` まで書き直されず、devShell が変わっても `dvc status` に出ないので、中身を `scripts/check-references-shell.sh` で
@@ -120,7 +120,7 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。マー�
    nix develop -c dvc repro -s <ステージ>
    ```
 
-   CLAUDE.md の「計算」は `-s` を、/dvc-relock と、上流の changed が deps だけで outs が `dvc.lock` のとおりのときに数秒の下流を
+   スキル compute は `-s` を、/dvc-relock と、上流の changed が deps だけで outs が `dvc.lock` のとおりのときに数秒の下流を
    `dvc.lock` の上流の出力で再実行する例外だけに限る（確かめ方は ADR-0184 の決定）。rebase のあとの relock は ADR-0130 の「数秒で終わるステージだけ再実行してよい」の手段として、重いステージを
    巻き込まないために `-s` を使う。`-s` は上流を実行しない。上流が `dvc status` で changed のステージには、その例外のほかは使わない
    （古い出力から作ることになる）。lattice-1B の上流の xs が changed のときは、xs は実行しない（約 9 分は数秒のステージにならない）。

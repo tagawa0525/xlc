@@ -7,7 +7,7 @@ argument-hint: <branch>
 # トピックを始めてマージする
 
 1 つのブランチは 1 つのトピックで閉じる（/topic-triage）。xlc には GitHub のリモートがないので、PR の代わりに
-/git-merge でマージする。CLAUDE.md の「作業の流れ」にある規則は繰り返さず、その手順の細部を書く。
+/git-merge でマージする。チェックとレビューの細目は末尾の節にある。
 
 ## 始める
 
@@ -105,7 +105,7 @@ cargo build --release
 
 /delegate の担当は、計算を自分で投げるかを、/delegate の「作業中の規則」の 5 分より長い待ちの項と 5 分以内の計算の項で
 決める。どちらの場合も、この節の 1〜5 と下の「計算を投げる直前」の確認を、自分で投げる前か、投げるコマンドを報告する前に
-済ませる。2 の rebase は /delegate の同じ節の計算を投げる直前の項より広いが、CLAUDE.md の「作業の流れ」のとおりこの節に従う。
+済ませる。2 の rebase は /delegate の同じ節の計算を投げる直前の項より広いが、末尾の「チェックとレビューの細目」のとおりこの節に従う。
 担当の報告から親が投げるときは、/delegate の「頼む側（親のセッション）の書き方」の 5 分より長い待ちの項に従う。
 
 1. コードと入力の変更をすべてコミットする。記録に書く試行の入力（`trials/`）は `git add -f` でコミットする（スキル verification-record の「記録に書く試行」）。`git status --short` が空であることを確かめる
@@ -130,7 +130,7 @@ cargo build --release
 
 Slurm の投げ方: コマンドは `cd <worktree> && ...` で始める（`&` で切らない）。投げた後に `squeue` のコメントのパスを確かめる。
 main の作業ツリー（~/github/xlc）では dvc も計算も実行しない。見積もりは種類ごとに 1 段階を測ってから本数を掛ける（スキル slurm-run）。
-xs のライブラリの作り直しは、核種ごとのステージを `examples/stage_runner.py` で流す（CLAUDE.md の「計算」、ADR-0193）。
+xs のライブラリの作り直しは、核種ごとのステージを `examples/stage_runner.py` で流す（スキル compute、ADR-0193）。
 
 計算の待ち時間が長く、その間に main が進んだら、マージ前の rebase で hash が変わる。計算は再測定せず、付け替えは
 commit-refs remap に任せる（ADR-0122。コード、入力、環境が変わらなければ再測定しない）。長い計算が複数のブランチで
@@ -174,3 +174,35 @@ worktree から /git-merge を呼ぶときは、**ブランチ名を引数に渡
 - 後片付け（worktree とブランチの削除、予約のタグの解放）は /git-merge が行う
 - DVC のステージの出力を入れたブランチをマージしたあとは、main で `scripts/dvc-checkout.py dvc.yaml` と `scripts/dvc-checkout.py examples/vera/dvc.yaml`
   をして `dvc.lock` の出力に合わせる（ADR-0130、ADR-0159。手順はスキル dvc-relock の後半）
+
+## チェックとレビューの細目
+
+- GitHub のリモートはない。PR の代わりに /git-merge でマージする（rebase、チェック、/code-review と指摘への対応、
+  `git merge --no-ff`、後片付けを含む）
+- `dvc.yaml` のある例を含むブランチは、/git-merge の rebase のあとに /dvc-relock の前半、マージの hook が「.gitignore から外した生成物」で止まったら同スキルの「マージが止まったら」（main の worktree の古い出力を消してよいかを決める）、マージのあとに後半
+- 1 つのトピックの始めからマージまでは /topic-start に従う。委任を受けた担当も作業の前に読む。記録に書く計算の前の
+  rebase は /topic-start の「記録に書く計算の前に main に rebase する」の節に従い、/delegate の「作業中の規則」の計算を投げる
+  直前の項より優先する（ユーザー 2026-11-08）。その後に再び rebase したときは /git-merge の「レビュー」の節の「rebase の後」に従う。
+  マージは /delegate の「8. マージの直前で止める」のとおり親に残す
+- チェックは `~/.claude/skills/language-checks/scripts/run-checks.sh` で、終了コードで判定する。`checks | tail && git merge`
+  のようにつなぐと、失敗してもマージに進む
+- 差分が文書（`.md`）だけのとき、run-checks.sh は fmt、clippy、全体の `cargo test` の代わりに docs クレートのテスト
+  （`cargo test -p xlc-docs`）だけを実行する。宣言は `scripts/run-rust-docs-tests.sh`（nixfiles の ADR-0057）。ほかの差分では
+  全体の後にも宣言を実行し、宣言に実行権限が無ければ差分によらず失敗する
+- Python のテスト（追跡している `test_*.py` と `*_test.py`）は `scripts/run-python-tests.sh` が python-tests の devShell（references の Python に検証用のツールのパッケージを足したもの。ADR-0212）で実行し、run-checks.sh が
+  それを呼ぶ（nixfiles の ADR-0036）。run-checks.sh は Python のステージを .py の変更があるときだけ実行するので、
+  手元では `scripts/run-python-tests.sh` で全部を実行できる
+- ADR は `design-records check`（`.pre-commit-config.yaml` の hook で、run-checks.sh も `id: design-records` のあるリポジトリで実行する）でも確かめる
+- ADR と issue の番号は `design-records new [--kind issue]` で振る（タグで予約。docs/adr/README.md）。手で最大の番号 + 1 を振らない
+- worktree は `~/.claude/scripts/worktree-add.sh <branch>` で作る（/tmp に作ると gitleaks の hook が失敗する）
+- 実装を始めたあとでテストだけをコミットするときは、テストの部分だけをステージする（`git stash` は他のセッションと
+  共有なので使わない）
+- マージしないで残すブランチ（ユーザーの判断で消さない）は docs/branches.md
+- レビューで直す指摘は、ブランチの種類によらず /git-merge の「レビュー」の節の「直す指摘の基準」の (a)〜(c) に従う。
+  文書だけのブランチの歯止めと記録の周の扱いは、同じ基準の「文書だけのブランチ」の項に従う（入る文書と除くものは
+  その項が指す `review-level.sh` の先頭のコメントが正）。
+  xlc では、計画と issue の本文の中の矛盾（同じ文書の 2 か所が食い違う）も (c) と同じく直してからマージする
+  （一次情報が無くても、食い違う 2 か所を再現にできる）
+- 試行は本番のコードに入力ファイルを与えて行う。パッチ、環境変数、入力を組み立てる run shell は作らず、選べない選択肢は
+  入力で選べる機能として足す。手元の試行は `trials/`（無視する）に置き、記録に数値を書く試行だけ `git add -f` で
+  コミットする。マージの前に残さない試行を消し、残すものは examples/<問題>/ に `git mv` する（ADR-0122）
