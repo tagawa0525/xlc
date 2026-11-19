@@ -46,7 +46,7 @@ PWR の解析コード。xs（ENDF から多群定数）→ lattice（MOC の格
 - 仕様書に KENO-VI の参照解がある問題は ENDF/B-VII.0 の検証用ライブラリで KENO と直接比べ、OpenMC の参照解は仕様書に参照のない
   問題（燃焼、ブランチ計算、HFP）と診断だけに作る（ADR-0175）。3D の全炉心と Problem 4 の OpenMC は作らない（ADR-0124、docs/plans/m3-core-hzp.md。ユーザー 2026-10-15）
 - 結果を変えない deps の変更で、重いステージを再実行せず `dvc commit` で付け直してよいのは、ADR が決めた移行
-  （ADR-0159、ADR-0210）だけ（値の同じ TOML の差は、ADR-0254 の正規形で deps に表れない）。参照のステージ（NJOY、OpenMC）が使わない Python のパッケージは、flake.nix の `pythonPackages` にだけ足す（`references` の
+  （ADR-0159、ADR-0210。ADR-0254 の移行は lock の deps の書き換え）だけ（値の同じ TOML の差は、ADR-0254 の正規形で deps に表れない）。参照のステージ（NJOY、OpenMC）が使わない Python のパッケージは、flake.nix の `pythonPackages` にだけ足す（`references` の
   devShell の store のパスが参照解の deps。食い違いは pre-commit の hook `references-shell` が止める。ADR-0212）
 - `examples/<問題>/dvc.yaml` のある例は、`dvc repro examples/<問題>/dvc.yaml`（すべては `dvc repro -P`）でステージを
   実行する。重いときは全体を上の形で Slurm に流す。重いステージを 1 本ずつ流す、または参照解の待ちで全体が失敗するときは、
