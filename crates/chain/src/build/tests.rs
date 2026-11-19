@@ -1118,7 +1118,7 @@ fn rejects_a_listed_isomer_whose_excitation_is_not_negative() {
 #[test]
 fn rejects_a_ground_state_with_an_excitation() {
     let mut fe56 = stable(26, 56);
-    fe56.material.excitation = -1000.0;
+    fe56.material.excitation = 1000.0;
     assert!(build(&with_light(vec![fe56]), &[], &[], &Supplements::default()).is_err());
 }
 
@@ -1128,4 +1128,23 @@ fn rejects_a_listed_isomer_whose_excitation_is_not_a_number() {
     let mut decays = nb88m_decays();
     decays[0].material.excitation = f64::NAN;
     assert!(build(&decays, &[], &[], &unknown(&["Nb-88m"])).is_err());
+}
+
+#[test]
+fn rejects_an_isomer_listed_twice_in_unknown_excitations() {
+    assert!(build(&nb88m_decays(), &[], &[], &unknown(&["Nb-88m", "Nb-88m"])).is_err());
+}
+
+#[test]
+fn reports_a_repeated_decay_evaluation_before_its_negative_excitation() {
+    // 2 つのテープに同じ核種があるとき、入力を直す方へ向けない
+    let mut decays = nb88m_decays();
+    decays.push(decays[0].clone());
+    for supplements in [Supplements::default(), unknown(&["Nb-88m"])] {
+        let error = build(&decays, &[], &[], &supplements).unwrap_err();
+        assert!(
+            format!("{error:#}").contains("appears twice in the decay data"),
+            "{error:#}"
+        );
+    }
 }
