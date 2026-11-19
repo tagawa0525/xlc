@@ -65,14 +65,7 @@ def kinds_of(status: dict) -> dict[str, list[str]]:
     """dvc status --json の key → 変更の種類（並べたもの）。知らない種類は ValueError"""
     counting.count_changed(status)
     return {
-        key: sorted(
-            {
-                kind
-                for change in changes
-                for kind in ([change] if isinstance(change, str) else change)
-            }
-        )
-        for key, changes in status.items()
+        key: sorted(counting.change_kinds(changes)) for key, changes in status.items()
     }
 
 
