@@ -112,7 +112,7 @@ cargo build --release
 
 1. コードと入力の変更をすべてコミットする。記録に書く試行の入力（`trials/`）は `git add -f` でコミットする（スキル verification-record の「記録に書く試行」）。`git status --short` が空であることを確かめる
 2. `git rebase main`。衝突があればここで解く。`dvc.lock` が衝突したら、rebase を終えてからスキル dvc-relock の前半で整える（rebase の途中では dvc を実行しない）。rebase の終わりに post-rewrite hook が記録の hash を付け替えたら、その差分をコミットしてから次へ進む（スキル verification-record の「rebase のあと」）
-3. ステージ（`dvc.yaml`）で実行するなら、先に `scripts/dvc-checkout.py`（スキル dvc-relock の前半 1）。チェックが見る出力と計算の入力を揃えるため、チェックより前に行う
+3. ステージ（`dvc.yaml`）で実行するなら、先に `scripts/dvc-checkout.py`（スキル dvc-relock の前半のコマンドも、始めにこれを行う）。チェックが見る出力と計算の入力を揃えるため、チェックより前に行う
 4. `git status --short` が空であることを確かめてから、`~/.claude/skills/language-checks/scripts/run-checks.sh -C <worktree> --base main` を通す（マージ時と同じ、main との分岐点からの差分の検査）
 5. 1 時間を超える記録用の計算（xs のライブラリの作り直し、集合体の燃焼など。投げる前の見積もり `-t` か、main の同じ計算の時間で判断する）なら、コードのレビュー（/code-review）を
    blocking が無くなるまで（スキル git-merge の「直す指摘の基準」の歯止めの項の中で）回す（2 の rebase の後に）。
