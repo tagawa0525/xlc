@@ -9788,7 +9788,7 @@ python3 ../p9_timing.py core-p9.log > timing-p9.json
 比較の JSON（`trial-0234/compare-threads.json`）は、ADR-0234 の前の `bin/core` で解いた `trial-0244` と、同じ形の入力を色の順の `bin/core` で
 解いた燃焼の比較で、#0236 の前の、履歴とログを引数の位置で受けるツール（main の d17396374 の `compare_core_threads.py`。スレッドのプールの
 行の無いログを ADR-0234 の前の `bin/core` とした）が次のコマンドで書いた。今のツールは燃焼の順を入力の `node-order` で決めるので、同じ入力を
-別の版の `bin/core` で解いた燃焼は比べない（`--report` は今のツールでも描ける）。
+別の版の `bin/core` で解いた燃焼は比べない。
 
 ```sh
 # main の d17396374 で
