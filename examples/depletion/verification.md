@@ -10193,8 +10193,9 @@ nix develop .#python-tests -c python3 examples/depletion/issue-0293/estimates.py
 56ab13e4e）の 956、gd-160 は b74c928ef（rebase の前の d747effff）の 957。どれも分岐点は main の 21e8dd608 で、2026-11-19。割り込まれうるジョブなので、
 時間は記録に使わない。`bin/lattice` は md5 c3b3bba1、`bin/xs` は md5 28e28365。ライブラリはピンセルの `depletion.msgpack`（md5 58a25945）と
 `p2/depletion.msgpack`（md5 975be970）、チェーンは `chain.msgpack`（md5 1f1de180）。sab のライブラリ a、b は md5 e4b679db と 85a1fa0b で、a の H-1 は
-ピンセルのライブラリの H-1（`xs-nuclides/H-1.msgpack`）と同じ md5（a1cb1cc7）。出力は `.dvc` で追う生成物（`steps/out` は md5 0085aa97、
-`sab/out` は 0521742b、`urr/out` は 928d030a）。比較と見積もりは a785c9471 で手元。
+ピンセルのライブラリの H-1（`xs-nuclides/H-1.msgpack`）と同じ md5（a1cb1cc7）。b の H-1 は md5 8e161082。出力と作り直した核種は `.dvc` で追う
+生成物（`steps/out` は md5 0085aa97、`sab/out` は 0521742b、`urr/out` は ead8bd5c、`sab/nuclides-a/` の H-1、O-16、B-10、B-11 と `sab/nuclides-b/H-1.msgpack`）。
+比較は a785c9471、見積もり（`urr/out/*-estimates.json`）は ebf47ab4e で手元。
 
 ### 燃焼の時間の進め方（項目 2）
 

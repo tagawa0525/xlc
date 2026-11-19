@@ -1,0 +1,5 @@
+outs:
+- md5: d6cbc2c01bb0bf69c3a30a365d83bc53
+  size: 684554
+  hash: md5
+  path: B-10.msgpack
