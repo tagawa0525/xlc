@@ -164,17 +164,26 @@ class Estimate(unittest.TestCase):
         ]
         nus = {"X": (3.0, 5.0), "Y": (2.5, 5.0), "Z": (3.0, 5.0)}
         measured = [{"burnup": 10.0, "dilute_unshielded_pcm": -30.0}]
-        (row,) = fp.estimate(points, nus, ["X", "Y"], measured)
+        (row,) = fp.estimate(points, nus, ["X", "Y", "W"], measured, ["X", "Y", "W"])
         x = fp.dropped_production_pcm(1e-4, 3.0, 0.9)
         y = fp.dropped_production_pcm(2e-4, 2.5, 0.9)
         self.assertAlmostEqual(row["nuclides"]["X"], x)
+        # W は吸収体だが核分裂の断面積を持たない（fractions に無い）ので、見積もりに入らない
+        self.assertNotIn("W", row["nuclides"])
         self.assertAlmostEqual(row["estimate_pcm"], x + y)
         self.assertEqual(row["measured_pcm"], -30.0)
 
     def test_a_burnup_missing_from_the_measured_comparison_is_an_error(self):
         points = [{"burnup": 10.0, "k_inf": 0.9, "fractions": {"X": 1e-4}}]
         with self.assertRaises(SystemExit):
-            fp.estimate(points, {"X": (3.0, 5.0)}, ["X"], [{"burnup": 20.0}])
+            fp.estimate(points, {"X": (3.0, 5.0)}, ["X"], [{"burnup": 20.0}], ["X"])
+
+    def test_a_named_nuclide_the_history_does_not_count_as_dilute_is_an_error(self):
+        # 名前の核種が履歴の吸収体でなければ（輸送する核種にしたライブラリの取り違えなど）、黙って見積もりから外さない
+        points = [{"burnup": 10.0, "k_inf": 0.9, "fractions": {"X": 1e-4}}]
+        measured = [{"burnup": 10.0, "dilute_unshielded_pcm": -30.0}]
+        with self.assertRaises(SystemExit):
+            fp.estimate(points, {"X": (3.0, 5.0)}, ["X", "Y"], measured, ["X"])
 
 
 if __name__ == "__main__":
