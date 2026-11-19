@@ -1,7 +1,7 @@
 # VERA のステージ: ENDF → OpenMC のライブラリ（核種ごと）→ OpenMC → statepoint からの抽出、ENDF → xlc の多群ライブラリ
 # （範囲 xs-range → 核種ごと xs-nuclide → 組み立て xs。ADR-0138）→ 格子計算（lattice）、両者の k の比較。実行するのは default の devShell の `dvc repro`（ADR-0159）。NJOY と OpenMC を
 # 使うステージは cmd を references の devShell でラッパー、その devShell の store のパス（references-shell.txt）をツールの deps に
-# する（ADR-0130）。Rust のステージの deps は、ステージの入力と、ステージが呼ぶ実行ファイル（ADR-0159。examples/m0/dvc.yaml と同じ並び）。
+# する（ADR-0130）。Rust のステージの deps は、ステージの入力と、ステージが呼ぶ実行ファイルの正規形（ADR-0159、ADR-0255。examples/m0/dvc.yaml と同じ並び）。
 vars:
   - openmc-library.toml
   - xs.toml
