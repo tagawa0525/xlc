@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [depletion, tooling]
 opened: 2026-11-06
-closed:
+closed: 2026-11-19
 milestone:
 blocked-by: []
-resolution:
+resolution: コミット 8df1be2d8
 ---
 
 # core の燃焼の 1 項目を変えた比較のツールの重複と、比べる 2 本の取り違え
@@ -41,3 +41,11 @@ compare_core_xenon_boron.py に続く 3 つ目のコピーで、まとめる時�
   こと）。再現する誤りではないので、このブランチでは直さない
 - 2026-11-06: 親の周（1 周目、ブランチ全体）で挙がった 4 件（小さな炉心のログを `dvc add` していない、nested の履歴の md5 が ADR-0231 の記録の履歴と同じ、
   ADR-0219 の「確認」のテストの名前、verification_tables.py の GIT_TRACKED の注）は、親が 2 周目の後にマージの前に直した
+- 2026-11-19: 3 つのツールを compare_core_pair.py（項目を最初の引数で受け、要約の `format` と `runs` の鍵を表に持つ）にまとめ、
+  verification_tables.py の 3 つの表も `core_pair_runs` にまとめた。`rho_pcm`、`BURNUP_TOLERANCE`、`same_burnup` は core の比較のツールの分を
+  core_history.py にまとめた。compare_depletion.py と compare_depletion_assembly.py は格子計算と OpenMC の燃焼を比べるツールで、core の
+  履歴を読まないので、自分の許容のまま残した。取り違えは、ツールが燃焼ごとに core の入力を受け、入力が名前を書く履歴とその `.log` を読み、
+  項目（`initial-guess`、`xenon-boron`、`acceleration`、`node-order`）の値で 2 本の役を確かめる形で止めた（compare_core_threads.py は入力の
+  `threads` とログのスレッドの数も比べる）。同じ入力を 2 つの版の bin/core で解いた燃焼は入力で見分けられないので、比べる形をやめた
+  （compare_core_threads.py の ADR-0234 の前の bin/core の扱いを含む）。その形で書いた要約（小さな炉心の #0244 の前の CMFD、Problem 9 の
+  形の試行）は、書いたツールの名前を記録に書いて残した
