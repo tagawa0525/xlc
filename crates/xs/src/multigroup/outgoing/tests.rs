@@ -291,3 +291,93 @@ fn general_evaporation_is_cut_at_e_minus_u() {
         assert!(breakpoints.contains(&e), "{e}: {breakpoints:?}");
     }
 }
+
+/// ENDF-102 の 5.1.1.6 の g(E', E_F)（T_M = `temperature`）。
+fn madland_nix_g(energy: f64, fragment: f64, temperature: f64) -> f64 {
+    let u1 = (energy.sqrt() - fragment.sqrt()).powi(2) / temperature;
+    let u2 = (energy.sqrt() + fragment.sqrt()).powi(2) / temperature;
+    // u^(3/2) E1(u) は u → 0 で 0
+    let term = |u: f64| {
+        if u == 0.0 {
+            0.0
+        } else {
+            u.powf(1.5) * crate::special::exp_e1(u).unwrap() * (-u).exp()
+        }
+    };
+    let lower_gamma = |u: f64| 0.5 * std::f64::consts::PI.sqrt() * gamma_p_3_2(u);
+    (term(u2) - term(u1) + lower_gamma(u2) - lower_gamma(u1))
+        / (3.0 * (fragment * temperature).sqrt())
+}
+
+/// ENDF-102 の f(E → E') = (g(E', E_F(L)) + g(E', E_F(H)))/2 の [low, high] の積分。E' = s² と置き、s を √E_F で分けて
+/// （g の傾きが変わる）細かい区間の Gauss-Legendre で求める。
+fn madland_nix_integral(low: f64, high: f64, light: f64, heavy: f64, temperature: f64) -> f64 {
+    let density = |e: f64| {
+        0.5 * (madland_nix_g(e, light, temperature) + madland_nix_g(e, heavy, temperature))
+    };
+    let mut cuts = vec![low.sqrt(), high.sqrt()];
+    cuts.extend(
+        [light.sqrt(), heavy.sqrt()]
+            .into_iter()
+            .filter(|&s| s > low.sqrt() && s < high.sqrt()),
+    );
+    cuts.sort_by(f64::total_cmp);
+    let mut sum = 0.0;
+    for w in cuts.windows(2) {
+        const PIECES: usize = 2000;
+        let width = (w[1] - w[0]) / PIECES as f64;
+        for i in 0..PIECES {
+            let (mid, half) = (w[0] + (i as f64 + 0.5) * width, 0.5 * width);
+            for &(t, wk) in &xlc_numeric::quadrature::GAUSS_LEGENDRE_8 {
+                let s = mid + half * t;
+                sum += wk * half * density(s * s) * 2.0 * s;
+            }
+        }
+    }
+    sum
+}
+
+/// ENDF/B-VII.1 の Am-241 の E_F と、入射エネルギーに線形の T_M。
+fn madland_nix() -> EnergyLaw {
+    EnergyLaw::MadlandNix {
+        light: 1.029979e6,
+        heavy: 5.467297e5,
+        temperature: ClampedTab1::new(Tab1::linear(vec![1.0e-5, 2.0e7], vec![1.0e6, 1.2e6]))
+            .unwrap(),
+    }
+}
+
+#[test]
+fn madland_nix_splits_the_endf_formula_by_group() {
+    // 群境界に E_F(H) を含め、E_F の前後の両側（ENDF-102 の 5.4.10 の 3 つの領域）を通す。最上位の群は 2e7 eV より上の分を含む
+    let bounds = vec![2.0e7, 1.0e7, 2.0e6, 1.0e6, 5.467297e5, 1.0e5, 1.0e3, 1.0e-5];
+    let groups = GroupStructure::new(bounds.clone()).unwrap();
+    let grouped = GroupedLaw::new(&groups, &madland_nix());
+    for (e, temperature) in [(1.0e-5, 1.0e6), (1.0e7, 1.1e6)] {
+        let mut out = vec![0.0; 7];
+        grouped.accumulate(e, 2.0, &mut out);
+        let (light, heavy) = (1.029979e6, 5.467297e5);
+        // 2e8 eV より上は e^(-E'/T_M) で 1e-80 より小さい
+        let mut edges = bounds.clone();
+        edges[0] = 2.0e8;
+        *edges.last_mut().unwrap() = 0.0;
+        for g in 0..7 {
+            let expected =
+                2.0 * madland_nix_integral(edges[g + 1], edges[g], light, heavy, temperature);
+            assert!(
+                (out[g] - expected).abs() <= 1e-12,
+                "E = {e}, group {g}: {} vs {expected}",
+                out[g]
+            );
+        }
+        // E' は 0〜∞（ENDF-102 の 5.1.1.6）で、入射エネルギーで切らない
+        assert!((out.iter().sum::<f64>() - 2.0).abs() <= 1e-13, "{out:?}");
+    }
+}
+
+#[test]
+fn madland_nix_breaks_at_the_temperature_table() {
+    let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e-5]).unwrap();
+    let breakpoints = GroupedLaw::new(&groups, &madland_nix()).breakpoints();
+    assert_eq!(breakpoints, vec![1.0e-5, 2.0e7]);
+}

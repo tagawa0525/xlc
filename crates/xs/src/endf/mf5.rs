@@ -41,6 +41,12 @@ pub enum EnergyLaw {
         restriction: f64,
         theta: ClampedTab1,
     },
+    /// LF=12: Madland-Nix の核分裂スペクトル
+    MadlandNix {
+        light: f64,
+        heavy: f64,
+        temperature: ClampedTab1,
+    },
 }
 
 /// MF5 の1反応。部分分布の確率 p_k(E) と、その分布の組。

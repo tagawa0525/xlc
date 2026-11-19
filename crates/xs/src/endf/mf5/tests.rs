@@ -108,6 +108,65 @@ fn theta_must_be_positive() {
     assert!(Mf5::parse(&tape.section(1, 5, 16).unwrap()).is_err());
 }
 
+/// p(E) = 1 の Madland-Nix の核分裂スペクトル（LF=12）。ENDF/B-VII.1 の Am-241 の E_F と T_M(E) の始めの 2 点（log-log）。
+/// `restriction` は p(E) の TAB1 の C1（ENDF-102 の 5.2.6 では 0.0）。
+fn madland_nix_mf5(restriction: &str, temperature: &str) -> String {
+    let r = |f: [&str; 6]| rec(f, 1, 5, 18);
+    [
+        r(["9.524100+4", "2.389860+2", "0", "0", "1", "0"]),
+        r([restriction, "0.0", "0", "12", "1", "2"]),
+        r(["2", "2", "", "", "", ""]),
+        r(["1.0-5", "1.0", "3.0+7", "1.0", "", ""]),
+        r(["1.029979+6", "5.467297+5", "0", "0", "1", "2"]),
+        r(["2", "5", "", "", "", ""]),
+        r(["1.0-5", temperature, "5.000001+5", "1.101483+6", "", ""]),
+    ]
+    .concat()
+}
+
+#[test]
+fn reads_madland_nix() {
+    let tape = Tape::parse(&madland_nix_mf5("0.0", "1.092064+6")).unwrap();
+    let mf5 = Mf5::parse(&tape.section(1, 5, 18).unwrap()).unwrap();
+    let [(p, law)] = &mf5.subsections[..] else {
+        panic!("{:?}", mf5.subsections);
+    };
+    assert_eq!(p.eval(1.0e6), Some(1.0));
+    let EnergyLaw::MadlandNix {
+        light,
+        heavy,
+        temperature,
+    } = law
+    else {
+        panic!("{law:?}");
+    };
+    assert_eq!((*light, *heavy), (1.029979e6, 5.467297e5));
+    assert_eq!(temperature.table().laws, vec![Interpolation::LogLog]);
+    assert_eq!(temperature.eval(1.0e-5), 1.092064e6);
+    // 表の外は端の値
+    assert_eq!(temperature.eval(2.0e7), 1.101483e6);
+}
+
+#[test]
+fn madland_nix_has_no_restriction() {
+    // ENDF-102 の 5.2.6 で p(E) の C1 は 0.0（E' は 0〜∞。5.1.1.6）。U を書いた評価は、意味が分からないので止める
+    let tape = Tape::parse(&madland_nix_mf5("-2.0+7", "1.092064+6")).unwrap();
+    assert!(Mf5::parse(&tape.section(1, 5, 18).unwrap()).is_err());
+}
+
+#[test]
+fn madland_nix_needs_positive_parameters() {
+    let texts = [
+        madland_nix_mf5("0.0", "0.0"),
+        madland_nix_mf5("0.0", "1.092064+6").replace("1.029979+6", "0.000000+0"),
+        madland_nix_mf5("0.0", "1.092064+6").replace("5.467297+5", "-1.00000+0"),
+    ];
+    for text in texts {
+        let tape = Tape::parse(&text).unwrap();
+        assert!(Mf5::parse(&tape.section(1, 5, 18).unwrap()).is_err());
+    }
+}
+
 #[test]
 fn other_lf_is_error() {
     let text = two_point_mf5("11", ("1.0+6", "2.0+7", "1.0"), ("1.0-5", "1.0+6", "1.0"));
