@@ -568,6 +568,37 @@ def depletion_fissionable_absorbers(sources: list[dict]) -> str:
     )
 
 
+# compare_background.py の `parts` の行の名前（その docstring の分け方）
+BACKGROUND_PARTS = {
+    "u238_resonance": "U-238 の UFG の範囲の吸収",
+    "resonance_other": "ほかの輸送する核種の UFG の範囲の吸収",
+    "absorption_other_ranges": "輸送する核種の UFG の範囲の外の吸収",
+    "transported_scattering_production": "輸送する核種の散乱と生成",
+    "moved_absorption": "扱いを変えた核種の吸収",
+    "moved_scattering_fast": "扱いを変えた核種の散乱（UFG の範囲より上）",
+    "moved_scattering_below": "扱いを変えた核種の散乱（UFG の範囲とその下）",
+    "moved_production": "扱いを変えた核種の生成",
+    "rest": "残り（両方で数える核種、燃焼させない物質、χ）",
+}
+
+
+def depletion_background_split(sources: list[dict]) -> str:
+    """無限希釈で数える形の残る差の分け方（ADR-0261、#0292）: 段（状態 A → B）ごとの差 Δρ(B − A) と、その分け方
+    （examples/depletion/issue-0292/compare_background.py の docstring）。列が段、行が分けた項"""
+    (s,) = sources
+    if s.get("format") != "xlc-compare-background":
+        raise TableError("not an xlc-compare-background summary")
+    steps = s["steps"]
+    rows = [["差", *(signed(t["total_pcm"], 1) for t in steps)]]
+    rows += [
+        [label, *(signed(t["parts"][key], 1) for t in steps)]
+        for key, label in BACKGROUND_PARTS.items()
+    ]
+    return markdown_table(
+        ["項 (pcm)", *(f"{t['from']} → {t['to']}" for t in steps)], rows
+    )
+
+
 def density_rows(s: dict, nuclides: list[str]) -> str:
     rows = [
         [burnup_label(b)] + [percent_or_dash(s["pin"][n][i]) for n in nuclides]
@@ -4599,6 +4630,9 @@ GIT_TRACKED = {
     "examples/depletion/issue-0292/fissionable-u.json",
     "examples/depletion/issue-0292/fissionable-mox.json",
     "examples/depletion/issue-0292/fissionable-gd.json",
+    # 無限希釈で数える形の残る差を、同じ組成のブランチ計算の状態で分けた試行（#0292）。ステージの出力でない
+    "examples/depletion/issue-0292/background-u.json",
+    "examples/depletion/issue-0292/background-mox.json",
 }
 
 
@@ -5285,6 +5319,13 @@ TABLES = {
             depletion_fissionable_absorbers,
         )
         for fuel in ("u", "mox", "gd")
+    },
+    **{
+        f"depletion-background-split-{fuel}": (
+            [f"examples/depletion/issue-0292/background-{fuel}.json"],
+            depletion_background_split,
+        )
+        for fuel in ("u", "mox")
     },
     "depletion-2a-core-partial-rods-k": (
         ["examples/depletion/branches/compare-core-2A-partial-rods.json"],
