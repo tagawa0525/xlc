@@ -41,6 +41,8 @@ TOP = 15
 # 順位の累積で、足す核種の数を数える残りの閾値 (pcm)
 THRESHOLDS_PCM = (50.0, 5.0)
 # xs が輸送する核種として処理しない核種（examples/depletion/p2/xs.toml の説明。#0127）。放射化の断面積は持つので一覧に出る
+# JSON から外す核種の最大の目安の床 (pcm)。外した核種の数と目安の和は JSON に残す
+PRUNE_PCM = 0.01
 XS_EXCLUDED = ("Pm-147", "Pm-148", "Pm-149", "Am-242m", "Eu-151")
 
 
@@ -293,7 +295,26 @@ def summarize(history, table, half_lives):
                 ],
             }
         )
-    return {"points": points, **ranking(points)}
+    return prune(points, ranking(points), PRUNE_PCM)
+
+
+def prune(points, ranked, floor):
+    """最大の目安が `floor` pcm 以下の核種を、点ごとの核種の一覧と順位から外す（順位の残りの和は外す前の値のまま）"""
+    kept = {r["nuclide"] for r in ranked["ranking"] if r["max_pcm"] > floor}
+    dropped = [r for r in ranked["ranking"] if r["nuclide"] not in kept]
+    for p in points:
+        p["untransported_all"] = {
+            n: v for n, v in p["untransported_all"].items() if n in kept
+        }
+    return {
+        "points": points,
+        "ranking": [r for r in ranked["ranking"] if r["nuclide"] in kept],
+        "counts": ranked["counts"],
+        "pruned": {
+            "count": len(dropped),
+            "sum_pcm": sum(r["max_pcm"] for r in dropped),
+        },
+    }
 
 
 def ranking(points):
