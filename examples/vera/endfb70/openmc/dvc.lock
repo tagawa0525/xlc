@@ -12,6 +12,11 @@ stages:
     cmd: nix develop ../../../..#references -c python3 ../../openmc_model.py 
       model openmc-1B.toml openmc-1B-model
     deps:
+    - path: 
+        ../../../../toml-values/examples/vera/endfb70/openmc/openmc-1B.toml.json
+      hash: md5
+      md5: 970cbfe469ed4d48fe137ed4a94007ff
+      size: 162
     - path: ../../../../python-ast/examples/openmc_common.py.ast
       hash: md5
       md5: 5bd4ad45584015f73e2c1e3d6f179e76
@@ -32,11 +37,6 @@ stages:
       hash: md5
       md5: a96a3978071877b65e870a65d8be4f00
       size: 6083
-    - path: 
-        ../../../../toml-values/examples/vera/endfb70/openmc/openmc-1B.toml.json
-      hash: md5
-      md5: 970cbfe469ed4d48fe137ed4a94007ff
-      size: 162
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -1044,6 +1044,11 @@ stages:
       thermal openmc-library.toml c_H_in_H2O 
       openmc-library/thermal/c_H_in_H2O.h5
     deps:
+    - path: 
+        ../../../../references/endf/ENDF-B-VII.0_thermal_scatt/tsl-HinH2O.endf
+      hash: md5
+      md5: 5199bb36eb96e0f803e3d1217863cd70
+      size: 7308058
     - path: ../../../../python-ast/examples/openmc_input.py.ast
       hash: md5
       md5: dcf5542e807b71c7bfabe11026ecabf3
@@ -1056,11 +1061,6 @@ stages:
       hash: md5
       md5: d9b1ee7df941146d654c520fab4c1408
       size: 48757
-    - path: 
-        ../../../../references/endf/ENDF-B-VII.0_thermal_scatt/tsl-HinH2O.endf
-      hash: md5
-      md5: 5199bb36eb96e0f803e3d1217863cd70
-      size: 7308058
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -1083,6 +1083,11 @@ stages:
     cmd: nix develop ../../../..#references -c python3 ../../openmc_library.py 
       index openmc-library.toml openmc-library
     deps:
+    - path: 
+        ../../../../toml-values/examples/vera/endfb70/openmc/openmc-library.toml.json
+      hash: md5
+      md5: 4e4605c779c235e4e941dab6d8cebf1b
+      size: 4386
     - path: ../../../../python-ast/examples/openmc_input.py.ast
       hash: md5
       md5: dcf5542e807b71c7bfabe11026ecabf3
@@ -1091,11 +1096,6 @@ stages:
       hash: md5
       md5: 9d2f53ffbbdab6514418cef40a7e4a79
       size: 2936
-    - path: 
-        ../../../../toml-values/examples/vera/endfb70/openmc/openmc-library.toml.json
-      hash: md5
-      md5: 4e4605c779c235e4e941dab6d8cebf1b
-      size: 4386
     - path: openmc-library/neutron
       hash: md5
       md5: a89719cf1e2fd0f28b2264af857bc685.dir

@@ -19,15 +19,15 @@ stages:
       hash: md5
       md5: 567a8fbb8e6135732b0aebe992e33877
       size: 12456
-    - path: ../../../python-ast/scripts/normalize_toml.py.ast
-      hash: md5
-      md5: 82d3738ce2567f06e06af65bb8f664f7
-      size: 872
     - path: 
         ../../../toml-values/examples/depletion/p9-fuel-points/fuel-points-2A.toml.json
       hash: md5
       md5: 098f4c88c93cacc18b68f5323fd2a406
       size: 1068
+    - path: ../../../python-ast/scripts/normalize_toml.py.ast
+      hash: md5
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     - path: ../p9-product/table-2A.msgpack
       hash: md5
       md5: e0b2a95adc7d3046e3c15b88dfe93eb8
@@ -56,15 +56,15 @@ stages:
       hash: md5
       md5: 567a8fbb8e6135732b0aebe992e33877
       size: 12456
-    - path: ../../../python-ast/scripts/normalize_toml.py.ast
-      hash: md5
-      md5: 82d3738ce2567f06e06af65bb8f664f7
-      size: 872
     - path: 
         ../../../toml-values/examples/depletion/p9-fuel-points/fuel-points-2O.toml.json
       hash: md5
       md5: a0fc44ea965351b139de6a9f2fc5dd5d
       size: 1062
+    - path: ../../../python-ast/scripts/normalize_toml.py.ast
+      hash: md5
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
     - path: ../p9-gd/fuel-2O.msgpack
       hash: md5
       md5: 5ad37b4af4620c98cfb67c4f00b355fc

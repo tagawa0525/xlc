@@ -3,11 +3,10 @@ stages:
   xs:
     cmd: ../../bin/xs xs.toml
     deps:
-    - path: ../../bin/xs
+    - path: ../../binary-forms/xs.md5
       hash: md5
-      md5: f98234e2f601b6afcaf2b4e2a2c2a2b0
-      size: 3072016
-      isexec: true
+      md5: 2cd98c7ffae320136aab7fc8da03d360
+      size: 33
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-001_H_001.endf
       hash: md5
       md5: a8a7d4b0bc9b9627affeaa0e74716c82
@@ -216,11 +215,10 @@ stages:
   assembly-3A:
     cmd: ../../bin/lattice assembly-3A.toml > assembly-3A.out
     deps:
-    - path: ../../bin/lattice
+    - path: ../../binary-forms/lattice.md5
       hash: md5
-      md5: b54520abc189139cc6b34ae570f84061
-      size: 11161856
-      isexec: true
+      md5: 61b95fad944d8779d376676fdc1a0f6b
+      size: 33
     - path: ../../toml-values/examples/reflector/assembly-3A.toml.json
       hash: md5
       md5: 43d082a55dc9e362763d863a38207e26
@@ -246,11 +244,10 @@ stages:
     cmd: mkdir -p axial-16 && RUST_LOG=debug ../../bin/lattice axial-3A-16.toml 
       > axial-3A-16.out 2> axial-3A-16.log
     deps:
-    - path: ../../bin/lattice
+    - path: ../../binary-forms/lattice.md5
       hash: md5
-      md5: b54520abc189139cc6b34ae570f84061
-      size: 11161856
-      isexec: true
+      md5: 61b95fad944d8779d376676fdc1a0f6b
+      size: 33
     - path: ../../toml-values/examples/reflector/axial-3A-16.toml.json
       hash: md5
       md5: a831ef1a8da99223d16245714be222a0
@@ -281,11 +278,10 @@ stages:
     cmd: mkdir -p axial-32 && RUST_LOG=debug ../../bin/lattice axial-3A-32.toml 
       > axial-3A-32.out 2> axial-3A-32.log
     deps:
-    - path: ../../bin/lattice
+    - path: ../../binary-forms/lattice.md5
       hash: md5
-      md5: b54520abc189139cc6b34ae570f84061
-      size: 11161856
-      isexec: true
+      md5: 61b95fad944d8779d376676fdc1a0f6b
+      size: 33
     - path: ../../toml-values/examples/reflector/axial-3A-32.toml.json
       hash: md5
       md5: bf7758ec272f87e3acb0137bcba97507
@@ -316,11 +312,10 @@ stages:
     cmd: mkdir -p axial-fine && RUST_LOG=debug ../../bin/lattice 
       axial-3A-fine.toml > axial-3A-fine.out 2> axial-3A-fine.log
     deps:
-    - path: ../../bin/lattice
+    - path: ../../binary-forms/lattice.md5
       hash: md5
-      md5: b54520abc189139cc6b34ae570f84061
-      size: 11161856
-      isexec: true
+      md5: 61b95fad944d8779d376676fdc1a0f6b
+      size: 33
     - path: ../../toml-values/examples/reflector/axial-3A-fine.toml.json
       hash: md5
       md5: 44ea6d466b583016ae5955e0ea4256fa
@@ -351,25 +346,24 @@ stages:
     cmd: RUST_LOG=debug ../../bin/core core-axial-slab-16.toml > 
       core-axial-slab-16.out 2> core-axial-slab-16.log
     deps:
-    - path: ../../bin/core
-      hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
     - path: 
         ../../toml-values/examples/reflector/core-axial-assemblies-16.toml.json
       hash: md5
       md5: 5d97cd4c93bfbb834a603c6b7e10819c
       size: 1883
-    - path: ../../toml-values/examples/reflector/core-axial-plant.toml.json
-      hash: md5
-      md5: 2c21acca2c39f958a642ea34692df9d6
-      size: 58
     - path: 
         ../../toml-values/examples/reflector/core-axial-slab-16-cycle.toml.json
       hash: md5
       md5: 7b6f738dec17df061ca1e3a4d1792c32
       size: 115
+    - path: ../../binary-forms/core.md5
+      hash: md5
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
+    - path: ../../toml-values/examples/reflector/core-axial-plant.toml.json
+      hash: md5
+      md5: 2c21acca2c39f958a642ea34692df9d6
+      size: 58
     - path: ../../toml-values/examples/reflector/core-axial-slab-16.toml.json
       hash: md5
       md5: 3c9ceb08299cda387f5f0be1abb2f4e1
@@ -413,11 +407,6 @@ stages:
     cmd: RUST_LOG=debug ../../bin/core core-axial-fstar-16.toml > 
       core-axial-fstar-16.out 2> core-axial-fstar-16.log
     deps:
-    - path: ../../bin/core
-      hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
     - path: 
         ../../toml-values/examples/reflector/core-axial-assemblies-16.toml.json
       hash: md5
@@ -428,6 +417,10 @@ stages:
       hash: md5
       md5: 7bba6ee0a5c96c63f95233606a9e6847
       size: 116
+    - path: ../../binary-forms/core.md5
+      hash: md5
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/reflector/core-axial-fstar-16.toml.json
       hash: md5
       md5: 9479cebc18cf5395dc7b1f80b1a302e3
@@ -496,25 +489,24 @@ stages:
     cmd: RUST_LOG=debug ../../bin/core core-axial-slab-32.toml > 
       core-axial-slab-32.out 2> core-axial-slab-32.log
     deps:
-    - path: ../../bin/core
-      hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
     - path: 
         ../../toml-values/examples/reflector/core-axial-assemblies-32.toml.json
       hash: md5
       md5: 8601a0bb993f0069dfe33500fa671312
       size: 2602
-    - path: ../../toml-values/examples/reflector/core-axial-plant.toml.json
-      hash: md5
-      md5: 2c21acca2c39f958a642ea34692df9d6
-      size: 58
     - path: 
         ../../toml-values/examples/reflector/core-axial-slab-32-cycle.toml.json
       hash: md5
       md5: 3684d01ee79719e8d74a533a9a342e2c
       size: 115
+    - path: ../../binary-forms/core.md5
+      hash: md5
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
+    - path: ../../toml-values/examples/reflector/core-axial-plant.toml.json
+      hash: md5
+      md5: 2c21acca2c39f958a642ea34692df9d6
+      size: 58
     - path: ../../toml-values/examples/reflector/core-axial-slab-32.toml.json
       hash: md5
       md5: f58de0bf7a67f17ac655b9b5e421c9ff
@@ -558,11 +550,6 @@ stages:
     cmd: RUST_LOG=debug ../../bin/core core-axial-fstar-32.toml > 
       core-axial-fstar-32.out 2> core-axial-fstar-32.log
     deps:
-    - path: ../../bin/core
-      hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
     - path: 
         ../../toml-values/examples/reflector/core-axial-assemblies-32.toml.json
       hash: md5
@@ -573,6 +560,10 @@ stages:
       hash: md5
       md5: e0e300ee1f7e2a4e9c93ce2cc3291463
       size: 116
+    - path: ../../binary-forms/core.md5
+      hash: md5
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/reflector/core-axial-fstar-32.toml.json
       hash: md5
       md5: 26205d818c6ebe9367003e42b905be00
@@ -641,25 +632,24 @@ stages:
     cmd: RUST_LOG=debug ../../bin/core core-axial-slab-fine.toml > 
       core-axial-slab-fine.out 2> core-axial-slab-fine.log
     deps:
-    - path: ../../bin/core
-      hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
     - path: 
         ../../toml-values/examples/reflector/core-axial-assemblies-fine.toml.json
       hash: md5
       md5: 79ffe667cf3c697ef84da9f1072fa8c2
       size: 1963
-    - path: ../../toml-values/examples/reflector/core-axial-plant.toml.json
-      hash: md5
-      md5: 2c21acca2c39f958a642ea34692df9d6
-      size: 58
     - path: 
         ../../toml-values/examples/reflector/core-axial-slab-fine-cycle.toml.json
       hash: md5
       md5: 1b4aad01560d6d27538ed67b01ab06df
       size: 119
+    - path: ../../binary-forms/core.md5
+      hash: md5
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
+    - path: ../../toml-values/examples/reflector/core-axial-plant.toml.json
+      hash: md5
+      md5: 2c21acca2c39f958a642ea34692df9d6
+      size: 58
     - path: ../../toml-values/examples/reflector/core-axial-slab-fine.toml.json
       hash: md5
       md5: 40e86805b905f558720d06864949795f
@@ -703,11 +693,6 @@ stages:
     cmd: RUST_LOG=debug ../../bin/core core-axial-fstar-fine.toml > 
       core-axial-fstar-fine.out 2> core-axial-fstar-fine.log
     deps:
-    - path: ../../bin/core
-      hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
     - path: 
         ../../toml-values/examples/reflector/core-axial-assemblies-fine.toml.json
       hash: md5
@@ -718,6 +703,10 @@ stages:
       hash: md5
       md5: 664972c8af06c035f6eab862b3ad0995
       size: 120
+    - path: ../../binary-forms/core.md5
+      hash: md5
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/reflector/core-axial-fstar-fine.toml.json
       hash: md5
       md5: f788149a4bac1d523efd9de003f2e958
@@ -786,11 +775,10 @@ stages:
     cmd: RUST_LOG=debug ../../bin/lattice reflector-corner.toml > 
       reflector-corner.out 2> reflector-corner.log
     deps:
-    - path: ../../bin/lattice
+    - path: ../../binary-forms/lattice.md5
       hash: md5
-      md5: b54520abc189139cc6b34ae570f84061
-      size: 11161856
-      isexec: true
+      md5: 61b95fad944d8779d376676fdc1a0f6b
+      size: 33
     - path: ../../toml-values/examples/reflector/reflector-corner.toml.json
       hash: md5
       md5: 940d7ccbb796944de266bbdbfa621c98
@@ -832,15 +820,6 @@ stages:
     cmd: RUST_LOG=debug ../../bin/core core-corner-outline.toml > 
       core-corner-outline.out 2> core-corner-outline.log
     deps:
-    - path: ../../bin/core
-      hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
-    - path: ../../toml-values/examples/reflector/core-assemblies.toml.json
-      hash: md5
-      md5: 4f3af5ba33c888f412440ad48e2a0c71
-      size: 490
     - path: 
         ../../toml-values/examples/reflector/core-corner-outline-cycle.toml.json
       hash: md5
@@ -851,6 +830,14 @@ stages:
       hash: md5
       md5: c513386122981eca6ded0a2c953628e8
       size: 415
+    - path: ../../binary-forms/core.md5
+      hash: md5
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
+    - path: ../../toml-values/examples/reflector/core-assemblies.toml.json
+      hash: md5
+      md5: 4f3af5ba33c888f412440ad48e2a0c71
+      size: 490
     - path: ../../toml-values/examples/reflector/core-corner-outline.toml.json
       hash: md5
       md5: fc2cdab732e085ef1ca1507a1ad405e6
@@ -888,11 +875,10 @@ stages:
     cmd: RUST_LOG=debug ../../bin/lattice reflector-I.toml > reflector-I.out 2> 
       reflector-I.log
     deps:
-    - path: ../../bin/lattice
+    - path: ../../binary-forms/lattice.md5
       hash: md5
-      md5: b54520abc189139cc6b34ae570f84061
-      size: 11161856
-      isexec: true
+      md5: 61b95fad944d8779d376676fdc1a0f6b
+      size: 33
     - path: ../../toml-values/examples/reflector/reflector-I.toml.json
       hash: md5
       md5: 5090188eaf9c9c37063cd434ff402e6b
@@ -926,11 +912,10 @@ stages:
     cmd: RUST_LOG=debug ../../bin/core core-corner-I.toml > core-corner-I.out 2>
       core-corner-I.log
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/reflector/core-assemblies.toml.json
       hash: md5
       md5: 4f3af5ba33c888f412440ad48e2a0c71
@@ -976,11 +961,10 @@ stages:
     cmd: RUST_LOG=debug ../../bin/core core-corner.toml > core-corner.out 2> 
       core-corner.log
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/reflector/core-assemblies.toml.json
       hash: md5
       md5: 4f3af5ba33c888f412440ad48e2a0c71

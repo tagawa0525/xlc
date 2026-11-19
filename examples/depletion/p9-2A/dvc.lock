@@ -3,11 +3,10 @@ stages:
   branch-2A:
     cmd: ../../../bin/lattice branch-2A.toml > branch-2A.out 2> branch-2A.log
     deps:
-    - path: ../../../bin/lattice
+    - path: ../../../binary-forms/lattice.md5
       hash: md5
-      md5: b54520abc189139cc6b34ae570f84061
-      size: 11161856
-      isexec: true
+      md5: 61b95fad944d8779d376676fdc1a0f6b
+      size: 33
     - path: ../../../toml-values/examples/depletion/p9-2A/branch-2A.toml.json
       hash: md5
       md5: df36daeb1d9918565a9813485730f280

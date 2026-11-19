@@ -3,11 +3,10 @@ stages:
   xs:
     cmd: ../../bin/xs xs.toml
     deps:
-    - path: ../../bin/xs
+    - path: ../../binary-forms/xs.md5
       hash: md5
-      md5: f98234e2f601b6afcaf2b4e2a2c2a2b0
-      size: 3072016
-      isexec: true
+      md5: 2cd98c7ffae320136aab7fc8da03d360
+      size: 33
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-001_H_001.endf
       hash: md5
       md5: a8a7d4b0bc9b9627affeaa0e74716c82
@@ -244,11 +243,10 @@ stages:
   core@volume-20:
     cmd: mkdir -p out && ../../bin/core cases/volume-20.toml > out/volume-20.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -278,11 +276,10 @@ stages:
     cmd: mkdir -p out && ../../bin/core cases/volume-180.toml > 
       out/volume-180.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -311,11 +308,10 @@ stages:
   core@split-124:
     cmd: mkdir -p out && ../../bin/core cases/split-124.toml > out/split-124.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -345,11 +341,10 @@ stages:
     cmd: mkdir -p out && ../../bin/core cases/volume-116.toml > 
       out/volume-116.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -379,11 +374,10 @@ stages:
     cmd: mkdir -p out && ../../bin/core cases/volume-126.toml > 
       out/volume-126.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -413,11 +407,10 @@ stages:
     cmd: mkdir -p out && ../../bin/core cases/volume-118.toml > 
       out/volume-118.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -446,11 +439,10 @@ stages:
   core@flux-120:
     cmd: mkdir -p out && ../../bin/core cases/flux-120.toml > out/flux-120.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -479,11 +471,10 @@ stages:
   core@volume-90:
     cmd: mkdir -p out && ../../bin/core cases/volume-90.toml > out/volume-90.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -512,11 +503,10 @@ stages:
   core@flux-118:
     cmd: mkdir -p out && ../../bin/core cases/flux-118.toml > out/flux-118.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -546,11 +536,10 @@ stages:
     cmd: mkdir -p out && ../../bin/core cases/volume-120.toml > 
       out/volume-120.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -579,11 +568,10 @@ stages:
   core@flux-124:
     cmd: mkdir -p out && ../../bin/core cases/flux-124.toml > out/flux-124.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -612,11 +600,10 @@ stages:
   core@split-120:
     cmd: mkdir -p out && ../../bin/core cases/split-120.toml > out/split-120.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -645,11 +632,10 @@ stages:
   core@flux-126:
     cmd: mkdir -p out && ../../bin/core cases/flux-126.toml > out/flux-126.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -678,11 +664,10 @@ stages:
   core@split-126:
     cmd: mkdir -p out && ../../bin/core cases/split-126.toml > out/split-126.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -712,11 +697,10 @@ stages:
     cmd: mkdir -p out && ../../bin/core cases/fine-2-122.toml > 
       out/fine-2-122.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -746,11 +730,10 @@ stages:
     cmd: mkdir -p out && ../../bin/core cases/fine-1-116.toml > 
       out/fine-1-116.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -780,11 +763,10 @@ stages:
     cmd: mkdir -p out && ../../bin/core cases/volume-122.toml > 
       out/volume-122.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -813,11 +795,10 @@ stages:
   core@split-116:
     cmd: mkdir -p out && ../../bin/core cases/split-116.toml > out/split-116.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -846,11 +827,10 @@ stages:
   core@split-128:
     cmd: mkdir -p out && ../../bin/core cases/split-128.toml > out/split-128.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -880,11 +860,10 @@ stages:
     cmd: mkdir -p out && ../../bin/core cases/fine-0.125-122.toml > 
       out/fine-0.125-122.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -913,11 +892,10 @@ stages:
   core@split-20:
     cmd: mkdir -p out && ../../bin/core cases/split-20.toml > out/split-20.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -946,11 +924,10 @@ stages:
   core@flux-128:
     cmd: mkdir -p out && ../../bin/core cases/flux-128.toml > out/flux-128.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -979,11 +956,10 @@ stages:
   core@split-150:
     cmd: mkdir -p out && ../../bin/core cases/split-150.toml > out/split-150.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -1013,11 +989,10 @@ stages:
     cmd: mkdir -p out && ../../bin/core cases/fine-0.25-122.toml > 
       out/fine-0.25-122.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -1046,11 +1021,10 @@ stages:
   core@split-122:
     cmd: mkdir -p out && ../../bin/core cases/split-122.toml > out/split-122.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -1079,11 +1053,10 @@ stages:
   core@flux-116:
     cmd: mkdir -p out && ../../bin/core cases/flux-116.toml > out/flux-116.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -1112,11 +1085,10 @@ stages:
   core@split-118:
     cmd: mkdir -p out && ../../bin/core cases/split-118.toml > out/split-118.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -1145,11 +1117,10 @@ stages:
   core@flux-122:
     cmd: mkdir -p out && ../../bin/core cases/flux-122.toml > out/flux-122.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -1179,11 +1150,10 @@ stages:
     cmd: mkdir -p out && ../../bin/core cases/volume-124.toml > 
       out/volume-124.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -1213,11 +1183,10 @@ stages:
     cmd: mkdir -p out && ../../bin/core cases/volume-128.toml > 
       out/volume-128.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -1246,11 +1215,10 @@ stages:
   core@flux-20:
     cmd: mkdir -p out && ../../bin/core cases/flux-20.toml > out/flux-20.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -1279,11 +1247,10 @@ stages:
   core@flux-60:
     cmd: mkdir -p out && ../../bin/core cases/flux-60.toml > out/flux-60.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -1312,11 +1279,10 @@ stages:
   core@volume-60:
     cmd: mkdir -p out && ../../bin/core cases/volume-60.toml > out/volume-60.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -1345,11 +1311,10 @@ stages:
   core@split-60:
     cmd: mkdir -p out && ../../bin/core cases/split-60.toml > out/split-60.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -1378,11 +1343,10 @@ stages:
   core@flux-90:
     cmd: mkdir -p out && ../../bin/core cases/flux-90.toml > out/flux-90.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -1411,11 +1375,10 @@ stages:
   core@split-90:
     cmd: mkdir -p out && ../../bin/core cases/split-90.toml > out/split-90.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -1444,11 +1407,10 @@ stages:
   core@flux-150:
     cmd: mkdir -p out && ../../bin/core cases/flux-150.toml > out/flux-150.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -1478,11 +1440,10 @@ stages:
     cmd: mkdir -p out && ../../bin/core cases/volume-150.toml > 
       out/volume-150.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -1511,11 +1472,10 @@ stages:
   core@flux-180:
     cmd: mkdir -p out && ../../bin/core cases/flux-180.toml > out/flux-180.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -1544,11 +1504,10 @@ stages:
   core@split-180:
     cmd: mkdir -p out && ../../bin/core cases/split-180.toml > out/split-180.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -1577,11 +1536,10 @@ stages:
   core@flux-200:
     cmd: mkdir -p out && ../../bin/core cases/flux-200.toml > out/flux-200.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -1611,11 +1569,10 @@ stages:
     cmd: mkdir -p out && ../../bin/core cases/volume-200.toml > 
       out/volume-200.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -1644,11 +1601,10 @@ stages:
   core@split-200:
     cmd: mkdir -p out && ../../bin/core cases/split-200.toml > out/split-200.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -1678,11 +1634,10 @@ stages:
     cmd: mkdir -p out && ../../bin/core cases/fine-2-116.toml > 
       out/fine-2-116.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -1712,11 +1667,10 @@ stages:
     cmd: mkdir -p out && ../../bin/core cases/fine-2-180.toml > 
       out/fine-2-180.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -1746,11 +1700,10 @@ stages:
     cmd: mkdir -p out && ../../bin/core cases/fine-1-122.toml > 
       out/fine-1-122.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -1780,11 +1733,10 @@ stages:
     cmd: mkdir -p out && ../../bin/core cases/fine-1-180.toml > 
       out/fine-1-180.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -1814,11 +1766,10 @@ stages:
     cmd: mkdir -p out && ../../bin/core cases/fine-0.25-116.toml > 
       out/fine-0.25-116.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -1848,11 +1799,10 @@ stages:
     cmd: mkdir -p out && ../../bin/core cases/fine-0.25-180.toml > 
       out/fine-0.25-180.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -1882,11 +1832,10 @@ stages:
     cmd: mkdir -p out && ../../bin/core cases/fine-0.125-116.toml > 
       out/fine-0.125-116.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -1916,11 +1865,10 @@ stages:
     cmd: mkdir -p out && ../../bin/core cases/fine-0.125-180.toml > 
       out/fine-0.125-180.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/core/assemblies.toml.json
       hash: md5
       md5: 7c06b996269359828e195163cb0c4547
@@ -1955,8 +1903,8 @@ stages:
       size: 3682
     - path: ../../python-ast/examples/core/rods_cases.py.ast
       hash: md5
-      md5: c7ef8028d48ddadd7af97a6ea33120e4
-      size: 5126
+      md5: 028433fde8bd0d934d29e9af4019df8d
+      size: 5139
     - path: out/fine-0.125-116.out
       hash: md5
       md5: 141a4edc0f3b2fbc2893a2a3d6d42dd5
@@ -2169,11 +2117,10 @@ stages:
   lattice:
     cmd: ../../bin/lattice assembly.toml > lattice.out
     deps:
-    - path: ../../bin/lattice
+    - path: ../../binary-forms/lattice.md5
       hash: md5
-      md5: b54520abc189139cc6b34ae570f84061
-      size: 11161856
-      isexec: true
+      md5: 61b95fad944d8779d376676fdc1a0f6b
+      size: 33
     - path: ../../toml-values/examples/core/assembly.toml.json
       hash: md5
       md5: bdc047ccc6f6414afcc5c71cec540e45

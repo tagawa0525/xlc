@@ -3,11 +3,10 @@ stages:
   lattice-31:
     cmd: ../../bin/lattice assembly-31.toml > lattice-31.out
     deps:
-    - path: ../../bin/lattice
+    - path: ../../binary-forms/lattice.md5
       hash: md5
-      md5: b54520abc189139cc6b34ae570f84061
-      size: 11161856
-      isexec: true
+      md5: 61b95fad944d8779d376676fdc1a0f6b
+      size: 33
     - path: ../../toml-values/examples/colorset/assembly-31.toml.json
       hash: md5
       md5: 083dc0d84c8b630687a0a8a30e082e03
@@ -48,11 +47,10 @@ stages:
   lattice-21:
     cmd: ../../bin/lattice assembly-21.toml > lattice-21.out
     deps:
-    - path: ../../bin/lattice
+    - path: ../../binary-forms/lattice.md5
       hash: md5
-      md5: b54520abc189139cc6b34ae570f84061
-      size: 11161856
-      isexec: true
+      md5: 61b95fad944d8779d376676fdc1a0f6b
+      size: 33
     - path: ../../toml-values/examples/colorset/assembly-21.toml.json
       hash: md5
       md5: e17a6d64a22e3f0cca720f92d42138cb
@@ -93,11 +91,10 @@ stages:
   core-nodf:
     cmd: ../../bin/core case-nodf.toml > core-nodf.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/colorset/assemblies-nodf.toml.json
       hash: md5
       md5: a4f8311e09a12c775a1c52699ca181f5
@@ -134,11 +131,10 @@ stages:
   core:
     cmd: ../../bin/core case.toml > core.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/colorset/assemblies.toml.json
       hash: md5
       md5: 10a7ba1f7cb72ba0110e1e56246433e6
@@ -296,11 +292,10 @@ stages:
   colorset:
     cmd: ../../bin/lattice colorset.toml > colorset.out
     deps:
-    - path: ../../bin/lattice
+    - path: ../../binary-forms/lattice.md5
       hash: md5
-      md5: b54520abc189139cc6b34ae570f84061
-      size: 11161856
-      isexec: true
+      md5: 61b95fad944d8779d376676fdc1a0f6b
+      size: 33
     - path: ../../toml-values/examples/colorset/colorset.toml.json
       hash: md5
       md5: e89c2a48deac92f539a25e100a3c6547
@@ -384,11 +379,10 @@ stages:
   core-node:
     cmd: ../../bin/core case-node.toml > core-node.out
     deps:
-    - path: ../../bin/core
+    - path: ../../binary-forms/core.md5
       hash: md5
-      md5: d6b0932c73b2aac6e70f1adee0065a71
-      size: 7443832
-      isexec: true
+      md5: dc3ad68f921e1792d61a14e1802bf607
+      size: 33
     - path: ../../toml-values/examples/colorset/assemblies-node.toml.json
       hash: md5
       md5: cbf7f4ee03954cb7aeae82adeb51f983
