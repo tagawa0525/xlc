@@ -25,6 +25,8 @@ examples/openmc_resume.py の `run_model` は、実行中に 30 秒ごとに `pr
 影響: 本番（間隔 100、2500 世代）では、実行中に約 25 個の statepoint が VM の EBS（40 GB）と S3 の `runs/` にたまる（1 個の大きさは
 本番の粒子数で確かめていない）。完了すれば消えるので結果には影響しない。
 
+r995 の Slurm で流す実行（openmc_core_2d.py、openmc_model_3d.py の run。`statepoint-interval` を持つのは p3 の 3A、3B と p5 の 5B-2D、5C-2D の入力）も同じ `run_model` を通るので、AWS を使わない今も、実行中の statepoint は作業ディレクトリにたまる。直すと examples/openmc_resume.py の正規形（python-ast）が変わり、それを deps にする examples/vera/dvc.yaml の `openmc-5A-2D-extract` が changed になるので、その extract を再実行できるブランチで直す。
+
 関係する ADR: ADR-0155
 
 S3 の側: ADR-0155 の同期は、走っている間 statepoint を `--delete` の対象から外す（書いている途中のものをコピーしないため）ので、
@@ -38,3 +40,4 @@ VM での間引きを直しても、S3 の `runs/` の statepoint は完了ま�
 ## 経緯
 
 - 2026-10-13: ADR-0155 の再開の確認で、S3 の `run/` に古い statepoint が残ることから見つけた
+- 2026-11-19: AWS を使わなくなった後も、r995 の実行に同じ欠陥が残るので開いたままにした
