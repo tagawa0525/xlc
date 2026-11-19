@@ -1,5 +1,6 @@
 //! MF5（出射中性子のエネルギー分布）。表形式（LF=1）と、θ(E) で決まる形のうち
-//! 一般の蒸発スペクトル（LF=5）、単純な核分裂スペクトル（LF=7）、蒸発スペクトル（LF=9）を扱う。
+//! 一般の蒸発スペクトル（LF=5）、単純な核分裂スペクトル（LF=7）、蒸発スペクトル（LF=9）、
+//! Madland-Nix の核分裂スペクトル（LF=12）を扱う。
 //! それ以外の形式は、対象核種で必要になるまで追加しない。
 
 use super::Error;
@@ -19,7 +20,7 @@ pub struct OutgoingDistributions {
     pub spectra: Vec<Tab1>,
 }
 
-/// 部分分布の形。解析式の分布は、出射エネルギー E' を 0 ≤ E' ≤ E - U に制限する。
+/// 部分分布の形。LF=5、7、9 の解析式の分布は、出射エネルギー E' を 0 ≤ E' ≤ E - U に制限する。
 #[derive(Debug, Clone, PartialEq)]
 pub enum EnergyLaw {
     /// LF=1: 入射エネルギーごとの表
@@ -40,6 +41,16 @@ pub enum EnergyLaw {
     Evaporation {
         restriction: f64,
         theta: ClampedTab1,
+    },
+    /// LF=12: Madland-Nix の核分裂スペクトル f(E') = (g(E', E_F(L)) + g(E', E_F(H)))/2（ENDF-102 の 5.1.1.6）。
+    /// E' は 0〜∞ で、U で切らない
+    MadlandNix {
+        /// 軽い核分裂片の核子あたりの平均運動エネルギー E_F(L) (eV)
+        light: f64,
+        /// 重い核分裂片の E_F(H) (eV)
+        heavy: f64,
+        /// 核分裂片の最大の温度 T_M(E) (eV)
+        temperature: ClampedTab1,
     },
 }
 
@@ -76,6 +87,14 @@ impl Mf5 {
                     restriction,
                     theta: positive_theta(&mut r)?,
                 },
+                // ENDF-102 の 5.2.6 で p(E) の C1 は 0.0。E' は 0〜∞（5.1.1.6）なので、U を書いた評価は意味が決まらない
+                12 if restriction != 0.0 => {
+                    return Err(Error::new(
+                        start,
+                        format!("LF=12 has no restriction U, got {restriction}"),
+                    ));
+                }
+                12 => madland_nix(&mut r)?,
                 lf => return Err(Error::new(start, format!("LF={lf} is not supported"))),
             };
             subsections.push((probability.table, law));
@@ -87,13 +106,36 @@ impl Mf5 {
 /// 解析式の分布の θ(E) を読む。θ は分布の温度なので正でなければならない。
 fn positive_theta(r: &mut Reader<'_>) -> Result<ClampedTab1, Error> {
     let theta = r.tab1()?.table;
+    clamped_positive(theta, r.line())
+}
+
+/// Madland-Nix のスペクトルの E_F(L)、E_F(H)（TAB1 の C1、C2）と T_M(E) を読む。どれも正のエネルギーでなければならない。
+fn madland_nix(r: &mut Reader<'_>) -> Result<EnergyLaw, Error> {
+    let record = r.tab1()?;
+    for fragment in [record.c1, record.c2] {
+        if !(fragment > 0.0 && fragment.is_finite()) {
+            return Err(Error::new(
+                r.line(),
+                format!("E_F must be positive, got {fragment}"),
+            ));
+        }
+    }
+    Ok(EnergyLaw::MadlandNix {
+        light: record.c1,
+        heavy: record.c2,
+        temperature: clamped_positive(record.table, r.line())?,
+    })
+}
+
+/// 分布の温度（θ、T_M）の表を、範囲の外で端の値を使う表にする。温度は正でなければならない。
+fn clamped_positive(theta: Tab1, line: usize) -> Result<ClampedTab1, Error> {
     if let Some(bad) = theta.y.iter().find(|&&t| t <= 0.0 || t.is_nan()) {
         return Err(Error::new(
-            r.line(),
+            line,
             format!("theta must be positive, got {bad}"),
         ));
     }
-    ClampedTab1::new(theta).ok_or_else(|| Error::new(r.line(), "theta table is empty"))
+    ClampedTab1::new(theta).ok_or_else(|| Error::new(line, "theta table is empty"))
 }
 
 /// 一般の蒸発スペクトルの θ(E) を読む。エネルギーによる θ は、群の割合の折れ目の入射エネルギーが θ の逆関数で決まる

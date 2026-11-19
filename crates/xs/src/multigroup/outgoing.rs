@@ -4,7 +4,7 @@ use crate::endf::{
     ClampedTab1, EnergyLaw, IncidentLaw, Interpolation, OutgoingDistributions, Tab1,
 };
 use crate::pointwise::linearize;
-use crate::special::{gamma_p_2, gamma_p_3_2};
+use crate::special::{exp_e1, gamma_p_2, gamma_p_3_2};
 use xlc_format::group::GroupStructure;
 use xlc_numeric::quadrature::GAUSS_LEGENDRE_4;
 
@@ -287,13 +287,14 @@ pub enum GroupedLaw {
     Analytic(AnalyticSpectrum),
 }
 
-/// θ(E) で決まる出射分布（LF=5, 7, 9）。入射エネルギーごとに、群ごとの割合を x = E'/θ までの累積の差で
-/// 厳密に求める（LF=7, 9 は不完全ガンマ関数。NJOY GROUPR の anased と同じ）。
+/// θ(E) で決まる出射分布（LF=5, 7, 9, 12）。入射エネルギーごとに、群ごとの割合を x = E'/θ までの累積の差で
+/// 厳密に求める（LF=7, 9 は不完全ガンマ関数、LF=12 は閉じた式。NJOY GROUPR の anased と同じ）。
 #[derive(Debug, Clone)]
 pub struct AnalyticSpectrum {
     /// x = E'/θ 未満の出射の割合
     fraction: Cumulative,
-    restriction: f64,
+    /// E' ≤ E - U の U。`None` は切らない（LF=12）
+    restriction: Option<f64>,
     theta: Theta,
     bounds: Vec<f64>,
 }
@@ -322,6 +323,8 @@ enum Cumulative {
     Gamma(fn(f64) -> f64),
     /// 表の g(x)（LF=5）を線形化した区分線形の密度の積分。`integral[k]` は x[k] までの積分
     Table { shape: Tab1, integral: Vec<f64> },
+    /// Madland-Nix のスペクトル（LF=12）の 0〜∞ で 1 の累積。θ は T_M、`light` と `heavy` は E_F (eV)
+    MadlandNix { light: f64, heavy: f64 },
 }
 
 impl Cumulative {
@@ -335,9 +338,14 @@ impl Cumulative {
         Self::Table { shape, integral }
     }
 
-    fn at(&self, x: f64) -> f64 {
+    /// x = E'/θ までの累積。`theta` は x を出した θ（LF=12 の累積は E_F/θ にもよる）
+    fn at(&self, x: f64, theta: f64) -> f64 {
         match self {
             Self::Gamma(p) => p(x),
+            Self::MadlandNix { light, heavy } => {
+                0.5 * (madland_nix_fraction(x, light / theta)
+                    + madland_nix_fraction(x, heavy / theta))
+            }
             Self::Table { shape, integral } => {
                 let (xs, ys) = (&shape.x, &shape.y);
                 let k = xs.partition_point(|&xk| xk <= x);
@@ -356,19 +364,85 @@ impl Cumulative {
     }
 }
 
+/// E'/T_M が E_F/T_M のこの倍より小さいところは、閉じた式でなく級数で累積を求める（`madland_nix_small_fraction`）。
+/// 閉じた式は 1 程度の項の差で、累積（x^(3/2) で 0 に近づく）に 1e-16 ほどの絶対誤差が残る。この倍の x では、E_F/T_M = 0.5 で
+/// 累積が 2e-7 ほどになる。この x の前後の相対誤差は、閉じた式で 3e-9 以下、級数で 1.1e-11 以下（ε = 0.05〜5 で、数値積分と
+/// 比べた）。
+const MADLAND_NIX_SMALL: f64 = 1.0e-4;
+
+/// ENDF-102 の 5.1.1.6 の g(E', E_F) の、E'/T_M < x の割合（0〜∞ で 1）。`fragment` は E_F/T_M。
+///
+/// NJOY GROUPR の anased の LF=12 の 3 つの領域（ENDF-102 の 5.4.10）の式を、1 つの原始関数 H(√E') にまとめたもの:
+/// A = (√E' + √E_F)²/T_M、B = (√E' - √E_F)²/T_M、σ = sgn(√E' - √E_F) として、領域 I と II の式は H(b) - H(a) で、
+/// B の項の符号が σ で替わる。領域 III の定数 -2 は、σ e^(-B)(1 + B) の項を σ (e^(-B)(1 + B) - 1) に替えて H を
+/// E' = E_F で連続にしたもの。H(∞) = 1/2、H(0) = -1/2 なので、割合は H + 1/2。小さい x（`MADLAND_NIX_SMALL`）は
+/// `madland_nix_small_fraction`。式の正しさは、ENDF-102 の g の数値積分との比較（テスト）で確かめる。
+fn madland_nix_fraction(x: f64, fragment: f64) -> f64 {
+    if x == f64::INFINITY {
+        return 1.0;
+    }
+    if x < MADLAND_NIX_SMALL * fragment {
+        return madland_nix_small_fraction(x, fragment);
+    }
+    let r = 1.0 / fragment.sqrt();
+    let signed = x.sqrt() - fragment.sqrt();
+    let sigma = signed.signum();
+    let a = (x.sqrt() + fragment.sqrt()).powi(2);
+    let b = signed * signed;
+    let gamma_3_2 = |u: f64| 0.5 * std::f64::consts::PI.sqrt() * gamma_p_3_2(u);
+    let (gamma_a, gamma_b) = (gamma_3_2(a), gamma_3_2(b));
+    // γ(5/2, u) = 3/2 γ(3/2, u) - u^(3/2) e^(-u)
+    let gamma_5_2 = |u: f64, gamma: f64| 1.5 * gamma - u.powf(1.5) * (-u).exp();
+    let decay = |u: f64| (-u).exp() * (1.0 + u);
+    // u^n E1(u) は u → 0 で 0（n ≥ 2）
+    let e1_b = if b == 0.0 { 0.0 } else { madland_nix_e1(b) };
+    let upper = (2.0 / 15.0 * r * a.powf(2.5) - a * a / 6.0) * madland_nix_e1(a)
+        + (r / 3.0 * a - 2.0 / 3.0 * a.sqrt()) * gamma_a
+        - r / 5.0 * gamma_5_2(a, gamma_a)
+        - 0.5 * decay(a);
+    let lower = (2.0 / 15.0 * r * b.powf(2.5) + sigma * b * b / 6.0) * e1_b
+        + (r / 3.0 * b + sigma * 2.0 / 3.0 * b.sqrt()) * gamma_b
+        - r / 5.0 * gamma_5_2(b, gamma_b)
+        + 0.5 * sigma * (decay(b) - 1.0);
+    0.5 + upper - lower
+}
+
+/// x < `MADLAND_NIX_SMALL` E_F/T_M での `madland_nix_fraction`。項が打ち消し合わない級数で求める（T_M を単位とし、
+/// ε = E_F/T_M、w = √ε、X = √x）。φ(u) = u^(3/2) E1(u) + γ(3/2, u) の導関数は (3/2) √u E1(u) なので、√u = w + t と置くと
+/// g(s²) = (1/(2w)) ∫_{-s}^{s} q(w + t) dt、q(v) = 2v² E1(v²)。t について展開して E' = s² で積分すると、累積は
+/// (2/w) Σ_k q^(2k)(w) X^(2k+3)/((2k+1)! (2k+3)) で、k = 0〜2 の項を使う:
+/// q(w) = 2ε E1(ε)、q''(w) = 4 E1(ε) + e^(-ε)(8ε - 12)、q''''(w) = e^(-ε)(8/ε + 56 - 128ε + 32ε²)。
+fn madland_nix_small_fraction(x: f64, fragment: f64) -> f64 {
+    let e1 = madland_nix_e1(fragment);
+    let decay = (-fragment).exp();
+    let q0 = 2.0 * fragment * e1;
+    let q2 = 4.0 * e1 + decay * (8.0 * fragment - 12.0);
+    let q4 = decay * (8.0 / fragment + 56.0 - 128.0 * fragment + 32.0 * fragment * fragment);
+    2.0 / fragment.sqrt() * x.sqrt().powi(3) * (q0 / 3.0 + q2 * x / 30.0 + q4 * x * x / 840.0)
+}
+
+/// E1(u)（u > 0）。u は正の有限の値で、そこで exp_e1 は収束する。万一の失敗は NaN にして、χ を有限の値に限るライブラリの
+/// 検査（xlc_format の NuclideData の check）で止める（`accumulate` はエラーを返さない）
+fn madland_nix_e1(u: f64) -> f64 {
+    exp_e1(u).map_or(f64::NAN, |scaled| scaled * (-u).exp())
+}
+
 impl AnalyticSpectrum {
     fn accumulate(&self, e: f64, scale: f64, out: &mut [f64]) {
-        let top = e - self.restriction;
+        let top = match self.restriction {
+            Some(restriction) => e - restriction,
+            None => f64::INFINITY,
+        };
         if top <= 0.0 {
             return;
         }
         let theta = self.theta.eval(e);
-        let total = self.fraction.at(top / theta);
+        let total = self.fraction.at(top / theta, theta);
         // 最下位の群から積み上げる。群構造の外に出る分は端の群に入れる
         let mut below = 0.0;
         for g in (0..out.len()).rev() {
             let upper = if g == 0 { top } else { self.bounds[g].min(top) };
-            let cumulative = self.fraction.at(upper / theta);
+            let cumulative = self.fraction.at(upper / theta, theta);
             out[g] += scale * (cumulative - below) / total;
             below = cumulative;
             if upper >= top {
@@ -380,7 +454,7 @@ impl AnalyticSpectrum {
 
 impl GroupedLaw {
     pub fn new(groups: &GroupStructure, law: &EnergyLaw) -> Self {
-        let analytic = |fraction: Cumulative, restriction: f64, theta: Theta| {
+        let analytic = |fraction: Cumulative, restriction: Option<f64>, theta: Theta| {
             Self::Analytic(AnalyticSpectrum {
                 fraction,
                 restriction,
@@ -398,18 +472,30 @@ impl GroupedLaw {
                 shape,
             } => analytic(
                 Cumulative::table(shape),
-                *restriction,
+                Some(*restriction),
                 Theta::Constant(*theta),
             ),
             EnergyLaw::Maxwellian { restriction, theta } => analytic(
                 Cumulative::Gamma(gamma_p_3_2),
-                *restriction,
+                Some(*restriction),
                 Theta::Table(theta.clone()),
             ),
             EnergyLaw::Evaporation { restriction, theta } => analytic(
                 Cumulative::Gamma(gamma_p_2),
-                *restriction,
+                Some(*restriction),
                 Theta::Table(theta.clone()),
+            ),
+            EnergyLaw::MadlandNix {
+                light,
+                heavy,
+                temperature,
+            } => analytic(
+                Cumulative::MadlandNix {
+                    light: *light,
+                    heavy: *heavy,
+                },
+                None,
+                Theta::Table(temperature.clone()),
             ),
         }
     }
@@ -419,18 +505,20 @@ impl GroupedLaw {
         match self {
             Self::Table(grouped) => grouped.incident().to_vec(),
             // θ の表の点と、E - U が 0 や群境界を横切る点（群ごとの割合の傾きが変わる）。表の g(x)（θ は一定）では、
-            // E - U が g の表の点の θ 倍を横切る点でも傾きが変わる
+            // E - U が g の表の点の θ 倍を横切る点でも傾きが変わる。U で切らない分布（LF=12）は θ の表の点だけ
             Self::Analytic(spectrum) => {
-                let mut points: Vec<f64> = std::iter::once(spectrum.restriction)
-                    .chain(spectrum.bounds.iter().map(|b| b + spectrum.restriction))
-                    .collect();
+                let mut points = Vec::new();
+                if let Some(restriction) = spectrum.restriction {
+                    points.push(restriction);
+                    points.extend(spectrum.bounds.iter().map(|b| b + restriction));
+                    if let (Cumulative::Table { shape, .. }, Theta::Constant(theta)) =
+                        (&spectrum.fraction, &spectrum.theta)
+                    {
+                        points.extend(shape.x.iter().map(|x| restriction + theta * x));
+                    }
+                }
                 if let Theta::Table(theta) = &spectrum.theta {
                     points.extend(&theta.table().x);
-                }
-                if let (Cumulative::Table { shape, .. }, Theta::Constant(theta)) =
-                    (&spectrum.fraction, &spectrum.theta)
-                {
-                    points.extend(shape.x.iter().map(|x| spectrum.restriction + theta * x));
                 }
                 points.retain(|&e| e > 0.0);
                 points

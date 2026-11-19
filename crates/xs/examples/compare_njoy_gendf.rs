@@ -16,7 +16,7 @@
 use std::collections::BTreeMap;
 
 use xlc_format::group::GroupStructure;
-use xlc_xs::endf::{Mf3, Mf4, Mf5, Mf6, Tape, parse_nubar};
+use xlc_xs::endf::{Mf3, Mf4, Mf5, Mf6, Tape, total_nubar};
 use xlc_xs::multigroup::{
     Emission, FissionNeutrons, Reactions, Weight, fission_spectrum, reaction_averages,
     scattering_moments, uses_angular,
@@ -39,10 +39,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mat: i32 = mat.parse()?;
     let tape = Tape::parse(&std::fs::read_to_string(endf)?)?;
     let tables = reconstruct(&tape, mat, DEFAULT_TOLERANCE)?;
-    let nubar = match tape.section(mat, 1, 452) {
-        Some(section) => Some(parse_nubar(&section)?),
-        None => None,
-    };
+    let nubar = total_nubar(&tape, mat)?;
     let groups = GroupStructure::wims69();
     let avg = reaction_averages(&groups, &Weight::lwr(), &tables, nubar.as_ref());
 

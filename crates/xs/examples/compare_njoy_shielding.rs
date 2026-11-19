@@ -17,7 +17,7 @@
 use std::collections::BTreeMap;
 
 use xlc_format::group::GroupStructure;
-use xlc_xs::endf::{Section, Tape, parse_nubar};
+use xlc_xs::endf::{Section, Tape, total_nubar};
 use xlc_xs::multigroup::{Weight, shielded_averages};
 use xlc_xs::pointwise::{DEFAULT_TOLERANCE, reconstruct_at};
 use xlc_xs::process::{slowing_down_range, unresolved_shielding};
@@ -40,10 +40,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let temperature: f64 = temperature.parse()?;
     let tape = Tape::parse(&std::fs::read_to_string(endf)?)?;
     let tables = reconstruct_at(&tape, mat, DEFAULT_TOLERANCE, temperature)?;
-    let nubar = match tape.section(mat, 1, 452) {
-        Some(section) => Some(parse_nubar(&section)?),
-        None => None,
-    };
+    let nubar = total_nubar(&tape, mat)?;
 
     let reference = Tape::parse(&std::fs::read_to_string(gendf)?)?;
     let header = reference
