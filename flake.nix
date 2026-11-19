@@ -117,7 +117,7 @@
         decay = endfViiZip "dec" "0778766165d723ddfa41c44a3f3bdb46d15c631c57364196d7cf012a65b84046";
         nfy = endfViiZip "nfy" "13f5589462965a572c582af5129ff9c903e12e4f43bdc6b156a958296cdbaf96";
       };
-      # 版ごとの燃焼チェーン（#0303）の ENDF/B-VII.1。zip は <part>/ のディレクトリを持つ
+      # 版ごとの燃焼チェーンとライブラリ（#0303）の ENDF/B-VII.1。zip は <part>/ のディレクトリを持つ
       endfVii1Zip =
         part: sha256:
         pkgs.fetchurl {
@@ -126,10 +126,11 @@
         };
       endfVii1Zips = {
         neutrons = endfVii1Zip "neutrons" "ed106bfddb537cf46ac944536baec3b03b08d92a8efd97ff4e782531a82f99f3";
+        thermal_scatt = endfVii1Zip "thermal_scatt" "796629f66c4a8f674fc1b1040c2336ce42152ed324d93d6be60d81e4bca1aff2";
         decay = endfVii1Zip "decay" "25edd580cd36533194d43ae71503b7e2eebe29141f973c1621e2b026bb671df8";
         nfy = endfVii1Zip "nfy" "6338f5466ede3fee50008adc3d24af0923df6ac051800be133c34a210c0f54c3";
       };
-      # 版ごとの燃焼チェーン（#0303）の ENDF/B-VIII.1。tar.gz は <part>-version.VIII.1/ のディレクトリを持つ
+      # 版ごとの燃焼チェーンとライブラリ（#0303）の ENDF/B-VIII.1。tar.gz は <part>-version.VIII.1/ のディレクトリを持つ
       endfViii1Tar =
         part: sha256:
         pkgs.fetchurl {
@@ -138,6 +139,7 @@
         };
       endfViii1Tars = {
         neutrons = endfViii1Tar "neutrons" "decff90016bfb5c25c8d4c7fb8d81f94ff2f104853165f0fe6a21bf61c4164e4";
+        thermal_scatt = endfViii1Tar "thermal_scatt" "bfb824a9719253e4be6e9be5b1faf76b1b78452b941005babddadb3294c9a184";
         decay = endfViii1Tar "decay" "8639581a4882b35855f7e98e14e537470c6b4b2a6d0673b8ac982baaa50a9d79";
         nfy = endfViii1Tar "nfy" "2cf9b251c66fb0d8da96d03ad017fc3893cd3387a1d5f8cec37223c76319716a";
       };
@@ -328,9 +330,11 @@
         endfb70-decay = endfViiZips.decay;
         endfb70-nfy = endfViiZips.nfy;
         endfb71-neutrons = endfVii1Zips.neutrons;
+        endfb71-thermal-scatt = endfVii1Zips.thermal_scatt;
         endfb71-decay = endfVii1Zips.decay;
         endfb71-nfy = endfVii1Zips.nfy;
         endfb81-neutrons = endfViii1Tars.neutrons;
+        endfb81-thermal-scatt = endfViii1Tars.thermal_scatt;
         endfb81-decay = endfViii1Tars.decay;
         endfb81-nfy = endfViii1Tars.nfy;
         inherit endf njoy2016 openmc;
