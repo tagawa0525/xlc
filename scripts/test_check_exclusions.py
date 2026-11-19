@@ -221,6 +221,42 @@ class InputComments(unittest.TestCase):
             self.assertIn(f"examples/a/xs.toml:{line}:", found_line)
             self.assertIn("同じ行", found_line)
 
+    def test_negations_and_effects_of_removing_are_not_exclusions(self):
+        lines = [
+            "# U-235 は外していない",
+            "# 外しても k は変わらない",
+            "# 外すと 3 pcm 変わる",
+            "# 外さない",
+            "x = 1",
+        ]
+        files = {"examples/a/xs.toml": "\n".join(lines)}
+        self.assertEqual(problems(files), [])
+
+    def test_a_removal_without_an_adjacent_issue_says_where_the_number_goes(self):
+        files = {"examples/a/xs.toml": "# Pm は外す。理由は #0001\n"}
+        found = problems(files)
+        self.assertEqual(len(found), 1)
+        self.assertIn("すぐ隣", found[0])
+
+    def test_every_issue_of_a_list_next_to_a_removal_counts(self):
+        statuses = {**STATUSES, exc.LIST_ISSUE: "open"}
+        files = {
+            "examples/a/xs.toml": f"# Pm は外した（#{exc.LIST_ISSUE}、#0001）\n",
+            "examples/b/xs.toml": "# Pm は外す（#0002、#0001）\n",
+            "examples/c/xs.toml": "# #0002、#0001 のために外した\n",
+        }
+        found = exc.violations(exc.find_markers(files), statuses)
+        self.assertEqual(found, [])
+
+    def test_an_unknown_number_is_named_even_next_to_the_list_issue(self):
+        statuses = {**STATUSES, exc.LIST_ISSUE: "open"}
+        files = {"examples/a/xs.toml": f"# 外した（#{exc.LIST_ISSUE}、#0999 で直す）\n"}
+        found = exc.violations(exc.find_markers(files), statuses)
+        self.assertEqual(len(found), 1)
+        self.assertIn(
+            "番号（#0999）の issue が、追跡している docs/issues/ にありません", found[0]
+        )
+
     def test_a_list_issue_alone_is_not_a_reason(self):
         statuses = {**STATUSES, exc.LIST_ISSUE: "open"}
         lines = [
