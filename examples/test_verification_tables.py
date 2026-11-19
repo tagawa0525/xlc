@@ -6376,5 +6376,30 @@ class DrawCombinedBurnupPoints(unittest.TestCase):
         )
 
 
+class Placement(unittest.TestCase):
+    """記録の表が引く JSON の置き場。md5 は JSON と同じディレクトリの dvc.lock から読むので、そこの dvc.yaml が出力を宣言する"""
+
+    def test_each_stage_json_is_named_by_the_dvc_yaml_of_its_directory(self):
+        root = Path(__file__).resolve().parent.parent
+        misplaced = []
+        for name, (sources, _) in vt.TABLES.items():
+            for source in sources:
+                if source in vt.GIT_TRACKED:
+                    continue
+                stages = (root / source).with_name("dvc.yaml")
+                # foreach の出力（compare-${item}.json）の ${...} は、パスの 1 つの要素の中の任意の文字列として照らす
+                names = (
+                    [
+                        re.sub(r"\\\$\\\{[^}]*\\\}", "[^/]*", re.escape(t))
+                        for t in re.findall(r"[\w./${}@-]+\.json", stages.read_text())
+                    ]
+                    if stages.exists()
+                    else []
+                )
+                if not any(re.fullmatch(n, Path(source).name) for n in names):
+                    misplaced.append(f"{name}: {source}")
+        self.assertEqual(misplaced, [])
+
+
 if __name__ == "__main__":
     unittest.main()
