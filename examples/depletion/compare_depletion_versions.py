@@ -214,15 +214,15 @@ def main() -> None:
         print("\n".join(report(json.loads(Path(args[1]).read_text()))))
     elif len(args) >= 4 and args[0] == "--json" and args[2] == "--base":
         paths = labelled(args[4:])
-        histories = {v: msgpack.unpackb(p.read_bytes()) for v, p in paths.items()}
+        data = {v: p.read_bytes() for v, p in paths.items()}
         summary = {
             "format": "xlc-compare-depletion-versions",
             # 読んだファイルのパス（ステージの cwd から）と md5。dvc.lock の deps と一致する（record_provenance.py が照合する）
             "inputs": [
-                {"path": str(p), "md5": hashlib.md5(p.read_bytes()).hexdigest()}
-                for p in paths.values()
+                {"path": str(paths[v]), "md5": hashlib.md5(b).hexdigest()}
+                for v, b in data.items()
             ],
-            **summarize(histories, args[3]),
+            **summarize({v: msgpack.unpackb(b) for v, b in data.items()}, args[3]),
         }
         Path(args[1]).write_text(json.dumps(summary, indent=1) + "\n")
         print("\n".join(report(summary)))
