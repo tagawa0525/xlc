@@ -148,8 +148,11 @@ def fuel_materials(fuel: str) -> list[str]:
     return {"u": ["fuel"], "mox": ["fuel"], "gd": ["fuel", *GD_MATERIALS]}[fuel]
 
 
-def geometry(fuel: str, depth: int, water: str) -> str:
-    """ライブラリ、離散化、格子、物質、セル。`depth` は入力の置き場の examples/depletion からの深さ（パスの ../ の数）"""
+def geometry(
+    fuel: str, depth: int, water: str, library: str = "p2/depletion.msgpack"
+) -> str:
+    """ライブラリ、離散化、格子、物質、セル。`depth` は入力の置き場の examples/depletion からの深さ（パスの ../ の数）、`library` は
+    examples/depletion からのライブラリのパス"""
     up = "../" * depth
     rows = (
         '["pin pin pin", "pin gd  pin", "pin pin pin"]' if fuel == "gd" else '["pin"]'
@@ -170,7 +173,7 @@ def geometry(fuel: str, depth: int, water: str) -> str:
             ]
     return "\n".join(
         [
-            f'library = "{up}p2/depletion.msgpack"',
+            f'library = "{up}{library}"',
             "ufg-tolerance = 1e-4",
             "pitch = 1.26",
             "azimuthal = 30",
@@ -219,14 +222,20 @@ def branch_input(
     burnup: list[float],
     micro: list[str] | None,
     density: float = VARIED_DENSITY,
+    library: str = "p2/depletion.msgpack",
+    bounds: list[float] | None = None,
+    note: str | None = None,
 ) -> str:
-    """減速材 `density` の 1 状態のブランチ計算（out/ に置く。examples/depletion からの深さ 3）"""
+    """減速材 `density` の 1 状態のブランチ計算（examples/depletion からの深さ 3 に置く）。`bounds` は少数群の境界（省くと 2 群）、
+    `note` は先頭の注釈（省くと inputs.py --branches が書く入力の注釈）"""
     water = f"water = {{ density = {density}, boron = 1300, b10 = 0.199 }}"
+    groups = "1e7, 0.625, 1e-5" if bounds is None else ", ".join(map(repr, bounds))
     lines = [
-        f"# #0292: {fuel} の {density} g/cc のブランチ計算（{history} の組成から）。inputs.py --branches が書く。手で直さない",
-        f'few-group = {{ output = "{name}.msgpack", bounds = [1e7, 0.625, 1e-5] }}',
+        note
+        or f"# #0292: {fuel} の {density} g/cc のブランチ計算（{history} の組成から）。inputs.py --branches が書く。手で直さない",
+        f'few-group = {{ output = "{name}.msgpack", bounds = [{groups}] }}',
     ]
-    body = geometry(fuel, 3, water)
+    body = geometry(fuel, 3, water, library)
     tail = [
         "[branches]",
         'boron = { ppm = [1300], materials = ["water"] }',
