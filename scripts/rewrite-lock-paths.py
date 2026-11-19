@@ -193,8 +193,9 @@ def unmatched_reason(kind, old_left, edges):
 
 
 def toml_values_differ_only_by_paths(old, new, same_file):
-    """2 つの TOML の値が、文字列の値のほかは同じで、違う文字列がどれも同じファイルを指すか。
-    same_file(old の文字列, new の文字列) が文字列の対を判定する"""
+    """2 つの TOML の値が、文字列の値のほかは同じで、文字列がどれも同じファイルを指すか。
+    same_file(old の文字列, new の文字列) が文字列の対を判定する。値の同じ文字列も渡す（TOML の置き場が
+    変われば、同じ文字列の相対パスも別の場所を指す）"""
     if isinstance(old, dict):
         if not isinstance(new, dict) or list(old) != list(new):
             return False
@@ -210,21 +211,36 @@ def toml_values_differ_only_by_paths(old, new, same_file):
         )
     if type(old) is not type(new):
         return False
-    if isinstance(old, str) and old != new:
+    if isinstance(old, str):
         return same_file(old, new)
     return old == new
 
 
+def toml_string_pairs(old, new):
+    """2 つの TOML の値の、同じ位置にある文字列の対。表のキーか配列の長さが違う所は辿らない"""
+    if isinstance(old, dict) and isinstance(new, dict):
+        for k in old.keys() & new.keys():
+            yield from toml_string_pairs(old[k], new[k])
+    elif isinstance(old, list) and isinstance(new, list) and len(old) == len(new):
+        for a, b in zip(old, new, strict=True):
+            yield from toml_string_pairs(a, b)
+    elif isinstance(old, str) and isinstance(new, str):
+        yield old, new
+
+
 def inputs_paths(summary):
-    """比較のツールの出力の JSON の `inputs`（パスと md5 の並びか、パスから md5 への辞書）のパス"""
+    """比較のツールの出力の JSON の `inputs`（パスと md5 の並びか、パスから md5 への辞書）のパス。
+    `inputs` の無い JSON は None、ほかの形の `inputs` は ValueError（読めない形を、入力の無い JSON と扱わない）"""
     if not isinstance(summary, dict) or "inputs" not in summary:
         return None
     inputs = summary["inputs"]
     if isinstance(inputs, dict):
         return list(inputs)
-    if isinstance(inputs, list):
-        return [i["path"] for i in inputs if isinstance(i, dict) and "path" in i]
-    return None
+    if isinstance(inputs, list) and all(
+        isinstance(i, dict) and isinstance(i.get("path"), str) for i in inputs
+    ):
+        return [i["path"] for i in inputs]
+    raise ValueError("inputs が、パスと md5 の並びでも、パスから md5 への辞書でもない")
 
 
 def unwrap(value):
@@ -522,7 +538,8 @@ class Tool:
                     self.kept.add((origin, name))
         self.consumed = set()
         self.pairs = set()  # 確かめたステージで組になった (動かす前, 今) のパス
-        self.toml_ok = {}
+        self.round_pairs = set()  # 今の周に確かめたステージで組になったパス
+        self.tomls = {}  # (動かす前か, パス) → TOML の値か None
         self.results = {}  # 今のステージの key → (動かす前の項, 新しい項)
         self.unverified = {}
         self.comparison = {}
@@ -593,30 +610,45 @@ class Tool:
         base_md5 = self.base.md5(old)
         return base_md5 is not None and base_md5 == self.cur_md5(new)
 
+    def nowhere(self, old, new):
+        """old（動かす前）にも new（今）にも、ファイルも、記録も、ステージの定義の名指しも無いか（パスでない文字列）。
+        old は今の作業ツリーにも探す（git でも DVC でも追跡しないファイルは、動かす前のコミットに記録が無い）"""
+        return (
+            not self.base.exists(old)
+            and not os.path.lexists(self.root / old)
+            and not self.cur.exists(new)
+        )
+
+    def toml(self, before, path):
+        """TOML の値。動かす前（before）はコミットから、今は作業ツリーから読む。無いか読めなければ None"""
+        key = (before, path)
+        if key not in self.tomls:
+            if before:
+                data = self.base.blob(path)
+            else:
+                p = self.root / path
+                data = p.read_bytes() if p.is_file() else None
+            try:
+                self.tomls[key] = None if data is None else tomllib.loads(data.decode())
+            except (tomllib.TOMLDecodeError, UnicodeDecodeError):
+                self.tomls[key] = None
+        return self.tomls[key]
+
     def toml_path_only(self, old, new, local_pairs):
-        """動かす前の TOML（old）と今の TOML（new）の差が、同じファイルを指すパスの文字列だけか"""
-        key = (old, new)
-        if self.toml_ok.get(key):
-            return True
-        old_bytes = self.base.blob(old)
-        new_path = self.root / new
-        if old_bytes is None or not new_path.is_file():
-            return False
-        try:
-            ov = tomllib.loads(old_bytes.decode())
-            nv = tomllib.loads(new_path.read_text())
-        except (tomllib.TOMLDecodeError, UnicodeDecodeError):
+        """動かす前の TOML（old）と今の TOML（new）の差が、同じファイルを指すパスの文字列だけか。値の同じ文字列も、
+        それぞれの TOML の置き場から解いて同じファイルを指すこと（パスでない文字列は、どちらの置き場にも無いこと）を
+        確かめる。結果は確かめたステージの組（self.pairs）で変わるので、取っておかない"""
+        ov, nv = self.toml(True, old), self.toml(False, new)
+        if ov is None or nv is None:
             return False
 
         def strings_same(a, b):
-            return self.same_file(
-                join(dirname(old), a), join(dirname(new), b), local_pairs
-            )
+            pa, pb = join(dirname(old), a), join(dirname(new), b)
+            if self.same_file(pa, pb, local_pairs):
+                return True
+            return a == b and self.nowhere(pa, pb)
 
-        ok = toml_values_differ_only_by_paths(ov, nv, strings_same)
-        if ok:
-            self.toml_ok[key] = True
-        return ok
+        return toml_values_differ_only_by_paths(ov, nv, strings_same)
 
     def normal_form_current(self, json_path, toml_path):
         """正規形のファイルが、今の TOML から書いたものと同じバイトか"""
@@ -739,10 +771,12 @@ class Tool:
         return out
 
     def check_cmd(self, entry, s, pairs):
+        """動かす前の cmd と、語ごとに解いた (動かす前, 今) のパスの対"""
         base_cmd = entry.base_def.cmd if entry.base_def else entry.data.get("cmd")
         old_parts, new_parts = cmd_parts(base_cmd), cmd_parts(s.cmd)
         if len(old_parts) != len(new_parts):
             raise Unverified("cmd の要素の数が違う")
+        named = []
         for old_words, new_words in zip(old_parts, new_parts, strict=True):
             if len(old_words) != len(new_words):
                 raise Unverified(
@@ -753,11 +787,55 @@ class Tool:
                     raise Unverified(
                         f"cmd の語 {wo!r} と {wn!r} が、同じファイルを指すと確かめられない"
                     )
-        return base_cmd
+                named.append(
+                    (
+                        join(entry.wdir, split_word(wo)[1]),
+                        join(s.wdir, split_word(wn)[1]),
+                    )
+                )
+        return base_cmd, named
+
+    def toml_named(self, local):
+        """組になった入力の TOML の、同じ位置の文字列をそれぞれの置き場から解いた (動かす前, 今) のパスの対"""
+        named = []
+        for old, new in local:
+            src_old, src_new = toml_source(old), toml_source(new)
+            if src_old is None or src_new is None:
+                continue
+            ov, nv = self.toml(True, src_old), self.toml(False, src_new)
+            if ov is None or nv is None:
+                continue
+            named += [
+                (join(dirname(src_old), a), join(dirname(src_new), b))
+                for a, b in toml_string_pairs(ov, nv)
+            ]
+        return named
+
+    @staticmethod
+    def witnessed(old, new, named):
+        """(old, new) を、cmd の語か TOML の文字列の対が、同じ並びで名指しするか（名指しするディレクトリの下か、
+        名指しするパスを下に持つディレクトリを含む）"""
+        for wo, wn in named:
+            if (wo, wn) == (old, new):
+                return True
+            for outer_o, outer_n, inner_o, inner_n in (
+                (wo, wn, old, new),
+                (old, new, wo, wn),
+            ):
+                if (
+                    inner_o.startswith(outer_o + "/")
+                    and inner_n.startswith(outer_n + "/")
+                    and inner_o[len(outer_o) :] == inner_n[len(outer_n) :]
+                ):
+                    return True
+        return False
 
     def same_word(self, wo, wn, old_wdir, new_wdir, pairs):
         if wo == wn and old_wdir == new_wdir:
-            return True
+            # 同じ文字列は同じ場所を指す。ただし、指す先が動かす前にあり今は無ければ、動かしたファイルの名前を
+            # 直し忘れた語である
+            p = join(old_wdir, split_word(wo)[1])
+            return not (self.base.exists(p) and not self.cur.exists(p))
         (po_pre, po, po_suf), (pn_pre, pn, pn_suf) = split_word(wo), split_word(wn)
         if po_pre != pn_pre or po_suf != pn_suf:
             return False
@@ -769,7 +847,7 @@ class Tool:
         if old in self.base.files and self.base.md5(old) == self.cur_md5(new):
             return True
         # 同じ文字列で、どちらの置き場にもファイルが無い語は、パスでない語（オプションや引数の値）
-        return wo == wn and not self.base.exists(old) and not self.cur.exists(new)
+        return wo == wn and self.nowhere(old, new)
 
     def read_json_out(self, item, paths):
         """lock の md5 の中身を、作業ツリー、動かす前のコミット（git で追跡する出力）、キャッシュの順に探す"""
@@ -796,11 +874,11 @@ class Tool:
             item = lock_outs[old]
             if not old.endswith(".json") or str(item.get("md5", "")).endswith(".dir"):
                 continue
+            # 読めない JSON を、inputs の無い JSON と扱わない（比較のステージを見落として書き換えるため）
             try:
-                summary = json.loads(self.read_json_out(item, [old, new]))
-            except json.JSONDecodeError:
-                continue
-            paths = inputs_paths(summary)
+                paths = inputs_paths(json.loads(self.read_json_out(item, [old, new])))
+            except (json.JSONDecodeError, UnicodeDecodeError, ValueError) as e:
+                raise Unverified(f"出力の {new} を、JSON として読めない: {e}") from e
             for s_old in paths or []:
                 p = join(old_dir, s_old)
                 dep = p
@@ -838,8 +916,33 @@ class Tool:
             so, sn = normal_form_source(old), normal_form_source(new)
             if so is not None and sn is not None:
                 local.add((so, sn))
+        # 置き場の変わった入力の TOML は、中身が同じでも、中の相対パスが新しい置き場から同じファイルを指すことを確かめる
+        # （xs、lattice、core は TOML の中のパスを TOML の置き場から解く）
+        for old, new in sorted(local):
+            src_old, src_new = toml_source(old), toml_source(new)
+            if (
+                src_old is None
+                or src_new is None
+                or dirname(src_old) == dirname(src_new)
+            ):
+                continue
+            if not self.toml_path_only(src_old, src_new, local):
+                raise Unverified(
+                    f"{src_new} の中のパスが、動かす前の {src_old} と同じファイルを指すと確かめられない"
+                )
+        base_cmd, cmd_named = self.check_cmd(entry, s, local)
+        named = cmd_named + self.toml_named(local)
         new_outs = []
         for old, new in zip(order, s.outs, strict=True):
+            # outs は定義の並びの位置で対応させる。wdir からの相対パスが変わった outs は、cmd の語か入力の TOML の
+            # 文字列が同じ対で名指しすることを確かめる（名指しされない名前はプログラムが決め、並びを入れ替えたか
+            # dvc.yaml でだけ名前を変えた outs に、別の出力の md5 を持ち越さないため）
+            if rel(old, entry.wdir) != rel(new, s.wdir) and not self.witnessed(
+                old, new, named
+            ):
+                raise Unverified(
+                    f"outs の {old} と {new} の対を、cmd の語も入力の TOML の文字列も名指ししない"
+                )
             item = dict(lock_outs[old])
             if self.toml_rewrite(old, new, local):
                 item = self.rewritten_md5(item, old, new)
@@ -853,7 +956,6 @@ class Tool:
                 )
             item["path"] = rel(new, s.wdir)
             new_outs.append((new, item))
-        base_cmd = self.check_cmd(entry, s, local)
 
         data = copy.deepcopy(dict(entry.data))
         data["cmd"] = (
@@ -955,6 +1057,7 @@ class Tool:
             return
         self.results[s.key()] = (entry, data, s)
         self.pairs |= local
+        self.round_pairs |= local
         if new_outs is None:
             new_outs = [(join(s.wdir, o["path"]), o) for o in data.get("outs", [])]
         for path, item in new_outs:
@@ -1004,8 +1107,11 @@ class Tool:
         出力の組は、その TOML を読む下流のステージの outs の対応で決まるので、上流の正規形のステージの判定に後から効く）"""
         stages = self.order()
         initial = dict(self.cur.recorded)
-        while True:
-            known = set(self.pairs)
+        previous = set()
+        # 組は周ごとに確かめ直す。前の周に確かめ、この周に確かめられなかったステージの組を残さない。周ごとの組の
+        # 集まりが前の周と同じになれば、どの組もこの周に確かめたステージのものである
+        for _ in range(len(stages) + 2):
+            self.pairs, self.round_pairs = set(previous), set()
             self.results, self.unverified, self.comparison = {}, {}, {}
             self.no_entry, self.consumed = [], set()
             self.cur.recorded = dict(initial)
@@ -1015,8 +1121,13 @@ class Tool:
                 if len(failed) == len(pending):
                     break
                 pending = failed
-            if self.pairs == known:
+            if self.round_pairs == previous:
                 break
+            previous = self.round_pairs
+        else:
+            raise ToolError(
+                "判定が収束しない（周ごとに、確かめたステージの組が変わる）"
+            )
         self.check_dvc_files()
 
     def check_dvc_files(self):
