@@ -182,9 +182,21 @@ class Single:
     needs_shell_check: bool  # 上流に references-shell があるか
 
 
-def plan_single(
-    status: dict, cmds: dict[str, list[str]], target: str, allow: list[str]
-) -> Single:
+def stage_target(cmds: dict[str, list[str]]) -> str:
+    """`dvc repro --dry -f -s <目標>` が並べたステージから、目標を dvc の示す key の形で（`./examples/...` のような書き方でも、
+    dvc status の key と同じ形にして、目標自身の変更を上流と取り違えない）"""
+    if len(cmds) == 1:
+        return next(iter(cmds))
+    groups = {key.rsplit("@", 1)[0] for key in cmds}
+    if len(groups) != 1 or not all("@" in stage_name(key) for key in cmds):
+        raise ReproError(
+            "dvc repro --dry -f -s listed stages of more than one stage or foreach group: "
+            + ", ".join(cmds)
+        )
+    return groups.pop()
+
+
+def plan_single(status: dict, cmds: dict[str, list[str]], allow: list[str]) -> Single:
     """`-s <目標>` で走るステージと、上流の確認の結果。cmds は `dvc repro --dry -f -s <目標>`、status は
     `dvc status --json --with-deps <目標>`"""
     runs = list(cmds)
@@ -193,8 +205,12 @@ def plan_single(
     refused = [
         key for key in references if not any(allows(entry, key) for entry in allow)
     ]
+    try:
+        found = skip_upstream.blockers(status, stage_target(cmds))
+    except ValueError as e:  # 知らない変更の種類
+        raise ReproError(str(e)) from e
     run_first, blocked = [], []
-    for key, kinds in skip_upstream.blockers(status, target):
+    for key, kinds in found:
         if key.startswith(skip_upstream.RUN_FIRST):
             run_first.append(key)
         else:
@@ -291,37 +307,44 @@ def report_single(p: Single) -> list[str]:
     if p.blocked:
         problems.append(
             "upstream stages have changes other than changed deps, so their outputs are not what "
-            "dvc.lock records"
+            "dvc.lock records. Restore them (scripts/dvc-checkout.py) if they were not restored or "
+            "were edited, or run without -s so dvc repro runs the upstream first "
+            "(scripts/dvc-repro.py --max-stages)"
         )
     if p.refused:
         problems.append(
-            "reference stages not allowed by --allow-reference: " + ", ".join(p.refused)
+            "reference stages not allowed by --allow-reference: "
+            + ", ".join(p.refused)
+            + ". Add --allow-reference only for a reference stage the job is meant to run"
         )
     return problems
 
 
-SINGLE_NEXT = (
-    "NEXT: nothing ran. A BLOCKED upstream stage has outputs that differ from dvc.lock (outputs not "
-    "restored with scripts/dvc-checkout.py, or edited) or a changed command; restore the outputs, or "
-    "run without -s so dvc repro runs the upstream first (scripts/dvc-repro.py --max-stages). Add "
-    "--allow-reference only for a reference stage the job is meant to run"
-)
-
-
-def plan_and_report(target: str, cmds: dict[str, list[str]], allow: list[str]):
+def check_single(target: str, cmds: dict[str, list[str]], allow: list[str], shell):
+    """上流を確かめて一覧を出し、(結果, 止まる理由, references-shell の照合) を返す。shell は前の照合の結果
+    （正規形のステージは references-shell.txt を変えないので、確かめ直すときは nix eval を繰り返さない）"""
     status = json.loads(dvc("status", "--json", "--with-deps", target))
-    p = plan_single(status, cmds, target, allow)
+    p = plan_single(status, cmds, allow)
     problems = report_single(p)
     if p.needs_shell_check:
-        matches = references_shell_matches()
-        print(
-            f"REFERENCES-SHELL: matches the references devShell: {'yes' if matches else 'no'}"
-        )
-        if not matches:
-            problems.append(
-                "references-shell.txt differs from the references devShell (scripts/check-references-shell.sh)"
+        if shell is None:
+            shell = references_shell_matches()
+            print(
+                f"REFERENCES-SHELL: matches the references devShell: {'yes' if shell else 'no'}"
             )
-    return p, problems
+        if not shell:
+            problems.append(
+                "references-shell.txt differs from the references devShell; follow the fix that "
+                "scripts/check-references-shell.sh prints"
+            )
+    return p, problems, shell
+
+
+def stop_single(problems: list[str], ran: str) -> int:
+    for problem in problems:
+        print(f"STOP: {problem}", file=sys.stderr)
+    print(f"NEXT: {ran}. See each STOP: line for what to do", file=sys.stderr)
+    return 1
 
 
 def single_item(args: argparse.Namespace) -> int:
@@ -330,41 +353,31 @@ def single_item(args: argparse.Namespace) -> int:
     cmds = parse_dry_run(dvc("repro", "--dry", "-f", "-s", target))
     if not cmds:
         raise ReproError(f"dvc repro --dry -f -s {target} listed no stage")
-    p, problems = plan_and_report(target, cmds, args.allow_reference)
+    p, problems, shell = check_single(target, cmds, args.allow_reference, None)
     if problems:
-        for problem in problems:
-            print(f"STOP: {problem}", file=sys.stderr)
-        print(SINGLE_NEXT, file=sys.stderr)
-        return 1
+        return stop_single(problems, "nothing ran")
     if args.count_only:
         return 0
+    repro = ["dvc", "repro", "-s", *(["--no-run-cache"] if args.no_run_cache else [])]
     if p.run_first:
-        command = ["dvc", "repro", "-s", *p.run_first]
+        command = [*repro, *p.run_first]
         print(f"RUNNING: {' '.join(command)}", flush=True)
         if subprocess.run(command, check=False).returncode != 0:
             raise ReproError(f"{' '.join(command)} failed")
         # 正規形を書き直すと、上流の deps の md5 が変わりうるので確かめ直す
-        p, problems = plan_and_report(target, cmds, args.allow_reference)
+        p, problems, shell = check_single(target, cmds, args.allow_reference, shell)
         if p.run_first:
             problems.append(
                 "normalized forms are still changed after running them: "
                 + ", ".join(p.run_first)
             )
         if problems:
-            for problem in problems:
-                print(f"STOP: {problem}", file=sys.stderr)
-            print(
-                SINGLE_NEXT.replace("nothing ran", "only the normalized forms ran"),
-                file=sys.stderr,
+            return stop_single(
+                problems,
+                "only the normalized forms ran; commit the root dvc.lock and python-ast/, "
+                "toml-values/, binary-forms/ they rewrote",
             )
-            return 1
-    command = [
-        "dvc",
-        "repro",
-        "-s",
-        *(["--no-run-cache"] if args.no_run_cache else []),
-        target,
-    ]
+    command = [*repro, target]
     print(f"RUNNING: {' '.join(command)}", flush=True)
     os.execvp("dvc", command)
 
@@ -413,12 +426,7 @@ def main(argv: list[str] | None = None) -> int:
                 f"REFERENCES-SHELL: matches the references devShell: {'yes' if shell_matches else 'no'}"
             )
         c = count(status, edges, cmds, shell_matches, args.allow_reference)
-    except (
-        ReproError,
-        ValueError,
-        subprocess.CalledProcessError,
-        json.JSONDecodeError,
-    ) as e:
+    except (ReproError, subprocess.CalledProcessError, json.JSONDecodeError) as e:
         print(f"ERROR: {e}", file=sys.stderr)
         return 1
     problems = report(c, args.max_stages)

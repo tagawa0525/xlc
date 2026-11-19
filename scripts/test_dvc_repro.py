@@ -178,8 +178,8 @@ class CountStages(unittest.TestCase):
         self.assertNotIn("examples/v/x.msgpack.dvc", c.runs)
 
 
-def planned(status, dry=DRY_LATTICE, target=LATTICE, allow=()):
-    return rep.plan_single(status, rep.parse_dry_run(dry), target, list(allow))
+def planned(status, dry=DRY_LATTICE, allow=()):
+    return rep.plan_single(status, rep.parse_dry_run(dry), list(allow))
 
 
 class PlanSingleItem(unittest.TestCase):
@@ -201,8 +201,10 @@ class PlanSingleItem(unittest.TestCase):
 
     def test_target_is_matched_by_the_stage_key_dvc_lists_not_by_its_spelling(self):
         own = {LATTICE: [{"changed outs": {"examples/v/p1/lattice-1B.out": "deleted"}}]}
-        p = planned({**UPSTREAM_DEPS, **own}, target="./" + LATTICE)
+        # 目標は書き方（./examples/...）でなく、dvc repro --dry -f -s が並べた key で決まる
+        p = planned({**UPSTREAM_DEPS, **own})
         self.assertEqual(p.blocked, [])
+        self.assertEqual(rep.stage_target(rep.parse_dry_run(DRY_LATTICE)), LATTICE)
 
     def test_stale_normalized_forms_are_run_first_rather_than_blocking(self):
         p = planned(NORMALIZED_STALE)
@@ -210,8 +212,8 @@ class PlanSingleItem(unittest.TestCase):
         self.assertEqual(p.run_first, ["python-ast@examples/v/compare_k.py"])
 
     def test_reference_target_is_refused_unless_allowed(self):
-        self.assertEqual(planned(UPSTREAM_DEPS, DRY_OPENMC, OPENMC).refused, [OPENMC])
-        allowed = planned(UPSTREAM_DEPS, DRY_OPENMC, OPENMC, allow=[OPENMC])
+        self.assertEqual(planned(UPSTREAM_DEPS, DRY_OPENMC).refused, [OPENMC])
+        allowed = planned(UPSTREAM_DEPS, DRY_OPENMC, allow=[OPENMC])
         self.assertEqual((allowed.references, allowed.refused), ([OPENMC], []))
 
     def test_allowing_a_stage_that_is_not_the_target_is_an_error(self):
@@ -351,6 +353,13 @@ class Process(unittest.TestCase):
         self.assertEqual(r.returncode, 7)  # 偽の dvc repro の終了コード
         self.assertEqual(self.ran_repro(), [f"repro -s --no-run-cache {LATTICE}"])
         self.assertIn(f"RUN: {LATTICE}", r.stdout)
+
+    def test_single_item_does_not_take_the_targets_own_change_for_an_upstream_one(self):
+        (self.d / "dry.txt").write_text(DRY_LATTICE)
+        own = {LATTICE: [{"changed outs": {"examples/v/p1/lattice-1B.out": "deleted"}}]}
+        r = self.run_script({**UPSTREAM_DEPS, **own}, "-s", "./" + LATTICE)
+        self.assertEqual(r.returncode, 7)
+        self.assertEqual(self.ran_repro(), [f"repro -s ./{LATTICE}"])
 
     def test_single_item_stops_without_running_on_upstream_changes_other_than_deps(
         self,
