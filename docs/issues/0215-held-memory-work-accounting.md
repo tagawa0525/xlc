@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [lattice, shielding, performance]
 opened: 2026-11-03
-closed:
+closed: 2026-11-19
 milestone:
 blocked-by: []
-resolution:
+resolution: "コミット ae06d169e"
 ---
 
 # 減速計算の作業の配列の数え方の残り（#0212 のレビュー）
@@ -84,3 +84,4 @@ e19d9f99a のレビューの周（2026-11-03、medium。打ち切りの周で、
 ## 経緯
 
 - 2026-11-03: #0212 のブランチの 1 周目の /code-review の指摘を、直す指摘の基準（再現の手順）に当たらないものとしてまとめた
+- 2026-11-19: 点ごとに確かめて閉じた（扱いは閉じるコミットの本文）。文書の事実の誤り（#0212 の bin の違いの列挙、457 の比べ方の注、ADR-0213 の確認の MaxRSS の単位）は ae06d169e で直した。数え方の点は、間引かない格子でだけメモリの上限に届き、本番の入力（間引いた格子）は届かないので捨てた
