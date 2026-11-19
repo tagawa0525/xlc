@@ -618,7 +618,7 @@ fn assign_natural<'a>(
 }
 
 /// 評価にないものを入力で補う核種（名前）
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Default)]
 pub struct Supplements {
     /// 天然の元素の評価（A = 0）を当てる核種（ADR-0262）
     pub natural_isotopes: Vec<String>,
@@ -634,7 +634,10 @@ fn listed<'a>(
 ) -> Result<Vec<&'a Material>> {
     let mut by_name: HashMap<String, &Material> = HashMap::with_capacity(materials.len());
     for &m in materials {
-        by_name.insert(name(key(m))?, m);
+        // 同じ核種の評価の重なりは、入力の誤りでなくデータの誤りとして先に止める
+        if by_name.insert(name(key(m))?, m).is_some() {
+            bail!("{} appears twice in the decay data", name(key(m))?);
+        }
     }
     let mut out: Vec<&Material> = Vec::with_capacity(names.len());
     for n in names {
