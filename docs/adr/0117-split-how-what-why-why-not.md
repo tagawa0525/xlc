@@ -47,7 +47,7 @@ requires: []
   節は `git show <コミット>:<ファイル>` で辿る。既存の accepted の ADR には、記録を節の題だけで引くものがあり、直せないので、
   `git log -S '<節の題>' -- <ファイル>` で節があったときのコミットを探して辿る
 - **ADR と issue**（ADR-0115 から引き継ぐ）: ADR は経緯の記録なので今の規則のまま。ADR は accepted、rejected、superseded の
-  あと、誤字、リンクの直し、`status` と `superseded-by` の変更だけ。issue の書き方は ADR-0235 に従う
+  あと、誤字、リンクの修正、`status` と `superseded-by` の変更だけ。issue の書き方は ADR-0235 に従う
 
 ## 確認
 

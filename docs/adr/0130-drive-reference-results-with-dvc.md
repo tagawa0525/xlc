@@ -140,7 +140,7 @@ examples/vera/dvc.yaml の全ステージを、`default` の devShell の `dvc r
 
 - ブランチの上で実行した計算は、実行したコミットと分岐点（main のコミット。rebase で書き換わらない）を記録に書く。
   rebase で deps が変わっても走らせ直さず、分岐点から復元する（分岐点にそこまでのブランチのコミットを当て直し、
-  `dvc status` の md5 で確かめる）。数秒で終わるステージだけは再実行してよい。根本の直しは、OpenMC とライブラリのステージを
+  `dvc status` の md5 で確かめる）。数秒で終わるステージだけは再実行してよい。根本の修正は、OpenMC とライブラリのステージを
   「入力とスクリプト → model.xml」と「model.xml とライブラリ → statepoint」に分け、スクリプトの作り直しで計算が
   再実行しないようにすること（#0018）
 - rebase やあとのコミットで deps（スクリプト、入力、コード）が変わると、`dvc.lock` は HEAD と合わなくなり、`dvc status` は

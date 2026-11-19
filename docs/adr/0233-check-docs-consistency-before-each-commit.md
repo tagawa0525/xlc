@@ -21,7 +21,7 @@ dvc-lock、no-inline-tests、verification-tables、python-ast、references-shell
 （#0239 と ADR-0219。`git merge --abort` で取り消した）落ち、ほかに別のブランチにしか無い番号 0238 の issue を引いて「does not
 exist」で 1 回落ちた。会話の記録（`~/.claude/projects/-home-tagawa-github-xlc/` の `.jsonl`）の tool_result で、
 「lists ADR-NNNN, whose `issues` does not name #NNNN」の違反は 2026-10-29 から 11-06 までに 15 件の issue で出ている。
-どれも直すのは数行で、見つかるのが遅いほど、直しのコミット、チェックのやり直し、マージの取り消しが増える。
+どれも直すのは数行で、見つかるのが遅いほど、修正のコミット、チェックのやり直し、マージの取り消しが増える。
 
 測った時間（2026-11-06、r995、main fb91028f0 から分けた worktree（xlc-docs は変えていない）。`/usr/bin/env time` の経過時間）:
 
@@ -73,9 +73,9 @@ hook の中の cargo は、claude-hooks の guard-exclusive-slurm（Bash のツ�
 `scripts/check-docs-consistency.sh` が、許された CPU の最初の 1 つに `taskset` で限って
 `cargo test -q -p xlc-docs --test consistency -- --exact docs_are_consistent` を実行する。
 
-違反をコミットの時点で止めれば、直しは同じコミットに入り、チェックやマージで見つかってやり直す周が無くなる。prek は
+違反をコミットの時点で止めれば、修正は同じコミットに入り、チェックやマージで見つかってやり直す周が無くなる。prek は
 ステージしていない変更を退避してから hook を実行し、検査は git が渡す index（`git ls-files`）と作業ツリーを読むので、
-ステージした中身を見る（グローバルの pre-commit は prek の後に Markdown の書式を自動で直してステージし直すので、その直しは
+ステージした中身を見る（グローバルの pre-commit は prek の後に Markdown の書式を自動で直してステージし直すので、その修正は
 検査の後に入る）。`run-checks.sh` と pre-merge-commit の `cargo test` の検査は残す（`--no-verify` のコミットと、
 別々のブランチの変更が合わさってはじめて崩れる参照を拾う）。
 

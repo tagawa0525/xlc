@@ -27,7 +27,7 @@ resolution:
   （16 点の Newton 法は決まった入力で失敗しない）
 - 効率: `film_coefficient` が IF97 の領域 1 を 2 度計算し（`conductivity` の中で再び）、`water::temperature` が飽和温度と飽和の
   エンタルピーをノードごとに計算し直す。`solve_thermal` は探索のホウ素濃度ごとに `Channels::new` と `check_densities` をやり直す
-- 重複: `ThermalReport` は `ChannelSolution` の項目を写し、`EffectiveEntry` は `Effective` の写し。核分裂のあるテーブルの判定
+- 重複: `ThermalReport` は `ChannelSolution` の項目をコピーし、`EffectiveEntry` は `Effective` のコピー。核分裂のあるテーブルの判定
   （`thermal::fissile`）は crates/core/src/state.rs の重みの判定と同じ式で、テーブルか state.rs に置く方が依存の向きに合う
 
 2 周目（同じ日）の non-blocking の指摘:
@@ -41,13 +41,13 @@ resolution:
 - `report_thermal` の層ごとの燃料の温度の平均は、出力が正のノードで数え、`fuel_average` は核分裂のあるテーブルで数える
 - 探索のある熱水力の状態の標準出力の「searched in N solves」はホウ素濃度の数で、各濃度の熱水力の繰り返しの固有値計算の回数を含まない。
   `thermal-hydraulics iterations` は最後の濃度の回数だけ
-- 1 周目の直しのコミット（2963bf427）は、テストの入力の `[state.hfp]` の追加を実装と同じコミットに入れた（TDD のコミットの分け方）
+- 1 周目の修正のコミット（2963bf427）は、テストの入力の `[state.hfp]` の追加を実装と同じコミットに入れた（TDD のコミットの分け方）
 
 feat/0228-problem-6（ADR-0230）のローカルのレビューの non-blocking の指摘:
 
 - examples/vera/compare_p6.py は層ごとのテーブルの密度を、支持格子のない格子の TOML の減速材の格子点だけから内挿する。core は
   ノードごとにそのノードのテーブル（平板、支持格子の格子）の格子点で内挿する。今は p6_inputs.py がすべてのテーブルに同じ格子点を
-  書くので同じ値になる。core が層ごとにテーブルの密度を出せば、Python の内挿（ADR-0229 の案 T1 の写し）は要らない
+  書くので同じ値になる。core が層ごとにテーブルの密度を出せば、Python の内挿（ADR-0229 の案 T1 のコピー）は要らない
 - examples/record_provenance.py の `REPORTS` の形式と比較のツールの対応に、テストが無い
 - 3 周目: crates/core/src/thermal.rs は入口のエンタルピーそのもののノードだけを入口の温度にする。ノードの出力が丸めほど小さい
   （定格の 1e-12 ほど）と、Newton 法の解が入口の温度の格子点の下に出うる。`water::temperature` に初めの値（入口か下の層の温度）を

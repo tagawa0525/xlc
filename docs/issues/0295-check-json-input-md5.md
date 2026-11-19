@@ -14,9 +14,9 @@ resolution: ADR-0254
 
 比較のステージの JSON（例: examples/depletion/p9-fuel-points/fuel-points-2A.json）は、読んだ入力のパスと md5 を `inputs` に
 書き、git で追跡している（`cache: false`）。入力の TOML のコメントだけを直すと、ステージは changed になり、JSON の md5 は古い
-まま残るが、それを止める検査が無い。#0291 の語の直し（ブランチ chore/0291-terms-in-example-inputs）では、1 度目の再実行で
+まま残るが、それを止める検査が無い。#0291 の語の修正（ブランチ chore/0291-terms-in-example-inputs）では、1 度目の再実行で
 p9-2A、p9-product、p9-gd、examples/core の比較 9 本を流し、fuel-points-2A、fuel-points-2O（p9-fuel-points）、hzp-compare（p5）、
-compare-6（p6）の 4 本を落とした（レビューで見つかり、後のコミットで再実行した）。次のコメントだけの直しでも同じ落としが起きうる。
+compare-6（p6）の 4 本を落とした（レビューで見つかり、後のコミットで再実行した）。次のコメントだけの修正でも同じ落としが起きうる。
 
 再現: 追跡している JSON の `inputs` のパスごとに今のファイルの md5 を計算し、JSON の md5 と比べる。
 
@@ -31,7 +31,7 @@ compare-6（p6）の 4 本を落とした（レビューで見つかり、後の
 
 - 2026-11-19: #0291 のレビューで、比較の 4 本の再実行の落としが見つかったので起こした
 - 2026-11-19: 入力の TOML を正規形で deps にする作業（#0145、ADR-0212 の案 B5）で一緒に片付ける（親の判断）。正規形なら
-  コメントだけの直しでステージも JSON の md5 も変わらない
+  コメントだけの修正でステージも JSON の md5 も変わらない
 - 2026-11-19: ADR-0254 で決めて実装した。JSON の `inputs` の TOML は値の正規形の md5 にし（コメントだけの修正で古くならない）、
   `scripts/test_normalize_toml.py` の `JsonInputsTest` が、追跡している比較の JSON の `inputs` と、それを書いたステージの dvc.lock の
   deps（TOML は正規形）の md5 を照らす（pre-commit の hook `toml-values`）。今のファイルとの比較（この issue の書いた形）は採らない:
