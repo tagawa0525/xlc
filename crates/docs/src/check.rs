@@ -29,6 +29,16 @@ impl fmt::Display for Violation {
     }
 }
 
+/// 文書の中の、コミットの hash らしい語の場所。
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Citation {
+    /// リポジトリの根からのパス（`/` 区切り）。
+    pub path: String,
+    /// 行番号（1 から）。
+    pub line: usize,
+    pub hash: String,
+}
+
 /// 検査するリポジトリのファイル。
 #[derive(Debug, Clone, Default)]
 pub struct Docs {
@@ -109,6 +119,11 @@ impl Docs {
                 _ => None,
             })
             .collect()
+    }
+
+    /// 文書の中のコミットの hash らしい語（`hex_words`）と、その場所。
+    pub fn cited_hashes(&self) -> Vec<Citation> {
+        Vec::new()
     }
 
     /// `dir` の直下の番号つきの文書（README.md と、OKF の索引と履歴の `index.md`、`log.md` を除く。ADR-0256）。

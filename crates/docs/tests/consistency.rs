@@ -12,7 +12,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
-use xlc_docs::Docs;
+use xlc_docs::{Citation, Docs};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -129,6 +129,11 @@ fn commit_problem(repo: &Repo, hash: &str) -> Result<Option<String>> {
     } else {
         None
     })
+}
+
+/// 文書が引く hash のうち、このリポジトリのコミットを指すが辿れないもの。違反の文を返す。
+fn cited_commit_problems(_repo: &Repo, _cited: &[Citation]) -> Result<Vec<String>> {
+    Ok(Vec::new())
 }
 
 /// `hash` が `head` の祖先か。
@@ -327,6 +332,15 @@ impl TempRepo {
     fn problem(&self, hash: &str) -> Result<Option<String>> {
         commit_problem(&self.repo(), hash)
     }
+
+    /// 1 つの文書 `text` が引く hash の違反
+    fn cited(&self, text: &str) -> Result<Vec<String>> {
+        let docs = Docs::new(
+            BTreeMap::from([("docs/a.md".to_string(), text.to_string())]),
+            Vec::<String>::new(),
+        );
+        cited_commit_problems(&self.repo(), &docs.cited_hashes())
+    }
 }
 
 impl Drop for TempRepo {
@@ -369,6 +383,55 @@ fn branch_commits_count_until_the_branch_is_gone() -> Result<()> {
     assert!(
         t.problem(&stale)?.is_some(),
         "a commit on no branch after the merge"
+    );
+    Ok(())
+}
+
+#[test]
+fn tagged_commits_count() -> Result<()> {
+    // ブランチを消しても、タグ（record/ などで残すと決めたコミット）から辿れるコミットは認める
+    let t = TempRepo::new("tags")?;
+    t.commit("chore: base")?;
+    t.run(&["switch", "-q", "-c", "kept"])?;
+    let kept = t.commit("fix: kept")?;
+    t.run(&["tag", "-a", "-m", "keep", "record/kept", &kept])?;
+    t.run(&["switch", "-q", "main"])?;
+    t.run(&["branch", "-q", "-D", "kept"])?;
+    assert_eq!(t.problem(&kept)?, None);
+    Ok(())
+}
+
+#[test]
+fn cited_commits_must_be_reachable() -> Result<()> {
+    // 文書が引くコミットは、HEAD、ブランチ、タグのどれかから辿れる。コミットでない 16 進（md5、ほかの
+    // リポジトリのコミット、blob）は見ない
+    let t = TempRepo::new("cited")?;
+    let base = t.commit("chore: base")?;
+    t.run(&["switch", "-q", "-c", "gone"])?;
+    let stale = t.commit("fix: gone")?;
+    t.run(&["switch", "-q", "-c", "topic", "main"])?;
+    let topic = t.commit("fix: topic")?;
+    t.run(&["switch", "-q", "-c", "kept"])?;
+    let kept = t.commit("fix: kept")?;
+    t.run(&["tag", "-a", "-m", "keep", "record/kept", &kept])?;
+    t.run(&["switch", "-q", "main"])?;
+    t.run(&["branch", "-q", "-D", "gone", "kept"])?;
+    let blob = t.run(&["hash-object", "-w", "--stdin"])?;
+    let md5 = "0123456789abcdef0123456789abcdef";
+    let text = format!(
+        "xlc {}（分岐点は main の {}）、{}、md5 {md5}、{}、{}\n",
+        &topic[..9],
+        &base[..9],
+        &kept[..9],
+        "abcdef12",
+        &blob[..9]
+    );
+    assert_eq!(t.cited(&text)?, Vec::<String>::new());
+    let problems = t.cited(&format!("{text}rebase の前の {}\n", &stale[..9]))?;
+    assert_eq!(problems.len(), 1, "{problems:?}");
+    assert!(
+        problems[0].starts_with("docs/a.md:2: ") && problems[0].contains(&stale[..9]),
+        "{problems:?}"
     );
     Ok(())
 }

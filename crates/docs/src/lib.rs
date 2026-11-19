@@ -9,7 +9,7 @@
 
 pub mod check;
 
-pub use check::{Docs, Violation};
+pub use check::{Citation, Docs, Violation};
 
 use std::fmt;
 
@@ -217,6 +217,11 @@ pub fn issue_refs(text: &str) -> Vec<u32> {
         })
         .filter_map(|(i, _)| four_digits_at(text, i + 1))
         .collect()
+}
+
+/// コミットの hash と見なす語（7〜40 桁の小文字の 16 進）を、現れた順に返す。
+pub fn hex_words(_line: &str) -> Vec<&str> {
+    Vec::new()
 }
 
 /// Markdown のリンク先。外部の URL（`http:`、`https:`、`mailto:`）と、同じ文書の中の `#anchor` だけの

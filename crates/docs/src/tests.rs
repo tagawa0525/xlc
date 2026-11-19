@@ -310,3 +310,36 @@ fn rejects_unclosed_fences() {
         Err(Error::UnclosedFence { line: 1 })
     );
 }
+
+#[test]
+fn finds_hex_words_of_commit_hash_length() {
+    assert_eq!(
+        hex_words("xlc d06b44cc1（分岐点は main の dafce36d2）、2026-11-13"),
+        ["d06b44cc1", "dafce36d2"]
+    );
+    // 短い hash の 7 桁から、完全な 40 桁まで。数字だけ、英字だけの hash もありうる
+    let full = "0123456789abcdef0123456789abcdef01234567";
+    assert_eq!(
+        hex_words(&format!("{full} 1234567 abcdefa abc123")),
+        [full, "1234567", "abcdefa"]
+    );
+    // 41 桁以上は hash でない
+    assert_eq!(hex_words(&format!("{full}8")), Vec::<&str>::new());
+}
+
+#[test]
+fn takes_hex_words_in_code_spans_ranges_and_before_ellipses() {
+    assert_eq!(
+        hex_words("`git show 177d63bc5:docs/a.md`、`33284c83..a05c838d`、`99b8a12c…`"),
+        ["177d63bc5", "33284c83", "a05c838d", "99b8a12c"]
+    );
+}
+
+#[test]
+fn skips_hex_inside_words_and_decimal_fractions() {
+    // 英数字か `_` に続く、または続かれる 16 進は語の一部。小数点の後の数字（`1.212848e-3` の `212848e`）も除く
+    assert_eq!(
+        hex_words("x1234567 1234567g a_1234567 0x141250ab 1.212848e-3 3.828728e-07 AB12CD34EF"),
+        Vec::<&str>::new()
+    );
+}
