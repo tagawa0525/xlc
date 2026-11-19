@@ -6,7 +6,7 @@ use crate::endf::{
 use crate::pointwise::linearize;
 use crate::special::{exp_e1, gamma_p_2, gamma_p_3_2};
 use xlc_format::group::GroupStructure;
-use xlc_numeric::quadrature::{GAUSS_LEGENDRE_4, GAUSS_LEGENDRE_8};
+use xlc_numeric::quadrature::GAUSS_LEGENDRE_4;
 
 /// 出射エネルギーの確率密度の表を、群ごとに積分する。
 ///
@@ -364,10 +364,11 @@ impl Cumulative {
     }
 }
 
-/// E'/T_M が E_F/T_M のこの倍より小さいところは、閉じた式でなく数値積分で累積を求める（`madland_nix_fraction`）。
-/// 閉じた式は 1 程度の項の差で、累積（x^(3/2) で 0 に近づく）の絶対誤差が 1e-16 ほど残る。E_F/T_M = 0.5 の 1e-2 倍の x では
-/// 累積が 1e-4 ほどで、相対誤差は 1e-12 ほどに収まる。
-const MADLAND_NIX_SMALL: f64 = 1.0e-2;
+/// E'/T_M が E_F/T_M のこの倍より小さいところは、閉じた式でなく級数で累積を求める（`madland_nix_small_fraction`）。
+/// 閉じた式は 1 程度の項の差で、累積（x^(3/2) で 0 に近づく）に 1e-16 ほどの絶対誤差が残る。この倍の x では、E_F/T_M = 0.5 で
+/// 累積が 2e-7 ほどになる。この x の前後の相対誤差は、閉じた式で 3e-9 以下、級数で 1e-11 以下（ε = 0.05〜5 で、数値積分と
+/// 比べた）。
+const MADLAND_NIX_SMALL: f64 = 1.0e-4;
 
 /// ENDF-102 の 5.1.1.6 の g(E', E_F) の、E'/T_M < x の割合（0〜∞ で 1）。`fragment` は E_F/T_M。
 ///
@@ -406,33 +407,18 @@ fn madland_nix_fraction(x: f64, fragment: f64) -> f64 {
     0.5 + upper - lower
 }
 
-/// x < `MADLAND_NIX_SMALL` E_F/T_M での `madland_nix_fraction`。項が打ち消し合わない形の数値積分で求める:
-/// φ(u) = u^(3/2) E1(u) + γ(3/2, u) の導関数は (3/2) √u E1(u) なので、g = (1/(2√E_F)) ∫_{u1}^{u2} √u E1(u) du
-/// （T_M を単位とする）で、累積は E' = s² と置いた ∫_0^√x 2s g(s²) ds。u は [u1, u2] ⊂ [(√ε - √x)², (√ε + √x)²]
-/// （ε = E_F/T_M）の狭い範囲で、被積分関数はどちらも滑らかなので、8 点の Gauss-Legendre を重ねて足りる。
+/// x < `MADLAND_NIX_SMALL` E_F/T_M での `madland_nix_fraction`。項が打ち消し合わない級数で求める（T_M を単位とし、
+/// ε = E_F/T_M、w = √ε、X = √x）。φ(u) = u^(3/2) E1(u) + γ(3/2, u) の導関数は (3/2) √u E1(u) なので、√u = w + t と置くと
+/// g(s²) = (1/(2w)) ∫_{-s}^{s} q(w + t) dt、q(v) = 2v² E1(v²)。t について展開して E' = s² で積分すると、累積は
+/// (2/w) Σ_k q^(2k)(w) X^(2k+3)/((2k+1)! (2k+3)) で、k = 0〜2 の項を使う:
+/// q(w) = 2ε E1(ε)、q''(w) = 4 E1(ε) + e^(-ε)(8ε - 12)、q''''(w) = e^(-ε)(8/ε + 56 - 128ε + 32ε²)。
 fn madland_nix_small_fraction(x: f64, fragment: f64) -> f64 {
-    let root = fragment.sqrt();
-    let density = |s: f64| {
-        let (u1, u2) = ((root - s).powi(2), (root + s).powi(2));
-        let (mid, half) = (0.5 * (u1 + u2), 0.5 * (u2 - u1));
-        let inner: f64 = GAUSS_LEGENDRE_8
-            .iter()
-            .map(|&(t, w)| {
-                let u = mid + half * t;
-                w * u.sqrt() * madland_nix_e1(u)
-            })
-            .sum();
-        half * inner / (2.0 * root)
-    };
-    let half = 0.5 * x.sqrt();
-    GAUSS_LEGENDRE_8
-        .iter()
-        .map(|&(t, w)| {
-            let s = half * (1.0 + t);
-            w * 2.0 * s * density(s)
-        })
-        .sum::<f64>()
-        * half
+    let e1 = madland_nix_e1(fragment);
+    let decay = (-fragment).exp();
+    let q0 = 2.0 * fragment * e1;
+    let q2 = 4.0 * e1 + decay * (8.0 * fragment - 12.0);
+    let q4 = decay * (8.0 / fragment + 56.0 - 128.0 * fragment + 32.0 * fragment * fragment);
+    2.0 / fragment.sqrt() * x.sqrt().powi(3) * (q0 / 3.0 + q2 * x / 30.0 + q4 * x * x / 840.0)
 }
 
 /// E1(u)（u > 0）。u は正の有限の値で、そこで exp_e1 は収束する。万一の失敗は NaN にして、χ を有限の値に限るライブラリの
