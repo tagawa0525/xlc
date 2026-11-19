@@ -5539,7 +5539,7 @@ GIT_TRACKED_NOTE = "GIT_TRACKED in examples/verification_tables.py holds only th
 
 
 def lock_outs(text: str) -> list[str]:
-    """dvc.lock の各ステージの outs の節。deps も出力と同じ `- path:` の 3 行の形で書くので、outs の節だけを返す"""
+    """dvc.lock の各ステージの outs の節。deps も出力と同じ `- path:` の形で書くので、outs の節だけを返す"""
     sections: list[str] = []
     inside = False
     for line in text.splitlines(keepends=True):
@@ -5564,7 +5564,7 @@ def locked_md5(root: Path, source: str) -> str:
             f" that holds its md5: run the stage and commit dvc.lock ({GIT_TRACKED_NOTE})"
         )
     found = re.findall(
-        rf"- path: {re.escape(path.name)}\n\s+hash: md5\n\s+md5: ([0-9a-f]{{32}})",
+        rf"- path:\s+{re.escape(path.name)}\n\s+hash: md5\n\s+md5: ([0-9a-f]{{32}})",
         "".join(lock_outs(lock.read_text())),
     )
     if len(found) != 1:
