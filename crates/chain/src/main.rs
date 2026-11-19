@@ -9,8 +9,10 @@
 //! decay-directory = "../../references/endf/ENDF-B-VIII.0_decay"    # decay の評価（*.endf をすべて読む。1 つのファイルに複数の物質があってよい）
 //! nfy-directory = "../../references/endf/ENDF-B-VIII.0_nfy"        # 中性子の核分裂の収率
 //! neutron-directory = "../../references/endf/ENDF-B-VIII.0_neutrons"  # 中性子の反応
-//! natural-isotopes = ["C-12", "C-13"]  # 天然の元素の評価（A = 0）を当てる核種（ADR-0262）。省くと空で、天然の元素の評価があれば止める
 //! ```
+//!
+//! `natural-isotopes` は、天然の元素の評価（A = 0）を当てる核種の名前を挙げる（ADR-0262。省くと空。ENDF/B-VIII.0 には
+//! 要らない。ENDF/B-VII.1 なら `["C-12", "C-13"]`）。天然の元素の評価があって当てる核種がなければ止める
 //!
 //! データにないものを規則で補った箇所は警告（tracing の warn）として標準エラーに出す。
 
