@@ -39,6 +39,7 @@ UFG_HIGH = 15030.0
 # 収率の境界（ADR-0183。√(0.0253 × 5e5) eV）
 YIELD_CUTOFF = math.sqrt(0.0253 * 5e5)
 FUEL_TEMPERATURE = 900.0
+CLAD_TEMPERATURE = 565.0
 # micro にない吸収の捕獲の Q の範囲 (eV): H-1(n,γ) 2.22 MeV から、被覆管と核分裂生成物の (n,γ) の典型の 8 MeV まで
 REST_Q = (2.22e6, 8.0e6)
 
@@ -135,11 +136,11 @@ def main() -> None:
     by_name = {n["name"]: n for n in library["nuclides"]}
     chain_index = {n["name"]: i for i, n in enumerate(chain["nuclides"])}
 
-    def at_temperature(name: str) -> dict:
+    def at_temperature(name: str, temperature: float = FUEL_TEMPERATURE) -> dict:
         for t in by_name[name]["temperatures"]:
-            if t["temperature"] == FUEL_TEMPERATURE:
+            if t["temperature"] == temperature:
                 return t
-        sys.exit(f"{name}: no {FUEL_TEMPERATURE} K in the library")
+        sys.exit(f"{name}: no {temperature} K in the library")
 
     # 核種ごとの ENDF の非分離共鳴の範囲と MT102 の Q
     micro = table["micro"]
@@ -193,11 +194,13 @@ def main() -> None:
             if d > 0 and n in by_name and n in history["transportable"]
         }
         materials = [fuel, clad]
-        totals = {
-            n: np.array(at_temperature(n)["shielded"][0]["total"])
-            for m in materials
-            for n in m
-        }
+        # 背景の全断面積は物質の温度で（燃料 900 K、被覆管 565 K）
+        totals = {}
+        for m, temperature in ((clad, CLAD_TEMPERATURE), (fuel, FUEL_TEMPERATURE)):
+            for n in m:
+                totals[n] = np.array(
+                    at_temperature(n, temperature)["shielded"][0]["total"]
+                )
 
         # 項目 6
         d_absorption = d_production = 0.0
