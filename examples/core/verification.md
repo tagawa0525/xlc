@@ -90,7 +90,7 @@ dvc repro examples/core/dvc.yaml
 ライブラリで作って比べた。2 つのテーブルを MessagePack から読んだ値は、軸、点、3 つの状態（out、aic、b4c）の少数群定数の
 すべての項目でビットまで等しい（k∞ は out 1.1816772181491253、aic 0.8496450218997933、b4c 0.789500451749501）。
 
-- 入力と比べるツール: `rod-branch-check/`（値ごとの入力 `assembly-<値>.toml` は分岐点 f86d7fda の examples/core の入力、分岐の
+- 入力と比べるツール: `rod-branch-check/`（値ごとの入力 `assembly-<値>.toml` は分岐点 f86d7fda の examples/core の入力、ブランチ計算の
   入力 `assembly.toml` はこの記録の `assembly.toml` で、どれもライブラリを今の形式の examples/depletion/p2/depletion.msgpack
   （md5 e84310aff668e474fa68d822168b4538。600 K の AIC、B4C、SS304 の核種を持つ）に替えたもの。`rods.msgpack` は `capture` の
   無い前の形式のまま（examples/core のステージは bin の変更で再実行していない）で読めない）。手順は `compare_rod_branch.py` の
