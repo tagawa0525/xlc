@@ -4738,7 +4738,10 @@ def chain_versions(sources: list[dict]) -> str:
     for s in sources:
         if s.get("format") != "xlc-compare-chain-versions":
             raise TableError("not an xlc-compare-chain-versions summary")
-        paths = [i["path"] for i in s.get("inputs", [])]
+        try:
+            paths = [i["path"] for i in s.get("inputs", [])]
+        except KeyError:
+            raise TableError("an input of the summary has no path") from None
         if len(paths) != 2:
             raise TableError(f"a chain comparison of {len(paths)} inputs, not 2")
         unknown = [p for p in paths if p not in CHAIN_VERSIONS]
