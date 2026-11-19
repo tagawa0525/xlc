@@ -181,6 +181,20 @@ class InputComments(unittest.TestCase):
         self.assertIn("examples/a/xs.toml:1", found[0])
         self.assertIn("examples/a/xs.toml:4", found[1])
 
+    def test_issues_on_both_sides_of_a_dropping_word_count(self):
+        files = {"examples/a/xs.toml": "# #0002 で外した（#0001 で戻す）\n"}
+        self.assertEqual(problems(files), [])
+
+    def test_a_quote_escaped_in_a_value_does_not_end_the_value(self):
+        files = {"examples/a/xs.toml": 'key = "a\\"b"  # 仮の値\n'}
+        self.assertEqual(len(problems(files)), 1)
+
+    def test_a_trial_directory_may_carry_a_name_after_the_issue_number(self):
+        files = {
+            "examples/depletion/issue-0002-nan/pin.toml": "# 時間のために外した（#0002）\n"
+        }
+        self.assertEqual(problems(files), [])
+
     def test_an_exclusion_that_cites_only_closed_issues_is_reported(self):
         files = {
             "examples/a/xs.toml": "# 表を作る（#0001）\n# Pm-147 は NaN になるので外す（#0002）\nx = 1\n",
