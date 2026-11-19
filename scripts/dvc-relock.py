@@ -8,22 +8,27 @@
 
 次を順に行い、止まるところでは後を実行せずに終了コード 1 で止まる:
 
+0. 分岐点（`git merge-base HEAD <base>`）から作業ツリーまでに変わった dvc.lock を scripts/check-dvc-lock.sh で確かめる。rebase の
+   pick では pre-commit の hook が走らないので、ブランチのコミットの分も見る。作業ツリーを書き換える前に行う（読めない lock を
+   入れたコミットを直す fixup と rebase は、汚れた作業ツリーでは動かない）。読めない lock があれば止まる
 1. scripts/dvc-checkout.py。hash があるのに戻らない出力があれば止まる
-2. 直下の dvc.yaml の build、python-ast、binary-forms、toml-values を `dvc repro -s` で実行する。実行ファイルと正規形は止まらずに
-   書き直す（下流の changed が今のコードを示すように、dvc status の前に行う）。dvc repro が失敗すれば止まる
+2. 直下の dvc.yaml の build、python-ast、binary-forms、toml-values を 1 つの `dvc repro -s` で実行する（dvc が DAG の順に並べる）。
+   実行ファイルと正規形は止まらずに書き直す（下流の changed が今のコードを示すように、dvc status の前に行う）。dvc repro が
+   失敗すれば止まる
 3. `dvc status --json`（<dvc.yaml> を渡せば `--with-deps` でその範囲）。失敗すれば止まる。`changed outs` だけのステージか .dvc が
    あれば止まる（出力が dvc.lock と違うのに deps は同じで、再実行の理由にならない。原因を調べる）
 4. scripts/check-references-shell.sh。references-shell.txt は devShell が変わっても dvc status に出ないので、ここで比べ、食い違えば
    止まる
 5. `--run` に挙げたステージだけを、挙げた順に `scripts/dvc-repro.py -s` で実行する（上流の確認は scripts/check-skip-upstream.py の
-   判定）。挙げなければ、計算のステージは実行しない。止まれば、後のものは実行しない。実行したら dvc status を読み直す
-6. 分岐点（`git merge-base HEAD <base>`）から作業ツリーまでに変わった dvc.lock を scripts/check-dvc-lock.sh で確かめる。rebase の
-   pick では pre-commit の hook が走らないので、ブランチのコミットの分も見る。読めない lock があれば止まる
+   判定）。挙げなければ、計算のステージは実行しない。止まれば、後のものは実行しない。実行したら dvc status を読み直し、3 と同じく
+   `changed outs` だけのものがあれば止まる
+6. dvc が書き換えた lock も含めて、0 をもう一度行う
 
-終わりに、実行したステージ（`RAN:`）、残した changed のステージと変更の種類（`CHANGED:`。always changed だけの references-shell は
-4 で確かめたので出さない）、yaml ごとの数（scripts/count-changed-stages.py の形）、このコマンドが書き換えた追跡するファイル
-（`COMMIT:`）を出す。始める前から変わっていたファイル（rebase の hook が付け替えた記録など）は、このコマンドが書き換えて
-いなければ出さない。コミットは呼んだ側が行う。
+終わりに（止まったときも）、実行したステージ（`RAN:`）と、コミットするファイル（`COMMIT:`）を出す。`COMMIT:` は、このコマンドが
+書き換えたファイルと、コミットしていない dvc.lock、python-ast/、binary-forms/、toml-values/ のファイル（止まった前の実行が書き換えた
+もの）である。始める前から変わっていたほかのファイル（rebase の hook が付け替えた記録など）は、このコマンドが書き換えて
+いなければ出さない。通ったときは、残した changed のステージと変更の種類（`CHANGED:`。always changed だけの references-shell は 4 で
+確かめたので出さない）と、yaml ごとの数（`COUNT:`。scripts/count-changed-stages.py の形）も出す。コミットは呼んだ側が行う。
 """
 
 import argparse
@@ -40,6 +45,8 @@ FORMS = (
     "dvc.yaml:binary-forms",
     "dvc.yaml:toml-values",
 )
+# このコマンドの部品が書き換える追跡するファイル（dvc.lock と正規形）
+WRITTEN = ("python-ast/", "binary-forms/", "toml-values/")
 ALWAYS = "always changed"
 
 # 変更の種類の検査と yaml ごとの数は count-changed-stages.py と同じものを使う（名前に - があるので import 文では読めない）
@@ -138,6 +145,7 @@ def run(command: list[str], what: str, quiet: bool = False) -> None:
 
 
 def dvc_status(targets: list[str]) -> dict:
+    """dvc status --json を読み、`changed outs` だけのステージがあれば止める"""
     command = [
         "dvc",
         "status",
@@ -154,10 +162,36 @@ def dvc_status(targets: list[str]) -> dict:
         )
     try:
         status = json.loads(result.stdout)
-        outs_only(status)
+        stuck = outs_only(status)
     except (json.JSONDecodeError, ValueError) as e:
         raise Stop(f"cannot read the output of {' '.join(command)}: {e}") from e
+    if stuck:
+        raise Stop(
+            "stages with only changed outs (their outputs differ from dvc.lock while their deps match it, so "
+            "running them is not the fix; find out what changed the outputs): "
+            + ", ".join(stuck)
+        )
     return status
+
+
+def check_locks(base: str) -> None:
+    fork = git("merge-base", "HEAD", base).strip()
+    locks = [
+        p
+        for p in git(
+            "diff", "--name-only", fork, "--", "dvc.lock", "*/dvc.lock"
+        ).split()
+        if Path(p).is_file()
+    ]
+    if locks:
+        run(
+            [str(SCRIPTS / "check-dvc-lock.sh"), *locks],
+            "a dvc.lock that dvc cannot read (see FAILED: above)",
+        )
+
+
+def written(path: str) -> bool:
+    return path == "dvc.lock" or path.endswith("/dvc.lock") or path.startswith(WRITTEN)
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -175,26 +209,23 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     return args
 
 
-def relock(args: argparse.Namespace) -> int:
-    before = worktree_files()
+def relock(args: argparse.Namespace, ran: list[str]) -> None:
+    """付け直しの段を順に行う。実行したステージを ran に足す（止まったときも、そこまでを報告するため）"""
+    check_locks(args.base)
     run(
         [str(SCRIPTS / "dvc-checkout.py")],
         "outputs did not come back as dvc.lock records them (see MISSING: above)",
     )
-    for stage in FORMS:
-        run(["dvc", "repro", "-s", stage], f"dvc repro -s {stage} failed", quiet=True)
+    run(
+        ["dvc", "repro", "-s", *FORMS],
+        "dvc repro -s of the build or a normalized form failed",
+        quiet=True,
+    )
     status = dvc_status(args.targets)
-    if stuck := outs_only(status):
-        raise Stop(
-            "stages with only changed outs (their outputs differ from dvc.lock while their deps match it, so "
-            "running them is not the fix; find out what changed the outputs): "
-            + ", ".join(stuck)
-        )
     run(
         [str(SCRIPTS / "check-references-shell.sh")],
         "references-shell.txt differs from the references devShell; follow the fix printed above",
     )
-    ran = []
     for target in args.run:
         allow = [
             x
@@ -204,29 +235,12 @@ def relock(args: argparse.Namespace) -> int:
         ]
         run(
             [str(SCRIPTS / "dvc-repro.py"), "-s", *allow, target],
-            f"scripts/dvc-repro.py -s {target} stopped or failed; ran before it: {', '.join(ran) or 'none'}",
+            f"scripts/dvc-repro.py -s {target} stopped or failed",
         )
         ran.append(target)
     if ran:
         status = dvc_status(args.targets)
-    fork = git("merge-base", "HEAD", args.base).strip()
-    locks = [
-        p
-        for p in git(
-            "diff", "--name-only", fork, "--", "dvc.lock", "*/dvc.lock"
-        ).split()
-        if Path(p).is_file()
-    ]
-    if locks:
-        run(
-            [str(SCRIPTS / "check-dvc-lock.sh"), *locks],
-            "a dvc.lock that dvc cannot read (see FAILED: above)",
-        )
-
-    for target in ran:
-        print(f"RAN: {target}")
-    if not ran:
-        print("RAN: none")
+    check_locks(args.base)
     for key, kinds in left_changed(status):
         print(f"CHANGED: {key}: {', '.join(kinds)}")
     counts = counting.count_changed(status)
@@ -235,14 +249,14 @@ def relock(args: argparse.Namespace) -> int:
             f"COUNT: {yaml_path}: "
             + ", ".join(f"{k} {v}" for k, v in counts[yaml_path].items())
         )
+
+
+def report(ran: list[str], before: dict[str, str]) -> None:
+    for target in ran or ["none"]:
+        print(f"RAN: {target}")
     after = worktree_files()
-    for path in sorted(p for p in after if before.get(p) != after[p]):
+    for path in sorted(p for p in after if before.get(p) != after[p] or written(p)):
         print(f"COMMIT: {path}")
-    print(
-        "NEXT: commit the COMMIT: files (git add them by name). Run a CHANGED: stage only if its result is needed, "
-        "by naming it with --run"
-    )
-    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -255,13 +269,30 @@ def main(argv: list[str] | None = None) -> int:
             raise Stop(
                 f"run from the root of the repository ({root}); the stages are paths from there"
             )
-        return relock(args)
+        before = worktree_files()
     except Stop as e:
         print(f"STOP: {e}", file=sys.stderr)
         return 1
-    except subprocess.CalledProcessError as e:
-        print(f"STOP: {' '.join(e.cmd)} failed: {e.stderr}", file=sys.stderr)
+    ran: list[str] = []
+    try:
+        relock(args, ran)
+    except (Stop, subprocess.CalledProcessError) as e:
+        report(ran, before)
+        if isinstance(e, subprocess.CalledProcessError):
+            e = f"{' '.join(e.cmd)} failed: {e.stderr}"
+        print(f"STOP: {e}", file=sys.stderr)
+        print(
+            "NEXT: find the cause at the STOP: line (/dvc-relock). Rerun after fixing it; "
+            "the COMMIT: files above are not committed yet",
+            file=sys.stderr,
+        )
         return 1
+    report(ran, before)
+    print(
+        "NEXT: commit the COMMIT: files (git add them by name). Run a CHANGED: stage only if its result is needed, "
+        "by naming it with --run"
+    )
+    return 0
 
 
 if __name__ == "__main__":
