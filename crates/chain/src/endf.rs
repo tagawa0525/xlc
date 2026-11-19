@@ -2,6 +2,8 @@
 //!
 //! 行とレコードは xlc-xs の `endf::Tape` で読む（ADR-0166）。
 
+use std::collections::HashSet;
+
 use anyhow::{Context, Result, anyhow, bail};
 use xlc_xs::endf::{Tape, final_states};
 
@@ -107,21 +109,46 @@ fn count(value: i64, what: &str, line: usize) -> Result<u32> {
     u32::try_from(value).map_err(|_| anyhow!("line {line}: invalid {what} {value}"))
 }
 
-/// テープの物質をテープ上の順に返す（ENDF/B-VII.0 の decay は全核種を 1 つのテープに並べる）。セクションは MAT で引くので、
-/// 同じ MAT が別の物質を挟んで再び現れるテープ（MF1/MT451 が 2 つ）は止める
-fn materials(tape: &Tape) -> Result<Vec<i32>> {
+/// 行の制御欄（MAT、MF、MT）。欄は `Tape::parse` が検査した。非 ASCII の文字は 1 桁に数える（`Tape::parse` と同じ）
+fn control(line: &str) -> (i64, i64, i64) {
+    let line: String = if line.is_ascii() {
+        line.to_string()
+    } else {
+        line.chars()
+            .map(|c| if c.is_ascii() { c } else { '?' })
+            .collect()
+    };
+    let field = |range: std::ops::Range<usize>| {
+        line.get(range)
+            .map_or(0, |f| f.trim().parse::<i64>().unwrap_or(0))
+    };
+    (field(66..70), field(70..72), field(72..75))
+}
+
+/// テープの物質をテープ上の順に返す（ENDF/B-VII.0 の decay は全核種を 1 つのテープに並べる）。セクションは MAT、MF、MT で
+/// 引くと最初の連続した行だけが返るので、同じ (MAT, MF, MT) が別の行を挟んで再び現れるテープ（同じ MAT の物質が 2 つ）は止める
+fn materials(text: &str, tape: &Tape) -> Result<Vec<i32>> {
     let materials = tape.materials();
     if materials.is_empty() {
         bail!("the tape holds no material");
     }
-    for &mat in &materials {
-        let headers = tape
-            .sections(mat, 1)
-            .iter()
-            .filter(|(mt, _)| *mt == 451)
-            .count();
-        if headers != 1 {
-            bail!("MAT {mat} has {headers} MF1/MT451 sections; each material needs its own MAT");
+    let mut seen = HashSet::new();
+    let mut previous = None;
+    for line in text.lines() {
+        let id = control(line);
+        // MT = 0 は SEND、FEND、MEND、TEND とテープの識別行で、セクションではない
+        if previous == Some(id) || id.2 == 0 {
+            previous = Some(id);
+            continue;
+        }
+        previous = Some(id);
+        if !seen.insert(id) {
+            bail!(
+                "MAT {} MF{} MT{} appears in two places on the tape; each material needs its own MAT",
+                id.0,
+                id.1,
+                id.2
+            );
         }
     }
     Ok(materials)
@@ -130,11 +157,12 @@ fn materials(tape: &Tape) -> Result<Vec<i32>> {
 /// テープの物質ごとに `read` で評価を読む。エラーには物質の MAT を添える
 fn each_material<T>(text: &str, read: impl Fn(&Tape, Material) -> Result<T>) -> Result<Vec<T>> {
     let tape = Tape::parse(text)?;
-    materials(&tape)?
+    materials(text, &tape)?
         .into_iter()
         .map(|mat| {
-            let material = read_material(&tape, mat)?;
-            read(&tape, material).with_context(|| format!("MAT {mat}"))
+            read_material(&tape, mat)
+                .and_then(|material| read(&tape, material))
+                .with_context(|| format!("MAT {mat}"))
         })
         .collect()
 }
