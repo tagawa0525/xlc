@@ -135,8 +135,12 @@ def select(estimates, threshold):
     return {"ranking": ranking, "selected": selected}
 
 
-def estimate(points, nus, names, measured):
-    """燃焼度の点ごとに、`names` の核種の見積もり（熱中性子の ν̄）とその和を、比較の JSON の測った差と並べる"""
+def estimate(points, nus, names, measured, dilute):
+    """燃焼度の点ごとに、`names` の核種の見積もり（熱中性子の ν̄）とその和を、比較の JSON の測った差と並べる。`names` はどれも履歴の
+    無限希釈の吸収体 `dilute` でなければならず（輸送する核種の核分裂は落ちていない）、核分裂の断面積を持たない吸収体だけが和に入らない"""
+    missing = sorted(set(names) - set(dilute))
+    if missing:
+        raise SystemExit(f"{missing} are not dilute absorbers of the history")
     by_burnup = {p["burnup"]: p for p in measured}
     rows = []
     for p in points:
@@ -203,7 +207,11 @@ def summarize(fuels, xs_toml, added, shielded):
         **chosen,
         "unshielded": {
             fuel: estimate(
-                unshielded[fuel], nus, unshielded_names, fuels[fuel][4]["points"]
+                unshielded[fuel],
+                nus,
+                unshielded_names,
+                fuels[fuel][4]["points"],
+                fuels[fuel][3]["dilute_absorbers"],
             )
             for fuel in fuels
         },
