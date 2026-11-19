@@ -540,6 +540,34 @@ def depletion_dilute_absorbers(sources: list[dict]) -> str:
     )
 
 
+def depletion_fissionable_absorbers(sources: list[dict]) -> str:
+    """核分裂の生成が効く核種も輸送する核種にして残りを数えた燃焼（ADR-0261、#0292）: 燃焼点ごとの、65 核種を輸送して残りを数えた
+    燃焼からの差と、65 核種の外の核分裂の核種も輸送した比べる相手からの差（比べる相手の無い燃料は –。
+    examples/depletion/issue-0292/compare_fissionable.py の docstring）"""
+    (s,) = sources
+    if s.get("format") != "xlc-compare-fissionable-absorbers":
+        raise TableError("not an xlc-compare-fissionable-absorbers summary")
+    rows = [
+        [
+            burnup_label(p["burnup"]),
+            *(
+                signed_or_dash(p.get(key), 1)
+                for key in ("form_from_65_pcm", "form_pcm", "rest_fission_pcm")
+            ),
+        ]
+        for p in s["points"]
+    ]
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            "65 核種からの差",
+            "比べる相手からの差",
+            "外の 4 核種を輸送",
+        ],
+        rows,
+    )
+
+
 def density_rows(s: dict, nuclides: list[str]) -> str:
     rows = [
         [burnup_label(b)] + [percent_or_dash(s["pin"][n][i]) for n in nuclides]
@@ -4567,6 +4595,10 @@ GIT_TRACKED = {
     "examples/depletion/issue-0292/dilute-u.json",
     "examples/depletion/issue-0292/dilute-mox.json",
     "examples/depletion/issue-0292/dilute-gd.json",
+    # 核分裂の生成が効く核種も輸送する核種にした燃焼のセルの試行（#0292）。ステージの出力でない
+    "examples/depletion/issue-0292/fissionable-u.json",
+    "examples/depletion/issue-0292/fissionable-mox.json",
+    "examples/depletion/issue-0292/fissionable-gd.json",
 }
 
 
@@ -5244,6 +5276,13 @@ TABLES = {
         f"depletion-dilute-absorbers-{fuel}": (
             [f"examples/depletion/issue-0292/dilute-{fuel}.json"],
             depletion_dilute_absorbers,
+        )
+        for fuel in ("u", "mox", "gd")
+    },
+    **{
+        f"depletion-fissionable-absorbers-{fuel}": (
+            [f"examples/depletion/issue-0292/fissionable-{fuel}.json"],
+            depletion_fissionable_absorbers,
         )
         for fuel in ("u", "mox", "gd")
     },
