@@ -56,7 +56,7 @@ FORMAT = "xlc-compare-background"
 # lattice の輸送が無限希釈の吸収体の吸収に数える反応（crates/lattice/src/dilute.rs の ABSORPTION）
 ABSORPTION = (102, 103, 107)
 # 無限希釈の吸収の和の、冷却計算の 1 群の断面積からの和に対する相対の許容。R_g のずれ（O-16 の MeV の共鳴）が出る大きさで、U と
-# MOX のピンでは 5e-4 以下（examples/depletion/verification.md の「無限希釈で数える核種の残る差の分け方」）
+# MOX のピンでは −8.1e-4〜−3.8e-4（examples/depletion/verification.md の「無限希釈で数える核種の残る差の分け方」）
 DILUTE_TOLERANCE = 1e-3
 RANGES = ("fast", "ufg", "thermal")
 EFFECTS = ("absorption", "scattering", "production")
@@ -116,6 +116,9 @@ def case(branch, history, library, burnup):
         raise SystemExit(
             "the micro cross sections must list every transported nuclide of the history in its order"
         )
+    both = sorted(set(names) & set(history.get("dilute_absorbers", [])))
+    if both:
+        raise SystemExit(f"{both} are both transported and dilute absorbers")
     densities = dict(zip(names, micro["densities"][0]))
     matched = [p for p in history["points"] if p["burnup"] == burnup]
     if len(matched) != 1:
@@ -178,7 +181,9 @@ def case(branch, history, library, burnup):
         "dilute_check": float(dilute_check),
         "transported": list(names),
         "dilute": dilute_names,
+        "groups": (list(library["group_bounds"]), list(library["pointwise_range"])),
         "masks": range_masks(library["group_bounds"], library["pointwise_range"]),
+        "flux_ratio": flux_ratio,
         "total": total,
         "scatter": scatter,
         "chi": chi,
@@ -201,12 +206,14 @@ def kind(name, a, b):
 
 def step(a, b):
     """A → B の差と、その分け方"""
+    if a["groups"] != b["groups"]:
+        raise SystemExit("the states have other group bounds or UFG range")
     groups = len(a["total"])
     removal_a = np.diag(a["total"]) - a["scatter"].T
     removal_b = np.diag(b["total"]) - b["scatter"].T
     adjoint = np.linalg.solve(removal_a.T, a["nu_fission"])
     forward = np.linalg.solve(removal_b, b["chi"])
-    lambda_a = 1.0 / float(a["nu_fission"] @ np.linalg.solve(removal_a, a["chi"]))
+    lambda_a = 1.0 / a["k_matrix"]
     lambda_b = 1.0 / float(b["nu_fission"] @ forward)
     adjoint_chi = float(adjoint @ a["chi"])
     denominator = adjoint_chi * float(a["nu_fission"] @ forward)
@@ -293,10 +300,23 @@ def step(a, b):
         "absorption_other_ranges",
         "transported_scattering_production",
     )
+    # U-238 の ufg の吸収の項のうち、燃料と格子の中性子束の比 R_g の変化（O-16 の比で見る）による分の見積もり: A の吸収に
+    # R_g,B / R_g,A − 1 を掛けた差の項。同じ組成の段で、残りが自己遮蔽の背景（UFG の減速計算）の差
+    ratio = None
+    if "U-238" in a["transported"] and "U-238" in b["transported"]:
+        t, sc, _ = a["contributions"]["U-238"]
+        ratio = term(
+            (t - sc.sum(axis=1))
+            * (b["flux_ratio"] / a["flux_ratio"] - 1.0)
+            * masks["ufg"],
+            zero_scatter,
+            zero,
+        )
     return {
         "total_pcm": total,
         "closure_pcm": sum(parts.values()) - total,
         "parts": parts,
+        "u238_flux_ratio_pcm": ratio,
         "transported_pcm": sum(parts[k] for k in both),
         "moved_absorption_ranges": {
             r: summed("absorption", [r], lambda n, k: k in moved) for r in RANGES
@@ -354,7 +374,7 @@ def report(summary):
     ]
     for c in summary["cases"]:
         lines.append(
-            f"{c['name']}: k（状態 {c['k_state']:.6f}、群定数 {c['k_matrix']:.6f}、履歴 {c['k_history']:.6f}）、"
+            f"{c['name']}: k（状態 {c['k_state']:.6f}、群定数 {c['k_matrix']:.6f}、組成の履歴 {c['k_history']:.6f}）、"
             f"輸送 {c['transported']}、無限希釈 {c['dilute']}、無限希釈の吸収の冷却の断面積との相対差 {c['dilute_check']:+.1e}"
         )
     for s in summary["steps"]:
@@ -363,9 +383,24 @@ def report(summary):
             f"{s['from']} → {s['to']}: 差 {s['total_pcm']:+.1f} pcm（和との差 {s['closure_pcm']:+.1e}）。{parts}"
         )
         ranges = s["moved_absorption_ranges"]
+        ratio = s["u238_flux_ratio_pcm"]
         lines.append(
-            f"  両方で輸送する核種の和 {s['transported_pcm']:+.1f}、扱いを変えた核種の吸収の範囲ごと: "
+            f"  両方で輸送する核種の和 {s['transported_pcm']:+.1f}、U-238 の ufg の吸収のうち中性子束の比の変化の分 "
+            + ("−" if ratio is None else f"{ratio:+.1f}")
+            + "、扱いを変えた核種の吸収の範囲ごと: "
             + "、".join(f"{r} {ranges[r]:+.1f}" for r in RANGES)
+        )
+        moved_ufg = sorted(
+            (
+                (v["absorption"]["ufg"], n)
+                for n, v in s["nuclides"].items()
+                if v["kind"] in ("to_dilute", "to_transported")
+            ),
+            key=lambda x: -abs(x[0]),
+        )[:5]
+        lines.append(
+            "  扱いを変えた核種の UFG の範囲の吸収の大きい順: "
+            + "、".join(f"{n} {v:+.1f}" for v, n in moved_ufg)
         )
         largest = sorted(
             s["nuclides"].items(),
