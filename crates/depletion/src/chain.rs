@@ -171,8 +171,8 @@ pub struct NuclideRates {
     pub yield_weights: Vec<f64>,
 }
 
-/// 形式の名前
-const FORMAT: &str = "xlc-chain";
+/// 形式の名前。`from_msgpack` が確かめ、読むだけの検査（xlc-outputs）がこれで読み手を選ぶ
+pub const FORMAT: &str = "xlc-chain";
 
 /// 崩壊の分岐比の和の、1 からのずれの許容。チェーンを作るときに比で割り直す（ADR-0164）ので、和の丸め（数十項で数 ε）より十分大きく、
 /// 割り直しを忘れたチェーン（ずれは ENDF/B-VIII.0 の decay で最大 9e-7。Ba-114）を止める大きさ

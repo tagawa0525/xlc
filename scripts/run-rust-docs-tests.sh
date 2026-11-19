@@ -11,4 +11,7 @@ set -euo pipefail
 cd -- "$(git rev-parse --show-toplevel)"
 
 scripts/check-exclusions.py
+# 形式を変える修正の検査（ADR-0258）も、マージの前に必ず通すためにここで実行する。実行ファイルを変えうる差分かは、
+# 検査が自分で決める（ほかの差分では読まずに終わる）
+scripts/check-readable-outputs.py
 exec cargo test -p xlc-docs

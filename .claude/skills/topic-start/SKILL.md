@@ -156,6 +156,8 @@ echo "rc=$?"
 
 マージの前に、残さない試行を消す（`trials/`。スキル verification-record の「記録に書く試行」）。ADR を実装に合わせて直し
 `status: accepted` にする、issue を閉じる（`status: closed`、`closed`、`resolution`）のも、このブランチの中で行う。
+実行ファイルを変えうるブランチでは、run-checks.sh が形式を変える修正の検査（`scripts/check-readable-outputs.py`。通し方は
+その先頭）を通す。項目の意味だけを変えるときは形式の名前を変える（検査は形しか見ない。ADR-0258）。
 
 レビューで直す指摘と直さない指摘の分け方、周の終わり、歯止め（文書だけのブランチの周の数を含む）、記録の周で出た
 blocking の扱いは、スキル git-merge の「レビュー」の節の「直す指摘の基準」に従う（文書だけのブランチは同じ基準の

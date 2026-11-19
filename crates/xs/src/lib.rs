@@ -11,5 +11,6 @@ pub mod parallel;
 pub mod physics;
 pub mod pointwise;
 pub mod process;
+pub mod range;
 pub mod resonance;
 pub mod special;

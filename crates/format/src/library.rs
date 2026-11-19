@@ -298,8 +298,8 @@ pub struct Library {
     pub activation: Vec<ActivationData>,
 }
 
-/// 形式の名前
-const FORMAT: &str = "xlc-multigroup";
+/// 形式の名前。`from_msgpack` が確かめ、読むだけの検査（xlc-outputs）がこれで読み手を選ぶ
+pub const FORMAT: &str = "xlc-multigroup";
 
 /// ライブラリから核種を引くときのエラー。
 #[derive(Debug, thiserror::Error)]

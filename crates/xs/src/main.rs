@@ -75,6 +75,7 @@ use xlc_xs::process::{
     SabUpper, Settings, ThermalScattering, process_activation, process_nuclide,
     read_thermal_scattering, resolved,
 };
+use xlc_xs::range;
 
 /// 入力ファイルを解釈した結果（パスは入力ファイルのディレクトリで解決済み）。
 #[derive(Debug, Clone, PartialEq)]
@@ -441,13 +442,13 @@ fn run(input: &Input) -> anyhow::Result<()> {
 fn run_range(input: &Input, out: &Path) -> anyhow::Result<()> {
     let (nuclides, tapes) = transported_tapes(&input.nuclides)?;
     let range = pointwise_range(&nuclides, &tapes, &GroupStructure::wims69())?;
-    write_file(out, range_to_toml(range).as_bytes())
+    write_file(out, range::to_toml(range).as_bytes())
 }
 
 fn read_range(path: &Path) -> anyhow::Result<Option<(f64, f64)>> {
     let context = || format!("{}", path.display());
     let text = std::fs::read_to_string(path).with_context(context)?;
-    range_from_toml(&text).with_context(context)
+    range::from_toml(&text).with_context(context)
 }
 
 /// 核種 `name` だけを、`range` のファイルのポイントワイズの範囲で処理して、1 核種のライブラリを書く。
@@ -517,35 +518,6 @@ fn pointwise_range(
         (Some(&low), Some(&high)) if high > low => Ok(Some((low, high))),
         _ => Err(anyhow!(
             "no group bounds between the thermal cutoff {THERMAL_CUTOFF} eV and {top} eV"
-        )),
-    }
-}
-
-/// `range_to_toml` と `range_from_toml` が書く、ポイントワイズの範囲のファイルの中身。
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields, rename_all = "kebab-case")]
-struct RangeFile {
-    /// 範囲がなければ空の配列
-    pointwise_range: Vec<f64>,
-}
-
-/// ポイントワイズの範囲 (eV) を TOML に書く。範囲がなければ空の配列を書く（項目は欠かさない。ADR-0129）。
-/// 浮動小数点数は、読み直して同じ値になる最短の表記（`{:?}`）で書く。
-fn range_to_toml(range: Option<(f64, f64)>) -> String {
-    match range {
-        Some((low, high)) => format!("pointwise-range = [{low:?}, {high:?}]\n"),
-        None => "pointwise-range = []\n".into(),
-    }
-}
-
-/// `range_to_toml` の形を読む。
-fn range_from_toml(text: &str) -> anyhow::Result<Option<(f64, f64)>> {
-    let file: RangeFile = toml::from_str(text)?;
-    match file.pointwise_range[..] {
-        [] => Ok(None),
-        [low, high] if low > 0.0 && high > low && high.is_finite() => Ok(Some((low, high))),
-        ref other => Err(anyhow!(
-            "pointwise-range must be empty or [low, high] with 0 < low < high, got {other:?}"
         )),
     }
 }
