@@ -168,5 +168,6 @@ resolution:
   573.6 K と 623.6 K が無い。docs/environment.md）。ライブラリは main の 3477ce219（#0325 の後）の release の xs（md5 7302b048）で、Slurm 1017〜1019
   （区分 decision、10 分 8 秒〜13 分 29 秒、割り込まれうるジョブ）。どの核種も `xs nuclide` を終了コード 0 で通り、走査
   （examples/depletion/process-survey.txt）に無い種類の WARN は無い。VIII.0 の試行のライブラリは #0325 の前の xs のものなので、同じ入力を
-  #0325 の後の xs で作り直し（Slurm 1020、手元の試行で記録に残さない）、U の燃焼の組成の基準条件の 4 状態を解き直した差は 0.001 pcm 未満で（MOX と Gd は
-  確かめていない）、VIII.0 は作り直さない。燃焼と比較（`compare_versions.py`）は続き
+  #0325 の後の xs で作り直し（Slurm 1020。ライブラリと解いた出力は追跡しない `trials/` の試行）、U、MOX、Gd の燃焼の組成の基準条件の
+  4 状態を解き直した差は、どれも 0.0001 pcm 以下（燃焼の履歴は作り直していない）。版の差（数十〜数百 pcm）に比べて無視できるので、
+  VIII.0 の燃焼は作り直さない。燃焼と比較（`compare_versions.py`）は続き
