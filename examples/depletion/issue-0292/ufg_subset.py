@@ -23,7 +23,9 @@ import msgpack
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
+sys.path.insert(0, str(HERE.parent.parent))
 from inputs import NOMINAL_DENSITY, ZIRCALOY, branch_input
+from verification_tables import markdown_table, signed
 
 FUELS = ("u", "mox", "gd")
 BURNUP = [0, 10, 30, 60]
@@ -172,16 +174,42 @@ def compare(fuel: str, root: Path) -> dict:
     }
 
 
+def burnup_header(summaries: list[dict]) -> list[str]:
+    burnup = summaries[0]["burnup"]
+    if any(d["burnup"] != burnup for d in summaries):
+        raise SystemExit("the fuels have other burnup points")
+    return [f"{b:g}" for b in burnup]
+
+
+def k_table(summaries: list[dict]) -> str:
+    """k∞ の差（pcm）の表。行は燃料と組（基準の `all` を除く）、列は燃焼度 (MWd/kg)"""
+    rows = [
+        [f"{d['fuel'].upper()} {c['case']}", *(signed(x, 1) for x in c["pcm"])]
+        for d in summaries
+        for c in d["cases"]
+        if c["case"] != "all"
+    ]
+    return markdown_table(["燃料と組", *burnup_header(summaries)], rows)
+
+
+def time_table(summaries: list[dict]) -> str:
+    """自己遮蔽の時間 (s) と、括弧の中に `all` に対する比の表"""
+    rows = [
+        [
+            f"{d['fuel'].upper()} {c['case']}",
+            *(f"{s:.2f}（{r:.2f}）" for s, r in zip(c["seconds"], c["ratio"])),
+        ]
+        for d in summaries
+        for c in d["cases"]
+    ]
+    return markdown_table(["燃料と組", *burnup_header(summaries)], rows)
+
+
 def report(paths: list[Path]) -> None:
-    for path in paths:
-        d = json.loads(path.read_text())
-        print(f"{d['fuel']}: burnup {d['burnup']}")
-        for c in d["cases"]:
-            pcm = " ".join(f"{x:+8.1f}" for x in c["pcm"])
-            ratio = " ".join(f"{x:5.2f}" for x in c["ratio"])
-            print(
-                f"  {c['case']:5s} pcm {pcm}   time ratio {ratio}   seconds {sum(c['seconds']):.1f}"
-            )
+    summaries = [json.loads(path.read_text()) for path in paths]
+    print(k_table(summaries))
+    print()
+    print(time_table(summaries))
 
 
 def main() -> None:
