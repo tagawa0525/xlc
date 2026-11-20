@@ -3,7 +3,7 @@
 //! 使い方: survey_negative <ENDF>...
 //!
 //! ファイルごとに 1 行（タブ区切り）を書く: ファイル名と親のディレクトリ、結果（`OK`、負の値が残れば `NEG`、ほかの理由で
-//! 止まれば `ERROR`、読めなければ `PARSE`）、`NEG` と `ERROR` は `ColdParts::read` の文。`NEG` の文は、負の値の残る反応ごとに
+//! 止まれば `ERROR`、ファイルかテープが読めなければ `PARSE`）、`NEG` と `ERROR` は `ColdParts::read` の文。`NEG` の文は、負の値の残る反応ごとに
 //! 点の数、エネルギーの範囲、最小の値を並べる。分離共鳴の弾性散乱の和は宣言なしで 0 にするので、数えない。
 
 use xlc_xs::endf::Tape;
@@ -17,7 +17,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for path in &paths {
         let name: Vec<&str> = path.rsplit('/').take(2).collect();
         let name = name.join(" ");
-        let tape = match Tape::parse(&std::fs::read_to_string(path)?) {
+        // 読めないファイルも 1 行にし、残りのファイルを数え続ける
+        let text = match std::fs::read_to_string(path) {
+            Ok(text) => text,
+            Err(error) => {
+                println!("{name}\tPARSE\t{error}");
+                continue;
+            }
+        };
+        let tape = match Tape::parse(&text) {
             Ok(tape) => tape,
             Err(error) => {
                 println!("{name}\tPARSE\t{error}");
