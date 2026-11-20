@@ -11246,6 +11246,6 @@ cd ../u && for c in s17 s17-full; do ../../../../../target/release/lattice $c.to
   上の節の `ufg-subset/u/out/s17.msgpack` と md5 が同じ（f31475bc）
 - 格子計算の最大の常駐は 13,046,772 kB から 11,726,604 kB（10.1% 減）。組み立ての最大の常駐は 5.8 GB（試行のライブラリは 6.7 GB。手元）
 - このライブラリは、後で足したライブラリの検査（S(α, β) の核種は nil にできない。H-1 は `s17` に入り、ポイントワイズの断面積を持つ）の
-  後のコミットの run-checks.sh の上流の出力を読む検査でも読める（2026-11-20）
+  後でも読める。09a97df3 の release のビルドで `s17` を解き直したテーブルは、上の `out/s17.msgpack` と md5 が同じ（b1dacaac。手元、2026-11-20）
 - 同じライブラリで `ufg-nuclides` を省く（すべての核種を UFG で解く）入力は、自己遮蔽の始めに「Se-79: the library has no pointwise cross
   sections of this nuclide」で止まる（手元）
