@@ -160,6 +160,34 @@ fn centre_of_mass_panel_wider_than_ec_is_split_exactly_into_low_groups() {
     );
 }
 
+#[test]
+fn centre_of_mass_groups_out_of_reach_stay_exactly_zero() {
+    // 重心系で 1〜3 MeV の 30 区間の密度、Ec = 1 keV。実験室系の範囲 [(√E' − √Ec)², (√E' + √Ec)²] の届かない群は丸めの値でなく
+    // ちょうど 0 で、どの群も負にならない（負の χ は媒質の検査で止まる）
+    let x: Vec<f64> = (0..=30)
+        .map(|i| 1.0e6 + 2.0e6 * f64::from(i) / 30.0)
+        .collect();
+    let y: Vec<f64> = x.iter().map(|e| 1.0 + (e / 1.0e6).sin()).collect();
+    let density = Tab1::linear(x, y);
+    let bounds: Vec<f64> = (0..200)
+        .map(|i| 2.0e7 * (1.0e-12_f64).powf(f64::from(i) / 199.0))
+        .collect();
+    let groups = GroupStructure::new(bounds).unwrap();
+    let ec = 1.0e3;
+    let actual = laboratory_group_integrals(&groups, &density, ec);
+    let (low, high) = (
+        (1.0e6_f64.sqrt() - ec.sqrt()).powi(2),
+        (3.0e6_f64.sqrt() + ec.sqrt()).powi(2),
+    );
+    for (g, value) in actual.iter().enumerate() {
+        let (bottom, top) = groups.range(g);
+        assert!(*value >= 0.0, "group {g}: {value:e}");
+        if top <= low || bottom >= high {
+            assert_eq!(*value, 0.0, "group {g} [{bottom:e}, {top:e}]");
+        }
+    }
+}
+
 /// 入射エネルギー 10 と 20 で、[0, 1] と [0, 3] の一様分布
 fn widening(law: IncidentLaw) -> OutgoingDistributions {
     OutgoingDistributions {
