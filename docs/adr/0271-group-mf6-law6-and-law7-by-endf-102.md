@@ -1,6 +1,6 @@
 ---
 type: ADR
-status: proposed
+status: accepted
 date: 2026-11-20
 requires: [ADR-0057, ADR-0082]
 supersedes: []
