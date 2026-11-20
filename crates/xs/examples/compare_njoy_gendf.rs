@@ -95,10 +95,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
 
+    // 即発の分布が読めない評価でも、散乱行列の比較は続ける
+    let prompt = match prompt_fission_spectrum(&tape, mat) {
+        Ok(spectrum) => spectrum,
+        Err(e) => {
+            println!("chi  : skipped ({e})");
+            None
+        }
+    };
     if let (Some(fission), Some(nu), Some(spectrum), Some(gendf)) = (
         tables.get(&18),
         &nubar,
-        prompt_fission_spectrum(&tape, mat)?,
+        prompt,
         reference.section(mat, 6, 18),
     ) {
         // GROUPR の MF6 MT18 は即発の分布（MF5 か MF6 の MT18）だけを使うので、遅発中性子の分布（MF5 MT455）は混ぜない。
