@@ -416,8 +416,9 @@ docs/0258-settle-open-points で比べ始め、ADR-0260 に分けた。DVC の�
   （ADR-0222）。直下の `dvc.lock` の出力（`build` と正規形）は計算の出力でないので読まない。lock に hash の無い（流していない）
   ステージの出力は対象にしない
 - 中身は作業ツリーでなく、DVC のキャッシュから上流の lock の outs の md5 で読む。出力を戻していない worktree でも同じ結果になり、
-  走っているジョブが書いている途中の出力（キャッシュと lock に入る前）には当たらない。キャッシュに無く、HEAD の git が追う出力
-  （`cache: false` の出力。範囲の TOML）は、HEAD の blob の md5 が lock の md5 と同じならその blob を読み、違えば止める。
+  走っているジョブが書いている途中の出力（キャッシュと lock に入る前）には当たらない。キャッシュに無く、git の index が追う出力
+  （`cache: false` の出力。範囲の TOML）は、index の blob の md5 が lock の md5 と同じならその blob を読み、違えば止める
+  （HEAD でなく index を読むのは、マージの hook の中では HEAD が既定ブランチのままで、index と lock がマージの結果になるため）。
   どちらにも無い出力は止める
 - 実行ファイルを変えうるブランチ（直下の `dvc.yaml` の `build` の deps を変えたブランチ。crates/ のほか、Cargo.lock、
   rust-toolchain.toml、flake.lock などを含む）は、マージの前にこの検査を通す。run-checks.sh がどの差分でも実行する
@@ -617,8 +618,9 @@ ADR-0257）は、上の段の実装のブランチで、その ADR の決定と�
     コード 1 になること。open の issue に md5 で結び付けた出力（`.dir` の md5 で結び付けたディレクトリの中のファイルを含む）は
     `ALLOWED:` で通り、ほかの読めない出力では止まること。閉じた issue、無い issue、`#NNNN` の形でない issue の項で止まること。
     一覧の項の型の誤りと、同じ md5 の 2 つの項で、traceback でなく `STOP:` で止まること。キャッシュに無い出力、読み手の失敗で止まること。
-    キャッシュに無く HEAD の git が追う出力は、blob の md5 が lock と同じなら HEAD の版を読み（作業ツリーの版は読まない。読めなければ
-    そのパスを `UNREADABLE:` に出す）、違えば `MISMATCH:` で止まること（#0317、ブランチ fix/0317-read-cache-false-outputs-from-git）。`build` の
+    キャッシュに無く git の index が追う出力は、blob の md5 が lock と同じなら index の版を読み（作業ツリーの版は読まない。HEAD と
+    index が違えば index を読む。読めなければそのパスを `UNREADABLE:` に出す）、違えば `MISMATCH:` で止まり、index で通常のファイルで
+    ないもの（symlink）は traceback でなく `STOP:` で止まること（#0317、ブランチ fix/0317-read-cache-false-outputs-from-git）。`build` の
     deps を変えない差分では読まず、crates/ か Cargo.lock を変えた差分、crates/ の外へ動かした差分、crates/ に追跡していない
     ファイルを足した差分では読むこと。マージの hook の中でも一時のリポジトリだけに触れるよう、テストの git は GIT_ の変数を外す
 
@@ -667,8 +669,9 @@ ADR-0257）は、上の段の実装のブランチで、その ADR の決定と�
 
 ## 変更
 
-- 2026-11-20: 形式を変える修正の検査の中身の読み方に、キャッシュに無く HEAD の git が追う出力（`cache: false` の出力）を、
-  HEAD の blob の md5 が lock と同じときにその blob で読み、違えば止めることを足した。前は「中身は作業ツリーでなく、DVC の
+- 2026-11-20: 形式を変える修正の検査の中身の読み方に、キャッシュに無く git の index が追う出力（`cache: false` の出力）を、
+  index の blob の md5 が lock と同じときにその blob で読み、違えば止めることを足した。前は「中身は作業ツリーでなく、DVC の
   キャッシュから上流の lock の outs の md5 で読む。（中略）キャッシュに無い出力は止める」。`cache: false` の出力（`xs range` の
   範囲の TOML）は DVC のキャッシュに入らず、中身の新しい版が `MISSING:` で止まった（#0317）。blob の md5 を lock と照らすので、
-  lock の指す中身を読み、作業ツリーを読まない性質は変わらない。`cache: false` をなくす案は採らなかった（理由は #0317）
+  lock の指す中身を読み、作業ツリーを読まない性質は変わらない。`cache: false` をなくす案と、HEAD の blob を読む案は採らなかった
+  （理由は #0317）

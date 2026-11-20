@@ -17,10 +17,10 @@ resolution:
   読む。`xs range` の範囲の TOML（`xs-range.toml`）は、dvc.yaml の outs が `cache: false` で git が追うので、DVC のキャッシュに入らず、
   中身の新しい版が `MISSING:` で止まっていた（ブランチ feat/0303-pin-depletion-by-endf-version の
   `examples/depletion/endfb70/xs-range.toml`、md5 edbeb1b9）
-- 検査は、キャッシュに無く HEAD の git が追う出力を、HEAD の blob の md5 が lock と同じならその blob で読み、違えば `MISMATCH:` で
+- 検査は、キャッシュに無く git の index が追う出力を、index の blob の md5 が lock と同じならその blob で読み、違えば `MISMATCH:` で
   止めるようになった（ADR-0258 の「## 変更」の 2026-11-20 の項）。残るのは、ブランチ feat/0303-pin-depletion-by-endf-version を main に
   rebase して、その run-checks.sh が通ることを確かめることである
-- 直した検査（xlc e7253c820）を、ブランチ feat/0303-pin-depletion-by-endf-version の worktree（HEAD 7d82b72a7）で `--base main` で
+- 直した検査（xlc 92d11c2fe）を、ブランチ feat/0303-pin-depletion-by-endf-version の worktree（HEAD c6dcb3f01）で `--base main` で
   実行すると、`MISSING:` は無く、2145 ファイル（2231 の出力）を読んで終了コード 0 だった（読み手はそのブランチのコードから別の
   target に作った read-outputs、キャッシュは main の references/dvc-cache、手元、2026-11-20）。直す前の検査（main f73fda31e）は
   同じ条件で上の `MISSING:` を出して終了コード 1 だった
@@ -40,9 +40,12 @@ resolution:
 
 - xlc の形式の出力から `cache: false` をなくし、範囲の TOML を DVC のキャッシュに入れる: 採らない。git で差分を読める小さな TOML を
   キャッシュに移すと、レビューで中身が見えなくなり、検査の都合で出力の置き方を変えることになる
+- HEAD の blob を読む（このブランチの最初の実装）: 捨てた。マージの hook（pre-merge-commit）は main の worktree で run-checks.sh を
+  呼び、そこでは HEAD が main のままで、index と作業ツリーの lock がマージの結果になる。新しい範囲の TOML を足すブランチでは、HEAD に
+  そのパスが無いか古い版で、検査が直したいマージそのものを止める（ローカルのレビューの指摘。index を読む形でテストを足した）
 
 ## 経緯
 
 - 2026-11-20: 版ごとのピンセルの燃焼（#0303）のブランチのチェックで、VII.0 の範囲の TOML が止まって見つけた
-- 2026-11-20: 検査が、キャッシュに無く HEAD の git が追う出力を、lock と同じ md5 の blob で読むようにした。#0303 のブランチの
+- 2026-11-20: 検査が、キャッシュに無く git の index が追う出力を、lock と同じ md5 の blob で読むようにした。#0303 のブランチの
   worktree で検査が通ることを確かめた
