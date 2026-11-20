@@ -107,6 +107,21 @@ DECLARED_ENTRIES = {
 }
 
 
+class DeclaredItemsTest(unittest.TestCase):
+    def test_lists_the_declaration_items_of_an_entry_in_a_fixed_order(self):
+        entry = {
+            "endf": "x.endf",
+            "temperatures": [565],
+            "unresolved-negative-background": "scale",
+            "corrections": [{"line": 1}],
+        }
+        self.assertEqual(
+            process_survey.declared_items(entry),
+            ["corrections", "unresolved-negative-background"],
+        )
+        self.assertEqual(process_survey.declared_items({"endf": "x.endf"}), [])
+
+
 class DeclareTest(unittest.TestCase):
     def test_adds_the_declared_items_to_their_nuclides(self):
         declared = process_survey.declare(
@@ -456,6 +471,25 @@ class SummarizeTest(unittest.TestCase):
         }
         with self.assertRaises(SystemExit):
             process_survey.summarize([("VII.0", report, SURVEY, CHAIN)], CAUSES)
+
+    def test_a_survey_stop_a_declaration_lets_pass_counts_as_passed(self):
+        # 読み込みの走査は宣言を持たないので止まり、宣言を足した `xs nuclide` は通る（ADR-0272 など）
+        report = {
+            **REPORT,
+            "evaluations": [
+                {**run("Rb-87", "n-037_Rb_087.endf"), "declarations": ["corrections"]}
+                if e["nuclide"] == "Rb-87"
+                else e
+                for e in REPORT["evaluations"]
+            ],
+        }
+        version = process_survey.summarize([("VII.0", report, SURVEY, CHAIN)], CAUSES)[
+            "versions"
+        ]["VII.0"]
+        self.assertEqual(version["in_chain"]["passed"], 4)
+        self.assertEqual(
+            version["declared"], [{"nuclide": "Rb-87", "items": ["corrections"]}]
+        )
 
     def test_an_evaluation_missing_from_the_report_is_an_error(self):
         report = {**REPORT, "evaluations": REPORT["evaluations"][1:]}
