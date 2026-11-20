@@ -498,7 +498,7 @@ class CheckReadableOutputs(unittest.TestCase):
         )
         self.cache_path(MD5["range"]).unlink()
 
-    def test_a_git_tracked_output_missing_from_the_cache_is_read_from_head(self):
+    def test_a_git_tracked_output_missing_from_the_cache_is_read_from_git(self):
         data = b"ok range"
         self.commit_range(data, hashlib.md5(data).hexdigest())
         # 作業ツリーの版は読まない（読めば読み手が止める）
@@ -509,6 +509,37 @@ class CheckReadableOutputs(unittest.TestCase):
         self.assertIn("READ: 6 files", result.stdout)
         ranges = [line for line in self.read_lines() if line.startswith("xs-range\t")]
         self.assertEqual(len(ranges), 1, self.read_lines())
+
+    def test_a_staged_git_tracked_output_is_read_from_the_index_not_head(self):
+        # マージの hook の中では、HEAD は既定ブランチのままで、index と lock がマージの結果になる
+        old = b"ok old range"
+        self.commit_range(old, hashlib.md5(old).hexdigest())
+        new = b"ok new range"
+        lock = self.root / "examples/a/dvc.lock"
+        lock.write_text(
+            lock.read_text().replace(
+                hashlib.md5(old).hexdigest(), hashlib.md5(new).hexdigest()
+            )
+        )
+        (self.root / OUTPUTS["range"]).write_bytes(new)
+        git(self.root, "add", ".")
+        result = self.run_check("--all")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn("MISMATCH:", result.stdout)
+        self.assertIn("READ: 6 files", result.stdout)
+
+    def test_a_git_tracked_symlink_output_stops_without_a_traceback(self):
+        # git の blob はリンク先のパスで、出力の中身でない
+        self.commit_range(b"ok range", MD5["range"])
+        target = self.root / OUTPUTS["range"]
+        target.unlink()
+        target.symlink_to("gen.toml")
+        git(self.root, "add", ".")
+        result = self.run_check("--all")
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("STOP:", result.stdout)
+        self.assertIn("examples/a/xs-range.toml", result.stdout)
+        self.assertNotIn("Traceback", result.stderr)
 
     def test_an_unreadable_git_tracked_output_names_its_path(self):
         data = b"bad range"
