@@ -177,19 +177,7 @@ struct NuclideEntry {
     pointwise: bool,
     /// 評価の誤りの修正（ADR-0272）。省略すると直さない
     #[serde(default)]
-    corrections: Vec<CorrectionEntry>,
-}
-
-/// 評価の誤りの修正の宣言（`Correction` の項目）
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct CorrectionEntry {
-    line: usize,
-    mf: u32,
-    mt: u32,
-    field: usize,
-    from: i64,
-    to: i64,
+    corrections: Vec<Correction>,
 }
 
 /// `pointwise` を省略したときの値（ADR-0269 の既定。今のとおり持たせる）
@@ -304,18 +292,7 @@ fn parse_input(text: &str, base: &Path) -> Result<Input, InputError> {
             temperatures: entry.temperatures,
             activation: entry.activation,
             pointwise: entry.pointwise,
-            corrections: entry
-                .corrections
-                .into_iter()
-                .map(|c| Correction {
-                    line: c.line,
-                    mf: c.mf,
-                    mt: c.mt,
-                    field: c.field,
-                    from: c.from,
-                    to: c.to,
-                })
-                .collect(),
+            corrections: entry.corrections,
             thermal,
             name,
         });

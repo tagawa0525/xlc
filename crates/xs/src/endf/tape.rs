@@ -67,7 +67,8 @@ pub struct Tab1Record {
 
 /// 評価の誤りを直す宣言（ADR-0272）。ファイルの `line` 行目（1 始まり）の `field` 番目（1〜6）の整数の欄を、
 /// `from` から `to` に書き換える。その行の MF と MT は `mf`、`mt` でなければならない。
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Correction {
     pub line: usize,
     pub mf: u32,
@@ -112,10 +113,10 @@ impl Tape {
             from,
             to,
         } = correction;
-        let line = self
-            .lines
-            .iter_mut()
-            .find(|l| l.number == number)
+        // `parse` は行に 1 から順に番号を振る
+        let line = number
+            .checked_sub(1)
+            .and_then(|index| self.lines.get_mut(index))
             .ok_or_else(|| Error::new(number, "the corrected line is not in the file"))?;
         if (line.mf, line.mt) != (mf, mt) {
             return Err(Error::new(
@@ -137,7 +138,7 @@ impl Tape {
         if value != from {
             return Err(Error::new(
                 number,
-                format!("field {field} is {value}, not the corrected value {from}"),
+                format!("field {field} is {value}, not the declared original value {from}"),
             ));
         }
         let replacement = format!("{to:>FIELD_WIDTH$}");
