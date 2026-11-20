@@ -3,7 +3,7 @@
 //! 使い方: compare_njoy_rml_points <ENDF> <PENDF> <MAT>
 //!
 //! LRF=7 の範囲の中の PENDF の各エネルギー点で、`RMatrixLimitedXs` の値に MF3 のバックグラウンド（無いか点を覆わなければエラー）を足したものと
-//! NJOY の値の相対差を求め、反応（MT1、2、102）ごとに最大値を表示する。`compare_njoy_pendf` は線形化した表を比べるので、
+//! NJOY の値の相対差を求め、`RMatrixLimitedXs::reactions` の部分反応ごとに最大値を表示する。`compare_njoy_pendf` は線形化した表を比べるので、
 //! 差が R 行列の式から来るか、線形化の格子から来るかをこれで分ける。
 
 use xlc_xs::endf::{Mf2, Mf3, RangeKind, Tape};
@@ -27,8 +27,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .ok_or("no LRF=7 range")?;
     let xs = RMatrixLimitedXs::new(rml)?;
     let reference = Tape::parse(&std::fs::read_to_string(pendf)?)?;
-    // `cross_sections` の並び（全断面積、弾性散乱、捕獲）
-    for (column, mt) in [1, 2, 102].into_iter().enumerate() {
+    // `cross_sections` の並び（全断面積、弾性散乱、捕獲、出口のチャネル、核分裂）。全断面積は部分反応の和（捕獲は全断面積の残り）で、
+    // NJOY も xs も部分反応の和で作り直すので比べない（MF3 の MT1 は部分反応の和と限らない。Cl-35 は分離共鳴の範囲にも点ごとの
+    // 全断面積を持つ）
+    for (column, mt) in xs.reactions().into_iter().enumerate().skip(1) {
         let background =
             Mf3::parse(&tape.section(mat, 3, mt).ok_or("no MT in the ENDF MF3")?)?.sigma;
         let njoy = Mf3::parse(&reference.section(mat, 3, mt).ok_or("no MT in PENDF")?)?.sigma;
