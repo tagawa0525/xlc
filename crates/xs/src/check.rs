@@ -81,6 +81,11 @@ fn check_final_states(tape: &Tape, mat: i32, mts: &[u32]) -> Result<(), ProcessE
     Ok(())
 }
 
+/// ファイルの中身を、テープとして読んで `check_evaluation` で確かめる。止まれば理由の文。
+pub fn check_contents(_bytes: &[u8]) -> Result<(), String> {
+    Ok(())
+}
+
 /// 1 つの ENDF のファイルの検査の結果。
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Checked {

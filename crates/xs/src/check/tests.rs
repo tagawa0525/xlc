@@ -129,3 +129,29 @@ fn the_report_lists_each_file_and_the_reason_it_stopped() {
          error = \"line 3: NIS=2 isotopes are not supported\"\n"
     );
 }
+
+#[test]
+fn the_report_is_in_the_byte_order_of_the_paths() {
+    // シェルのグロブの順はロケールの照合順で変わるので、与えた順でなくパスの順に書く
+    let checked = |endf: &str| Checked {
+        endf: endf.into(),
+        error: None,
+    };
+    let report =
+        report_toml(&[checked("n-095_Am_242m1.endf"), checked("n-095_Am_242.endf")]).unwrap();
+    assert_eq!(
+        report,
+        "[[evaluation]]\nendf = \"n-095_Am_242.endf\"\n\n[[evaluation]]\nendf = \"n-095_Am_242m1.endf\"\n"
+    );
+}
+
+#[test]
+fn a_file_that_is_not_text_stops_only_itself() {
+    let reason = check_contents(b"\xff\xfe").unwrap_err();
+    assert!(reason.contains("UTF-8"), "{reason}");
+}
+
+#[test]
+fn the_contents_of_a_readable_evaluation_pass() {
+    assert_eq!(check_contents(plain().concat().as_bytes()), Ok(()));
+}

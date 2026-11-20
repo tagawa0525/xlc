@@ -55,6 +55,15 @@ class NuclideKeyTest(unittest.TestCase):
             read_survey.nuclide_key("U235.endf")
 
 
+class ReasonTest(unittest.TestCase):
+    def test_drops_only_the_leading_line_number(self):
+        self.assertEqual(
+            read_survey.reason("line 12: LF=11 is not supported"),
+            "LF=11 is not supported",
+        )
+        self.assertEqual(read_survey.reason("600 K: line 3: x"), "600 K: line 3: x")
+
+
 class SummarizeTest(unittest.TestCase):
     def setUp(self):
         self.summary = read_survey.summarize([("VII.0", REPORT, CHAIN)])
