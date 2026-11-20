@@ -261,7 +261,8 @@ U-235、U-238、Pu-239、Pu-241 と主な核分裂生成物（Xe-135、I-135、S
 - 読めない評価: 分離共鳴の SLBW（LRF=1）の核種（VII.0 の Pu-238、Pu-242、Am-241、Am-243、Cm-242、Xe-135、Pm-148m、VII.1 の Xe-135、
   Pm-148m）は読める（ADR-0265、下の「版ごとのライブラリの分離共鳴の SLBW」）。核分裂スペクトルが MF5 の LF=12（Madland-Nix）の VII.0 と
   VII.1 の Am-241、Am-243 と、ν が MF1 の LNU=1（多項式）の VII.0 の Np-239 も読める（下の「版ごとのライブラリの Madland-Nix の核分裂
-  スペクトルと多項式の ν」）。65 核種の全部が核種ごとのステージ（`xs-nuclide`）を最後まで通るかは確かめていない（#0307）
+  スペクトルと多項式の ν」）。分離共鳴の R 行列の制限形（LRF=7）で核分裂の粒子対を持つ VIII.1 の Pu-239 も読める（下の「版ごとのライブラリの
+  分離共鳴の R 行列の制限形の核分裂」）。65 核種の全部が核種ごとのステージ（`xs-nuclide`）を最後まで通るかは確かめていない（#0307）
 
 ```sh
 dvc repro examples/depletion/dvc.yaml:compare-depletion-versions   # 3 つの版のライブラリ、4 つの版の燃焼、比較
@@ -381,6 +382,49 @@ Np239 VII.0 chi  : max rel diff 2.87e-5 in group 0 (ours 2.644276e-2, njoy 2.644
   終わる。VII.0 の Am-241、Am-243 に、SLBW の弾性散乱が負になる点の warn は出ない
 - 既存の形の出力は変わらない: VIII.0 の U-235（MF5 MT18 は LF=1、MT455 は LF=5）、U-236、Pu-241（LF=7）の `xs nuclide` の出力は、
   分岐点 7c219dd2 の bin の出力とバイトで同じ（本番の `xs.toml` と同じ入力を手元の試行に置いた）
+
+## 版ごとのライブラリの分離共鳴の R 行列の制限形の核分裂
+
+分離共鳴の R 行列の制限形（LRF=7）の核分裂の粒子対（MT=18、透過因子は 1。[ADR-0055](../../docs/adr/0055-reconstruct-r-matrix-limited-subset.md)。#0308）の
+0 K の再構成を、NJOY2016.79 の RECONR（許容誤差 1e-3）の PENDF と比べた。核種は版ごとのライブラリでこの形を持つ VIII.1 の Pu-239 だけ
+（4 つの版の LRF=7 の評価の粒子対の数え方は #0308）。NJOY の入力と出力は references/njoy-runs/lrf7-fission/Pu239-VIII.1/（git で追跡しない。
+入力は上の「版ごとのライブラリの分離共鳴の SLBW」の references/njoy-runs/slbw/ と同じ形で MAT だけが違う）。
+
+```sh
+cargo run --release -p xlc-xs --example compare_njoy_pendf -- \
+  references/njoy-runs/lrf7-fission/Pu239-VIII.1/tape20 references/njoy-runs/lrf7-fission/Pu239-VIII.1/tape25 9437
+```
+
+### 計算
+
+xlc c6729e43（分岐点 f6360d71、2026-11-20）。手元で `compare_njoy_pendf` を実行した。`xs nuclide` は同じコミットの `cargo build --release`
+の bin で、ブランチ feat/0303-pin-depletion-by-endf-version の `endfb81/xs.toml` と `endfb81/xs-range.toml` と同じ入力を手元の試行に置いて
+実行した。
+
+### 結果
+
+分離共鳴の範囲（1e-5〜5 keV）の NJOY の格子点での相対差（`compare_njoy_pendf` の範囲ごとの出力の `resolved` の行。先頭に反応を付けた）。
+どの反応も最大は 9.8e-4〜1.02e-3 で、許容誤差の 2 倍を超える点は無い（上の「版ごとのライブラリの分離共鳴の SLBW」と同じ基準）。
+
+```text
+MT1: compared 237736, max rel diff 9.76e-4 at 4.437500e-4 eV, > 2 tol: 0
+MT2: compared 237736, max rel diff 9.99e-4 at 3.433903e2 eV, > 2 tol: 0
+MT18: compared 237736, max rel diff 1.02e-3 at 1.231268e3 eV, > 2 tol: 0
+MT102: compared 237736, max rel diff 1.00e-3 at 1.434423e3 eV, > 2 tol: 0
+```
+
+- 非分離共鳴（5〜30 keV）と範囲の外は、どの反応も相対差が 2.4e-5 以下
+- NJOY の RECONR は「Error in quantum numbers for Group Number 2 and Channel Number 2」（チャネルスピン 1.0 が、核分裂の粒子対の
+  スピン IA = IB = 0 の和を超える）を出して続ける。核分裂のチャネルのチャネルスピンは、xs も NJOY も断面積に使わない
+- `xs nuclide`: VIII.1 の Pu-239 は終了コード 0 で終わる（4 温度、4 スレッドで 324 秒、最大の常駐メモリ 0.42 GB。同時に Slurm の
+  32 コアのジョブが走っていた）
+- VIII.1 のライブラリの作成（Slurm 989）が Pu-239 と Fe-54 で止まり、実行しなかった 31 核種（Pu-240、Pu-241、Pu-242、Rh-103、Ru-101、
+  Sm-147、149、150、151、152、Sn の 10 核種、Tc-99、U-234、235、236、238、Xe-135、Zr の 5 核種）は、どれも `xs nuclide` が終了コード 0 で
+  終わる。VIII.0 の本番で 1 核種 5 分を超えた U-235、U-238、Pu-241、Zr-91、Sm-151 は温度を 565 K の 1 点にし、ほかは 4 温度で実行した
+  （8 並列。最大の常駐メモリは U-238 の 0.34 GB）。VIII.1 の Fe-54 はこの記録で実行していない
+- 既存の形の出力は変わらない: VIII.0 の U-238、Pu-239（Reich-Moore）、Fe-57（LRF=7 の非弾性散乱の粒子対）の `xs nuclide` の出力は、
+  分岐点 f6360d71 と同じコードの bin（テストだけを足した c6685ca2 で作った）の出力とバイトで同じ（本番の `xs.toml` の温度を 565 K の
+  1 点にした入力を手元の試行に置いた）
 
 ## 燃焼の多群ライブラリ
 
