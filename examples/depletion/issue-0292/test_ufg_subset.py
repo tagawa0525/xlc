@@ -77,21 +77,21 @@ class Table(unittest.TestCase):
             ufg_subset.k_by_burnup(t)
 
 
+def write_case(fuel_dir, case, k, timed):
+    """組のテーブル（out/）と、自己遮蔽の区間の時間のログ（out/ と、排他のジョブの out-timed/）"""
+    table = one_state_table([0.0, 10.0], k)
+    (fuel_dir / "out" / f"{case}.msgpack").write_bytes(msgpack.packb(table))
+    span = "INFO shielding: xlc_lattice::shielding: close time.busy={} time.idle=1µs\n"
+    (fuel_dir / "out" / f"{case}.log").write_text(
+        "".join(span.format("99s") for _ in k)
+    )
+    (fuel_dir / "out-timed" / f"{case}.log").write_text(
+        "".join(span.format(t) for t in timed)
+    )
+
+
 class Compare(unittest.TestCase):
     """k は out/ のテーブルから、自己遮蔽の時間は排他のジョブのログ（out-timed/）から読む"""
-
-    def write_case(self, fuel_dir, case, k, timed):
-        table = one_state_table([0.0, 10.0], k)
-        (fuel_dir / "out" / f"{case}.msgpack").write_bytes(msgpack.packb(table))
-        span = (
-            "INFO shielding: xlc_lattice::shielding: close time.busy={} time.idle=1µs\n"
-        )
-        (fuel_dir / "out" / f"{case}.log").write_text(
-            "".join(span.format("99s") for _ in k)
-        )
-        (fuel_dir / "out-timed" / f"{case}.log").write_text(
-            "".join(span.format(t) for t in timed)
-        )
 
     def test_seconds_come_from_the_timed_logs(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -100,9 +100,9 @@ class Compare(unittest.TestCase):
             (fuel_dir / "out").mkdir(parents=True)
             (fuel_dir / "out-timed").mkdir()
             for case in ufg_subset.SETS:
-                self.write_case(fuel_dir, case, [1.2, 1.1], ["4s", "8s"])
-            self.write_case(fuel_dir, "s4", [1.2, 1.1], ["2s", "6s"])
-            d = ufg_subset.compare("u", root)
+                write_case(fuel_dir, case, [1.2, 1.1], ["4s", "8s"])
+            write_case(fuel_dir, "s4", [1.2, 1.1], ["2s", "6s"])
+            d = ufg_subset.compare("u", root, "trial")
             s4 = next(c for c in d["cases"] if c["case"] == "s4")
             self.assertEqual(s4["seconds"], [2.0, 6.0])
             self.assertEqual(s4["ratio"], [0.5, 0.75])
@@ -149,6 +149,107 @@ class Report(unittest.TestCase):
         self.assertIn("U all", rows[0])
         self.assertIn("2.00（0.50）", rows[1])
         self.assertIn("6.00（0.75）", rows[1])
+
+
+class ThresholdSets(unittest.TestCase):
+    def dilution(self, values):
+        return {"nuclides": [{"nuclide": n, "max_pcm": v} for n, v in values]}
+
+    def test_a_set_takes_the_nuclides_above_its_threshold_in_any_fuel(self):
+        sets = ufg_subset.threshold_sets(
+            [
+                self.dilution([("A", 5.0), ("B", 0.5), ("C", 0.05)]),
+                self.dilution([("B", -2.0), ("C", 0.2), ("D", 0.01)]),
+            ],
+            (1.0, 0.1),
+        )
+        self.assertEqual(list(sets), ["t1", "t0.1"])
+        self.assertEqual(sets["t1"], ["A", "B"])
+        # 燃料を通じた最大の絶対値の大きい順
+        self.assertEqual(sets["t0.1"], ["A", "B", "C"])
+
+    def test_the_trial_series_keeps_its_fixed_sets(self):
+        self.assertIs(ufg_subset.sets("trial", Path("unused")), ufg_subset.SETS)
+
+
+# 全核種の系列の比べ方の組（名前 → UFG で解く足した核種）
+ALL_CASES = {"all": None, "none": [], "t1": ["A"]}
+
+
+class AllSeries(unittest.TestCase):
+    def test_the_history_is_found_from_the_input_directory(self):
+        for series, path in [
+            ("trial", "r/trial/u/nominal.msgpack"),
+            ("all", "r/all/u/nominal.msgpack"),
+        ]:
+            found = ufg_subset.history_file(Path("r"), ufg_subset.SERIES[series], "u")
+            self.assertEqual(found.resolve(), Path(path).resolve())
+
+    def test_the_inputs_read_the_all_nuclides_library_and_history(self):
+        text = ufg_subset.case_input(
+            "u", "t1", ["U-235", "H-1"], 1, ufg_subset.SERIES["all"]
+        )
+        self.assertIn('library = "../../all/library/depletion.msgpack"', text)
+        self.assertIn('file = "../../all/u/nominal.msgpack"', text)
+        self.assertIn('ufg-nuclides = ["U-235", "H-1"]', text)
+        self.assertIn("全核種", text.splitlines()[0])
+
+    def test_the_control_reads_the_control_library_and_the_trial_history(self):
+        text = ufg_subset.control_input("mox")
+        self.assertIn('library = "../../all/control/depletion.msgpack"', text)
+        self.assertIn('file = "../../trial/mox/nominal.msgpack"', text)
+        self.assertNotIn("ufg-nuclides", text)
+
+    def write_series(self, root, transported):
+        fuel_dir = root / "all-ufg" / "u"
+        (fuel_dir / "out").mkdir(parents=True)
+        (fuel_dir / "out-timed").mkdir()
+        (root / "ufg-subset" / "u" / "out").mkdir(parents=True)
+        (root / "all" / "u").mkdir(parents=True)
+        (root / "all" / "library").mkdir()
+        for case in ALL_CASES:
+            write_case(fuel_dir, case, [1.2, 1.1], ["4s", "8s"])
+        (fuel_dir / "out" / "control.msgpack").write_bytes(
+            msgpack.packb(one_state_table([0.0, 10.0], [1.2, 1.0]))
+        )
+        (root / "ufg-subset" / "u" / "out" / "all.msgpack").write_bytes(
+            msgpack.packb(one_state_table([0.0, 10.0], [1.2, 1.1]))
+        )
+        (root / "all" / "library" / "xs.toml").write_text(
+            "[nuclide]\n"
+            'U-235 = { endf = "u", temperatures = [565] }\n'
+            'A = { endf = "a", temperatures = [565] }\n'
+            'Th-232 = { endf = "t", temperatures = [565], activation = true }\n'
+        )
+        (root / "all" / "u" / "nominal.msgpack").write_bytes(
+            msgpack.packb({"transportable": transported})
+        )
+
+    def test_the_comparison_gives_the_library_change_from_the_control(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "issue-0292"
+            self.write_series(root, ["A", "U-235"])
+            d = ufg_subset.compare("u", root, "all", ALL_CASES)
+            self.assertEqual([c["case"] for c in d["cases"]], list(ALL_CASES))
+            change = d["library_change_pcm"]
+            self.assertAlmostEqual(change[0], 0.0)
+            self.assertAlmostEqual(change[1], 1e5 * (1 / 1.1 - 1 / 1.0))
+
+    def test_a_history_transporting_other_nuclides_than_the_library_stops(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "issue-0292"
+            self.write_series(root, ["U-235"])
+            with self.assertRaises(SystemExit):
+                ufg_subset.compare("u", root, "all", ALL_CASES)
+
+    def test_the_transported_nuclides_are_read_from_the_library_input(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "issue-0292"
+            self.write_series(root, [])
+            self.assertEqual(
+                ufg_subset.library_transported(root / "all" / "library" / "xs.toml"),
+                ["U-235", "A"],
+            )
 
 
 if __name__ == "__main__":
