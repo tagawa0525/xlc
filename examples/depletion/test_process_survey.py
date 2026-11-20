@@ -101,6 +101,60 @@ class InputEntriesTest(unittest.TestCase):
             process_survey.input_entries(SURVEY, CHAIN, [], BASE)
 
 
+DECLARED_ENTRIES = {
+    "U-235": {"endf": "n-092_U_235.endf", "temperatures": [565]},
+    "Ta-181": {"endf": "n-073_Ta_181.endf", "temperatures": [565]},
+}
+
+
+class DeclareTest(unittest.TestCase):
+    def test_adds_the_declared_items_to_their_nuclides(self):
+        declared = process_survey.declare(
+            DECLARED_ENTRIES, {"Ta-181": {"unresolved-negative-background": "scale"}}
+        )
+        self.assertEqual(
+            declared["Ta-181"],
+            {
+                "endf": "n-073_Ta_181.endf",
+                "temperatures": [565],
+                "unresolved-negative-background": "scale",
+            },
+        )
+        self.assertEqual(declared["U-235"], DECLARED_ENTRIES["U-235"])
+        self.assertEqual(list(declared), list(DECLARED_ENTRIES))
+
+    def test_a_declaration_outside_the_input_is_an_error(self):
+        with self.assertRaises(SystemExit):
+            process_survey.declare(
+                DECLARED_ENTRIES,
+                {"Es-253": {"unresolved-negative-background": "scale"}},
+            )
+
+    def test_a_declaration_replacing_an_item_is_an_error(self):
+        with self.assertRaises(SystemExit):
+            process_survey.declare(
+                DECLARED_ENTRIES, {"Ta-181": {"temperatures": [600]}}
+            )
+
+
+class RenderInputTest(unittest.TestCase):
+    def test_writes_lists_of_tables_inline(self):
+        text = process_survey.render_input(
+            [],
+            {},
+            {
+                "Rb-87": {
+                    "endf": "rb.endf",
+                    "corrections": [{"line": 1194, "mf": 5, "from": 1}],
+                }
+            },
+        )
+        self.assertIn(
+            'Rb-87 = { endf = "rb.endf", corrections = [{ line = 1194, mf = 5, from = 1 }] }',
+            text,
+        )
+
+
 class NameFromFileTest(unittest.TestCase):
     def test_writes_the_first_metastable_state_as_m(self):
         self.assertEqual(
