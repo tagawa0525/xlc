@@ -274,17 +274,21 @@ impl RMatrixLimitedXs {
             .collect()
     }
 
-    /// 共鳴の半値幅（ピークのまわりの格子点に使う）。
+    /// 共鳴のピークのエネルギーと半値幅（ピークのまわりの格子点に使う）。シフト因子を計算するチャネルがあれば、
+    /// ピークは準位のずれ Δ = −Σ γ²(S − B)（S は共鳴エネルギーで求める）だけ E_λ から動く。
     pub fn peaks(&self) -> impl Iterator<Item = (f64, f64)> + '_ {
         self.groups.iter().flat_map(|g| {
             g.resonances.iter().map(|r| {
-                let neutron: f64 = (r.amplitudes.iter().zip(&g.channels))
-                    .map(|(&a, c)| {
-                        let e = (r.er - c.threshold).abs();
-                        2.0 * a * a * c.penetrability(c.threshold + e)
-                    })
-                    .sum();
-                (r.er, r.half_capture + 0.5 * neutron)
+                let mut neutron = 0.0;
+                let mut level_shift = 0.0;
+                for (&a, c) in r.amplitudes.iter().zip(&g.channels) {
+                    let e = c.threshold + (r.er - c.threshold).abs();
+                    neutron += 2.0 * a * a * c.penetrability(e);
+                    if let Some(d) = c.shift_minus_boundary(e) {
+                        level_shift -= a * a * d;
+                    }
+                }
+                (r.er + level_shift, r.half_capture + 0.5 * neutron)
             })
         })
     }
