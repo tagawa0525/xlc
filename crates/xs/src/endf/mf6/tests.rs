@@ -237,6 +237,15 @@ fn phase_space_outside_three_to_five_particles_is_error() {
 }
 
 #[test]
+fn two_step_phase_space_is_error() {
+    // APSX が生成粒子の質量の和（A + 1 ほど）より小さいのは 2 段の反応で、E_a は 1 段目の反跳のエネルギーになる
+    // （ENDF-102 の 6.2.8）。式 6.28 の E_a では E_max が大きすぎる
+    let tape = Tape::parse(&phase_space("1", "2.0", "3")).unwrap();
+    let err = Mf6::parse(&tape.section(825, 6, 16).unwrap()).unwrap_err();
+    assert_eq!(err.line, 5, "{err}");
+}
+
+#[test]
 fn phase_space_lighter_than_the_neutron_is_error() {
     // A_p ≤ 1 では E_max の係数 (A_p − 1)/A_p が正にならない
     let tape = Tape::parse(&phase_space("1", "1.0", "3")).unwrap();
@@ -400,21 +409,48 @@ fn law7_cosine_interpolation_other_than_histogram_or_linear_is_error() {
 }
 
 #[test]
-fn law7_cosines_must_span_minus_one_to_one() {
-    // 余弦が −1〜1 を覆わないと、積分した分布の和が 1 に足りず、中性子を黙って失う
+fn law7_cosines_over_part_of_the_range_integrate_what_is_given() {
+    // ENDF-102 の 6.2.9 は、余弦が出射の粒子に開いた範囲（重心が速いと前方の円錐 μ_min〜1）を覆うことだけを求める。
+    // E = 2e6 の余弦を −0.5、0、1 にすると、台形の重みは 0.25、0.75、0.5
     let text = angle_energy("1", "2").replacen("       -1.0", "       -0.5", 1);
     let tape = Tape::parse(&text).unwrap();
-    let err = Mf6::parse(&tape.section(825, 6, 16).unwrap()).unwrap_err();
-    assert_eq!(err.line, 7, "{err}");
-    // 最後の余弦が 1 でないとき（E = 2e6 の μ = 1 の表を μ = 0.5 にする）
-    let last = "        0.0        1.0          0          0          1          3";
-    let text = angle_energy("1", "2").replacen(
-        last,
-        "        0.0        0.5          0          0          1          3",
-        1,
-    );
-    assert_ne!(text, angle_energy("1", "2"));
-    let tape = Tape::parse(&text).unwrap();
+    let mf6 = Mf6::parse(&tape.section(825, 6, 16).unwrap()).unwrap();
+    let NeutronSpectrum::Tabulated(d) = &mf6.neutrons[0].spectrum else {
+        panic!("LAW=7 becomes a table");
+    };
+    let expected = 0.25 * 2.0e-7 + 0.75 * 4.0e-7;
+    assert!((d.spectra[0].eval(0.0).unwrap() - expected).abs() < 1e-18);
+}
+
+/// 中性子が LAW=7 で、入射エネルギー 2e6 と 3e6 のどちらも余弦が 1 つだけ（μ = 0）の節
+fn single_cosine() -> String {
+    let energy = |e: &str| {
+        [
+            r(["0.0", e, "0", "0", "1", "1"]),
+            r(["1", "2", "", "", "", ""]),
+            r(["0.0", "0.0", "0", "0", "1", "2"]),
+            r(["2", "2", "", "", "", ""]),
+            r(["0.0", "5.0e-7", "1.0e6", "5.0e-7", "", ""]),
+        ]
+        .concat()
+    };
+    [
+        r(["4009.0", "8.93478", "0", "1", "1", "0"]),
+        r(["1.0", "1.0", "0", "7", "1", "2"]),
+        r(["2", "2", "", "", "", ""]),
+        r(["2.0e6", "2.0", "3.0e6", "2.0", "", ""]),
+        r(["0.0", "0.0", "0", "0", "1", "2"]),
+        r(["2", "2", "", "", "", ""]),
+        energy("2.0e6"),
+        energy("3.0e6"),
+    ]
+    .concat()
+}
+
+#[test]
+fn law7_single_cosine_is_error() {
+    // 余弦が 1 つでは積分の幅が 0 で、中性子を黙って失う
+    let tape = Tape::parse(&single_cosine()).unwrap();
     let err = Mf6::parse(&tape.section(825, 6, 16).unwrap()).unwrap_err();
     assert_eq!(err.line, 7, "{err}");
 }
