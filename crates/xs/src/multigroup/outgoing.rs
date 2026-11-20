@@ -71,6 +71,10 @@ fn laboratory_group_integrals(groups: &GroupStructure, density: &Tab1, ec: f64) 
         let bottom = if g == ng - 1 { 0.0 } else { bounds[g + 1] };
         (bottom, top)
     };
+    if ec == 0.0 {
+        // 重心の運動が無ければ実験室系も E'
+        return outgoing_group_integrals(groups, density);
+    }
     let c = ec.sqrt();
     let mut integrals = vec![0.0; ng];
     for k in 0..linear.x.len().saturating_sub(1) {
@@ -80,22 +84,6 @@ fn laboratory_group_integrals(groups: &GroupStructure, density: &Tab1, ec: f64) 
         }
         let (y0, y1) = (linear.y[k], linear.y[k + 1]);
         let f = |e: f64| y0 + (y1 - y0) * (e - x0) / (x1 - x0);
-        if c == 0.0 {
-            // 重心の運動が無ければ実験室系も E'。f は線形なので台形則で厳密
-            for (g, value) in integrals
-                .iter_mut()
-                .enumerate()
-                .take(edge(x0) + 1)
-                .skip(edge(x1))
-            {
-                let (bottom, top) = range(g);
-                let (a, b) = (x0.max(bottom), x1.min(top));
-                if b > a {
-                    *value += 0.5 * (b - a) * (f(a) + f(b));
-                }
-            }
-            continue;
-        }
         let (u0, u1) = (x0.sqrt(), x1.sqrt());
         let highest = (u1 + c).powi(2);
         let lowest = if (u0..=u1).contains(&c) {
@@ -130,7 +118,14 @@ fn laboratory_group_integrals(groups: &GroupStructure, density: &Tab1, ec: f64) 
                 let (mid, half) = (0.5 * (w[0] + w[1]), 0.5 * (w[1] - w[0]));
                 for &(t, weight) in &GAUSS_LEGENDRE_4 {
                     let u = mid + half * t;
-                    let overlap = (top.min((u + c).powi(2)) - bottom.max((u - c).powi(2))).max(0.0);
+                    let (lo, hi) = ((u - c).powi(2), (u + c).powi(2));
+                    // 範囲の全体が群に入るなら幅は 4uc。両端の差で求めると、Ec が E' の丸めの桁に近い（入射が熱の重い標的）とき
+                    // 相対 1e-8 ほど狂い、群の和が密度の積分からずれる
+                    let overlap = if bottom <= lo && hi <= top {
+                        4.0 * u * c
+                    } else {
+                        (top.min(hi) - bottom.max(lo)).max(0.0)
+                    };
                     *value += f(u * u) * overlap / (2.0 * c) * weight * half;
                 }
             }
