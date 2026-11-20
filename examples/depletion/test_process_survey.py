@@ -217,7 +217,7 @@ class EvaluationTest(unittest.TestCase):
         )
         self.assertEqual(e["error"], process_survey.TIMED_OUT)
 
-    def test_a_run_killed_by_a_signal_keeps_the_last_line_of_its_log(self):
+    def test_a_run_killed_by_a_signal_keeps_the_first_line_outside_tracing(self):
         e = process_survey.evaluation(
             "U-238",
             "n-092_U_238.endf",
@@ -342,14 +342,15 @@ class SummarizeTest(unittest.TestCase):
     def test_splits_the_evaluations_by_the_chain(self):
         self.assertEqual(
             self.version["in_chain"],
-            {"evaluations": 4, "passed": 2, "stopped": 2, "stopped_reading": 1},
+            # 天然の C の評価は、チェーンの C-12 の名前で通した（ADR-0262 でチェーンの核種が使う評価）
+            {"evaluations": 5, "passed": 3, "stopped": 2, "stopped_reading": 1},
         )
         self.assertEqual(
             self.version["outside_chain"],
             {
-                "evaluations": 3,
-                "processed": 2,
-                "passed": 2,
+                "evaluations": 2,
+                "processed": 1,
+                "passed": 1,
                 "stopped": 0,
                 "left_out": 1,
             },
@@ -404,6 +405,51 @@ class SummarizeTest(unittest.TestCase):
 
     def test_an_evaluation_missing_from_the_report_is_an_error(self):
         report = {**REPORT, "evaluations": REPORT["evaluations"][1:]}
+        with self.assertRaises(SystemExit):
+            process_survey.summarize([("VII.0", report, SURVEY, CHAIN)], CAUSES)
+
+    def test_a_survey_stop_with_another_reason_is_an_error(self):
+        report = {
+            **REPORT,
+            "evaluations": [
+                run("Rb-87", "n-037_Rb_087.endf", "LF=11 is not supported")
+                if e["nuclide"] == "Rb-87"
+                else e
+                for e in REPORT["evaluations"]
+            ],
+        }
+        with self.assertRaises(SystemExit):
+            process_survey.summarize([("VII.0", report, SURVEY, CHAIN)], CAUSES)
+
+    def test_a_survey_stop_may_carry_the_temperature_of_the_stage(self):
+        survey = {
+            "evaluation": [
+                evaluation(e["endf"].rsplit("/", 1)[1], "fission needs MF5")
+                if e["endf"].endswith("U_235.endf")
+                else e
+                for e in SURVEY["evaluation"]
+            ]
+        }
+        report = {
+            **REPORT,
+            "evaluations": [
+                run("U-235", "n-092_U_235.endf", "565 K: fission needs MF5")
+                if e["nuclide"] == "U-235"
+                else e
+                for e in REPORT["evaluations"]
+            ],
+        }
+        summary = process_survey.summarize([("VII.0", report, survey, CHAIN)], CAUSES)
+        stages = {
+            s["nuclide"]: s["stage"] for s in summary["versions"]["VII.0"]["stopped"]
+        }
+        self.assertEqual(stages["U-235"], "reading")
+
+    def test_two_entries_of_one_file_are_an_error(self):
+        report = {
+            **REPORT,
+            "evaluations": REPORT["evaluations"] + [REPORT["evaluations"][0]],
+        }
         with self.assertRaises(SystemExit):
             process_survey.summarize([("VII.0", report, SURVEY, CHAIN)], CAUSES)
 
