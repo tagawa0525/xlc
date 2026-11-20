@@ -681,9 +681,10 @@ fn add_resonances(
                 let f = |e: f64| xs.cross_sections(e);
                 let tables = resonance_tables(f, &nodes, range.el, range.eh, tol)
                     .map_err(|e| e.to_string())?;
-                // 全断面積は部分反応の和で作り直す
+                // 全断面積は部分反応の和で作り直す。核分裂は `fission_mt` に入れる
                 xs.reactions()
                     .into_iter()
+                    .map(|mt| if mt == 18 { fission_mt } else { mt })
                     .zip(tables)
                     .filter(|&(mt, _)| mt != 1)
                     .collect()

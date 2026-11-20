@@ -1,9 +1,11 @@
 //! R-matrix limited 形式（LRF=7）の Reich-Moore の断面積（0 K）。
 //!
-//! 捕獲は消去されたチャネルとして共鳴エネルギーの虚部に入れ（E_λ − iΓγ/2）、開いた中性子のチャネルの
+//! 捕獲は消去されたチャネルとして共鳴エネルギーの虚部に入れ（E_λ − iΓγ/2）、開いた中性子と核分裂のチャネルの
 //! R 行列から X = (I − iK)⁻¹K（K = P^½ R P^½）を求める。衝突行列は U = e^{−i(φ+φ')} (I + 2iX)。
-//! 透過因子は剛体球のもので、シフト因子は使わない。閾値より下の非弾性散乱のチャネルは閉じているので除く
-//! （NJOY2016 samm と同じ）。
+//! 中性子の透過因子は剛体球のもので、シフト因子は使わない。核分裂のチャネルは透過因子を 1 とし（ENDF-102 の D.1.7）、
+//! 幅は Γ = 2γ² になる（LRF=3 の Reich-Moore の Γfa、Γfb と同じチャネル）。位相シフトは 0 とする（核分裂は入射の
+//! チャネルにならず、断面積は |U_ab|² = 4|X_ab|² だけで位相によらない）。
+//! 閾値より下の非弾性散乱のチャネルは閉じているので除く（NJOY2016 samm と同じ）。
 //!
 //! 捕獲の幅がない共鳴のエネルギーちょうどでは R 行列が発散する（極）が、X は有限の極限を持つ。
 //! M = I − iK とすると X = i(I − M⁻¹) で、極の共鳴の項を K = K' + w wᵀ/d と分けると、d → 0 の極限は
@@ -49,6 +51,8 @@ pub enum RmlError {
 pub struct RMatrixLimitedXs {
     /// 非弾性散乱の準位の MT（粒子対の順）
     levels: Vec<u32>,
+    /// 核分裂の粒子対があるか（あれば `cross_sections` の最後の値が核分裂）
+    fission: bool,
     groups: Vec<Group>,
 }
 
@@ -59,6 +63,7 @@ enum Role {
     Elastic,
     /// `levels` の添字
     Level(usize),
+    Fission,
 }
 
 #[derive(Debug, Clone)]
@@ -67,7 +72,7 @@ struct Group {
     g: f64,
     /// 捕獲の幅を持つ共鳴があるか（なければ捕獲は厳密に 0）
     captures: bool,
-    /// 中性子のチャネル（ファイルの順。捕獲のチャネルは除く）
+    /// 中性子と核分裂のチャネル（ファイルの順。捕獲のチャネルは除く）
     channels: Vec<Channel>,
     resonances: Vec<Level>,
 }
@@ -76,6 +81,8 @@ struct Group {
 struct Channel {
     role: Role,
     l: OrbitalL,
+    /// 透過因子と位相シフトを剛体球で計算するか（しなければ P = 1、φ = 0）
+    penetrable: bool,
     /// 閾値（実験室系, eV）
     threshold: f64,
     /// 波数 k = factor × sqrt(E − threshold)（10^-12 cm 単位）
@@ -89,6 +96,22 @@ struct Channel {
 impl Channel {
     fn wave_number(&self, e: f64) -> f64 {
         self.factor * (e - self.threshold).sqrt()
+    }
+
+    fn penetrability(&self, e: f64) -> f64 {
+        if self.penetrable {
+            penetrability(self.l, self.wave_number(e) * self.apt)
+        } else {
+            1.0
+        }
+    }
+
+    fn phase_shift(&self, e: f64) -> f64 {
+        if self.penetrable {
+            phase_shift(self.l, self.wave_number(e) * self.ape)
+        } else {
+            0.0
+        }
     }
 }
 
@@ -110,6 +133,11 @@ impl RMatrixLimitedXs {
             .enumerate()
             .map(|(i, pair)| role(i + 1, pair, &mut levels))
             .collect::<Result<Vec<_>, _>>()?;
+        let fission = match roles.iter().filter(|r| **r == Role::Fission).count() {
+            0 => false,
+            1 => true,
+            _ => return Err(RmlError::DuplicateMt(18)),
+        };
         let elastic: Vec<&ParticlePair> = (data.pairs.iter())
             .zip(&roles)
             .filter(|(_, r)| **r == Role::Elastic)
@@ -143,6 +171,7 @@ impl RMatrixLimitedXs {
                                 Channel {
                                     role,
                                     l: c.l,
+                                    penetrable: role != Role::Fission,
                                     threshold: -pair.q / arat,
                                     factor: wave_number_factor() * (reduced * arat).sqrt(),
                                     apt: c.apt,
@@ -175,14 +204,20 @@ impl RMatrixLimitedXs {
                 })
             })
             .collect::<Result<_, _>>()?;
-        Ok(Self { levels, groups })
+        Ok(Self {
+            levels,
+            fission,
+            groups,
+        })
     }
 
-    /// `cross_sections` の値の反応: 全断面積（MT1）、弾性散乱（MT2）、捕獲（MT102）、準位ごとの非弾性散乱。
+    /// `cross_sections` の値の反応: 全断面積（MT1）、弾性散乱（MT2）、捕獲（MT102）、準位ごとの非弾性散乱、
+    /// 核分裂（MT18。核分裂の粒子対があるときだけ）。
     pub fn reactions(&self) -> Vec<u32> {
         [1, 2, 102]
             .into_iter()
             .chain(self.levels.iter().copied())
+            .chain(self.fission.then_some(18))
             .collect()
     }
 
@@ -193,7 +228,7 @@ impl RMatrixLimitedXs {
                 let neutron: f64 = (r.amplitudes.iter().zip(&g.channels))
                     .map(|(&a, c)| {
                         let e = (r.er - c.threshold).abs();
-                        2.0 * a * a * penetrability(c.l, c.wave_number(c.threshold + e) * c.apt)
+                        2.0 * a * a * c.penetrability(c.threshold + e)
                     })
                     .sum();
                 (r.er, r.half_capture + 0.5 * neutron)
@@ -203,7 +238,8 @@ impl RMatrixLimitedXs {
 
     /// エネルギー e (eV) での断面積 (barn)。`reactions` の順に並べる。
     pub fn cross_sections(&self, e: f64) -> Result<Vec<f64>, RmlError> {
-        let mut sigma = vec![0.0; 3 + self.levels.len()];
+        let fission_index = 3 + self.levels.len();
+        let mut sigma = vec![0.0; fission_index + usize::from(self.fission)];
         for (group, g) in self.groups.iter().enumerate() {
             let open: Vec<&Channel> = g.channels.iter().filter(|c| e > c.threshold).collect();
             let Some(entrance) = open.iter().find(|c| c.role == Role::Elastic) else {
@@ -214,14 +250,8 @@ impl RMatrixLimitedXs {
                 .filter(|(_, c)| e > c.threshold)
                 .map(|(i, _)| i)
                 .collect();
-            let root_p: Vec<f64> = open
-                .iter()
-                .map(|c| penetrability(c.l, c.wave_number(e) * c.apt).sqrt())
-                .collect();
-            let phi: Vec<f64> = open
-                .iter()
-                .map(|c| phase_shift(c.l, c.wave_number(e) * c.ape))
-                .collect();
+            let root_p: Vec<f64> = open.iter().map(|c| c.penetrability(e).sqrt()).collect();
+            let phi: Vec<f64> = open.iter().map(|c| c.phase_shift(e)).collect();
 
             // K = P^½ R P^½、R = Σ γγ / (E_λ − E − iΓγ/2)。極の共鳴は w = P^½ γ として分ける
             let mut k = vec![Complex64::ZERO; n * n];
@@ -273,7 +303,7 @@ impl RMatrixLimitedXs {
 
             let kn = entrance.wave_number(e);
             let pifac = g.g * PI / (kn * kn);
-            // この spin group の全断面積・弾性散乱・非弾性散乱
+            // この spin group の全断面積・弾性散乱・非弾性散乱・核分裂
             let mut part = vec![0.0; sigma.len()];
             for (a, ca) in open.iter().enumerate() {
                 if ca.role != Role::Elastic {
@@ -293,7 +323,8 @@ impl RMatrixLimitedXs {
                     match cb.role {
                         Role::Elastic if b != a => part[1] += transfer,
                         Role::Level(i) => part[3 + i] += transfer,
-                        _ => {}
+                        Role::Fission => part[fission_index] += transfer,
+                        Role::Elastic | Role::Capture => {}
                     }
                 }
             }
@@ -338,12 +369,18 @@ fn role(index: usize, pair: &ParticlePair, levels: &mut Vec<u32>) -> Result<Role
         (1.0, 2 | 51..=90) => {
             unsupported(format!("neutrons without penetrability (PNT={})", pair.pnt))
         }
+        // 核分裂の片割れの粒子は決まらないので MA を見ない。核分裂の透過因子は 1（ENDF-102 の D.1.7）なので、PNT=-1 と、
+        // 既定の PNT=0 を受ける。PNT=0 の既定を 2.2.1.6 は「fission (MT=19)」を -1、ほかを +1 と書くが、D.1.7 と NJOY2016 samm の
+        // ppdefs（MT=18 の lpent=0）に合わせる。PNT=1（剛体球の透過因子）は核分裂に定義がないのでエラーにする
+        (_, 18) if pair.pnt <= 0 => Ok(Role::Fission),
+        (_, 18) => unsupported(format!("penetrability for fission (PNT={})", pair.pnt)),
         (ma, mt) => unsupported(format!("MA={ma} MT={mt}")),
     }
 }
 
 /// 共鳴エネルギーでの幅 Γ から換算幅の振幅 γ = sign(Γ) √(|Γ| / 2P) を求める（ENDF の約束）。
-/// 透過因子はチャネルのエネルギー |E_λ − 閾値| で求める（負の共鳴は |E_λ|）。
+/// 透過因子はチャネルのエネルギー |E_λ − 閾値| で求める（負の共鳴は |E_λ|）。透過因子を計算しないチャネルは
+/// P = 1 で、閉じることがない。
 fn amplitude(
     er: f64,
     width: f64,
@@ -354,13 +391,16 @@ fn amplitude(
     if width == 0.0 {
         return Ok(0.0);
     }
+    if !c.penetrable {
+        return Ok(width.signum() * (width.abs() / 2.0).sqrt());
+    }
     let closed = || RmlError::ClosedWidth { group, er, channel };
     // 非弾性散乱のチャネルは、閾値より下では閉じていて幅を定義できない
     if c.role != Role::Elastic && er <= c.threshold {
         return Err(closed());
     }
     let e = (er - c.threshold).abs();
-    let p = penetrability(c.l, c.wave_number(c.threshold + e) * c.apt);
+    let p = c.penetrability(c.threshold + e);
     if p <= 0.0 {
         return Err(closed());
     }
