@@ -1,23 +1,13 @@
-inputs: read-survey-endfb70.toml 37c30609, endfb70/chain.msgpack 5c4c8194, read-survey-endfb71.toml 8cc9ff01, endfb71/chain.msgpack 32ee4517, read-survey-endfb80.toml 5b469fe4, chain.msgpack 1f1de180, read-survey-endfb81.toml adc307a6, endfb81/chain.msgpack 4b084932
+inputs: read-survey-endfb70.toml b2108c41, endfb70/chain.msgpack 5c4c8194, read-survey-endfb71.toml bee35d29, endfb71/chain.msgpack 32ee4517, read-survey-endfb80.toml 2b875fbb, chain.msgpack 1f1de180, read-survey-endfb81.toml e5cae847, endfb81/chain.msgpack 4b084932
 
 | 版 | チェーンの評価 | 読めた | 止まった | チェーンの外の評価 | 読めた | 止まった | ファイルの無いチェーンの核種 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| VII.0 | 390 | 384 | 6 | 3 | 3 | 0 | 3447 / 3837 |
-| VII.1 | 422 | 416 | 6 | 1 | 1 | 0 | 3398 / 3820 |
-| VIII.0 | 556 | 549 | 7 | 1 | 1 | 0 | 3264 / 3820 |
-| VIII.1 | 557 | 549 | 8 | 1 | 1 | 0 | 3263 / 3820 |
+| VII.0 | 390 | 386 | 4 | 3 | 3 | 0 | 3447 / 3837 |
+| VII.1 | 422 | 418 | 4 | 1 | 1 | 0 | 3398 / 3820 |
+| VIII.0 | 556 | 551 | 5 | 1 | 1 | 0 | 3264 / 3820 |
+| VIII.1 | 557 | 552 | 5 | 1 | 1 | 0 | 3263 / 3820 |
 
 ## 止まった理由（版ごとの評価）
-- neutron LAW=6 is not supported
-  - VII.0: 1（H-2）
-  - VII.1: 1（H-2）
-  - VIII.0: 1（H-2）
-  - VIII.1: 2（H-2 Li-6）
-- neutron LAW=7 is not supported
-  - VII.0: 1（Be-9）
-  - VII.1: 1（Be-9）
-  - VIII.0: 1（Be-9）
-  - VIII.1: 1（Be-9）
 - last NBT must equal NP
   - VII.0: 1（Rb-87）
 - fission needs MF1 MT452 and MF5 MT18

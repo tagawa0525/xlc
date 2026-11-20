@@ -855,7 +855,7 @@ pub struct Evaluation {
     pub fission_parts: Vec<FissionNeutrons>,
     /// 遅発中性子の族（`delayed_families`）
     pub delayed: Option<DelayedFamilies>,
-    /// 離散準位の非弾性散乱（MT51〜90）の Q 値
+    /// 離散準位の非弾性散乱（MT51〜90）と、MF6 の位相空間分布（LAW=6）の反応の Q 値
     pub q_values: BTreeMap<u32, f64>,
     /// 中性子を放出する反応（弾性散乱と核分裂を除く）の出射の分布
     pub emissions: BTreeMap<u32, Emission>,
@@ -910,7 +910,7 @@ pub struct Distributions {
     pub angular: BTreeMap<u32, Mf4>,
 }
 
-/// 物質 `mat` の出射の分布（MF1 MT455、456、MF3 の離散準位の Q 値、MF4〜6）を読む。`nubar` は MF1 MT452。
+/// 物質 `mat` の出射の分布（MF1 MT455、456、MF3 の離散準位と MF6 の位相空間分布の反応の Q 値、MF4〜6）を読む。`nubar` は MF1 MT452。
 pub fn read_distributions(
     tape: &Tape,
     mat: i32,
@@ -932,7 +932,14 @@ pub fn read_distributions(
     let mut emissions = BTreeMap::new();
     for (mt, section) in tape.sections(mat, 6) {
         if mt != 2 && emits_neutrons(mt) {
-            emissions.insert(mt, Emission::Mf6(Mf6::parse(&section)?));
+            let mf6 = Mf6::parse(&section)?;
+            // 位相空間分布（LAW=6）の出射エネルギーの上限は、反応の Q 値で決まる
+            if mf6.has_phase_space()
+                && let Some(section) = tape.section(mat, 3, mt)
+            {
+                q_values.insert(mt, Mf3::parse(&section)?.qi);
+            }
+            emissions.insert(mt, Emission::Mf6(mf6));
         }
     }
     // MF6 のない反応は、MF4/MF5 で与えられている（MF5 のエネルギー分布だけを使う）

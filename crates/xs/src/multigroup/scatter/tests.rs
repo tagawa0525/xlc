@@ -605,12 +605,14 @@ fn neutron_emission_without_distribution_is_error() {
 
 #[test]
 fn mf6_multiplicity_scales_the_row() {
-    use crate::endf::{Frame, Interpolation, NeutronEmission, OutgoingDistributions};
+    use crate::endf::{
+        Frame, Interpolation, NeutronEmission, NeutronSpectrum, OutgoingDistributions,
+    };
     let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e-5]).unwrap();
     let emission = NeutronEmission {
         multiplicity: constant(2.0),
         frame: Frame::Laboratory,
-        distributions: OutgoingDistributions {
+        spectrum: NeutronSpectrum::Tabulated(OutgoingDistributions {
             breaks: vec![1],
             laws: vec![IncidentLaw {
                 law: Interpolation::LinLin,
@@ -618,7 +620,7 @@ fn mf6_multiplicity_scales_the_row() {
             }],
             incident: vec![1.0e-5],
             spectra: vec![Tab1::linear(vec![1.0e-5, 1.0e6], vec![1.0e-6, 1.0e-6])],
-        },
+        }),
     };
     let mf6 = BTreeMap::from([(
         16,
@@ -946,4 +948,148 @@ fn free_gas_rows_sum_to_the_broadened_elastic_cross_section() {
             "group {g}: {row} vs {expected}"
         );
     }
+}
+
+/// H-2 の (n,2n) の形の位相空間分布（多重度 2、3 体、APSX = 2.99862）
+fn phase_space_mf6() -> BTreeMap<u32, Emission> {
+    use crate::endf::{Frame, NeutronEmission, NeutronSpectrum, PhaseSpace};
+    let emission = NeutronEmission {
+        multiplicity: constant(2.0),
+        frame: Frame::CenterOfMass,
+        spectrum: NeutronSpectrum::PhaseSpace(PhaseSpace {
+            total_mass: 2.99862,
+            particles: 3,
+        }),
+    };
+    BTreeMap::from([(
+        16,
+        Emission::Mf6(Mf6 {
+            awr: 1.9968,
+            neutrons: vec![emission],
+            two_body: false,
+        }),
+    )])
+}
+
+#[test]
+fn phase_space_needs_the_q_value() {
+    let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e-5]).unwrap();
+    let tables = BTreeMap::from([(16, constant(0.5))]);
+    let err = scattering_matrix(
+        &groups,
+        &Weight::lwr(),
+        1.9968,
+        &Reactions {
+            tables: &tables,
+            q_values: &BTreeMap::new(),
+            emissions: &phase_space_mf6(),
+            angular: &BTreeMap::new(),
+        },
+        None,
+    )
+    .unwrap_err();
+    assert!(matches!(err, ScatterError::QValue(16)), "{err}");
+}
+
+#[test]
+fn phase_space_rows_carry_the_neutrons_above_threshold() {
+    // σ = 0.5 b、多重度 2 の (n,2n)。しきい値 −Q (A+1)/A より上で、行の和は 2σ を中性子束で平均したもの。
+    // P1 以上は MF6 の連続的な放出と同じく 0（ADR-0082）
+    let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e-5]).unwrap();
+    let (awr, q) = (1.9968, -2.224e6);
+    let threshold = -q * (awr + 1.0) / awr;
+    let tables = BTreeMap::from([(16, Tab1::linear(vec![threshold, 2.0e7], vec![0.5, 0.5]))]);
+    let m = scattering_moments(
+        &groups,
+        &Weight::lwr(),
+        awr,
+        &Reactions {
+            tables: &tables,
+            q_values: &BTreeMap::from([(16, q)]),
+            emissions: &phase_space_mf6(),
+            angular: &BTreeMap::new(),
+        },
+        None,
+        1,
+    )
+    .unwrap();
+    let flux = group_integrals(&groups, &Weight::lwr(), &[], |_| 1.0);
+    let source = group_integrals(&groups, &Weight::lwr(), &[threshold], |e| {
+        if e >= threshold { 1.0 } else { 0.0 }
+    });
+    let expected = source[0] / flux[0];
+    let total: f64 = m[0][0].iter().sum();
+    assert!(
+        (total - expected).abs() < 1e-9 * expected,
+        "{total} vs {expected}"
+    );
+    // 出射は両方の群に入る（E_max と重心の運動で、実験室系の上限は 2e7 eV の入射で約 18 MeV）
+    assert!(m[0][0][0] > 0.0 && m[0][0][1] > 0.0, "{:?}", m[0]);
+    assert!(m[0][1].iter().all(|&v| v == 0.0), "{:?}", m[0]);
+    assert!(m[1].iter().flatten().all(|&v| v == 0.0), "{:?}", m[1]);
+}
+
+#[test]
+fn phase_space_rows_follow_the_kinks_above_threshold() {
+    // しきい値の群（2.231〜3.679 MeV）の行を、入射エネルギーの細かい中点則で振り分けたものと比べる。実験室系の範囲の端が
+    // 群境界を横切る入射エネルギーで割合が折れるので、積分区間をそこで分けないと数値積分の誤差が残る
+    use crate::endf::PhaseSpace;
+    let groups = GroupStructure::new(vec![
+        1.0e7, 6.0655e6, 3.679e6, 2.231e6, 1.353e6, 8.21e5, 5.0e5, 3.025e5, 1.83e5, 1.11e5,
+        6.734e4, 4.085e4, 1.0e-5,
+    ])
+    .unwrap();
+    let (awr, q) = (1.9968, -2.224e6);
+    let threshold = -q * (awr + 1.0) / awr;
+    let tables = BTreeMap::from([(16, Tab1::linear(vec![threshold, 1.0e7], vec![0.5, 0.5]))]);
+    let m = scattering_matrix(
+        &groups,
+        &Weight::lwr(),
+        awr,
+        &Reactions {
+            tables: &tables,
+            q_values: &BTreeMap::from([(16, q)]),
+            emissions: &phase_space_mf6(),
+            angular: &BTreeMap::new(),
+        },
+        None,
+    )
+    .unwrap();
+    let space = PhaseSpace {
+        total_mass: 2.99862,
+        particles: 3,
+    };
+    let weight = Weight::lwr();
+    let (lo, hi) = (threshold, 3.679e6);
+    let n = 40_000;
+    let h = (hi - lo) / n as f64;
+    let mut reference = vec![0.0; groups.len()];
+    for i in 0..n {
+        let e = lo + (i as f64 + 0.5) * h;
+        let emax = space.max_energy(e, awr, q);
+        let ec = e / (awr + 1.0).powi(2);
+        phase_space_fractions(
+            &groups,
+            &space,
+            emax,
+            ec,
+            weight.value(e) * h,
+            &mut reference,
+        );
+    }
+    let flux = group_integrals(&groups, &weight, &[], |_| 1.0);
+    // σ y = 0.5 × 2
+    let reference: Vec<f64> = reference.iter().map(|v| v / flux[2]).collect();
+    let sum: f64 = reference.iter().sum();
+    let diff: f64 = m[2]
+        .iter()
+        .zip(&reference)
+        .map(|(a, b)| (a - b).abs())
+        .sum();
+    // 折れ目で分けないと 2.3e-3、分けると 3.7e-6（しきい値のすぐ上の √ の立ち上がりの Gauss-Legendre の誤差）
+    assert!(
+        diff < 1e-5 * sum,
+        "{diff:e} of {sum:e}: {:?} vs {reference:?}",
+        m[2]
+    );
 }

@@ -1,0 +1,17 @@
+# #0311: LAW=6、7 の評価の 600 K の 1 点（VIII.1）
+output = "light-VIII.1.msgpack"
+endf-directory = "../../../references/endf/ENDF-B-VIII.1_neutrons"
+sigma0 = [1e10, 1e5, 1e4, 1e3, 300, 100, 30, 10, 1]
+scattering-order = 3
+
+[nuclide.H-2]
+endf = "n-001_H_002.endf"
+temperatures = [600]
+
+[nuclide.Be-9]
+endf = "n-004_Be_009.endf"
+temperatures = [600]
+
+[nuclide.Li-6]
+endf = "n-003_Li_006.endf"
+temperatures = [600]

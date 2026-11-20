@@ -11,7 +11,8 @@
 //! GENDF の MF6（MT18 以外）は、散乱行列を Legendre の次数ごと・行ごとに比べる（行の差の絶対値の和 / P0 の行の和）。
 //! 次数は GENDF にある分（GROUPR の lord）まで。
 //! ENDF に MF6 がなく MF5 がある反応は、MF5 の出射エネルギー分布を使う。
-//! 散乱行列はどちらも MF4 の角度分布を使う。`--rows` を付けると、全群の値を表示する。
+//! 散乱行列はどちらも MF4 の角度分布を使う。`--rows` を付けると、全群の値と、散乱行列の差が最も大きい行の
+//! 出射の群ごとの値を表示する。
 
 use std::collections::BTreeMap;
 
@@ -217,6 +218,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 ours[g][g],
                 njoy_l[g][g]
             );
+            if rows {
+                for (to, (a, b)) in ours[g].iter().zip(&njoy_l[g]).enumerate() {
+                    if *a != 0.0 || *b != 0.0 {
+                        println!("  MT{mt} P{l} {g:2} -> {to:2}: ours {a:.6e}, njoy {b:.6e}");
+                    }
+                }
+            }
         }
     }
     Ok(())

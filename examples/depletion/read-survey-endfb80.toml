@@ -6,7 +6,6 @@ endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-001_H_001.endf"
 
 [[evaluation]]
 endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-001_H_002.endf"
-error = "line 1641: neutron LAW=6 is not supported"
 
 [[evaluation]]
 endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-001_H_003.endf"
@@ -28,7 +27,6 @@ endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-004_Be_007.endf"
 
 [[evaluation]]
 endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-004_Be_009.endf"
-error = "line 999: neutron LAW=7 is not supported"
 
 [[evaluation]]
 endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-005_B_010.endf"

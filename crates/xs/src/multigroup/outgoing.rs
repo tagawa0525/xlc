@@ -1,12 +1,12 @@
 //! 出射エネルギー分布の群への振り分け。
 
 use crate::endf::{
-    ClampedTab1, EnergyLaw, IncidentLaw, Interpolation, OutgoingDistributions, Tab1,
+    ClampedTab1, EnergyLaw, IncidentLaw, Interpolation, OutgoingDistributions, PhaseSpace, Tab1,
 };
 use crate::pointwise::linearize;
 use crate::special::{erf, exp_e1, gamma_p_2, gamma_p_3_2, lower_gamma_series};
 use xlc_format::group::GroupStructure;
-use xlc_numeric::quadrature::GAUSS_LEGENDRE_4;
+use xlc_numeric::quadrature::{GAUSS_LEGENDRE_4, GAUSS_LEGENDRE_8};
 
 /// 出射エネルギーの確率密度の表を、群ごとに積分する。
 ///
@@ -75,6 +75,91 @@ fn laboratory_group_integrals(groups: &GroupStructure, density: &Tab1, ec: f64) 
         }
     }
     integrals
+}
+
+/// LAW=6 の位相空間分布（重心系で等方、重心系の出射エネルギーの上限 `emax`）の中性子を、実験室系の群に振り分け、
+/// `scale` を掛けて `out` に足す。`ec` は重心の運動による中性子1個あたりのエネルギー E/(A+1)²。
+/// 群構造の外に出る分は端の群に入れる。`emax` が 0 以下（しきい値の下か丸め）なら、重心系で止まった中性子として
+/// 実験室系のエネルギー `ec` の群に入れる。
+pub(super) fn phase_space_fractions(
+    groups: &GroupStructure,
+    space: &PhaseSpace,
+    emax: f64,
+    ec: f64,
+    scale: f64,
+    out: &mut [f64],
+) {
+    let bounds = groups.bounds();
+    let ng = groups.len();
+    let edge = |e: f64| {
+        groups
+            .find(e)
+            .unwrap_or(if e > bounds[0] { 0 } else { ng - 1 })
+    };
+    if emax <= 0.0 {
+        out[edge(ec)] += scale;
+        return;
+    }
+    let (top, c) = (emax.sqrt(), ec.sqrt());
+    // 実験室系の出射エネルギーの範囲
+    let highest = (top + c).powi(2);
+    let lowest = if top < c { (c - top).powi(2) } else { 0.0 };
+    // 実験室系で b 未満に出る割合 F(b)。重心系の E' = E_max sin²θ について積分する
+    let below = |b: f64| {
+        if b >= highest {
+            return 1.0;
+        }
+        if b <= lowest {
+            return 0.0;
+        }
+        phase_space_below(space, top, c, b)
+    };
+    // 境界は降順。群 g は [bounds[g + 1], bounds[g]] で、両端の群は構造の外に出る分を含む
+    let mut upper = 1.0;
+    for g in 0..ng {
+        let lower = if g + 1 == ng {
+            0.0
+        } else {
+            below(bounds[g + 1])
+        };
+        out[g] += scale * (upper - lower);
+        upper = lower;
+    }
+}
+
+/// 位相空間分布の中性子が実験室系で b 未満に出る割合（`top` = √E_max、`c` = √Ec）。
+///
+/// 重心系で √E' = v の中性子は、実験室系で [(v − c)², (v + c)²] に一様に分布するので、b 未満に出る割合は
+/// G(v) = (b − (v − c)²)/(4 v c) を 0〜1 に切ったもの。E' = E_max sin²θ と置くと、重心系の密度は
+/// K √u (1 − u)^m du = 2K sin²θ cos^(2m+1)θ dθ（u = E'/E_max）と θ について滑らかになり、両端の √ の特異性が消える。
+/// G は v = |√b ± c| で折れるので、そこで θ の範囲を分けて Gauss-Legendre で積分する。
+fn phase_space_below(space: &PhaseSpace, top: f64, c: f64, b: f64) -> f64 {
+    const PIECES: usize = 4;
+    let (k, power) = (space.normalization(), 2.0 * space.exponent() + 1.0);
+    let root = b.sqrt();
+    let mut cuts: Vec<f64> = [root - c, c - root, root + c]
+        .into_iter()
+        .filter(|&v| v > 0.0 && v < top)
+        .map(|v| (v / top).asin())
+        .chain([0.0, std::f64::consts::FRAC_PI_2])
+        .collect();
+    cuts.sort_by(f64::total_cmp);
+    cuts.dedup();
+    let mut sum = 0.0;
+    for w in cuts.windows(2) {
+        let width = (w[1] - w[0]) / PIECES as f64;
+        let half = 0.5 * width;
+        for piece in 0..PIECES {
+            let mid = w[0] + width * (piece as f64 + 0.5);
+            for &(x, wk) in &GAUSS_LEGENDRE_8 {
+                let t = mid + half * x;
+                let v = top * t.sin();
+                let fraction = ((b - (v - c).powi(2)) / (4.0 * v * c)).clamp(0.0, 1.0);
+                sum += wk * half * 2.0 * k * t.sin().powi(2) * t.cos().powf(power) * fraction;
+            }
+        }
+    }
+    sum
 }
 
 /// [lo, hi] の一様分布を群に振り分け、`scale` を掛けて `out` に足す。
