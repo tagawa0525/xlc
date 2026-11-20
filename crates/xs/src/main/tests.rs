@@ -43,6 +43,7 @@ fn parses_input_relative_to_its_directory() {
                 temperatures: vec![293.6, 600.0],
                 activation: false,
                 pointwise: true,
+                corrections: Vec::new(),
                 thermal: Some(ThermalInput {
                     path: PathBuf::from("work/tsl/h2o.endf"),
                     upper: SabUpper::Evaluated,
@@ -56,6 +57,7 @@ fn parses_input_relative_to_its_directory() {
                 temperatures: vec![293.6, 900.0],
                 activation: false,
                 pointwise: true,
+                corrections: Vec::new(),
                 thermal: None,
             },
         ]
@@ -421,4 +423,109 @@ fn results_leave_out_the_pointwise_data_the_input_leaves_out() {
     part.nuclides[0] = left;
     assert!(check_part(without, &part).is_ok());
     assert!(check_part(with, &part).is_err());
+}
+
+const CORRECTED_INPUT: &str = r#"
+output = "m1.msgpack"
+endf-directory = "endf"
+sigma0 = [1e10, 10, 1]
+
+[nuclide.Rb-87]
+endf = "rb87.endf"
+temperatures = [600]
+corrections = [{ line = 1194, mf = 5, mt = 17, field = 1, from = 1, to = 3 }]
+"#;
+
+#[test]
+fn reads_declared_corrections_of_the_evaluation() {
+    let input = parse_input(CORRECTED_INPUT, Path::new(".")).unwrap();
+    assert_eq!(
+        input.nuclides[0].corrections,
+        vec![Correction {
+            line: 1194,
+            mf: 5,
+            mt: 17,
+            field: 1,
+            from: 1,
+            to: 3,
+        }]
+    );
+    // 宣言の項目は 6 つとも要り、ほかの項目は取らない
+    for (from, to) in [("field = 1, ", ""), ("to = 3 }", "to = 3, value = 3 }")] {
+        let text = CORRECTED_INPUT.replace(from, to);
+        assert!(parse_input(&text, Path::new(".")).is_err(), "{text}");
+    }
+}
+
+/// 1 行（6 つの欄と制御欄）
+fn record(fields: [&str; 6], mf: u32, mt: u32) -> String {
+    let data: String = fields.iter().map(|f| format!("{f:>11}")).collect();
+    format!("{data}3731{mf:2}{mt:3}\n")
+}
+
+/// 最後の区切り（2 行目の最初の欄）が点の数より短い TAB1 のテープと、それを直す宣言
+fn short_break_tape() -> (Tape, Correction) {
+    let text = [
+        record(["0.0", "1.880490+7", "0", "0", "1", "3"], 5, 17),
+        record(["1", "2", "", "", "", ""], 5, 17),
+        record(
+            [
+                "0.0",
+                "0.0",
+                "2.157000+5",
+                "0.0",
+                "2.158000+5",
+                "2.000000-2",
+            ],
+            5,
+            17,
+        ),
+    ]
+    .concat();
+    let correction = Correction {
+        line: 2,
+        mf: 5,
+        mt: 17,
+        field: 1,
+        from: 1,
+        to: 3,
+    };
+    (Tape::parse(&text).unwrap(), correction)
+}
+
+/// `correct_tape` を呼んだスレッドの warn の数
+fn warnings_of(tape: &mut Tape, corrections: &[Correction]) -> (anyhow::Result<()>, usize) {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use tracing_subscriber::Registry;
+    use tracing_subscriber::layer::{Context, Layer, SubscriberExt};
+
+    struct Count(Arc<AtomicUsize>);
+    impl<S: tracing::Subscriber> Layer<S> for Count {
+        fn on_event(&self, event: &tracing::Event<'_>, _: Context<'_, S>) {
+            if *event.metadata().level() == tracing::Level::WARN {
+                self.0.fetch_add(1, Ordering::Relaxed);
+            }
+        }
+    }
+    let count = Arc::new(AtomicUsize::new(0));
+    let subscriber = Registry::default().with(Count(count.clone()));
+    let result =
+        tracing::subscriber::with_default(subscriber, || correct_tape("Rb-87", tape, corrections));
+    (result, count.load(Ordering::Relaxed))
+}
+
+#[test]
+fn a_short_break_stops_the_reading_unless_a_correction_is_declared() {
+    let tab1 = |tape: &Tape| tape.section(3731, 5, 17).unwrap().reader().tab1();
+    let (mut tape, correction) = short_break_tape();
+    let (result, warnings) = warnings_of(&mut tape, &[]);
+    assert!(result.is_ok());
+    assert_eq!(warnings, 0);
+    assert!(tab1(&tape).is_err());
+
+    let (result, warnings) = warnings_of(&mut tape, &[correction]);
+    assert!(result.is_ok());
+    assert_eq!(warnings, 1);
+    assert_eq!(tab1(&tape).unwrap().table.breaks, vec![3]);
 }

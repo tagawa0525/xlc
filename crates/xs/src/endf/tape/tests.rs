@@ -297,3 +297,120 @@ fn zero_y_with_log_y_law_is_accepted() {
     let tape = Tape::parse(&log_table(5, ["1.0", "2.0"], ["0.0", "1.0"])).unwrap();
     assert!(tape.section(1, 3, 1).unwrap().reader().tab1().is_ok());
 }
+
+/// ENDF/B-VII.0 の Rb-87 の MF5 MT17 の分布と同じ形の TAB1: NR = 1、NP = 3 で、区切りが NBT = 1（2 行目の最初の欄）
+fn short_break_table() -> String {
+    [
+        rec(["0.0", "1.880490+7", "0", "0", "1", "3"], 3731, 5, 17),
+        rec(["1", "2", "", "", "", ""], 3731, 5, 17),
+        rec(
+            [
+                "0.0",
+                "0.0",
+                "2.157000+5",
+                "0.0",
+                "2.158000+5",
+                "2.000000-2",
+            ],
+            3731,
+            5,
+            17,
+        ),
+    ]
+    .concat()
+}
+
+/// 2 行目の最初の欄の区切りを 1 から 3 に直す宣言（ADR-0272）
+fn break_correction() -> Correction {
+    Correction {
+        line: 2,
+        mf: 5,
+        mt: 17,
+        field: 1,
+        from: 1,
+        to: 3,
+    }
+}
+
+#[test]
+fn a_tab1_whose_last_break_falls_short_of_the_points_is_an_error() {
+    let tape = Tape::parse(&short_break_table()).unwrap();
+    let err = tape
+        .section(3731, 5, 17)
+        .unwrap()
+        .reader()
+        .tab1()
+        .unwrap_err();
+    assert_eq!(
+        (err.line, err.message.as_str()),
+        (1, "last NBT must equal NP")
+    );
+}
+
+#[test]
+fn a_declared_correction_rewrites_the_integer_field_before_reading() {
+    let mut tape = Tape::parse(&short_break_table()).unwrap();
+    tape.correct(&break_correction()).unwrap();
+    let table = tape
+        .section(3731, 5, 17)
+        .unwrap()
+        .reader()
+        .tab1()
+        .unwrap()
+        .table;
+    assert_eq!(table.breaks, vec![3]);
+    assert_eq!(table.laws, vec![Interpolation::LinLin]);
+    assert_eq!(table.x, vec![0.0, 2.157e5, 2.158e5]);
+}
+
+#[test]
+fn a_correction_that_does_not_match_the_tape_is_an_error() {
+    let wrong = [
+        Correction {
+            line: 0,
+            ..break_correction()
+        },
+        Correction {
+            line: 4,
+            ..break_correction()
+        },
+        Correction {
+            mf: 4,
+            ..break_correction()
+        },
+        Correction {
+            mt: 16,
+            ..break_correction()
+        },
+        Correction {
+            field: 0,
+            ..break_correction()
+        },
+        Correction {
+            field: 7,
+            ..break_correction()
+        },
+        // 元の値が宣言と違う（ファイルが替わった）
+        Correction {
+            from: 2,
+            ..break_correction()
+        },
+        // 空の欄は 0 と読み、元の値と違う
+        Correction {
+            field: 3,
+            ..break_correction()
+        },
+        // 実数の欄
+        Correction {
+            line: 3,
+            field: 3,
+            ..break_correction()
+        },
+    ];
+    for correction in wrong {
+        let mut tape = Tape::parse(&short_break_table()).unwrap();
+        assert!(tape.correct(&correction).is_err(), "{correction:?}");
+        // 止まった宣言はテープを変えない
+        assert!(tape.section(3731, 5, 17).unwrap().reader().tab1().is_err());
+    }
+}
