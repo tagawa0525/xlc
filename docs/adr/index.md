@@ -264,3 +264,4 @@
 * [ADR-0267: 分離共鳴の弾性散乱が MF3 のバックグラウンドとの和で負になるところは形式によらず 0 にし、ほかの負の 0 K の断面積はエラーにする](0267-raise-negative-resolved-elastic-sums.md)
 * [ADR-0268: UFG の減速計算で、入力に挙げない中心の物質の核種を、等価原理の群定数の段の断面積の静止した標的として解く](0268-solve-unlisted-fuel-nuclides-by-group-constants.md)
 * [ADR-0269: xs の入力で、UFG で解かない核種のポイントワイズの断面積をライブラリに持たせないことを選べるようにする](0269-let-xs-leave-out-pointwise-of-nuclides-the-ufg-does-not-solve.md)
+* [ADR-0270: UFG で解く核種を、全核種を輸送した燃焼の組成での自己遮蔽の目安が、どれかの燃料で 0.1 pcm を超える核種に選ぶ](0270-select-ufg-nuclides-from-the-all-nuclides-burnup.md) - UFG で解く核種（ufg-nuclides）を、データのある全核種を輸送した燃焼の組成での自己遮蔽の目安が、U、MOX、Gd のどれかで 0.1 pcm を超える核種と、もとの輸送する核種と被覆管と減速材の核種に選ぶ
