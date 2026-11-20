@@ -28,6 +28,8 @@ from inputs import NOMINAL_DENSITY, ZIRCALOY, branch_input
 from verification_tables import markdown_table, signed
 
 FUELS = ("u", "mox", "gd")
+# 記録の表の燃料の名前
+FUEL_NAMES = {"u": "U", "mox": "MOX", "gd": "Gd"}
 BURNUP = [0, 10, 30, 60]
 # 足した 65 核種のうち UFG で解く核種。順位は examples/depletion/verification.md の「足す核種の自己遮蔽の目安」（燃焼度を通じた
 # 最大の自己遮蔽の目安）: 7 pcm 以上の 4 核種と、1 pcm を超える 17 核種
@@ -184,7 +186,7 @@ def burnup_header(summaries: list[dict]) -> list[str]:
 def k_table(summaries: list[dict]) -> str:
     """k∞ の差（pcm）の表。行は燃料と組（基準の `all` を除く）、列は燃焼度 (MWd/kg)"""
     rows = [
-        [f"{d['fuel'].upper()} {c['case']}", *(signed(x, 1) for x in c["pcm"])]
+        [f"{FUEL_NAMES[d['fuel']]} {c['case']}", *(signed(x, 1) for x in c["pcm"])]
         for d in summaries
         for c in d["cases"]
         if c["case"] != "all"
@@ -196,7 +198,7 @@ def time_table(summaries: list[dict]) -> str:
     """自己遮蔽の時間 (s) と、括弧の中に `all` に対する比の表"""
     rows = [
         [
-            f"{d['fuel'].upper()} {c['case']}",
+            f"{FUEL_NAMES[d['fuel']]} {c['case']}",
             *(f"{s:.2f}（{r:.2f}）" for s, r in zip(c["seconds"], c["ratio"])),
         ]
         for d in summaries
