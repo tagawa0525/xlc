@@ -61,6 +61,8 @@ SERIES = {
         "history": "../../trial/{fuel}/nominal.msgpack",
         "added": "trial/added-65.txt",
         "label": "",
+        # 組は `SETS`
+        "sets": "fixed",
     },
     "all": {
         "directory": "all-ufg",
@@ -68,6 +70,9 @@ SERIES = {
         "history": "../../all/{fuel}/nominal.msgpack",
         "added": "all/added-to-p2.txt",
         "label": "全核種の ",
+        # 組は自己遮蔽の目安の閾値から（`sets`）。対照（control.toml）も書いて比べる
+        "sets": "dilution",
+        "control": True,
         # 輸送する核種をライブラリの入力から取る（燃焼の前に入力を書くため。履歴の輸送する核種は、チェーンの核種のうち
         # ライブラリが輸送するもので、入力のどの核種もチェーンの評価なので同じ。compare が履歴と食い違えば止める）
         "library_input": "all/library/xs.toml",
@@ -157,14 +162,18 @@ def threshold_sets(summaries: list[dict], thresholds) -> dict[str, list[str]]:
     return {f"t{t:g}": [n for n in ranked if largest[n] > t] for t in thresholds}
 
 
+def set_sources(series: str, root: Path) -> list[Path]:
+    """系列の組を決めるファイル（自己遮蔽の目安の JSON）"""
+    if SERIES[series]["sets"] == "fixed":
+        return []
+    return [root / "all" / f"dilution-{fuel}.json" for fuel in FUELS]
+
+
 def sets(series: str, root: Path) -> dict:
     """系列の組: 名前 → UFG で解く足した核種（None はすべて）"""
-    if series == "trial":
+    if SERIES[series]["sets"] == "fixed":
         return SETS
-    summaries = [
-        json.loads((root / "all" / f"dilution-{fuel}.json").read_text())
-        for fuel in FUELS
-    ]
+    summaries = [json.loads(p.read_text()) for p in set_sources(series, root)]
     return {
         "all": None,
         "none": [],
@@ -204,7 +213,7 @@ def write_inputs(series: str) -> None:
             (directory / f"{case}.toml").write_text(
                 case_input(fuel, case, names, count, config)
             )
-        if series == "all":
+        if config.get("control"):
             (directory / "control.toml").write_text(control_input(fuel))
 
 
@@ -235,13 +244,25 @@ def md5(path: Path) -> str:
     return hashlib.md5(path.read_bytes()).hexdigest()
 
 
+def kept_count(path: Path, added: set[str]) -> int | None:
+    """解いた入力の `ufg-nuclides` のうち足した核種の数（一覧が無ければ None。すべてを UFG で解く）"""
+    names = tomllib.loads(path.read_text()).get("ufg-nuclides")
+    return None if names is None else sum(n in added for n in names)
+
+
 def compare(fuel: str, root: Path, series: str, cases_of=None) -> dict:
-    """`cases_of` は系列の組（省けば `sets`）"""
+    """`cases_of` は系列の組の名前（省けば `sets`。組の核種の数は、組の名前の入力から数える）"""
     config = SERIES[series]
-    cases_of = sets(series, root) if cases_of is None else cases_of
+    inputs = []
+    if cases_of is None:
+        cases_of = sets(series, root)
+        inputs += [
+            {"path": str(p.relative_to(root.parent)), "md5": md5(p)}
+            for p in set_sources(series, root)
+        ]
+    added = set((root / config["added"]).read_text().split())
     directory = root / config["directory"] / fuel
     cases = {}
-    inputs = []
     for case in cases_of:
         table_path = directory / "out" / f"{case}.msgpack"
         log_path = directory / "out-timed" / f"{case}.log"
@@ -251,8 +272,13 @@ def compare(fuel: str, root: Path, series: str, cases_of=None) -> dict:
             raise SystemExit(
                 f"{log_path}: {len(seconds)} shieldings for {len(k)} states"
             )
-        cases[case] = {"k": k, "seconds": seconds}
-        for path in (table_path, log_path):
+        input_path = directory / f"{case}.toml"
+        cases[case] = {
+            "k": k,
+            "seconds": seconds,
+            "kept": kept_count(input_path, added),
+        }
+        for path in (input_path, table_path, log_path):
             inputs.append(
                 {"path": str(path.relative_to(root.parent)), "md5": md5(path)}
             )
@@ -265,7 +291,7 @@ def compare(fuel: str, root: Path, series: str, cases_of=None) -> dict:
         rows.append(
             {
                 "case": case,
-                "ufg_added": None if cases_of[case] is None else len(cases_of[case]),
+                "ufg_added": c["kept"],
                 "k_inf": [c["k"][b] for b in burnup],
                 "pcm": [
                     1e5 * (1.0 / reference["k"][b] - 1.0 / c["k"][b]) for b in burnup
@@ -289,7 +315,7 @@ def compare(fuel: str, root: Path, series: str, cases_of=None) -> dict:
             raise SystemExit(
                 "the history transports other nuclides than the library input"
             )
-    if series == "all":
+    if config.get("control"):
         paths = [
             root / SERIES["trial"]["directory"] / fuel / "out" / "all.msgpack",
             directory / "out" / "control.msgpack",
@@ -337,11 +363,24 @@ def time_table(summaries: list[dict]) -> str:
     return markdown_table(["燃料と組", *burnup_header(summaries)], rows)
 
 
+def library_table(summaries: list[dict]) -> str:
+    """対照の差 1/k(試行の all) − 1/k(対照)（pcm。ライブラリの範囲と xs の版の分）の表。行は燃料、列は燃焼度 (MWd/kg)"""
+    rows = [
+        [FUEL_NAMES[d["fuel"]], *(signed(x, 1) for x in d["library_change_pcm"])]
+        for d in summaries
+    ]
+    return markdown_table(["燃料", *burnup_header(summaries)], rows)
+
+
 def report(paths: list[Path]) -> None:
     summaries = [json.loads(path.read_text()) for path in paths]
     print(k_table(summaries))
     print()
     print(time_table(summaries))
+    controlled = [d for d in summaries if "library_change_pcm" in d]
+    if controlled:
+        print()
+        print(library_table(controlled))
 
 
 def main() -> None:
