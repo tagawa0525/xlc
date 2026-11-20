@@ -345,6 +345,74 @@ class AllSeries(unittest.TestCase):
             )
 
 
+class CheckFuel(unittest.TestCase):
+    """確認のセル（gd10）: 3 つの燃料の順位で選んだ組を、選んだ組成と別の履歴で解く。順位に入れず、時間を測らない"""
+
+    def write_check(self, root):
+        fuel_dir = root / "all-ufg" / "gd10"
+        (fuel_dir / "out").mkdir(parents=True)
+        (root / "all" / "gd10").mkdir(parents=True)
+        (root / "all" / "library").mkdir()
+        (root / "all" / "added-to-p2.txt").write_text("A\n")
+        (root / "all" / "library" / "xs.toml").write_text(
+            "[nuclide]\n"
+            'U-235 = { endf = "u", temperatures = [565] }\n'
+            'A = { endf = "a", temperatures = [565] }\n'
+        )
+        (root / "all" / "gd10" / "nominal.toml").write_text(
+            '[material.fuel]\ntemperature = 565\n[depletion]\nmaterials = ["fuel"]\n'
+        )
+        (root / "all" / "gd10" / "nominal.msgpack").write_bytes(
+            msgpack.packb({"transportable": ["U-235", "A"]})
+        )
+        for case, k, listed in [
+            ("all", [1.2, 1.1], None),
+            ("a0.1", [1.2, 1.0], ["U-235", "A"]),
+        ]:
+            line = (
+                "" if listed is None else f"ufg-nuclides = {listed}\n".replace("'", '"')
+            )
+            (fuel_dir / f"{case}.toml").write_text(f'library = "x"\n{line}')
+            (fuel_dir / "out" / f"{case}.msgpack").write_bytes(
+                msgpack.packb(one_state_table([0.0, 10.0], k))
+            )
+        return fuel_dir
+
+    def test_the_check_fuel_solves_all_and_the_chosen_set(self):
+        self.assertEqual(ufg_subset.CHECK_SETS, ("all", "a0.1"))
+        self.assertNotIn("gd10", ufg_subset.FUELS)
+
+    def test_the_check_fuel_reads_no_timed_log_and_no_control(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "issue-0292"
+            self.write_check(root)
+            d = ufg_subset.compare("gd10", root, "all")
+            self.assertEqual([c["case"] for c in d["cases"]], ["all", "a0.1"])
+            for c in d["cases"]:
+                self.assertIsNone(c["seconds"])
+                self.assertIsNone(c["ratio"])
+            self.assertAlmostEqual(d["cases"][1]["pcm"][1], 1e5 * (1 / 1.1 - 1 / 1.0))
+            self.assertEqual(d["cases"][1]["ufg_added"], 1)
+            self.assertNotIn("library_change_pcm", d)
+            paths = [i["path"] for i in d["inputs"]]
+            self.assertFalse(any("out-timed" in p for p in paths))
+
+    def test_the_check_fuel_inputs_read_its_history(self):
+        text = ufg_subset.case_input(
+            "gd10", "a0.1", ["U-235", "A"], 1, ufg_subset.SERIES["all"]
+        )
+        self.assertIn('file = "../../all/gd10/nominal.msgpack"', text)
+        self.assertIn('rows = ["pin pin pin", "pin gd  pin", "pin pin pin"]', text)
+
+    def test_the_check_fuel_is_named_in_the_report(self):
+        summary = {
+            "fuel": "gd10",
+            "burnup": [0.0],
+            "cases": [{"case": "a0.1", "pcm": [0.5], "seconds": None, "ratio": None}],
+        }
+        self.assertIn("Gd 10 wt% a0.1", ufg_subset.k_table([summary]))
+
+
 class Sources(unittest.TestCase):
     def test_the_dilution_sets_name_their_json_sources(self):
         root = Path("r")

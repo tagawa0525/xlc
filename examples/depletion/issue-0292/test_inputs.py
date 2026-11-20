@@ -76,5 +76,69 @@ class Inputs(unittest.TestCase):
         self.assertEqual(parsed["library"], "../../p2/depletion.msgpack")
 
 
+# 原子量（g/mol）。重量割合と密度を確かめるだけなので 4 桁
+MASS = {"U": 238.03, "Gd": 157.25, "O": 15.999}
+
+
+def element(name):
+    return name.split("-")[0]
+
+
+def oxide_masses(nuclides):
+    """UO2 と Gd2O3 の質量（数密度 × 原子量の和。酸素は化学量論で分ける）"""
+    u = sum(v for n, v in nuclides.items() if element(n) == "U")
+    gd = sum(v for n, v in nuclides.items() if element(n) == "Gd")
+    return (
+        u * (MASS["U"] + 2 * MASS["O"]),
+        gd * (MASS["Gd"] + 1.5 * MASS["O"]),
+    )
+
+
+class CheckCell(unittest.TestCase):
+    """確認のセル（ADR-0270 の確定に足りない測定の (2)）: Gd のピンの Gd を 2 倍にした gd"""
+
+    def materials(self, fuel):
+        return tomllib.loads(
+            inputs.depletion_input(fuel, inputs.NOMINAL_DENSITY, "nominal")
+        )["material"]
+
+    def test_the_gadolinia_doubles_to_ten_weight_percent_at_the_same_pellet_mass(self):
+        base, check = (
+            self.materials("gd")["gd0"]["nuclides"],
+            self.materials("gd10")["gd0"]["nuclides"],
+        )
+        for n, v in base.items():
+            if element(n) == "Gd":
+                self.assertAlmostEqual(check[n] / v, 2.0, places=4)
+        uo2, gd2o3 = oxide_masses(base)
+        self.assertAlmostEqual(gd2o3 / (uo2 + gd2o3), 0.05, places=3)
+        uo2, gd2o3 = oxide_masses(check)
+        self.assertAlmostEqual(gd2o3 / (uo2 + gd2o3), 0.10, places=3)
+        self.assertAlmostEqual(
+            sum(oxide_masses(check)) / sum(oxide_masses(base)), 1.0, places=4
+        )
+        # 酸素は UO2 と Gd2O3 の化学量論
+        u = sum(v for n, v in check.items() if element(n) == "U")
+        gd = sum(v for n, v in check.items() if element(n) == "Gd")
+        self.assertAlmostEqual(check["O-16"] / (2 * u + 1.5 * gd), 1.0, places=4)
+
+    def test_the_check_cell_is_the_gd_cell_but_the_gd_pin(self):
+        base, check = self.materials("gd"), self.materials("gd10")
+        self.assertEqual(base.keys(), check.keys())
+        for m in base:
+            if m in inputs.GD_MATERIALS:
+                self.assertNotEqual(base[m], check[m])
+            else:
+                self.assertEqual(base[m], check[m])
+        a = tomllib.loads(inputs.depletion_input("gd", inputs.NOMINAL_DENSITY, "n"))
+        b = tomllib.loads(inputs.depletion_input("gd10", inputs.NOMINAL_DENSITY, "n"))
+        del a["material"], b["material"]
+        self.assertEqual(a, b)
+
+    def test_the_check_cell_is_not_a_ranked_fuel(self):
+        self.assertNotIn("gd10", inputs.FUELS)
+        self.assertIn("gd10", inputs.CHECK_FUELS)
+
+
 if __name__ == "__main__":
     unittest.main()
