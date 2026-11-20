@@ -1,7 +1,7 @@
 ---
 type: ADR
-status: proposed
-date: 2026-11-20
+status: accepted
+date: 2026-11-21
 requires: [ADR-0177]
 supersedes: []
 superseded-by:
@@ -166,3 +166,7 @@ ENDF-102（BNL-224854-2023-INRE）の 2.3.1 節と 2.4.17 節は、LSSF=0 の MF
   Na-22 の今の方法の遮蔽した捕獲は、群 13 の σ0 = 30 b で −0.0053 b、群 11 の σ0 = 1 b で −0.0011 b（案 A は 0.0049 b、0.0033 b）。案 A の差は、
   今の方法で負のサンプルの出ない評価（Eu-154、Am-241）で 0.03 % 以下、負の点の多い評価（Na-22、Cd-106、Ar-36）で大きい。出どころは
   `python3 examples/depletion/issue-0319/compare_methods.py --report examples/depletion/issue-0319/<版>-<核種>.json`
+- 宣言しない評価の出力は変わらない: VIII.0 の U-238、Pu-239、Am-242m、Mo-95、VII.0 の U-235、Pu-240、VII.1 の Pu-241、Nd-144、VIII.1 の U-238、Pm-149 の
+  565 K の出力が、分岐点 8e2b6c91 の xs の出力とバイトで同じ（examples/depletion/verification.md の「版ごとのライブラリの非分離共鳴の負のバックグラウンド」）
+- 4 つの版の全評価の走査（同じ記録の「中性子の評価のすべての `xs nuclide`」）: 宣言した 25 評価は `xs nuclide` を通り、Ta-181、Es-253、Cf-253 を
+  含めて、この欠陥で止まる評価は無い

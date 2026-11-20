@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [xs, depletion]
 opened: 2026-11-20
-closed:
+closed: 2026-11-20
 milestone:
 blocked-by: []
-resolution:
+resolution: ADR-0274
 ---
 
 # ENDF/B-VII.0 の Cf-253 の σ0 が 10 b 以下の群定数に NaN が出て、xs が止まる
@@ -29,8 +29,12 @@ resolution:
 
 ## 完了の条件
 
-- [ ] NaN を作る計算と原因を特定し、VII.0 の Cf-253 が `xs nuclide` を通るか、評価の側の誤りとして扱いを決める
+- [x] NaN を作る計算と原因を特定し、VII.0 の Cf-253 が `xs nuclide` を通るか、評価の側の誤りとして扱いを決める
 
 ## 経緯
 
 - 2026-11-20: 4 つの版の中性子の評価のすべてを `xs nuclide` に通し（#0292）、VII.0 の Cf-253 が止まって起こした
+- 2026-11-20: NaN は、MF3 の捕獲のバックグラウンド（10 keV で −0.965 b）を各サンプルに足した遮蔽した捕獲が 10 keV で σ0 = 30 b から負になり
+  （σ0 = 1 b で −0.041 b）、8500 eV の正の値との間を非分離共鳴の補間則 log-log で補間して y1/y0 < 0 の冪になったもの（一時の出力で確かめた）。
+  原因は #0319 と同じで、同じ扱いにした（ADR-0274）。宣言した Cf-253 は `xs nuclide` を通り、閉じた。符号の違う値の log-log の補間が NaN を
+  黙って返すこと（endf/tab1.rs）は、別のセッションが issue にする
