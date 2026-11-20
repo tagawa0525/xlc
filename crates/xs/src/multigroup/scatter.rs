@@ -200,6 +200,17 @@ pub fn scattering_moments(
     Ok(moments)
 }
 
+/// [`scattering_moments`] が行を作る前に止まる検査: 角度分布の系と、表のある反応 `mts` の中性子の出どころ。
+pub fn check_reactions(
+    mts: &[u32],
+    q_values: &BTreeMap<u32, f64>,
+    emissions: &BTreeMap<u32, Emission>,
+    angular: &BTreeMap<u32, Mf4>,
+) -> Result<(), ScatterError> {
+    check_frames(angular, emissions)?;
+    sources(mts, q_values, emissions).map(drop)
+}
+
 /// 散乱行列の行を作る、反応の中性子の出どころ。
 enum Source<'a> {
     /// 弾性散乱（MF6 の有無にかかわらず2体反応。熱領域では熱領域の扱い）

@@ -120,7 +120,7 @@ fn the_report_lists_each_file_and_the_reason_it_stopped() {
         },
     ];
     assert_eq!(
-        report_toml(&checked),
+        report_toml(&checked).unwrap(),
         "[[evaluation]]\n\
          endf = \"n-001_H_001.endf\"\n\
          \n\

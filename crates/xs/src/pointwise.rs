@@ -417,7 +417,7 @@ fn summarize_thresholds(shifts: &[ThresholdShift]) -> Option<ThresholdSummary> {
     })
 }
 
-/// MF3 の部分反応を読み、運動学のしきい値から始めたもの（線形化の前）。
+/// MF3 の部分反応を読み、運動学のしきい値から始めたもの（線形化の前。`ColdParts::read` と `ColdParts::check` が共有する）。
 struct RawParts {
     /// MF3 にある MT
     available: Vec<u32>,
@@ -520,6 +520,34 @@ impl ColdParts {
             available,
             tol,
         })
+    }
+
+    /// `read` が再構成の前に止まる検査（MF3 の読み込みと運動学のしきい値、MF2 の読み込みと範囲の組み合わせ）だけを行い、
+    /// `at` が返す表の MT を返す。線形化、共鳴の再構成、ドップラー拡がりはしない。分離共鳴だけが足す反応（MF3 に無い
+    /// 弾性散乱、核分裂、捕獲）は返す MT に入らない
+    pub fn check(tape: &Tape, mat: i32) -> Result<Vec<u32>, Error> {
+        let RawParts {
+            available, parts, ..
+        } = RawParts::read(tape, mat)?;
+        if let Some(section) = tape.section(mat, 2, 151) {
+            let parsed = Mf2::parse(&section)?;
+            for range in &parsed.ranges {
+                check_range(&parsed, range)
+                    .map_err(|message| Error::new(section.reader().line(), message))?;
+            }
+        }
+        let mut mts: Vec<u32> = parts.into_iter().map(|(mt, _)| mt).collect();
+        mts.extend(
+            SUMS.iter()
+                .filter(|sum| is_rebuilt(sum.mt, &available))
+                .map(|sum| sum.mt),
+        );
+        if mts.iter().any(|&mt| is_part_of_total(mt)) {
+            mts.push(1);
+        }
+        mts.sort_unstable();
+        mts.dedup();
+        Ok(mts)
     }
 
     /// 温度 `temperature` (K) のポイントワイズの断面積。キーは MT。
