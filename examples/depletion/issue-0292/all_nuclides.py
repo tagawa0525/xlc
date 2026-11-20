@@ -42,8 +42,6 @@ EXCLUDED = {
         "#0312",
         "核分裂の中性子の分布が MF6 MT18 で、輸送する核種として処理できない",
     ),
-    "Cl-35": ("#0264", "分離共鳴（R 行列の制限形）の荷電粒子の対を読めない"),
-    "Ca-40": ("#0264", "分離共鳴（R 行列の制限形）の荷電粒子の対を読めない"),
 }
 SURVEY = HERE.parent / "read-survey-endfb80.toml"
 CHAIN = HERE.parent / "chain.msgpack"

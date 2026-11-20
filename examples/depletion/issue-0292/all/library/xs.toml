@@ -5,8 +5,6 @@
 #   Th-232: 核分裂の中性子の分布が MF6 MT18 で、輸送する核種として処理できない（#0312）。放射化の核種として残す
 #   Pa-231: 核分裂の中性子の分布が MF6 MT18 で、輸送する核種として処理できない（#0312）。放射化の核種として残す
 #   Pa-233: 核分裂の中性子の分布が MF6 MT18 で、輸送する核種として処理できない（#0312）。放射化の核種として残す
-#   Cl-35: 分離共鳴（R 行列の制限形）の荷電粒子の対を読めない（#0264）
-#   Ca-40: 分離共鳴（R 行列の制限形）の荷電粒子の対を読めない（#0264）
 output = "depletion.msgpack"
 endf-directory = "../../../../../references/endf/ENDF-B-VIII.0_neutrons"
 thermal-directory = "../../../../../references/endf/ENDF-B-VIII.0_thermal_scatt"
@@ -561,6 +559,8 @@ Es-254m = { endf = "n-099_Es_254m1.endf", temperatures = [565] }
 Es-255 = { endf = "n-099_Es_255.endf", temperatures = [565] }
 Fm-255 = { endf = "n-100_Fm_255.endf", temperatures = [565] }
 He-4 = { endf = "n-002_He_004.endf", temperatures = [565] }
+Cl-35 = { endf = "n-017_Cl_035.endf", temperatures = [565] }
+Ca-40 = { endf = "n-020_Ca_040.endf", temperatures = [565] }
 Tm-169 = { endf = "n-069_Tm_169.endf", temperatures = [565] }
 W-182 = { endf = "n-074_W_182.endf", temperatures = [565] }
 W-183 = { endf = "n-074_W_183.endf", temperatures = [565] }

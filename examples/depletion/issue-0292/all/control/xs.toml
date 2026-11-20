@@ -557,6 +557,8 @@ Es-254m = { endf = "n-099_Es_254m1.endf", temperatures = [565], activation = tru
 Es-255 = { endf = "n-099_Es_255.endf", temperatures = [565], activation = true }
 Fm-255 = { endf = "n-100_Fm_255.endf", temperatures = [565], activation = true }
 He-4 = { endf = "n-002_He_004.endf", temperatures = [565], activation = true }
+Cl-35 = { endf = "n-017_Cl_035.endf", temperatures = [565], activation = true }
+Ca-40 = { endf = "n-020_Ca_040.endf", temperatures = [565], activation = true }
 Tm-169 = { endf = "n-069_Tm_169.endf", temperatures = [565], activation = true }
 W-182 = { endf = "n-074_W_182.endf", temperatures = [565], activation = true }
 W-183 = { endf = "n-074_W_183.endf", temperatures = [565], activation = true }
