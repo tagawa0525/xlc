@@ -41,14 +41,19 @@ EXCLUDED: dict[str, tuple[str, str]] = {}
 TRIAL = HERE / "trial" / "library" / "xs.toml"
 
 
-def version(
+def version_config(
     key: str, name: str, chain_place: str, thermal_temperatures: list | None
 ) -> dict:
     """版の設定: 置き場（issue-0292 から）、走査、チェーン（msgpack と入力）、評価の欠陥を読み替える核種の宣言（版の走査の宣言と
-    同じファイル。process_survey.py の `declare`）、S(α, β) の温度（None は試行の入力のまま）"""
+    同じファイル。process_survey.py の `declare`）、S(α, β) の温度（None は試行の入力のまま）。`trial_version` は試行の入力
+    （trial/library/xs.toml）と同じ版（VIII.0）で、試行の核種はどれもその版のチェーンの評価のはずなので、食い違えば止める。対照、
+    試行と比べる一覧、確認のセルも、この版だけが持つ"""
     chain = HERE.parent / chain_place
+    trial_version = key == "endfb80"
     return {
-        "directory": "all" if key == "endfb80" else f"all-{key}",
+        "key": key,
+        "trial_version": trial_version,
+        "directory": "all" if trial_version else f"all-{key}",
         "label": f"ENDF/B-{name}",
         "neutrons": f"ENDF-B-{name}",
         "survey": HERE.parent / f"read-survey-{key}.toml",
@@ -62,10 +67,10 @@ def version(
 # 版の置き場と名前は #0303 の版ごとの入力（../endfb70 など。VIII.0 は ../ の直下）と同じ。VII.0 と VII.1 の tsl-HinH2O.endf には
 # 試行の 4 点のうち 573.6 K と 623.6 K が無い（docs/environment.md）ので、#0303 の版ごとのライブラリと同じく 550 K と 600 K にする
 VERSIONS = {
-    "endfb70": version("endfb70", "VII.0", "endfb70", [550, 600]),
-    "endfb71": version("endfb71", "VII.1", "endfb71", [550, 600]),
-    "endfb80": version("endfb80", "VIII.0", ".", None),
-    "endfb81": version("endfb81", "VIII.1", "endfb81", None),
+    "endfb70": version_config("endfb70", "VII.0", "endfb70", [550, 600]),
+    "endfb71": version_config("endfb71", "VII.1", "endfb71", [550, 600]),
+    "endfb80": version_config("endfb80", "VIII.0", ".", None),
+    "endfb81": version_config("endfb81", "VIII.1", "endfb81", None),
 }
 # 放射化の核種は遮蔽しないので取らない宣言（xs は書くと止まる。ADR-0274）
 SHIELDING_ONLY = ("unresolved-negative-background",)
@@ -82,11 +87,12 @@ def chain_evaluations(
         raise SystemExit("not an xlc chain")
     names = {(n["z"], n["a"], n["state"]): n["name"] for n in chain["nuclides"]}
     z_of = {n["name"]: n["z"] for n in chain["nuclides"]}
-    out = {}
+    out, given = {}, set()
     for e in survey["evaluation"]:
         z, a, state = nuclide_key(e["endf"])
         if z > 0 and a == 0:
             isotopes = [n for n in natural if z_of.get(n) == z]
+            given.update(isotopes)
             if not isotopes:
                 raise SystemExit(
                     f"{e['endf']}: no natural isotope of Z = {z} is listed"
@@ -97,6 +103,11 @@ def chain_evaluations(
             if name in out:
                 raise SystemExit(f"{name} has two evaluations in the survey")
             out[name] = (Path(e["endf"]).name, e.get("error"))
+    ungiven = [n for n in natural if n not in given]
+    if ungiven:
+        raise SystemExit(
+            f"{ungiven} are listed but no natural evaluation of their element is in the survey"
+        )
     return out
 
 
@@ -108,10 +119,12 @@ def library_entries(
     natural: list[str] = (),
     resolved=frozenset(),
     thermal_temperatures: list | None = None,
+    trial_version: bool = True,
 ) -> dict[str, dict]:
     """全核種のライブラリの核種の項目（試行の入力 `base` の核種のうち評価のあるものを `base` の順、続いて `base` に無い評価を
     走査の順）。ファイルは版の評価のもの。`resolved` は、走査で止まるが宣言（`corrections`）で読める核種。`thermal_temperatures` は
-    S(α, β) の核種の温度（None は `base` のまま）"""
+    S(α, β) の核種の温度（None は `base` のまま）。`trial_version` は試行の入力と同じ版で、`base` の核種のどれかがチェーンの評価で
+    ないか、ファイルが評価と違えば止める（ほかの版は、評価の無い核種を入れず、ファイルを版のものにする）"""
     evaluations = chain_evaluations(survey, chain, natural)
     stopped = {
         n
@@ -122,6 +135,12 @@ def library_entries(
         raise SystemExit(
             f"the exclusions differ from the evaluations xs stops on in {sorted(stopped ^ set(excluded))}"
         )
+    if trial_version:
+        unknown = [
+            n for n, v in base.items() if evaluations.get(n, (None,))[0] != v["endf"]
+        ]
+        if unknown:
+            raise SystemExit(f"{unknown} of the base input are not chain evaluations")
     out = {}
     for name, entry in base.items():
         if name not in evaluations:
@@ -262,22 +281,20 @@ CONTROL_HEAD = [
 
 
 def library_head(
-    version: dict, key: str, notes: list[str], extra: list[str]
+    version: dict, notes: list[str], extra: list[str], entries: dict
 ) -> list[str]:
-    """全核種のライブラリの入力の注釈。`notes` は外した核種、`extra` は版のチェーンと評価の注記（VIII.0 は無い）"""
-    points = len(version["thermal_temperatures"] or [550, 573.6, 600, 623.6])
+    """全核種のライブラリの入力の注釈。`notes` は外した核種、`extra` は版のチェーンと評価の注記（VIII.0 は無い）。S(α, β) の点の数は
+    書く核種の項目 `entries` から数える"""
+    (thermal,) = [e for e in entries.values() if "thermal" in e]
+    points = len(thermal["temperatures"])
     return [
         f"#0292 の試行: 燃焼チェーンにあって {version['label']} の中性子のファイルがある核種を、すべて輸送する核種にしたライブラリ。",
-        f"all_nuclides.py が ../../trial/library/xs.toml と ../../../read-survey-{key}.toml から書く。手で直さない。",
+        f"all_nuclides.py が ../../trial/library/xs.toml と ../../../read-survey-{version['key']}.toml から書く。手で直さない。",
         f"温度は試行のセルの {TEMPERATURE} K の 1 点（H-1 は S(α, β) の内挿に使う {points} 点）。理由は all_nuclides.py の TEMPERATURE。",
         *extra,
         "xs が止まる評価は外す（外した核種と issue）:",
         *notes,
     ]
-
-
-def key_of(version: dict) -> str:
-    return next(k for k, v in VERSIONS.items() if v is version)
 
 
 def version_entries(version: dict, base: dict) -> dict[str, dict]:
@@ -295,6 +312,7 @@ def version_entries(version: dict, base: dict) -> dict[str, dict]:
             natural=natural,
             resolved={n for n, d in declarations.items() if "corrections" in d},
             thermal_temperatures=version["thermal_temperatures"],
+            trial_version=version["trial_version"],
         ),
         declarations,
     )
@@ -314,12 +332,11 @@ def directories(base_text: str, version: dict) -> str:
 
 def library_text(version: dict) -> tuple[str, dict]:
     """版の全核種のライブラリの入力の文と、核種の項目"""
-    key = key_of(version)
     base_text = TRIAL.read_text()
     base = tomllib.loads(base_text)["nuclide"]
     entries = version_entries(version, base)
     extra = []
-    if version["directory"] != "all":
+    if not version["trial_version"]:
         chain = Path("../../..") / version["chain_input"].relative_to(HERE.parent)
         extra.append(
             f"輸送する核種の組は {version['label']} の燃焼チェーン（{chain}）と評価で決める（#0303 の版ごとのチェーン）。"
@@ -341,7 +358,7 @@ def library_text(version: dict) -> tuple[str, dict]:
     notes = [f"  {n}" for n in exclusion_notes(base, EXCLUDED)]
     text = render(
         directories(base_text, version),
-        library_head(version, key, notes, extra),
+        library_head(version, notes, extra, entries),
         entries,
     )
     return text, entries
@@ -357,7 +374,7 @@ def write_library(version: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text)
     (path.parent / "nuclides.txt").write_text("\n".join(entries) + "\n")
-    if version["directory"] != "all":
+    if not version["trial_version"]:
         (root / "added-to-p2.txt").write_text("\n".join(lists["added-to-p2"]) + "\n")
         return
     # 対照と、試行と比べる一覧は VIII.0 だけ（試行のライブラリが VIII.0）
@@ -378,7 +395,7 @@ def depletion_input(text: str, version: dict) -> str:
     lines = text.splitlines()
     if not lines[0].startswith("#") or lines[1] != old:
         raise SystemExit("the trial input has another head or library")
-    if version["directory"] == "all":
+    if version["trial_version"]:
         head = "# #0292 の試行: ../../trial の同じ燃料の nominal.toml の、ライブラリだけを全核種を輸送する ../library に替えたもの。all_nuclides.py が書く。手で直さない"
         return "\n".join([head, old, *lines[2:]]) + "\n"
     chain_old = 'chain = "../../../chain.msgpack"'
@@ -435,7 +452,7 @@ def write_depletion(version: dict) -> None:
         directory = root / fuel
         directory.mkdir(parents=True, exist_ok=True)
         (directory / "nominal.toml").write_text(text)
-    if version["directory"] != "all":
+    if not version["trial_version"]:
         return
     for fuel in inputs.CHECK_FUELS:
         directory = root / fuel

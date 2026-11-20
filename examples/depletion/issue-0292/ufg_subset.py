@@ -91,7 +91,7 @@ SERIES = {
 # 版ごとの全核種の系列（all_nuclides.py の `VERSIONS`。VIII.0 は上の `all`）: 基準の組 `all` だけを解く（自己遮蔽の目安の順位を
 # 版ごとに付けるテーブルと、版の差を核種に分けるテーブル。ADR-0270 の組の計算は、順位が VIII.0 と違った版だけで足す）
 for _key, _version in VERSIONS.items():
-    if _version["directory"] == "all":
+    if _version["trial_version"]:
         continue
     SERIES[_version["directory"]] = {
         "directory": f"all-ufg-{_key}",
