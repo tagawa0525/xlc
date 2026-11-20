@@ -49,6 +49,12 @@
 //! endf = "n-060_Nd_144.endf"
 //! temperatures = [600, 900]
 //! pointwise = false           # ポイントワイズの断面積を持たせない（UFG で解かない核種。省略すると true）
+//!
+//! [nuclide.Rb-87]
+//! endf = "n-037_Rb_087.endf"
+//! temperatures = [600]
+//! # 評価の誤りを直す宣言（省略すると直さない）: ファイルの line 行目の MF/MT の行の field 番目（1〜6）の整数の欄を from から to に
+//! corrections = [{ line = 1194, mf = 5, mt = 17, field = 1, from = 1, to = 3 }]
 //! ```
 //!
 //! `activation = true` の核種は、チェーンの反応と核分裂の無限希釈の群の断面積だけを作り、ライブラリの `activation` に置く
@@ -58,6 +64,9 @@
 //! 中心の物質の核種にだけ使える）。`activation` と `thermal` とは組めない。ポイントワイズの範囲は、持たせない核種も含めて決める。
 //!
 //! 核種ごとの処理時間はログとして標準エラーに出す（`RUST_LOG=debug` で温度・段階ごとの内訳）。
+//!
+//! `corrections` の宣言は、テープを読んだ直後、MF ごとの読み込みの前に、行の MF と MT と欄の元の値を確かめて当て、当てるたびに
+//! warn を出す（ADR-0272）。どれかが宣言と違えば止まる。
 //!
 //! `thermal` を指定した核種は、`sab-upper` 未満の弾性散乱を S(α, β) で、その上の `free-gas-upper` 未満を自由ガス
 //! 模型で扱う（ADR-0133）。ほかの核種は 4 eV 未満を自由ガス模型で扱う。
@@ -81,7 +90,7 @@ use tracing_subscriber::fmt::format::FmtSpan;
 use xlc_format::group::GroupStructure;
 use xlc_format::library::{ActivationData, Library, NuclideData, is_nuclide_name};
 use xlc_xs::check::{Checked, check_contents, report_toml};
-use xlc_xs::endf::Tape;
+use xlc_xs::endf::{Correction, Tape};
 use xlc_xs::multigroup::{SabOutside, Weight, inverse_velocity};
 use xlc_xs::parallel::{in_parallel, set_threads};
 use xlc_xs::pointwise::DEFAULT_TOLERANCE;
@@ -109,6 +118,8 @@ struct NuclideInput {
     activation: bool,
     /// ライブラリにポイントワイズの断面積を持たせる（false は UFG で解かない核種。ADR-0269）
     pointwise: bool,
+    /// 読む前に当てる評価の誤りの修正（ADR-0272）
+    corrections: Vec<Correction>,
     thermal: Option<ThermalInput>,
 }
 
@@ -164,6 +175,9 @@ struct NuclideEntry {
     /// ポイントワイズの断面積を持たせるか（ADR-0269）。省略すると持たせる
     #[serde(default = "keeps_pointwise")]
     pointwise: bool,
+    /// 評価の誤りの修正（ADR-0272）。省略すると直さない
+    #[serde(default)]
+    corrections: Vec<Correction>,
 }
 
 /// `pointwise` を省略したときの値（ADR-0269 の既定。今のとおり持たせる）
@@ -278,6 +292,7 @@ fn parse_input(text: &str, base: &Path) -> Result<Input, InputError> {
             temperatures: entry.temperatures,
             activation: entry.activation,
             pointwise: entry.pointwise,
+            corrections: entry.corrections,
             thermal,
             name,
         });
@@ -382,7 +397,32 @@ fn read_input(path: &Path) -> anyhow::Result<Input> {
 
 /// 入力の核種の ENDF のテープを、並列に読む。
 fn read_tapes(nuclides: &[NuclideInput]) -> anyhow::Result<Vec<Tape>> {
-    in_parallel(nuclides.len(), |i| read_tape(&nuclides[i].endf))
+    in_parallel(nuclides.len(), |i| read_nuclide_tape(&nuclides[i]))
+}
+
+/// 核種のテープを読み、入力の宣言した修正を当てる（ADR-0272）。
+fn read_nuclide_tape(nuclide: &NuclideInput) -> anyhow::Result<Tape> {
+    let mut tape = read_tape(&nuclide.endf)?;
+    correct_tape(&nuclide.name, &mut tape, &nuclide.corrections)
+        .with_context(|| format!("{}", nuclide.endf.display()))?;
+    Ok(tape)
+}
+
+/// 宣言の順に修正を当て、当てるたびに warn を出す。
+fn correct_tape(name: &str, tape: &mut Tape, corrections: &[Correction]) -> anyhow::Result<()> {
+    for c in corrections {
+        tape.correct(c)?;
+        xlc_log::warn!(
+            "{name}: corrected line {} (MF{} MT{}) field {} from {} to {}, as the input declares",
+            c.line,
+            c.mf,
+            c.mt,
+            c.field,
+            c.from,
+            c.to
+        );
+    }
+    Ok(())
 }
 
 fn settings_of(input: &Input, pointwise_range: Option<(f64, f64)>) -> Settings {
@@ -496,7 +536,7 @@ fn run_nuclide(input: &Input, range: &Path, name: &str, out: &Path) -> anyhow::R
         .ok_or_else(|| anyhow!("{name} is not in the input"))?;
     let pointwise_range = read_range(range)?;
     let settings = settings_of(input, pointwise_range);
-    let data = process_file(nuclide, &read_tape(&nuclide.endf)?, &settings)?;
+    let data = process_file(nuclide, &read_nuclide_tape(nuclide)?, &settings)?;
     write_library(&library_from(settings, vec![data]), out)
 }
 

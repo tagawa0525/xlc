@@ -265,3 +265,4 @@
 * [ADR-0268: UFG の減速計算で、入力に挙げない中心の物質の核種を、等価原理の群定数の段の断面積の静止した標的として解く](0268-solve-unlisted-fuel-nuclides-by-group-constants.md)
 * [ADR-0269: xs の入力で、UFG で解かない核種のポイントワイズの断面積をライブラリに持たせないことを選べるようにする](0269-let-xs-leave-out-pointwise-of-nuclides-the-ufg-does-not-solve.md)
 * [ADR-0270: UFG で解く核種を、全核種を輸送した燃焼の組成での自己遮蔽の目安が、どれかの燃料で 0.1 pcm を超える核種に選ぶ](0270-select-ufg-nuclides-from-the-all-nuclides-burnup.md)
+* [ADR-0272: 評価の誤りは、xs の入力の核種の項目に、行と欄と元の値と正しい値を宣言して直してから読む](0272-correct-evaluation-errors-by-declared-fields.md)

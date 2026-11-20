@@ -65,6 +65,19 @@ pub struct Tab1Record {
     pub table: Tab1,
 }
 
+/// 評価の誤りを直す宣言（ADR-0272）。ファイルの `line` 行目（1 始まり）の `field` 番目（1〜6）の整数の欄を、
+/// `from` から `to` に書き換える。その行の MF と MT は `mf`、`mt` でなければならない。
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Correction {
+    pub line: usize,
+    pub mf: u32,
+    pub mt: u32,
+    pub field: usize,
+    pub from: i64,
+    pub to: i64,
+}
+
 /// TAB2 レコード（続く NZ 個のレコードの補間則を与える）。
 /// 補間則は ENDF の値のまま持つ（unit-base の 21〜25 などを使う側で解釈する）。
 #[derive(Debug, Clone, PartialEq)]
@@ -87,6 +100,57 @@ impl Tape {
             .map(|(i, line)| Line::parse(i + 1, line))
             .collect::<Result<_, _>>()?;
         Ok(Self { lines })
+    }
+
+    /// 宣言 `correction` のとおりに欄を書き換える。行が無いか、行の MF と MT、欄の番号、欄の元の値が宣言と違えば、
+    /// テープを変えずにエラーを返す（別のファイルに古い宣言を当てない）。
+    pub fn correct(&mut self, correction: &Correction) -> Result<(), Error> {
+        let &Correction {
+            line: number,
+            mf,
+            mt,
+            field,
+            from,
+            to,
+        } = correction;
+        // `parse` は行に 1 から順に番号を振る
+        let line = number
+            .checked_sub(1)
+            .and_then(|index| self.lines.get_mut(index))
+            .ok_or_else(|| Error::new(number, "the corrected line is not in the file"))?;
+        if (line.mf, line.mt) != (mf, mt) {
+            return Err(Error::new(
+                number,
+                format!(
+                    "the corrected line is in MF{} MT{}, not MF{mf} MT{mt}",
+                    line.mf, line.mt
+                ),
+            ));
+        }
+        if !(1..=FIELDS_PER_LINE).contains(&field) {
+            return Err(Error::new(
+                number,
+                format!("the corrected field {field} is not one of 1 to {FIELDS_PER_LINE}"),
+            ));
+        }
+        let index = field - 1;
+        let value = line.int(index)?;
+        if value != from {
+            return Err(Error::new(
+                number,
+                format!("field {field} is {value}, not the declared original value {from}"),
+            ));
+        }
+        let replacement = format!("{to:>FIELD_WIDTH$}");
+        if replacement.len() != FIELD_WIDTH {
+            return Err(Error::new(
+                number,
+                format!("{to} does not fit in a field of {FIELD_WIDTH} columns"),
+            ));
+        }
+        line.text
+            .replace_range(index * FIELD_WIDTH..field * FIELD_WIDTH, &replacement);
+        Ok(())
     }
 
     /// 指定した MAT/MF/MT のセクションを返す。
