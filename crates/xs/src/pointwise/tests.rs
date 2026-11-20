@@ -468,7 +468,7 @@ fn unresolved_averages_replace_background_with_lssf0() {
     let tape = Tape::parse(&text).unwrap();
     let tables = reconstruct(&tape, 1, 1.0e-3).unwrap();
     let mf2 = Mf2::parse(&tape.section(1, 2, 151).unwrap()).unwrap();
-    let RangeKind::Unresolved(urr) = &mf2.ranges[0].kind else {
+    let RangeKind::Unresolved(urr) = &mf2.isotopes[0].ranges[0].kind else {
         panic!("expected unresolved");
     };
     let xs = UnresolvedXs::new(urr).unwrap();
@@ -509,7 +509,7 @@ fn unresolved_background_at_top_comes_from_inside() {
     let tape = Tape::parse(&text).unwrap();
     let tables = reconstruct(&tape, 1, 1.0e-3).unwrap();
     let mf2 = Mf2::parse(&tape.section(1, 2, 151).unwrap()).unwrap();
-    let RangeKind::Unresolved(urr) = &mf2.ranges[0].kind else {
+    let RangeKind::Unresolved(urr) = &mf2.isotopes[0].ranges[0].kind else {
         panic!("expected unresolved");
     };
     let average = UnresolvedXs::new(urr)
@@ -663,20 +663,16 @@ fn add_without_jump_at_shared_end_has_no_duplicate() {
 
 #[test]
 fn r_matrix_limited_adds_level_inelastic_scattering() {
-    let mf2 = Mf2 {
-        za: 0.0,
-        awr: AWRI,
-        ranges: vec![ResonanceRange {
-            el: 1.0,
-            eh: 5.0e3,
-            kind: RangeKind::RMatrixLimited(inelastic_level(0.5)),
-        }],
-    };
+    let mf2 = one_isotope(vec![ResonanceRange {
+        el: 1.0,
+        eh: 5.0e3,
+        kind: RangeKind::RMatrixLimited(inelastic_level(0.5)),
+    }]);
     let mut tables = BTreeMap::from([(2, linear(&[1.0, 5.0e3], &[1.0, 1.0]))]);
     add_resonances(&mut tables, &mf2, 18, 1.0e-3).unwrap();
     // 捕獲のない共鳴でも、共鳴エネルギー（格子点）で止まらない
     let mut capture_free = mf2.clone();
-    let RangeKind::RMatrixLimited(rml) = &mut capture_free.ranges[0].kind else {
+    let RangeKind::RMatrixLimited(rml) = &mut capture_free.isotopes[0].ranges[0].kind else {
         panic!("expected R-matrix limited");
     };
     *rml = inelastic_level(0.0);
@@ -692,15 +688,11 @@ fn r_matrix_limited_adds_level_inelastic_scattering() {
 
 #[test]
 fn r_matrix_limited_fission_goes_to_the_fission_mt() {
-    let mf2 = Mf2 {
-        za: 0.0,
-        awr: AWRI,
-        ranges: vec![ResonanceRange {
-            el: 1.0,
-            eh: 50.0,
-            kind: RangeKind::RMatrixLimited(fission_level(1.5e-3, 2.3e-2, 4.0e-2)),
-        }],
-    };
+    let mf2 = one_isotope(vec![ResonanceRange {
+        el: 1.0,
+        eh: 50.0,
+        kind: RangeKind::RMatrixLimited(fission_level(1.5e-3, 2.3e-2, 4.0e-2)),
+    }]);
     // MF3 が MT19 を持つと、共鳴の核分裂は MT19 に足す（MT18 は部分反応の和で作り直す）
     for fission_mt in [18, 19] {
         let mut tables = BTreeMap::new();
@@ -724,15 +716,11 @@ fn negative_resolved_elastic_with_its_background_is_raised_to_zero() {
     // R 行列の弾性散乱は負にならないが、MF3 の負のバックグラウンドとの和は負になりうる（ENDF/B-VIII.1 の Fe-54 の 3.5 keV）。
     // 和が負になるところは、和の lin-lin の表を 0 で切った値にする（零点を格子に入れる）。範囲の外と、負でないところはそのまま
     let (el, eh) = (1.0, 5.0e3);
-    let mf2 = Mf2 {
-        za: 0.0,
-        awr: AWRI,
-        ranges: vec![ResonanceRange {
-            el,
-            eh,
-            kind: RangeKind::RMatrixLimited(inelastic_level(0.5)),
-        }],
-    };
+    let mf2 = one_isotope(vec![ResonanceRange {
+        el,
+        eh,
+        kind: RangeKind::RMatrixLimited(inelastic_level(0.5)),
+    }]);
     let mut resonance = BTreeMap::new();
     add_resonances(&mut resonance, &mf2, 18, 1.0e-3).unwrap();
     let inside = |e: &f64| el < *e && *e < eh;
@@ -777,17 +765,26 @@ fn negative_resolved_elastic_with_its_background_is_raised_to_zero() {
     assert_eq!(elastic.eval(0.5), background.eval(0.5));
 }
 
-/// 分離共鳴の SLBW の範囲 [1, 50] eV だけの MF2
-fn slbw_mf2(data: crate::endf::BreitWigner) -> Mf2 {
+/// 同位体が 1 つの MF2（AWR は `AWRI`）
+fn one_isotope(ranges: Vec<ResonanceRange>) -> Mf2 {
     Mf2 {
         za: 0.0,
         awr: AWRI,
-        ranges: vec![ResonanceRange {
-            el: 1.0,
-            eh: 50.0,
-            kind: RangeKind::Slbw(data),
+        isotopes: vec![crate::endf::Isotope {
+            zai: 0.0,
+            abn: 1.0,
+            ranges,
         }],
     }
+}
+
+/// 分離共鳴の SLBW の範囲 [1, 50] eV だけの MF2
+fn slbw_mf2(data: crate::endf::BreitWigner) -> Mf2 {
+    one_isotope(vec![ResonanceRange {
+        el: 1.0,
+        eh: 50.0,
+        kind: RangeKind::Slbw(data),
+    }])
 }
 
 #[test]
@@ -845,14 +842,11 @@ fn negative_slbw_elastic_is_raised_against_both_sides_of_a_background_step() {
     let bw = crate::resonance::slbw_tests::cooperating_levels();
     let step = linear(&[1.0e-5, 9.0, 9.0, 2.0e7], &[0.0, 0.0, 30.0, 30.0]);
     for eh in [9.0, 50.0] {
-        let mf2 = Mf2 {
-            ranges: vec![ResonanceRange {
-                el: 1.0,
-                eh,
-                kind: RangeKind::Slbw(bw.clone()),
-            }],
-            ..slbw_mf2(bw.clone())
-        };
+        let mf2 = one_isotope(vec![ResonanceRange {
+            el: 1.0,
+            eh,
+            kind: RangeKind::Slbw(bw.clone()),
+        }]);
         let mut tables = BTreeMap::from([(2, step.clone())]);
         add_resonances(&mut tables, &mf2, 18, 1.0e-3).unwrap();
         let elastic = &tables[&2];
@@ -981,7 +975,7 @@ fn resonances_of_isotopes_are_summed_with_their_abundances() {
         lines[0][1] = "1.0";
         let tape = Tape::parse(&evaluation_with_isotopes(&[lines])).unwrap();
         let mf2 = crate::endf::Mf2::parse(&tape.section(1, 2, 151).unwrap()).unwrap();
-        let RangeKind::Mlbw(bw) = mf2.ranges[0].kind.clone() else {
+        let RangeKind::Mlbw(bw) = mf2.ranges().next().unwrap().kind.clone() else {
             panic!("expected MLBW");
         };
         MlbwXs::new(&bw)
@@ -989,27 +983,35 @@ fn resonances_of_isotopes_are_summed_with_their_abundances() {
     let (xs_a, xs_b) = (alone(&a), alone(&b));
     let tape = Tape::parse(&evaluation_with_isotopes(&[a, b])).unwrap();
     let tables = reconstruct(&tape, 1, 1.0e-3).unwrap();
-    let inside: Vec<f64> = tables[&1]
-        .x
-        .iter()
-        .copied()
-        .filter(|&e| 1.0e-5 < e && e < 1.0e3)
-        .collect();
-    assert!(inside.len() > 20, "{inside:?}");
-    for e in inside {
-        let (sa, sb) = (
-            xs_a.cross_sections(e).unwrap(),
-            xs_b.cross_sections(e).unwrap(),
-        );
-        let weighted = |f: fn(&crate::resonance::Sigma) -> f64| 0.6 * f(&sa) + 0.4 * f(&sb);
-        for (mt, background, part) in [
-            (2, 3.0, weighted(|s| s.elastic)),
-            (102, 1.0, weighted(|s| s.capture)),
-        ] {
-            let expected = background + part;
-            let actual = tables[&mt].eval(e).unwrap();
+    // 同位体ごとの表は自分の格子点で厳密で、和の表はもう一方の同位体を補間するので、差は線形化の許容誤差の中にある。
+    // 表の点と、点の間の中点で確かめる
+    for (mt, background, part) in [
+        (
+            2,
+            3.0,
+            (|s: &crate::resonance::Sigma| s.elastic) as fn(&_) -> f64,
+        ),
+        (102, 1.0, |s: &crate::resonance::Sigma| s.capture),
+    ] {
+        let table = &tables[&mt];
+        let midpoints = table.x.windows(2).map(|w| 0.5 * (w[0] + w[1]));
+        let inside: Vec<f64> = table
+            .x
+            .iter()
+            .copied()
+            .chain(midpoints)
+            .filter(|&e| 1.0e-5 < e && e < 1.0e3)
+            .collect();
+        assert!(inside.len() > 40, "MT{mt}: {inside:?}");
+        for e in inside {
+            let (sa, sb) = (
+                xs_a.cross_sections(e).unwrap(),
+                xs_b.cross_sections(e).unwrap(),
+            );
+            let expected = background + 0.6 * part(&sa) + 0.4 * part(&sb);
+            let actual = table.eval(e).unwrap();
             assert!(
-                (actual - expected).abs() <= 1.0e-12 * expected,
+                (actual - expected).abs() <= 1.0e-3 * expected,
                 "MT{mt} at {e} eV: {actual} vs {expected}"
             );
         }

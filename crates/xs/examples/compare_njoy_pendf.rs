@@ -70,11 +70,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let tape = Tape::parse(&std::fs::read_to_string(endf)?)?;
     let ours = reconstruct(&tape, mat, DEFAULT_TOLERANCE)?;
     println!("reconstructed in {:.1} s", start.elapsed().as_secs_f64());
-    // 共鳴の範囲 [el, eh) と名前。散乱半径だけの範囲は分けない
-    let ranges: Vec<(f64, f64, &str)> = match tape.section(mat, 2, 151) {
+    // 共鳴の範囲 [el, eh) と名前。散乱半径だけの範囲は分けない。天然の元素で同位体の範囲が同じなら 1 つにまとめる
+    let mut ranges: Vec<(f64, f64, &str)> = match tape.section(mat, 2, 151) {
         Some(section) => Mf2::parse(&section)?
-            .ranges
-            .iter()
+            .ranges()
             .filter_map(|r| {
                 let name = match r.kind {
                     RangeKind::ScatteringRadius { .. } => return None,
@@ -86,6 +85,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .collect(),
         None => Vec::new(),
     };
+    ranges.dedup();
 
     let reference = Tape::parse(&std::fs::read_to_string(pendf)?)?;
     for mt in mts {

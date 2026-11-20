@@ -49,7 +49,7 @@ fn check_unresolved(tape: &Tape, mat: i32) -> Result<(), ProcessError> {
         return Ok(());
     };
     let mf2 = Mf2::parse(&section)?;
-    let mut unresolved = mf2.ranges.iter().filter_map(|r| match &r.kind {
+    let mut unresolved = mf2.ranges().filter_map(|r| match &r.kind {
         RangeKind::Unresolved(urr) => Some(urr),
         _ => None,
     });

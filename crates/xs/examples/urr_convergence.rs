@@ -36,8 +36,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mat = *tape.materials().first().ok_or("no material")?;
     let mf2 = Mf2::parse(&tape.section(mat, 2, 151).ok_or("no MF2")?)?;
     let urr = mf2
-        .ranges
-        .iter()
+        .ranges()
         .find_map(|r| match &r.kind {
             RangeKind::Unresolved(u) => Some(u),
             _ => None,

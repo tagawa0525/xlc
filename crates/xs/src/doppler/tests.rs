@@ -248,7 +248,11 @@ fn mf2(ranges: Vec<ResonanceRange>) -> Mf2 {
     Mf2 {
         za: 92238.0,
         awr: 236.0,
-        ranges,
+        isotopes: vec![crate::endf::Isotope {
+            zai: 92238.0,
+            abn: 1.0,
+            ranges,
+        }],
     }
 }
 
