@@ -20,7 +20,7 @@ resolution:
 - 検査は、キャッシュに無く git の index が追う出力を、index の blob の md5 が lock と同じならその blob で読み、違えば `MISMATCH:` で
   止めるようになった（ADR-0258 の「## 変更」の 2026-11-20 の項）。残るのは、ブランチ feat/0303-pin-depletion-by-endf-version を main に
   rebase して、その run-checks.sh が通ることを確かめることである
-- 直した検査（xlc bf410c388）を、ブランチ feat/0303-pin-depletion-by-endf-version の worktree（HEAD c6dcb3f01）で `--base main` で
+- 直した検査（xlc bf410c388）を、ブランチ feat/0303-pin-depletion-by-endf-version の worktree（HEAD 283db4754）で `--base main` で
   実行すると、`MISSING:` は無く、2145 ファイル（2231 の出力）を読んで終了コード 0 だった（読み手はそのブランチのコードから別の
   target に作った read-outputs、キャッシュは main の references/dvc-cache、手元、2026-11-20）。直す前の検査（main f73fda31e）は
   同じ条件で上の `MISSING:` を出して終了コード 1 だった

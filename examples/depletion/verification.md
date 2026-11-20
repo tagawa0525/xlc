@@ -370,10 +370,10 @@ python3 examples/depletion/compare_depletion_versions.py --report examples/deple
 燃焼（`lattice-1C-version`）は、版ごとに次のコミットで Slurm で実行した。4 つの燃焼の `bin/lattice` の正規形は同じ（deps の
 `binary-forms/lattice.md5` の md5 b6ae1a92）。ジョブは割り込まれうる区分で流したので、時間は書かない。
 
-- VIII.0: 05e58db2（分岐点 3e134ac6、Slurm 985、2026-11-20）。ライブラリは本番の `depletion.msgpack`（md5 58a25945。dvc.lock に入れた
+- VIII.0: 47e793be（分岐点 3e134ac6、Slurm 985、2026-11-20）。ライブラリは本番の `depletion.msgpack`（md5 58a25945。dvc.lock に入れた
   のは 14662dd4、2026-11-13）とチェーン `chain.msgpack`
-- VII.0、VII.1: 5151f4df（分岐点 f6360d71、Slurm 987、988、2026-11-20）。65 核種のライブラリ（`xs-nuclide` と `xs`）も同じジョブで作った
-- VIII.1: 0df67a8f（分岐点 7ec34be0、Slurm 995、2026-11-20）。65 核種のライブラリも同じジョブで作った
+- VII.0、VII.1: 5c91677f（分岐点 f6360d71、Slurm 987、988、2026-11-20）。65 核種のライブラリ（`xs-nuclide` と `xs`）も同じジョブで作った
+- VIII.1: 34a4e9f4（分岐点 7ec34be0、Slurm 995、2026-11-20）。65 核種のライブラリも同じジョブで作った
 
 ライブラリを作った xs は版ごとに違う。VII.0 と VII.1 は分岐点 f6360d71 の xs（SLBW の #0305、LF=12 と LNU=1 の #0307 の後）、VIII.1 は
 分岐点 7ec34be0 の xs（さらに LRF=7 の核分裂の対の #0308、負の弾性散乱の #0309 の後）で作った。これらの変更は、それぞれ既存の核種の
@@ -381,7 +381,7 @@ python3 examples/depletion/compare_depletion_versions.py --report examples/deple
 4 つとも、main の f73fda31（MF8 の経路の和を反応に縮める修正。#0264）より前の xs で作った。f73fda31 の後の xs で 65 核種の出力が
 変わるか（変わる核種があれば反応度の差がどれだけ動くか）は確かめていない。
 
-比べたのは 5681026d（分岐点 f73fda31、2026-11-20。rebase の後の付け直しで比較のステージだけを実行した）。比較の文章は
+比べたのは c6cb65ce（分岐点 f73fda31、2026-11-20。rebase の後の付け直しで比較のステージだけを実行した）。比較の文章は
 `compare-depletion-versions.txt`（`--report` と同じ）。比較のステージは、天然の元素の評価の検査（`natural-isotopes`）の 4 つの出力を
 deps に持ち、どの版も「天然の元素の評価を当てた核種: なし」である。
 
