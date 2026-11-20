@@ -1,6 +1,6 @@
 inputs: process-survey/VII.0/report.json b7af8f2c, read-survey-endfb70.toml 37c30609, endfb70/chain.msgpack 5c4c8194, process-survey/VII.1/report.json 762212d2, read-survey-endfb71.toml 982aa65d, endfb71/chain.msgpack 32ee4517, process-survey/VIII.0/report.json fef6d6ba, read-survey-endfb80.toml 5b469fe4, chain.msgpack 1f1de180, process-survey/VIII.1/report.json 0e8f0966, read-survey-endfb81.toml 48090184, endfb81/chain.msgpack 4b084932
 
-| 版 | チェーンの評価 | 通った | 止まった | うち読み込み | チェーンの外の評価 | 通した | 通った | 止まった | 入れない |
+| 版 | チェーンの評価 | 通った | 止まった | うち走査でも止まる | チェーンの外の評価 | 通した | 通った | 止まった | 入れない |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | VII.0 | 390 | 379 | 11 | 6 | 3 | 3 | 3 | 0 | 0 |
 | VII.1 | 422 | 416 | 6 | 6 | 1 | 1 | 1 | 0 | 0 |

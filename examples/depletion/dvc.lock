@@ -6255,8 +6255,8 @@ stages:
     deps:
     - path: ../../python-ast/examples/depletion/process_survey.py.ast
       hash: md5
-      md5: 85408306c1b14449647aaa7a366fdcd8
-      size: 19237
+      md5: d924a9c7cfaee67019c55e877815ade5
+      size: 19246
     - path: ../../python-ast/examples/depletion/read_survey.py.ast
       hash: md5
       md5: cd0025150d19086de08a89a7502f0859
@@ -6316,5 +6316,5 @@ stages:
       size: 23595
     - path: process-survey.txt
       hash: md5
-      md5: 26f77c3daae06d823d1b60a0a779ab29
-      size: 14868
+      md5: d05189440df4255fae611a338a69d601
+      size: 14877
