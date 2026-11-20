@@ -76,6 +76,9 @@ xs は σ0 ごとの捕獲（MT102）を群定数を作る途中で求めてい�
   `production_beyond_the_reaction_is_scaled_down_where_it_exceeds`、`excess_within_the_tolerance_is_scaled_without_a_warning`、
   `multiplicities_count_only_where_the_mf9_table_is_given`；形式の
   `reaction_channels_follow_the_chain_layout`；チェーンの `reaction_kinematics_belong_to_their_mt`
+- 経路の和が反応を超える評価（「変更」の 2026-11-20 の項）: 4 つの版の Tm-169、W-182〜186、Pt-193、Pb-207 の 600 K の `xs nuclide` が通り、
+  examples/depletion の本番の入力の 6 核種の出力の変わり方は、評価の値の丸めの分（相対で 7.4e-7 以下）だけ（#0264 の
+  「経路の和の超過の原因」。xlc 2e714a80b、2026-11-20）
 - lattice の単体テスト: `capture_is_shielded_with_the_same_flux_as_fission`（UFG）、`absorber_rods_are_shielded_by_slowing_down`
   （棒のリングの平均の捕獲）
 - ADR-0144 の判定（xlc 881d229c、分岐点 b4d7c9e4、2026-10-14。Slurm の排他でないジョブ）: チェーンの出力（examples/depletion/chain.msgpack）の
