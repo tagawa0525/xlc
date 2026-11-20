@@ -81,7 +81,7 @@ CAUSES: list[tuple[str, str, str, str]] = [
         "#0309（closed）",
     ),
     (
-        r"the MF3 background of MT\d+ in the unresolved range",
+        r"the MF3 background of MT\d+ at the unresolved grid energies",
         (
             "非分離共鳴（LSSF=0）の MF3 の捕獲か核分裂のバックグラウンドが負（ADR-0274 でエラー。入力の "
             "`unresolved-negative-background` の宣言で読める）"
@@ -532,7 +532,7 @@ def write_input(args: list[str]) -> None:
     for flag in ("--reuse", "--declarations"):
         if flag in args[6:]:
             k = args.index(flag, 6)
-            if k + 1 >= len(args):
+            if k + 1 >= len(args) or args[k + 1].startswith("--"):
                 raise SystemExit(__doc__)
             if flag == "--reuse":
                 reuse = Path(args[k + 1])
