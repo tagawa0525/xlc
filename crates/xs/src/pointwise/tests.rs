@@ -196,6 +196,39 @@ fn nonzero_values_below_q_are_an_error() {
 }
 
 #[test]
+fn negative_broadened_cross_sections_are_an_error() {
+    // ドップラー拡がりの格子の判定は正の値を前提にし、負の区間を際限なく分ける。広げる上限（分離共鳴の無い核種では 6.5 MeV）より
+    // 下の負の値は、表の点の値でも、上限の点をまたぐ区間の補間の値でも、0 K の再構成で止める。上限より上の値は広げないので、
+    // ここでは止めない（#0309）
+    let tape = |capture: ([&str; 2], [&str; 2])| {
+        let text = [
+            mf3_section(2, ["1.0-5", "2.0+7"], ["10.0", "10.0"]),
+            mf3_section(102, capture.0, capture.1),
+        ]
+        .concat();
+        Tape::parse(&text).unwrap()
+    };
+    let below = tape((["1.0-5", "2.0+7"], ["-1.0", "1.0"]));
+    let error = ColdParts::read(&below, 1, 1.0e-3).unwrap_err();
+    assert!(error.message.contains("MT102"), "{error}");
+    // 0 になる 5.25 MeV から上限の 6.5 MeV までは、表の点の間の補間の値が負（上限より下の表の点はどれも正）
+    let across = tape((["1.0-5", "7.0+6"], ["3.0", "-1.0"]));
+    let error = ColdParts::read(&across, 1, 1.0e-3).unwrap_err();
+    assert!(error.message.contains("MT102"), "{error}");
+    // 0 になる 10 MeV が上限より上なら、広げる値はどれも正で、拡がりの格子は止まる
+    let above = tape((["1.0-5", "2.0+7"], ["1.0", "-1.0"]));
+    let hot = ColdParts::read(&above, 1, 1.0e-3).unwrap().at(565.0);
+    let capture = &hot[&102];
+    assert!(
+        capture
+            .x
+            .iter()
+            .zip(&capture.y)
+            .all(|(e, v)| *e >= crate::doppler::MAX_LIMIT || *v >= 0.0)
+    );
+}
+
+#[test]
 fn tables_without_points_above_the_threshold_are_an_error() {
     let points = [("1.0+3", "0.0"), ("1.1+3", "0.1")];
     assert!(adjusted("9.0", "-1.0+3", "2", &points).is_err());
@@ -684,6 +717,64 @@ fn r_matrix_limited_fission_goes_to_the_fission_mt() {
             "MT{other} with MT{fission_mt}"
         );
     }
+}
+
+#[test]
+fn negative_resolved_elastic_with_its_background_is_raised_to_zero() {
+    // R 行列の弾性散乱は負にならないが、MF3 の負のバックグラウンドとの和は負になりうる（ENDF/B-VIII.1 の Fe-54 の 3.5 keV）。
+    // 和が負になるところは、和の lin-lin の表を 0 で切った値にする（零点を格子に入れる）。範囲の外と、負でないところはそのまま
+    let (el, eh) = (1.0, 5.0e3);
+    let mf2 = Mf2 {
+        za: 0.0,
+        awr: AWRI,
+        ranges: vec![ResonanceRange {
+            el,
+            eh,
+            kind: RangeKind::RMatrixLimited(inelastic_level(0.5)),
+        }],
+    };
+    let mut resonance = BTreeMap::new();
+    add_resonances(&mut resonance, &mf2, 18, 1.0e-3).unwrap();
+    let inside = |e: &f64| el < *e && *e < eh;
+    let values = || {
+        resonance[&2]
+            .x
+            .iter()
+            .zip(&resonance[&2].y)
+            .filter(|(e, _)| inside(e))
+    };
+    let lowest = values().map(|(_, v)| *v).fold(f64::INFINITY, f64::min);
+    let highest = values().map(|(_, v)| *v).fold(0.0, f64::max);
+    assert!(lowest >= 0.0 && lowest < highest);
+    let background = linear(
+        &[1.0e-5, 2.0e7],
+        &[-(lowest + 0.01 * (highest - lowest)); 2],
+    );
+    let unclamped = add(&background, &resonance[&2]);
+
+    let mut tables = BTreeMap::from([(2, background.clone())]);
+    add_resonances(&mut tables, &mf2, 18, 1.0e-3).unwrap();
+    let elastic = &tables[&2];
+    let negative = |t: &Tab1| {
+        t.x.iter()
+            .zip(&t.y)
+            .filter(|(e, v)| inside(e) && **v < 0.0)
+            .count()
+    };
+    assert!(negative(&unclamped) > 0);
+    assert_eq!(negative(elastic), 0);
+    // 表の点と、点の間の中点のどちらでも、和を 0 で切った値と同じ
+    let midpoints = elastic.x.windows(2).map(|w| 0.5 * (w[0] + w[1]));
+    for e in elastic.x.iter().copied().chain(midpoints).filter(inside) {
+        let expected = unclamped.eval(e).unwrap().max(0.0);
+        let actual = elastic.eval(e).unwrap();
+        assert!(
+            (actual - expected).abs() <= 1.0e-9 * highest,
+            "at {e} eV: {actual} vs {expected}"
+        );
+    }
+    // 範囲の外はバックグラウンドのまま
+    assert_eq!(elastic.eval(0.5), background.eval(0.5));
 }
 
 /// 分離共鳴の SLBW の範囲 [1, 50] eV だけの MF2

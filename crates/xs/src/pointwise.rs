@@ -474,6 +474,13 @@ impl ColdParts {
                 .map_err(|message| Error::new(section.reader().line(), message))?;
             mf2 = Some(parsed);
         }
+        reject_negative_broadened(&tables, mf2.as_ref()).map_err(|(mt, message)| {
+            // MF3 に無い反応（共鳴だけの反応）は、MF2 の行を示す
+            let section = tape
+                .section(mat, 3, mt)
+                .or_else(|| tape.section(mat, 2, 151));
+            Error::new(section.map_or(0, |s| s.reader().line()), message)
+        })?;
         Ok(Self {
             tables,
             mf2,
@@ -511,6 +518,47 @@ impl ColdParts {
     }
 }
 
+/// `broaden_parts` が広げる上限エネルギー。
+fn parts_broadening_limit(tables: &BTreeMap<u32, Tab1>, mf2: Option<&Mf2>) -> f64 {
+    let candidates = tables.iter().filter(|(mt, _)| is_broadened(**mt));
+    broadening_limit(mf2, candidates.map(|(_, t)| t))
+}
+
+/// 広げる反応の、広げる上限より下に負の値があれば、その MT と文を返す（ADR-0267）。
+///
+/// ドップラー拡がりの格子の判定（`doppler::split`）は正の値を前提にし、両端が負の区間を際限なく分ける。上限より下の表の点と、
+/// 上限をまたぐ区間の上限での値（左からの極限）を見る。上限より上の値は広げないので見ない（扱いは #0309）。
+fn reject_negative_broadened(
+    tables: &BTreeMap<u32, Tab1>,
+    mf2: Option<&Mf2>,
+) -> Result<(), (u32, String)> {
+    let e_max = parts_broadening_limit(tables, mf2);
+    for (&mt, t) in tables.iter().filter(|(mt, _)| is_broadened(**mt)) {
+        let points = t.x.iter().zip(&t.y).filter(|(e, _)| **e < e_max);
+        let at_limit = (t.x[0] < e_max).then(|| (e_max, left_limit(t, e_max)));
+        let negative: Vec<(f64, f64)> = points
+            .map(|(e, v)| (*e, *v))
+            .chain(at_limit)
+            .filter(|(_, v)| *v < 0.0)
+            .collect();
+        let (Some(first), Some(last)) = (negative.first(), negative.last()) else {
+            continue;
+        };
+        let lowest = negative.iter().map(|(_, v)| *v).fold(0.0, f64::min);
+        return Err((
+            mt,
+            format!(
+                "MT{mt} is negative at {} points up to the Doppler broadening limit {e_max} eV \
+                 ({:.4e}..{:.4e} eV, down to {lowest:.3e} b); a negative cross section cannot be broadened",
+                negative.len(),
+                first.0,
+                last.0
+            ),
+        ));
+    }
+    Ok(())
+}
+
 /// 上限エネルギーより下から始まる反応を、まとめてドップラー拡がりで広げる。
 fn broaden_parts(
     tables: &mut BTreeMap<u32, Tab1>,
@@ -520,7 +568,7 @@ fn broaden_parts(
     tol: f64,
 ) {
     let candidates = || tables.iter().filter(|(mt, _)| is_broadened(**mt));
-    let e_max = broadening_limit(mf2, candidates().map(|(_, t)| t));
+    let e_max = parts_broadening_limit(tables, mf2);
     let mts: Vec<u32> = candidates()
         .filter(|(_, t)| t.x[0] < e_max)
         .map(|(mt, _)| *mt)
@@ -717,8 +765,81 @@ fn add_resonances(
             };
             tables.insert(mt, combined);
         }
+        if range.kind.is_resolved()
+            && let Some(elastic) = tables.get(&2)
+            && let Some(raised) = raise_negative(elastic, range.el, range.eh)
+        {
+            xlc_log::warn!(
+                "resolved range {}..{} eV: the elastic with the MF3 background is negative at {} of {} points \
+                 (down to {:.3e} b, at {:.4e}..{:.4e} eV) and is raised to 0 (NJOY RECONR raises it to 1e-8 b, ADR-0267)",
+                range.el,
+                range.eh,
+                raised.points,
+                raised.inside,
+                raised.lowest,
+                raised.from,
+                raised.to
+            );
+            tables.insert(2, raised.table);
+        }
     }
     Ok(())
+}
+
+/// `raise_negative` で 0 にした表と、0 にした点のまとめ。
+struct Raised {
+    table: Tab1,
+    /// 負だった点の数
+    points: usize,
+    /// 範囲の中の点の数
+    inside: usize,
+    /// 最も小さかった値 (b)
+    lowest: f64,
+    /// 負だった点のエネルギーの範囲 (eV)
+    from: f64,
+    to: f64,
+}
+
+/// lin-lin の表の [el, eh] の中の負の値を 0 にする（ADR-0267）。負の点がなければ `None`。
+///
+/// 範囲の端の段差では、下端は右、上端は左の値だけが範囲の中にある。区間の中で符号が変わるところには、線形補間の零点を
+/// 加えるので、0 にした表は元の表の線形補間を 0 で切った関数と同じになる。
+fn raise_negative(t: &Tab1, el: f64, eh: f64) -> Option<Raised> {
+    let n = t.x.len();
+    let inside = |k: usize| {
+        let e = t.x[k];
+        (el < e && e < eh)
+            || (e == el && t.x.get(k + 1) != Some(&el))
+            || (e == eh && (k == 0 || t.x[k - 1] != eh))
+    };
+    let negative: Vec<usize> = (0..n).filter(|&k| inside(k) && t.y[k] < 0.0).collect();
+    let (&first, &last) = (negative.first()?, negative.last()?);
+    let lowest = negative.iter().map(|&k| t.y[k]).fold(0.0, f64::min);
+    let (mut x, mut y) = (Vec::with_capacity(n), Vec::with_capacity(n));
+    for k in 0..n {
+        let (e, v) = (t.x[k], t.y[k]);
+        x.push(e);
+        y.push(if inside(k) { v.max(0.0) } else { v });
+        if k + 1 < n && inside(k) && inside(k + 1) {
+            let (e1, v1) = (t.x[k + 1], t.y[k + 1]);
+            if e < e1 && (v < 0.0) != (v1 < 0.0) && v != 0.0 && v1 != 0.0 {
+                let zero = e + (e1 - e) * v / (v - v1);
+                // 丸めで端に重なった零点は足さない（端の値を 0 で切るだけでよい）
+                if e < zero && zero < e1 {
+                    x.push(zero);
+                    y.push(0.0);
+                }
+            }
+        }
+    }
+    Some(Raised {
+        table: Tab1::linear(x, y),
+        points: negative.len(),
+        inside: (0..n).filter(|&k| inside(k)).count(),
+        lowest,
+        from: t.x[first],
+        to: t.x[last],
+    })
 }
 
 /// SLBW の範囲の弾性散乱・核分裂・捕獲の寄与。`background` は MF3 の弾性散乱（lin-lin）。

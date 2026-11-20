@@ -262,7 +262,8 @@ U-235、U-238、Pu-239、Pu-241 と主な核分裂生成物（Xe-135、I-135、S
   Pm-148m）は読める（ADR-0265、下の「版ごとのライブラリの分離共鳴の SLBW」）。核分裂スペクトルが MF5 の LF=12（Madland-Nix）の VII.0 と
   VII.1 の Am-241、Am-243 と、ν が MF1 の LNU=1（多項式）の VII.0 の Np-239 も読める（下の「版ごとのライブラリの Madland-Nix の核分裂
   スペクトルと多項式の ν」）。分離共鳴の R 行列の制限形（LRF=7）で核分裂の粒子対を持つ VIII.1 の Pu-239 も読める（下の「版ごとのライブラリの
-  分離共鳴の R 行列の制限形の核分裂」）。65 核種の全部が核種ごとのステージ（`xs-nuclide`）を最後まで通るかは確かめていない（#0307）
+  分離共鳴の R 行列の制限形の核分裂」）。VIII.1 の Fe-54 の負の分離共鳴の弾性散乱は 0 にする（ADR-0267、下の「版ごとのライブラリの負の
+  分離共鳴の弾性散乱」）。65 核種の全部が核種ごとのステージ（`xs-nuclide`）を最後まで通るかは確かめていない（#0307）
 
 ```sh
 dvc repro examples/depletion/dvc.yaml:compare-depletion-versions   # 3 つの版のライブラリ、4 つの版の燃焼、比較
@@ -425,6 +426,43 @@ MT102: compared 237736, max rel diff 1.00e-3 at 1.434423e3 eV, > 2 tol: 0
 - 既存の形の出力は変わらない: VIII.0 の U-238、Pu-239（Reich-Moore）、Fe-57（LRF=7 の非弾性散乱の粒子対）の `xs nuclide` の出力は、
   分岐点 f6360d71 と同じコードの bin（テストだけを足した c6685ca2 で作った）の出力とバイトで同じ（本番の `xs.toml` の温度を 565 K の
   1 点にした入力を手元の試行に置いた）
+
+## 版ごとのライブラリの負の分離共鳴の弾性散乱
+
+VIII.1 の Fe-54 は、分離共鳴（R 行列、1e-5 eV〜1.036 MeV）の MF3 の弾性散乱のバックグラウンドが負で、共鳴の弾性散乱との和が 3.5 keV
+付近で負になり、ドップラー拡がりの格子が止まらなかった（#0309）。和が負になるところを 0 にした xs（[ADR-0267](../../docs/adr/0267-raise-negative-resolved-elastic-sums.md)）の
+0 K の再構成を、NJOY2016.79 の RECONR（許容誤差 1e-3）の PENDF と比べた。NJOY の入力と出力は references/njoy-runs/Fe54-VIII.1/
+（git で追跡しない。入力は references/njoy-runs/Fe54/ と同じ形で、ENDF だけが VIII.1）。
+
+```sh
+cargo run --release -p xlc-xs --example compare_njoy_pendf -- \
+  references/njoy-runs/Fe54-VIII.1/tape20 references/njoy-runs/Fe54-VIII.1/tape25 2625
+```
+
+### 計算
+
+xlc 20e70134（分岐点 c0e6195f、2026-11-20）。手元で `compare_njoy_pendf` を実行した。`xs nuclide` は同じコミットの `cargo build --release`
+の bin で、ブランチ feat/0303-pin-depletion-by-endf-version の `endfb81/xs.toml` と `endfb81/xs-range.toml` を手元の試行に置いて実行した。
+メモリの上限（`systemd-run --scope -p MemoryMax=8G`）を付け、最大常駐は子の `ru_maxrss` で測った。
+
+### 結果
+
+`compare_njoy_pendf` の出力（先頭に核種と版を付けた）:
+
+```text
+Fe54 VIII.1 MT1: points ours 101316 njoy 48648, compared 48648, max rel diff 9.95e-4 at 1.031258e6 eV, > 2 tol: 0
+Fe54 VIII.1 MT2: points ours 101274 njoy 48648, compared 48648, max rel diff 1.00e0 at 3.492802e3 eV, > 2 tol: 24 (njoy up to 5.14e-5 b, |diff| up to 1.18e-7 b)
+Fe54 VIII.1 MT102: points ours 100308 njoy 48648, compared 48648, max rel diff 1.14e-3 at 1.976994e5 eV, > 2 tol: 0
+```
+
+- 弾性散乱の許容誤差の 2 倍を超える 24 点は、どれも分離共鳴の範囲の中で、NJOY の値が 5.14e-5 b 以下、差の絶対値が 1.18e-7 b 以下の、
+  和が 0 に近い点である。xs は和が負の 74 点（最小 −7.28e-5 b、3491.6〜3516.6 eV。xs の warn）を 0 にし、NJOY は 21 点を 1e-8 b にする
+  （`emerge` の「nonpositive elastic cross sections」）。範囲の外は、どの反応も 2 倍を超える点が無い
+- `xs nuclide`（2 温度）: VIII.1 の Fe-54 は終了コード 0、最大常駐 114 MiB。同じ入力の VIII.1 の Fe-56 は 99 MiB、VIII.0 の Fe-54 は
+  120 MiB（本番の `xs.toml`）。変更の前は、VIII.1 の Fe-54 が Slurm 989 で常駐 77.6 GB に達して止められた。時間は排他のジョブで
+  測っていないので書かない
+- 既存の核種の出力は変わらない: VIII.0 の Fe-54、Fe-56（本番の `xs.toml`）と U-238（同じ入力の温度を 565 K の 1 点にした）の
+  `xs nuclide` の出力は、分岐点 c0e6195f の bin の出力とバイトで同じ
 
 ## 燃焼の多群ライブラリ
 
