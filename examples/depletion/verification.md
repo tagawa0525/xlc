@@ -257,7 +257,7 @@ python3 examples/depletion/read_survey.py --report examples/depletion/read-surve
 
 ### 計算
 
-`xs check` は 638301fd のもの（分岐点 6af59212、2026-11-20。`bin/xs` の正規形は `binary-forms/xs.md5`）で、4 つの版のステージと要約を
+`xs check` は 3616d9a1 のもの（分岐点 6af59212、2026-11-20。`bin/xs` の正規形は `binary-forms/xs.md5`）で、4 つの版のステージと要約を
 このコミットで実行した（要約のツールは 74f25be0 から変わっていない）。報告は `read-survey-<版>.toml`、要約の文章は `read-survey.txt`（`--report` と
 同じ）。1 つの版の全部のファイル（393〜558）は、手元の 8 スレッドで 1 秒に満たない（VII.0 の 393 ファイルで 0.4 秒。手元の計算で、時間は記録の
 測定ではない）。
@@ -315,7 +315,7 @@ cd examples/depletion/read-survey && ../../../bin/xs --threads 1 nuclide nine-VI
 
 MF6 の LAW=6、7 で止まっていた 9 評価（H-2 と Be-9 の 4 つの版、VIII.1 の Li-6）を、温度 1 点（600 K）の入力
 （`issue-0311/light-<版>.toml`。σ0 と散乱の次数は本番の `xs.toml` と同じ）で `xs nuclide` に最後まで通すと、9 つのすべてが終了コード 0 で
-終わった（638301fd、分岐点 6af59212 の `build` の `bin/xs`、手元で 1 スレッド、2026-11-20）。既存の核種の出力が変わらないことは、VIII.0 の
+終わった（3616d9a1、分岐点 6af59212 の `build` の `bin/xs`、手元で 1 スレッド、2026-11-20）。既存の核種の出力が変わらないことは、VIII.0 の
 O-16、Zr-90、U-235 の 600 K の 1 点（`issue-0311/existing-VIII.0.toml`）の出力を、main（6af59212）の `cargo build --release --locked -p xlc-xs` の xs（main の `bin/xs` は #0316 の前のビルドなので作り直した。ブランチの側は `build` の
 ステージの `bin/xs` で、ビルドの経路は違う）の出力とバイトで比べて
 確かめた（md5 は O-16 d915d683、Zr-90 3ab3f9ac、U-235 00ea03f3 で、どれも同じ）。
@@ -511,7 +511,7 @@ E' は lin-lin）と VIII.0（MT16、LAW=7、E' はヒストグラム）。読�
 
 ### 計算
 
-xs は 638301fd（分岐点 6af59212、2026-11-20）の `compare_njoy_gendf`（`cargo build --release -p xlc-xs --example compare_njoy_gendf`）、
+xs は 3616d9a1（分岐点 6af59212、2026-11-20）の `compare_njoy_gendf`（`cargo build --release -p xlc-xs --example compare_njoy_gendf`）、
 NJOY は同じ日の references の devShell。差の原因を確かめる ENDF のコピーと GROUPR を真似るスクリプトは `issue-0311/` にある。どれも手元で数秒。
 
 ```sh
