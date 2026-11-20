@@ -6245,3 +6245,76 @@ stages:
       hash: md5
       md5: 933c1e6d6020987468e3651e7bec6484
       size: 1776
+  process-survey-summary:
+    cmd: python3 process_survey.py summary --json process-survey.json 
+      VII.0=process-survey/VII.0,read-survey-endfb70.toml,endfb70/chain.msgpack 
+      VII.1=process-survey/VII.1,read-survey-endfb71.toml,endfb71/chain.msgpack 
+      VIII.0=process-survey/VIII.0,read-survey-endfb80.toml,chain.msgpack 
+      VIII.1=process-survey/VIII.1,read-survey-endfb81.toml,endfb81/chain.msgpack
+      > process-survey.txt
+    deps:
+    - path: ../../python-ast/examples/depletion/process_survey.py.ast
+      hash: md5
+      md5: bef30e43fe0458d4808149ce1a93c862
+      size: 19505
+    - path: ../../python-ast/examples/depletion/read_survey.py.ast
+      hash: md5
+      md5: cd0025150d19086de08a89a7502f0859
+      size: 5096
+    - path: chain.msgpack
+      hash: md5
+      md5: 1f1de1800363a19f23af2f7b4417c426
+      size: 4613695
+    - path: endfb70/chain.msgpack
+      hash: md5
+      md5: 5c4c81940ae00f9e9cdcd561ac4610a3
+      size: 3650797
+    - path: endfb71/chain.msgpack
+      hash: md5
+      md5: 32ee4517036e5333f7c38a69b34adeed
+      size: 4380622
+    - path: endfb81/chain.msgpack
+      hash: md5
+      md5: 4b08493286f1d7840d777ac2cbfa9877
+      size: 4613905
+    - path: process-survey/VII.0/report.json
+      hash: md5
+      md5: c9ac9cc7c43d6d0c53594d9ae1d9c5b9
+      size: 197146
+    - path: process-survey/VII.1/report.json
+      hash: md5
+      md5: 47017479840b646a61b03e72b248166e
+      size: 210021
+    - path: process-survey/VIII.0/report.json
+      hash: md5
+      md5: fef6d6ba5f80c95bc178521ee388e961
+      size: 274561
+    - path: process-survey/VIII.1/report.json
+      hash: md5
+      md5: 0e8f096660f623055b24556301c5ce8b
+      size: 274617
+    - path: read-survey-endfb70.toml
+      hash: md5
+      md5: d38b4dd07e57807bd699e1b961584167
+      size: 34605
+    - path: read-survey-endfb71.toml
+      hash: md5
+      md5: 4f9ec699b8527b3081f3eaf099e6c3cf
+      size: 37143
+    - path: read-survey-endfb80.toml
+      hash: md5
+      md5: 5b469fe4cc44068c53fc44c2e0cad63c
+      size: 49405
+    - path: read-survey-endfb81.toml
+      hash: md5
+      md5: 48090184d2bf88ae6537112a15869f96
+      size: 49724
+    outs:
+    - path: process-survey.json
+      hash: md5
+      md5: ea3986fe71d254bf7a4cff1f6c33b6e3
+      size: 24808
+    - path: process-survey.txt
+      hash: md5
+      md5: 2df69367bfc44359ee2fad59f1a1e133
+      size: 15691
