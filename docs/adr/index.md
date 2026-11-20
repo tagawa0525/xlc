@@ -260,4 +260,5 @@
 * [ADR-0263: 燃焼チェーンは、負の ELIS を持つ準安定状態を、入力が挙げたときだけ励起エネルギーの分からない準位（0）として受け入れる](0263-list-isomers-with-unknown-excitation.md)
 * [ADR-0264: 本番の核データを ENDF/B-VII.0 にする](0264-use-endf-b-vii-0-for-production.md)
 * [ADR-0265: 分離共鳴の SLBW の弾性散乱が、MF3 のバックグラウンドとの和で負になるところを 0 にする](0265-raise-negative-slbw-elastic-sums-to-zero.md)
+* [ADR-0266: xs check は、ENDF の評価を再構成せずに、xs nuclide が読む MF の読み込みと形式の検査だけで確かめる](0266-check-evaluations-without-reconstruction.md)
 * [ADR-0267: 分離共鳴の弾性散乱が MF3 のバックグラウンドとの和で負になるところは形式によらず 0 にし、ほかの負の 0 K の断面積はエラーにする](0267-raise-negative-resolved-elastic-sums.md)
