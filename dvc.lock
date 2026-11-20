@@ -8738,3 +8738,21 @@ stages:
       hash: md5
       md5: 6d5d9c56df1eaac963bdda66a352c3f0
       size: 7550
+  python-ast@examples/depletion/process_survey.py:
+    cmd: python3 scripts/normalize_python.py 
+      examples/depletion/process_survey.py 
+      python-ast/examples/depletion/process_survey.py.ast
+    deps:
+    - path: examples/depletion/process_survey.py
+      hash: md5
+      md5: 7f8adb0560dc88732e01d0eb0800c08b
+      size: 27124
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/depletion/process_survey.py.ast
+      hash: md5
+      md5: bef30e43fe0458d4808149ce1a93c862
+      size: 19505

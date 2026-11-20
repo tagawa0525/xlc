@@ -62,6 +62,7 @@ stages:
       - examples/depletion/openmc_depletion.py
       - examples/depletion/openmc_depletion_mox.py
       - examples/depletion/p9-timing/p9_timing.py
+      - examples/depletion/process_survey.py
       - examples/depletion/read_survey.py
       - examples/mox/compare_capture.py
       - examples/mox/openmc_model.py
