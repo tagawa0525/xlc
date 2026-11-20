@@ -242,8 +242,8 @@ impl Accumulator {
         other: f64,
         sigma0: &[f64],
     ) -> Result<(), LadderError> {
+        let (b, scales) = (background.sigma, background.scales);
         for (j, &x) in energies.iter().enumerate() {
-            let (b, scales) = (background.sigma, background.scales);
             let mut elastic = b.elastic + potential + self.parts.elastic[j];
             // MF3 の負のバックグラウンドを足したとき、遠い極を漸近形で求めた |1 − U|² の誤差、窓の外の共鳴を落とした分で負になりうる。
             // NJOY PURR（purr.f90 の unrest）と同じく 1 μb にして、参照解の確率テーブルと扱いを揃える（ADR-0177）

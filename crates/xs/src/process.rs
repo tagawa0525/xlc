@@ -267,6 +267,9 @@ pub fn unresolved_shielding(
     let Some((range, urr)) = unresolved else {
         return unneeded();
     };
+    if temperatures.is_empty() {
+        return Ok(Some(Vec::new()));
+    }
     let xs = UnresolvedXs::new(urr)?;
     let law = unresolved_interpolation(urr)?;
     let grid = unresolved_grid(urr, range.el, range.eh);
@@ -296,9 +299,6 @@ pub fn unresolved_shielding(
             }
         })
     };
-    if temperatures.is_empty() {
-        return Ok(Some(Vec::new()));
-    }
     // 正でない温度は、バックグラウンドの検査より先に返す（ラダーの和と同じエラー）
     if let Some(&t) = temperatures.iter().find(|t| t.is_nan() || **t <= 0.0) {
         return Err(UrrError::Temperature(t).into());
