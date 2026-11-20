@@ -278,7 +278,7 @@ fn read_law6(r: &mut Reader<'_>) -> Result<PhaseSpace, Error> {
 
 /// LAW=7 の実験室系の f(μ, E') を、入射エネルギーごとに余弦で積分したエネルギー分布 g(E') = ∫ f(μ, E') dμ にする。
 ///
-/// 余弦の間は、同じ E' での値を余弦の補間則（lin-lin かヒストグラム）で補間する（ENDF-102 の 6.2.10）。g は余弦の
+/// 余弦の間は、同じ E' での値を余弦の補間則（lin-lin かヒストグラム）で補間する（ENDF-102 の 6.2.9）。g は余弦の
 /// 重み w_i と f(μ_i, E') の和で、どの表も E' の lin-lin かヒストグラムなので、全部の表の E' の区切りの間で線形になる。
 /// 区切りでは左と右の値を並べた lin-lin の表にする（ヒストグラムの段は同じ E' の2点になる）。
 fn read_law7(r: &mut Reader<'_>) -> Result<OutgoingDistributions, Error> {
