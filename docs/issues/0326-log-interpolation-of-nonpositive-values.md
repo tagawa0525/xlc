@@ -6,7 +6,7 @@ opened: 2026-11-20
 closed: 2026-11-21
 milestone:
 blocked-by: []
-resolution: コミット aa4a2ae19
+resolution: コミット 8162d56de
 ---
 
 # 対数の補間則が、ln をとる側の正でない値で NaN を黙って返す
@@ -50,7 +50,7 @@ resolution: コミット aa4a2ae19
 
 ## 走査の結果
 
-`survey_log_interpolation`（crates/xs/examples/survey_log_interpolation.rs。xlc 02be59700、2026-11-20）で、4 つの版の中性子と
+`survey_log_interpolation`（crates/xs/examples/survey_log_interpolation.rs。xlc 4ca6de9de、2026-11-20）で、4 つの版の中性子と
 熱中性子散乱のファイルの全部を数えた。レコードは行の形で見つける（例の先頭の注釈）。入れ子の TAB2（MF6 の LAW=7）の部分
 レコードの値と、単位基底の出射エネルギーの範囲の両端は数えていない。この 2 つは、読み込みの走査（下）が `check_incident_domain`
 を通して確かめた。
@@ -66,7 +66,7 @@ resolution: コミット aa4a2ae19
   TAB1 のうち、VII.0 で 1088、VII.1 で 1105、VIII.0 で 4114、VIII.1 で 13994）、負の y と正でない x は無い。S(α, β) は
   `interpolate` を通さず、ln S の表に直して扱う（crates/xs/src/multigroup/sab.rs）
 - 読み込みで新しく止まる評価は無い。読み込みの走査（read-survey のステージ）をこのブランチで流し直し、4 つの版の報告は main と
-  同じだった（xlc e7c82cb18、2026-11-21）
+  同じだった（xlc 50bccf9f9、2026-11-21）
 - 新しく止まりうるのは、非分離共鳴の自己遮蔽の表に負の値ができる評価で、読み込みの走査では数えられない（`xs nuclide` の走査
   （#0292 の process-survey）で数える。このブランチでは流していない）。前はその表の補間が NaN になり、群定数に黙って入っていた。
   負の値のでき方は #0319、Cf-253 は #0320
@@ -75,7 +75,7 @@ resolution: コミット aa4a2ae19
 - 評価の誤りとして読み替える仕組み（ADR-0272 の `corrections`、ADR-0267 の `negative-to-zero`）は、読み込みで止まる評価が
   無いので要らない。計算の途中の表の負の値は評価の値の誤りでないので、これらでは読み替えられない（#0319 が扱う）
 - 既存の核種の出力: VIII.0 の U-235、U-238、Zr-90 の 600 K の 1 点の `xs nuclide` の出力は、main（3d17e4e6a）のビルドと
-  バイトまで同じだった（xlc 937899d6d、2026-11-21）
+  バイトまで同じだった（xlc 50bccf9f9、2026-11-21）
 
 ## 完了の条件
 
