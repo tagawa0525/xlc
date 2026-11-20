@@ -893,8 +893,8 @@ cargo run --release -p xlc-xs --example compare_njoy_gendf -- \
 
 ### 計算
 
-xlc 4a04ac94（分岐点 0f883589、2026-11-21）。手元で `compare_njoy_gendf` を実行した。`xs nuclide` は同じコミットの `cargo build --release` の
-bin（4 スレッド）で、`issue-0312/fission-<版>.toml`
+`compare_njoy_gendf` は xlc e7ce9cd5（分岐点 51245259、2026-11-21。重心系の変換は下の「重心系の分布の実験室系の群への振り分け」）で、手元で実行した。
+`xs nuclide` は 4a04ac94（分岐点 0f883589、2026-11-21）と e7ce9cd5 の `cargo build --release` の bin（どちらも 4 スレッド。終了コードは両方で確かめ、時間は 4a04ac94 のもの）で、`issue-0312/fission-<版>.toml`
 （σ0 と散乱の次数は `read-survey/sample-<版>.toml` と同じ、温度 1 点の 600 K）に `examples/depletion/xs-range.toml` を与えて実行した。
 
 ### 結果
@@ -903,52 +903,113 @@ bin（4 スレッド）で、`issue-0312/fission-<版>.toml`
 
 ```text
 Th232 VII.0 MT452: max rel diff 1.02e-5 in group 1 [3.6790e6, 6.0655e6] eV (ours 2.538395e0, njoy 2.538369e0)
-Th232 VII.0 chi  : max rel diff 3.99e-1 in group 19 (ours 1.565973e-6, njoy 1.119396e-6), sum of |diff| 7.12e-4
+Th232 VII.0 chi  : max rel diff 4.02e-1 in group 19 (ours 1.569848e-6, njoy 1.119396e-6), sum of |diff| 8.19e-4
 Pa231 VII.0 MT452: max rel diff 8.32e-6 in group 1 [3.6790e6, 6.0655e6] eV (ours 2.603868e0, njoy 2.603846e0)
-Pa231 VII.0 chi  : max rel diff 3.35e-1 in group 19 (ours 1.340200e-6, njoy 1.003739e-6), sum of |diff| 7.76e-4
+Pa231 VII.0 chi  : max rel diff 3.89e-1 in group 19 (ours 1.393712e-6, njoy 1.003739e-6), sum of |diff| 9.51e-4
 Pa233 VII.0 MT452: max rel diff 2.20e-5 in group 0 [6.0655e6, 1.0000e7] eV (ours 3.284129e0, njoy 3.284201e0)
-Pa233 VII.0 chi  : max rel diff 3.19e-1 in group 19 (ours 1.357520e-6, njoy 1.029020e-6), sum of |diff| 9.93e-4
+Pa233 VII.0 chi  : max rel diff 3.88e-1 in group 19 (ours 1.428718e-6, njoy 1.029020e-6), sum of |diff| 8.60e-4
 Th232 VII.1 MT452: max rel diff 1.04e-5 in group 1 [3.6790e6, 6.0655e6] eV (ours 2.537533e0, njoy 2.537507e0)
-Th232 VII.1 chi  : max rel diff 3.99e-1 in group 19 (ours 1.568753e-6, njoy 1.121634e-6), sum of |diff| 7.10e-4
+Th232 VII.1 chi  : max rel diff 4.01e-1 in group 19 (ours 1.571316e-6, njoy 1.121634e-6), sum of |diff| 8.20e-4
 Pa231 VII.1 MT452: max rel diff 8.32e-6 in group 1 [3.6790e6, 6.0655e6] eV (ours 2.603868e0, njoy 2.603846e0)
-Pa231 VII.1 chi  : max rel diff 3.35e-1 in group 19 (ours 1.340200e-6, njoy 1.003739e-6), sum of |diff| 7.76e-4
+Pa231 VII.1 chi  : max rel diff 3.89e-1 in group 19 (ours 1.393712e-6, njoy 1.003739e-6), sum of |diff| 9.51e-4
 Pa233 VII.1 MT452: max rel diff 2.20e-5 in group 0 [6.0655e6, 1.0000e7] eV (ours 3.284129e0, njoy 3.284201e0)
-Pa233 VII.1 chi  : max rel diff 3.19e-1 in group 19 (ours 1.357520e-6, njoy 1.029020e-6), sum of |diff| 9.93e-4
+Pa233 VII.1 chi  : max rel diff 3.88e-1 in group 19 (ours 1.428718e-6, njoy 1.029020e-6), sum of |diff| 8.60e-4
 Th232 VIII.0 MT452: max rel diff 1.04e-5 in group 1 [3.6790e6, 6.0655e6] eV (ours 2.537533e0, njoy 2.537507e0)
-Th232 VIII.0 chi  : max rel diff 8.37e-3 in group 20 (ours 3.289930e-6, njoy 3.262621e-6), sum of |diff| 7.08e-4
+Th232 VIII.0 chi  : max rel diff 8.37e-3 in group 20 (ours 3.289933e-6, njoy 3.262621e-6), sum of |diff| 8.18e-4
 Pa231 VIII.0 MT452: max rel diff 8.32e-6 in group 1 [3.6790e6, 6.0655e6] eV (ours 2.603868e0, njoy 2.603846e0)
-Pa231 VIII.0 chi  : max rel diff 3.35e-1 in group 19 (ours 1.340200e-6, njoy 1.003739e-6), sum of |diff| 7.76e-4
+Pa231 VIII.0 chi  : max rel diff 3.89e-1 in group 19 (ours 1.393712e-6, njoy 1.003739e-6), sum of |diff| 9.51e-4
 Pa233 VIII.0 MT452: max rel diff 2.20e-5 in group 0 [6.0655e6, 1.0000e7] eV (ours 3.284129e0, njoy 3.284201e0)
-Pa233 VIII.0 chi  : max rel diff 3.19e-1 in group 19 (ours 1.357520e-6, njoy 1.029020e-6), sum of |diff| 9.93e-4
+Pa233 VIII.0 chi  : max rel diff 3.88e-1 in group 19 (ours 1.428718e-6, njoy 1.029020e-6), sum of |diff| 8.60e-4
 Th232 VIII.1 MT452: max rel diff 1.04e-5 in group 1 [3.6790e6, 6.0655e6] eV (ours 2.537533e0, njoy 2.537507e0)
-Th232 VIII.1 chi  : max rel diff 8.37e-3 in group 20 (ours 3.289930e-6, njoy 3.262621e-6), sum of |diff| 7.08e-4
+Th232 VIII.1 chi  : max rel diff 8.37e-3 in group 20 (ours 3.289933e-6, njoy 3.262621e-6), sum of |diff| 8.18e-4
 Pa231 VIII.1 MT452: max rel diff 8.32e-6 in group 1 [3.6790e6, 6.0655e6] eV (ours 2.603868e0, njoy 2.603846e0)
-Pa231 VIII.1 chi  : max rel diff 3.35e-1 in group 19 (ours 1.340200e-6, njoy 1.003739e-6), sum of |diff| 7.76e-4
+Pa231 VIII.1 chi  : max rel diff 3.89e-1 in group 19 (ours 1.393712e-6, njoy 1.003739e-6), sum of |diff| 9.51e-4
 Pa233 VIII.1 MT452: max rel diff 2.20e-5 in group 0 [6.0655e6, 1.0000e7] eV (ours 3.284129e0, njoy 3.284201e0)
-Pa233 VIII.1 chi  : max rel diff 3.19e-1 in group 19 (ours 1.357520e-6, njoy 1.029020e-6), sum of |diff| 9.93e-4
+Pa233 VIII.1 chi  : max rel diff 3.88e-1 in group 19 (ours 1.428718e-6, njoy 1.029020e-6), sum of |diff| 8.60e-4
 ```
 
 - ν: 群の ν の差は 2.2e-5 以下（MF6 MT18 の変更が触れない量）
-- χ: 差の絶対値の和は 7.1e-4〜9.9e-4 で、MF5 MT18 の評価の比較（上の 2 つの節。`econst` の近似で説明のつく Am-241、Am-243 の 9.1e-4〜1.76e-3 を除いて
-  1.5e-6 以下）より大きい。相対差の最大は χ が 1e-6 の程度の群（367〜907 eV）で 0.3〜0.4、上の群では NJOY が硬い（VIII.0 の Th-232 の群 0〜2（3.68〜10 MeV。
-  出力の群の番号）で NJOY が 0.07〜0.1 % 大きい）。確かめた診断（VIII.0 の Th-232 の MF6 MT18 だけを替えた ENDF を、両方に与えた。references/njoy-runs/mf6-fission/ の
-  `Th232-VIII.0-lab`、`Th232-VIII.0-isotropic`）:
-  - LCT を 1（実験室系）にした ENDF: χ の差の和 1.05e-5、1e-6 以上の群の相対差の最大 2.8e-4（群 20）。分布の読み込み、入射エネルギーの補間、
-    群への振り分けと重みは GROUPR と合い、差は重心系から実験室系への変換にある
-  - Legendre 係数を落とした（NA=0。重心系で等方）ENDF: χ の差の和 6.81e-4。NJOY の χ は元の ENDF と比べて差の和 8.3e-5 だけ動く（xs は
-    MF6 の LAW=1 の角度を使わない。ADR-0082 の M0 の近似）。差の大部分は角度分布でなく、等方のままの変換にある
-- 等方の変換の差の候補（確かめていない）: GROUPR の `cm2lab` は実験室系の分布の格子を、区間の比 1.01 と中点の 1 % の許容（`tol=0.01`）で
-  作る。重心の運動のエネルギー Ec = E/(A+1)² は群の上端の入射 10 MeV で 184 eV なので、変換が群 0 の χ を動かす大きさは、分布を指数関数と
-  みた見積もり（平均 Ec の移動と幅の分散）で相対 1e-4 の程度になる。xs の変換は実験室系の ENDF との比較で群 0 を相対 1.7e-4 動かし、
-  見積もりと同じ桁になる。GROUPR は 1.1e-3 動かす
-- xs の側の候補: `laboratory_group_integrals` は E' の区間を、実験室系の範囲の端が群境界を横切る点で分けない（#0325）。Pa-233 の MF6 MT18 は
-  入射 1e-5 eV で E' = 0〜100 keV を 1 区間の lin-lin で与え、低い群（χ が 1e-6 以下）の値はこの区間の積分で決まる。xs の χ は 27.7 eV より
-  下の群で 0 で、GROUPR は 1.5 eV まで値を持つ。この候補の大きさは確かめていない
+- χ: 差の絶対値の和は 8.2e-4〜9.5e-4 で、MF5 MT18 の評価の比較（上の 2 つの節。`econst` の近似で説明のつく Am-241、Am-243 の 9.1e-4〜1.76e-3 を除いて
+  1.5e-6 以下）より大きい。相対差の最大は χ が 1e-6 の程度の群（367〜907 eV）で 0.4、上の群では NJOY が硬い（VIII.0 の Th-232 の群 0〜2（3.68〜10 MeV。
+  出力の群の番号）で NJOY が 0.07〜0.1 % 大きい）。差は GROUPR の `cm2lab` の格子の許容（`tol=0.01`）による。下の「重心系の分布の実験室系の群への
+  振り分け」の診断で、許容を 1e-4 にした GROUPR では差の和が 3.2e-5〜8.5e-5 になる。残りのうち、xs が使わない Legendre 係数（ADR-0082 の M0 の近似）の
+  分は Th-232 で 5.5e-5
+
 - `xs check` と `xs nuclide`: 12 の評価は `xs check` を通り（上の「中性子のファイルの読み込みの走査」）、`xs nuclide` は 12 のすべてが終了コード 0 で
   終わる（1 つあたり 22〜74 秒。手元の計算で、時間は記録の測定ではない）。warn は、どれも反応の閾値を運動学の閾値に移したもの 1 つだけ（MF3 の閾値の扱い。MF6 MT18 とは別）
 - 既存の形の出力は変わらない: VIII.0 の U-235、Pu-239（MF5 MT18 と、JP=11 の MF6 MT18。平均の分布は MF5 MT18 のまま）、U-238 の
   `xs nuclide` の出力（`issue-0312/existing-VIII.0.toml`）は、main の `bin/xs`（分岐点 0f883589 の `build` の出力）の出力とバイトで同じ
   （md5 は U-235 d279db74、Pu-239 b09b0c8b、U-238 b4974bf3。同じ入力、どちらも 4 スレッド）
+
+## 重心系の分布の実験室系の群への振り分け
+
+MF6 の LAW=1 の重心系の分布（LCT=2、3）を実験室系の群に振り分ける積分（`laboratory_group_integrals`。#0325）は、内側の群境界ごとに、その境界より下に
+出る量を、実験室系の範囲の端が境界を横切る点で分けて積分する（式と導出の要点はコードの注釈）。合成の分布のテスト
+（`centre_of_mass_panel_wider_than_ec_is_split_exactly_into_low_groups`）では、√E' についての細かい中点則と 1e-7 で合う。前の積分（E' の区間を
+16 等分して 4 点の Gauss-Legendre）は、同じテストの最上位の群で 1e-4 違った。
+
+```sh
+# NJOY の cm2lab の許容を 1e-4 にした手元のビルド（examples/depletion/issue-0325/njoy-cm2lab-tol.patch を references/NJOY2016 の src に当て、cmake で njoy_executable）
+cd references/njoy-runs/mf6-fission/Th232-VIII.0-cm2lab-tol1e-4 && <手元のビルド>/njoy < input > log
+# 既存の核種の出力の差（main の bin/xs とブランチの bin を同じ入力で）
+cd examples/depletion/issue-0325 && ../../../bin/xs --threads 4 nuclide existing-VIII.0.toml ../xs-range.toml U-235 <出力>
+python3 examples/depletion/compare_xs_outputs.py <main の出力> <ブランチの出力>
+```
+
+### 計算
+
+xlc e7ce9cd5（分岐点 51245259、2026-11-21）。手元で実行した。NJOY の許容を変えたビルドは、references/NJOY2016（2016.79）の src に
+`issue-0325/njoy-cm2lab-tol.patch` だけを当て、手元で gfortran 13 と cmake でビルドしたもの（パッチなしで同じ手順でビルドした njoy の
+VIII.0 の Th-232 の GENDF は、references の devShell の njoy の GENDF とバイトで同じ）。入力は references/njoy-runs/mf6-fission/<核種>-VIII.0/ と同じで、
+出力は `<核種>-VIII.0-cm2lab-tol1e-4`、`Th232-VIII.0-isotropic-cm2lab-tol1e-4` に置いた（git で追跡しない）。`xs nuclide` は `issue-0325/existing-VIII.0.toml`
+と `issue-0312/fission-VIII.0.toml` の 600 K の 1 点（4 スレッド）を、main（51245259）の `bin/xs` と、このコミットの `cargo build --release` の bin で実行した。
+
+### 結果
+
+`compare_njoy_gendf` の χ（先頭に NJOY の出力の置き場を付けた。`cm2lab-tol1e-4` は許容を 1e-4 にした GROUPR）:
+
+```text
+Th232-VIII.0 chi  : max rel diff 8.37e-3 in group 20 (ours 3.289933e-6, njoy 3.262621e-6), sum of |diff| 8.18e-4
+Th232-VIII.0-cm2lab-tol1e-4 chi  : max rel diff 7.29e-3 in group 20 (ours 3.289933e-6, njoy 3.266133e-6), sum of |diff| 8.53e-5
+Pa231-VIII.0 chi  : max rel diff 3.89e-1 in group 19 (ours 1.393712e-6, njoy 1.003739e-6), sum of |diff| 9.51e-4
+Pa231-VIII.0-cm2lab-tol1e-4 chi  : max rel diff 3.72e-3 in group 18 (ours 2.132935e-6, njoy 2.125040e-6), sum of |diff| 3.16e-5
+Pa233-VIII.0 chi  : max rel diff 3.88e-1 in group 19 (ours 1.428718e-6, njoy 1.029020e-6), sum of |diff| 8.60e-4
+Pa233-VIII.0-cm2lab-tol1e-4 chi  : max rel diff 4.94e-3 in group 18 (ours 2.187261e-6, njoy 2.176503e-6), sum of |diff| 8.26e-5
+Th232-VIII.0-lab chi  : max rel diff 2.78e-4 in group 20 (ours 3.330885e-6, njoy 3.329959e-6), sum of |diff| 1.05e-5
+Th232-VIII.0-isotropic chi  : max rel diff 4.96e-3 in group 12 (ours 1.043841e-3, njoy 1.038692e-3), sum of |diff| 7.92e-4
+Th232-VIII.0-isotropic-cm2lab-tol1e-4 chi  : max rel diff 1.72e-3 in group 19 (ours 1.208761e-5, njoy 1.210843e-5), sum of |diff| 3.08e-5
+```
+
+- GROUPR の許容を 1e-4 にすると、χ の差の和は Th-232 で 8.2e-4 から 8.5e-5、Pa-231 で 9.5e-4 から 3.2e-5、Pa-233 で 8.6e-4 から 8.3e-5 になる。
+  差は GROUPR の `cm2lab` の格子の許容（実験室系の分布を、区間の比 1.01 と中点の 1 % で線形化する）による。xs の変換は、VIII.0 の Th-232 で
+  LCT を 1 にした ENDF と比べて群 0 の χ を相対 1.70e-4 動かし、許容 1e-4 の GROUPR は 6.5e-5（Legendre 係数を含む）、元の GROUPR は 1.10e-3 動かす。
+  分布を指数関数とみた見積もり（平均 Ec の移動と幅の分散）は相対 1e-4 の程度
+- Legendre 係数を落とした（重心系で等方の）ENDF では、許容 1e-4 の GROUPR との差の和が 3.08e-5 になる。元の ENDF の 8.53e-5 との差の 5.5e-5 は、
+  xs が使わない Legendre 係数（ADR-0082）の分。残りの 3e-5 は、許容 1e-4 の格子の線形化と、GROUPR の入射エネルギーの間の補間が候補（確かめていない）
+- 近似の差なので、xs は GROUPR を真似ず、warn も出さない（GROUPR の誤りではない）
+- 既存の核種の出力（`compare_xs_outputs.py`。散乱行列は差の絶対値を main の P0 の行の和で割った値の最大と、その入射と出射の群）:
+
+  | 核種   | 散乱行列（P0）                   | χ                                    |
+  | ------ | -------------------------------- | ------------------------------------ |
+  | U-235  | 1.01e-5（群 2 → 6）              | 変わらない                           |
+  | U-238  | 1.64e-6（群 0 → 4）              | 変わらない                           |
+  | Pu-239 | 1.83e-7（群 1 → 7）              | 変わらない                           |
+  | Zr-90  | 3.72e-7（群 1 → 13）             | なし                                 |
+  | O-16   | 4.21e-11（群 0 → 11）            | なし                                 |
+  | Fe-56  | 1.17e-7（群 0 → 6）              | なし                                 |
+  | H-1    | 変わらない（出力のバイトも同じ） | なし                                 |
+  | Th-232 | 4.74e-6（群 1 → 4）              | 差の最大 1.16e-4（群 3）、和 2.91e-4 |
+  | Pa-231 | 5.66e-6（群 2 → 4）              | 差の最大 1.97e-4（群 4）、和 5.26e-4 |
+  | Pa-233 | 8.86e-6（群 1 → 4）              | 差の最大 5.97e-5（群 4）、和 1.55e-4 |
+
+  P1 以上と自己遮蔽した群定数は、どの核種でも変わらない（MF6 の連続的な放出の P1 以上は 0。ADR-0082）。U-235、U-238、Pu-239 の χ は MF5 MT18 から
+  作るので変わらない。H-1 は MF6 に中性子の分布を持たない（MT102 の光子だけ）
+- 本番の結果への影響の見積もり（確かめていない）: 散乱行列の変わる量は行の和の 1e-5 以下で、χ が変わるのは MF6 MT18 の 3 核種（燃焼の
+  チェーンで微量の核種）だけなので、格子計算の k への効きは 1 pcm に満たない程度と見込む
+- 時間: `perf stat` の `cycles:u`（手元の計算で、ほかのジョブと重なった時間があり、時間は記録の測定ではない）は、main に対してブランチが
+  U-235 0.75 倍、U-238 0.96 倍、Pu-239 1.11 倍、Zr-90 0.88 倍、O-16 1.06 倍、Fe-56 1.22 倍、H-1 1.01 倍、Th-232 0.93 倍、Pa-231 0.87 倍、Pa-233 1.00 倍で、
+  変わらない側の H-1 と同じく、ばらつきの幅に収まる。区間を折れ目ごとに分けて求積した途中の形（#0325 の「検討して捨てた形」）は、U-238 で
+  main の 1.5 倍の時間（経過時間、手元）がかかった
 
 ## 版ごとのライブラリの分離共鳴の R 行列の制限形の核分裂
 
