@@ -315,3 +315,49 @@ fn general_evaporation_shape_must_start_with_mass_at_zero() {
         );
     }
 }
+
+/// 入射エネルギー `e0` と 2e7 eV の 2 つの出射分布（lin-lin）を、入射エネルギーの間を補間則 `code` で結ぶ MF5。
+/// 最初の分布の密度は 1 MeV で `density`。
+fn incident_law_mf5(code: &str, e0: &str, density: &str) -> String {
+    let r = |f: [&str; 6]| rec(f, 1, 5, 18);
+    [
+        r(["9.223500+4", "2.330248+2", "0", "0", "1", "0"]),
+        r(["0.0", "0.0", "0", "1", "1", "2"]),
+        r(["2", "2", "", "", "", ""]),
+        r(["1.0-5", "1.0", "2.0+7", "1.0", "", ""]),
+        r(["0.0", "0.0", "0", "0", "1", "2"]),
+        r(["2", code, "", "", "", ""]),
+        r(["0.0", e0, "0", "0", "1", "3"]),
+        r(["3", "2", "", "", "", ""]),
+        r(["0.0", "1.0-6", "1.0+6", density, "2.0+6", "0.0"]),
+        r(["0.0", "2.0+7", "0", "0", "1", "2"]),
+        r(["2", "2", "", "", "", ""]),
+        r(["0.0", "1.0-6", "1.0+6", "0.0", "", ""]),
+    ]
+    .concat()
+}
+
+#[test]
+fn log_incident_laws_need_their_domain() {
+    let parse = |text: String| {
+        let tape = Tape::parse(&text).unwrap();
+        Mf5::parse(&tape.section(1, 5, 18).unwrap()).map(|_| ())
+    };
+    // ln y をとる入射エネルギーの補間則で、出射分布に負の密度がある
+    let message = parse(incident_law_mf5("4", "1.0-5", "-1.0-7"))
+        .unwrap_err()
+        .to_string();
+    assert!(message.contains("LogLin"), "{message}");
+    assert!(
+        message.contains("-0.0000001") || message.contains("-1e-7"),
+        "{message}"
+    );
+    // ln x をとる入射エネルギーの補間則で、入射エネルギーが 0
+    let message = parse(incident_law_mf5("3", "0.0", "1.0-7"))
+        .unwrap_err()
+        .to_string();
+    assert!(message.contains("LinLog"), "{message}");
+    // lin-lin なら負の密度も補間できる
+    assert!(parse(incident_law_mf5("2", "0.0", "-1.0-7")).is_ok());
+    assert!(parse(incident_law_mf5("4", "1.0-5", "1.0-7")).is_ok());
+}

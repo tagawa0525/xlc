@@ -248,3 +248,34 @@ fn mixed_parts_must_meet() {
     let text = head("3", "0", "2") + &legendre_part() + &tabulated;
     assert!(parse(&text).is_err());
 }
+
+#[test]
+fn log_x_energy_laws_need_positive_incident_energies() {
+    // 入射エネルギーの間の lin-log（INT=3）で、最初の入射エネルギーが 0
+    let legendre = head("1", "0", "2")
+        + &[
+            r(["0.0", "0.0", "0", "0", "1", "2"]),
+            r(["2", "3", "", "", "", ""]),
+            r(["0.0", "0.0", "0", "0", "1", "0"]),
+            r(["0.1", "", "", "", "", ""]),
+            r(["0.0", "2.0e5", "0", "0", "1", "0"]),
+            r(["0.3", "", "", "", "", ""]),
+        ]
+        .concat();
+    let message = parse(&legendre).unwrap_err().to_string();
+    assert!(message.contains("LinLog"), "{message}");
+    let tables = head("2", "0", "2")
+        + &[
+            r(["0.0", "0.0", "0", "0", "1", "2"]),
+            r(["2", "3", "", "", "", ""]),
+            r(["0.0", "0.0", "0", "0", "1", "2"]),
+            r(["2", "2", "", "", "", ""]),
+            r(["-1.0", "0.5", "1.0", "0.5", "", ""]),
+            r(["0.0", "4.0e5", "0", "0", "1", "2"]),
+            r(["2", "2", "", "", "", ""]),
+            r(["-1.0", "0.5", "1.0", "0.5", "", ""]),
+        ]
+        .concat();
+    let message = parse(&tables).unwrap_err().to_string();
+    assert!(message.contains("LinLog"), "{message}");
+}
