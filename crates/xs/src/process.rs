@@ -129,8 +129,8 @@ pub enum ProcessError {
     #[error("more than one unresolved range")]
     MultipleUnresolved,
     #[error(
-        "the MF3 background of MT{mt} in the unresolved range [{el}, {eh}] eV is negative (down to {value} b at \
-         {energy} eV): added to every sampled ladder, it makes the {reaction} negative between resonances. \
+        "the MF3 background of MT{mt} at the unresolved grid energies in [{el}, {eh}] eV is negative (down to {value} b \
+         at {energy} eV): added to every sampled ladder, it makes the {reaction} negative between resonances. \
          Declare `unresolved-negative-background = \"scale\"` for the nuclide to scale the sampled File 2 part \
          of that reaction by (mean + background)/mean instead (ADR-0274)"
     )]
@@ -296,18 +296,18 @@ pub fn unresolved_shielding(
             }
         })
     };
-    // 範囲 [el, eh] の中の最も小さい値と、そのエネルギー。線形化した表なので、範囲の中の表の点と両端の値で決まる
+    if temperatures.is_empty() {
+        return Ok(Some(Vec::new()));
+    }
+    // 正でない温度は、バックグラウンドの検査より先に返す（ラダーの和と同じエラー）
+    if let Some(&t) = temperatures.iter().find(|t| t.is_nan() || **t <= 0.0) {
+        return Err(UrrError::Temperature(t).into());
+    }
+    // ラダーの和に足すのは格子点のバックグラウンドなので、格子点の値で決める。格子の上の最も小さい値と、そのエネルギー
     let minimum = |t: &Option<Tab1>| {
-        t.as_ref().map(|table| {
-            let inside = table
-                .x
-                .iter()
-                .copied()
-                .filter(|&x| range.el < x && x < range.eh);
-            [range.el, range.eh]
-                .into_iter()
-                .chain(inside)
-                .map(|e| (at(t, e), e))
+        t.as_ref().map(|_| {
+            grid.iter()
+                .map(|&e| (at(t, e), e))
                 .fold(
                     (f64::INFINITY, range.el),
                     |a, b| if b.0 < a.0 { b } else { a },
@@ -316,15 +316,16 @@ pub fn unresolved_shielding(
     };
     // 共鳴の部分の捕獲と核分裂は負にならないので、それらのバックグラウンドが負なら、各サンプルに足すと共鳴の間の点が
     // 負になりうる。負になるかは温度とラダーに依るので、サンプルでなくバックグラウンドの値で決める（ADR-0274）
-    let negative = [(18, "fission", &fission), (102, "capture", &capture)]
+    let negatives: Vec<_> = [(18, "fission", &fission), (102, "capture", &capture)]
         .into_iter()
-        .find_map(|(mt, reaction, t)| {
+        .filter_map(|(mt, reaction, t)| {
             minimum(t)
                 .filter(|&(value, _)| value < 0.0)
                 .map(|(value, energy)| (mt, reaction, value, energy))
-        });
-    let scaled = match (method, negative) {
-        (UnresolvedMethod::Additive, Some((mt, reaction, value, energy))) => {
+        })
+        .collect();
+    let scaled = match (method, negatives.first()) {
+        (UnresolvedMethod::Additive, Some(&(mt, reaction, value, energy))) => {
             return Err(ProcessError::NegativeUnresolvedBackground {
                 mt,
                 reaction,
@@ -335,11 +336,16 @@ pub fn unresolved_shielding(
             });
         }
         (UnresolvedMethod::Additive, None) => false,
-        (UnresolvedMethod::ScaleNegative, Some((mt, _, value, energy))) => {
+        (UnresolvedMethod::ScaleNegative, Some(_)) => {
+            let found: Vec<String> = negatives
+                .iter()
+                .map(|(mt, _, value, energy)| format!("MT{mt} down to {value} b at {energy} eV"))
+                .collect();
             xlc_log::warn!(
-                "the MF3 background of MT{mt} in the unresolved range is negative (down to {value} b at {energy} eV); \
-                 the sampled File 2 part of each reaction with a negative background is scaled by \
-                 (mean + background)/mean instead, as the input declares (ADR-0274)"
+                "the MF3 background in the unresolved range is negative ({}); the sampled File 2 part of each \
+                 reaction with a negative background is scaled by (mean + background)/mean instead, as the input \
+                 declares (ADR-0274)",
+                found.join(", ")
             );
             true
         }
@@ -398,9 +404,6 @@ pub fn unresolved_shielding(
             })
         })
         .collect::<Result<Vec<_>, ProcessError>>()?;
-    if temperatures.is_empty() {
-        return Ok(Some(Vec::new()));
-    }
 
     // 格子点ごとに独立なので並列に求める。種は格子点の番号（温度と σ0 によらず同じラダーを使い、温度の間の相関を保つ。
     // スレッドの数によらない。ADR-0177）。エラーでも止めず、下で温度ごとに作ったときと同じエラーを選ぶ
