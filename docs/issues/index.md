@@ -306,3 +306,4 @@
 * [非分離共鳴の LRF=1、LFW=1 の断面積を、xs は lin-lin、NJOY RECONR は log-log で補間し、差を warn も記録もしていない](0306-warn-unresolved-lrf1-interpolation.md)
 * [xs が MF5 の LF=12（Madland-Nix）と MF1 の LNU=1（多項式の ν）を読めず、ENDF/B-VII.0 と VII.1 の燃焼のライブラリを作れない](0307-read-vii-madland-nix-and-polynomial-nubar.md)
 * [R 行列の制限形（LRF=7）の核分裂の粒子対（MT=18）を読めない](0308-lrf7-fission-pair.md)
+* [R 行列の制限形（LRF=7）のシフト因子とバックグラウンドの R 行列を読めない（ENDF/B-VIII.1 の Cu-63、Sr-88）](0310-lrf7-shift-factor-and-background.md)
