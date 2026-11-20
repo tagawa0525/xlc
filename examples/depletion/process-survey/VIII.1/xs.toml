@@ -96,7 +96,7 @@ Co-58m = { endf = "n-027_Co_058m1.endf", temperatures = [565] }
 Co-59 = { endf = "n-027_Co_059.endf", temperatures = [565] }
 Ni-58 = { endf = "n-028_Ni_058.endf", temperatures = [565] }
 Ni-59 = { endf = "n-028_Ni_059.endf", temperatures = [565] }
-Ni-60 = { endf = "n-028_Ni_060.endf", temperatures = [565] }
+Ni-60 = { endf = "n-028_Ni_060.endf", temperatures = [565], negative-to-zero = [{ mt = 2, from = 800000.0, to = 800000.0 }] }
 Ni-61 = { endf = "n-028_Ni_061.endf", temperatures = [565] }
 Ni-62 = { endf = "n-028_Ni_062.endf", temperatures = [565] }
 Ni-63 = { endf = "n-028_Ni_063.endf", temperatures = [565] }

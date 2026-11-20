@@ -2,6 +2,13 @@
 [nuclide]
 # MF5 MT17 の最初の分布の TAB1 の区切り（1194 行の最初の欄）は NBT = 1 で NP = 3 に足りない（#0316、ADR-0272）
 Rb-87 = { corrections = [{ line = 1194, mf = 5, mt = 17, field = 1, from = 1, to = 3 }] }
+# 0 K の再構成の後に残る負の値（#0309、ADR-0267。根拠は ../../read-survey/sample-VII.0.toml の注釈）
+# MF3 の弾性散乱の最初の 2 点（1e-5〜1.226e-5 eV）が負（最小 −2218 b）
+Cl-35 = { negative-to-zero = [{ mt = 2, from = 1.0e-5, to = 1.5e-5 }] }
+# 捕獲のバックグラウンドと 9 eV の共鳴の和が 8.49〜9.54 eV で負（最小 −3742 b）
+Co-58 = { negative-to-zero = [{ mt = 102, from = 8.0, to = 10.0 }] }
+# MT91 が 1.7〜4.07 MeV で負（最小 −0.257 b）。0 にした分を弾性散乱から引く
+Y-89 = { negative-to-zero = [{ mt = 91, from = 1.5e6, to = 4.2e6, take-from = 2 }] }
 # 非分離共鳴（LSSF=0）の範囲の MF3 の捕獲（Cf-252 は核分裂）のバックグラウンドが負（#0319、#0320、ADR-0274。範囲の中の最小）
 Na-22 = { unresolved-negative-background = "scale" }   # MT102 −0.0396 b
 Ar-36 = { unresolved-negative-background = "scale" }   # MT102 −0.0005 b

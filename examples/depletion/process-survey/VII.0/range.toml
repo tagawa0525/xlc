@@ -37,7 +37,7 @@ S-32 = { endf = "n-016_S_032.endf", temperatures = [565] }
 S-33 = { endf = "n-016_S_033.endf", temperatures = [565] }
 S-34 = { endf = "n-016_S_034.endf", temperatures = [565] }
 S-36 = { endf = "n-016_S_036.endf", temperatures = [565] }
-Cl-35 = { endf = "n-017_Cl_035.endf", temperatures = [565] }
+Cl-35 = { endf = "n-017_Cl_035.endf", temperatures = [565], negative-to-zero = [{ mt = 2, from = 1e-05, to = 1.5e-05 }] }
 Cl-37 = { endf = "n-017_Cl_037.endf", temperatures = [565] }
 Ar-36 = { endf = "n-018_Ar_036.endf", temperatures = [565], unresolved-negative-background = "scale" }
 Ar-38 = { endf = "n-018_Ar_038.endf", temperatures = [565] }
@@ -67,7 +67,7 @@ Fe-54 = { endf = "n-026_Fe_054.endf", temperatures = [565] }
 Fe-56 = { endf = "n-026_Fe_056.endf", temperatures = [565] }
 Fe-57 = { endf = "n-026_Fe_057.endf", temperatures = [565] }
 Fe-58 = { endf = "n-026_Fe_058.endf", temperatures = [565] }
-Co-58 = { endf = "n-027_Co_058.endf", temperatures = [565] }
+Co-58 = { endf = "n-027_Co_058.endf", temperatures = [565], negative-to-zero = [{ mt = 102, from = 8.0, to = 10.0 }] }
 Co-58m = { endf = "n-027_Co_058m1.endf", temperatures = [565] }
 Co-59 = { endf = "n-027_Co_059.endf", temperatures = [565] }
 Ni-58 = { endf = "n-028_Ni_058.endf", temperatures = [565] }
@@ -112,7 +112,7 @@ Sr-87 = { endf = "n-038_Sr_087.endf", temperatures = [565] }
 Sr-88 = { endf = "n-038_Sr_088.endf", temperatures = [565] }
 Sr-89 = { endf = "n-038_Sr_089.endf", temperatures = [565] }
 Sr-90 = { endf = "n-038_Sr_090.endf", temperatures = [565] }
-Y-89 = { endf = "n-039_Y_089.endf", temperatures = [565] }
+Y-89 = { endf = "n-039_Y_089.endf", temperatures = [565], negative-to-zero = [{ mt = 91, from = 1500000.0, to = 4200000.0, take-from = 2 }] }
 Y-90 = { endf = "n-039_Y_090.endf", temperatures = [565] }
 Y-91 = { endf = "n-039_Y_091.endf", temperatures = [565] }
 Zr-90 = { endf = "n-040_Zr_090.endf", temperatures = [565] }
