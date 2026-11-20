@@ -257,7 +257,7 @@ python3 examples/depletion/read_survey.py --report examples/depletion/read-surve
 
 ### 計算
 
-`xs check` は 5cc1d11d のもの（分岐点 8e2b6c91、2026-11-20。`bin/xs` の正規形は `binary-forms/xs.md5`）で、4 つの版のステージと要約を
+`xs check` は 491465f0 のもの（分岐点 8e2b6c91、2026-11-20。`bin/xs` の正規形は `binary-forms/xs.md5`）で、4 つの版のステージと要約を
 このコミットで実行した（要約のツールは 74f25be0 から変わっていない）。報告は `read-survey-<版>.toml`、要約の文章は `read-survey.txt`（`--report` と
 同じ）。1 つの版の全部のファイル（393〜558）は、手元の 8 スレッドで 1 秒に満たない（VII.0 の 393 ファイルで 0.4 秒。手元の計算で、時間は記録の
 測定ではない）。
@@ -1022,7 +1022,7 @@ cargo run --release -p xlc-xs --example compare_njoy_pendf -- \
 
 ### 計算
 
-xlc 5cc1d11d（分岐点 8e2b6c91、2026-11-20）。手元で 2 つの比べるツールを実行した。`xs nuclide` は同じコミットの
+xlc 491465f0（分岐点 8e2b6c91、2026-11-20）。手元で 2 つの比べるツールを実行した。`xs nuclide` は同じコミットの
 `cargo build --release` の bin で、600 K の 1 点の入力（`sigma0` と `scattering-order` は examples/depletion/read-survey/sample-VIII.1.toml と同じ）を
 手元の試行に置き、1 スレッドずつ 8 並列で実行した（時間は手元の計算で、記録の測定ではない）。
 
