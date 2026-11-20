@@ -683,18 +683,46 @@ fn capture_states_without_the_ground_state_leave_the_remainder_to_it() {
 }
 
 #[test]
-fn listed_states_beyond_the_reaction_are_an_error() {
-    // 挙げた状態の多重度の和が 1 を超えると、基底状態への残りが負になる
+fn listed_states_beyond_the_reaction_are_scaled_down_to_it() {
+    // 多重度の和が 1.2 の評価は、状態の比を保って反応（MF3）に合わせる
+    let settings = reaction_settings();
+    let tape = reaction_tape(&[(0, "0.0", "0.9"), (2, "5.0+4", "0.3")]);
+    let data = process_nuclide(&tape, "X", &[293.6], None, &settings).unwrap();
+    let capture = &data.temperatures[0].reactions[0];
+    let tables = crate::pointwise::reconstruct_at(&tape, 1, 1.0e-3, 293.6).unwrap();
+    let averages =
+        crate::multigroup::reaction_averages(&settings.groups, &settings.weight, &tables, None);
+    for (channel, share) in capture.channels.iter().zip([0.75, 0.25]) {
+        for (g, &v) in channel.cross_section.iter().enumerate() {
+            let expected = share * averages.sigma[&102][g];
+            assert!(
+                (v - expected).abs() <= 1e-12 * expected,
+                "group {g}: {v} vs {expected}"
+            );
+        }
+    }
+}
+
+#[test]
+fn excited_states_beyond_the_reaction_leave_no_remainder() {
+    // 励起状態だけで反応を超えると、状態が反応のすべてを持ち、基底状態への残りは 0
+    let settings = reaction_settings();
     let tape = reaction_tape(&[(2, "5.0+4", "1.2")]);
-    let error = process_nuclide(&tape, "X", &[293.6], None, &reaction_settings()).unwrap_err();
-    assert!(
-        matches!(
-            error,
-            ProcessError::Temperature { ref source, .. }
-                if matches!(**source, ProcessError::NegativeRemainder { mt: 102, .. })
-        ),
-        "{error:?}"
-    );
+    let data = process_nuclide(&tape, "X", &[293.6], None, &settings).unwrap();
+    let capture = &data.temperatures[0].reactions[0];
+    let (state, rest) = (&capture.channels[0], &capture.channels[1]);
+    let tables = crate::pointwise::reconstruct_at(&tape, 1, 1.0e-3, 293.6).unwrap();
+    let averages =
+        crate::multigroup::reaction_averages(&settings.groups, &settings.weight, &tables, None);
+    for g in 0..settings.groups.len() {
+        let expected = averages.sigma[&102][g];
+        assert!(
+            (state.cross_section[g] - expected).abs() <= 1e-12 * expected,
+            "group {g}: {} vs {expected}",
+            state.cross_section[g]
+        );
+        assert_eq!(rest.cross_section[g], 0.0, "group {g}");
+    }
 }
 
 #[test]
@@ -717,6 +745,11 @@ fn multiplicities_count_only_where_the_mf9_table_is_given() {
 /// 全 11 b、弾性散乱 10 b、捕獲 1 b と、1.1 MeV から 0.3 b の (n,p)（MT103）に、励起状態 1 つ（LFS 1）の MF10 の生成断面積
 /// 0.05 b をエネルギー `start` (eV) から足したテープ
 fn reaction_tape_with_mf10(start: &str) -> Tape {
+    reaction_tape_with_production([start, "2.0+7"], ["0.05", "0.05"])
+}
+
+/// `reaction_tape_with_mf10` の、MF10 の生成断面積を 2 点 (`x`, `y`) の lin-lin の表にしたもの
+fn reaction_tape_with_production(x: [&str; 2], y: [&str; 2]) -> Tape {
     use crate::endf::rec;
     let mut text = String::new();
     let section = |mf: u32, mt: u32, q: &str, x: [&str; 2], y: [&str; 2]| {
@@ -746,7 +779,7 @@ fn reaction_tape_with_mf10(start: &str) -> Tape {
                 rec(["9.223800+4", "2.360060+2", "0", "0", "1", "0"], 1, 10, 103),
                 rec(["-1.0+6", "-1.1+6", "91238", "1", "1", "2"], 1, 10, 103),
                 rec(["2", "2", "", "", "", ""], 1, 10, 103),
-                rec([start, "0.05", "2.0+7", "0.05", "", ""], 1, 10, 103),
+                rec([x[0], y[0], x[1], y[1], "", ""], 1, 10, 103),
                 rec(["", "", "", "", "", ""], 1, 10, 0),
             ]
             .concat(),
@@ -783,6 +816,126 @@ fn production_cross_sections_start_where_the_reaction_does() {
         .position(|&b| b < 5.0e5)
         .unwrap();
     assert_eq!(state.cross_section[below], 0.0);
+}
+
+/// 経路の和が反応を超える所の警告を、`chain_reactions` を呼んだスレッドで集める。`(mt, 最大の相対の超過)` の並び
+fn excess_warnings(tape: &Tape, settings: &Settings) -> Vec<(u64, f64)> {
+    use std::sync::{Arc, Mutex};
+    use tracing::field::{Field, Visit};
+    use tracing_subscriber::Registry;
+    use tracing_subscriber::layer::{Context, Layer, SubscriberExt};
+
+    type Seen = Arc<Mutex<Vec<(u64, f64)>>>;
+    #[derive(Default)]
+    struct Fields {
+        mt: Option<u64>,
+        excess: Option<f64>,
+    }
+    impl Visit for Fields {
+        fn record_u64(&mut self, field: &Field, value: u64) {
+            if field.name() == "mt" {
+                self.mt = Some(value);
+            }
+        }
+        fn record_f64(&mut self, field: &Field, value: f64) {
+            if field.name() == "excess" {
+                self.excess = Some(value);
+            }
+        }
+        fn record_debug(&mut self, _: &Field, _: &dyn std::fmt::Debug) {}
+    }
+    struct Record(Seen);
+    impl<S: tracing::Subscriber> Layer<S> for Record {
+        fn on_event(&self, event: &tracing::Event<'_>, _: Context<'_, S>) {
+            if *event.metadata().level() != tracing::Level::WARN {
+                return;
+            }
+            let mut fields = Fields::default();
+            event.record(&mut fields);
+            if let (Some(mt), Some(excess)) = (fields.mt, fields.excess) {
+                self.0.lock().unwrap().push((mt, excess));
+            }
+        }
+    }
+    let seen = Seen::default();
+    let subscriber = Registry::default().with(Record(seen.clone()));
+    let tables = crate::pointwise::ColdParts::read(tape, 1, settings.tolerance)
+        .unwrap()
+        .at(293.6);
+    tracing::subscriber::with_default(subscriber, || {
+        chain_reactions(
+            tape,
+            1,
+            &settings.groups,
+            &settings.weight,
+            &tables,
+            settings.tolerance,
+        )
+        .unwrap();
+    });
+    seen.lock().unwrap().clone()
+}
+
+#[test]
+fn production_beyond_the_reaction_is_scaled_down_where_it_exceeds() {
+    // 生成断面積は 1.1 MeV の 0 から 20 MeV の 0.76 b まで線形で、8.56 MeV より上で反応（0.3 b）を超える。最も高い群
+    // （6.0655〜10 MeV）の生成断面積の平均は反応より小さいので、群の平均で比べて縮めると縮まらない。点ごとに min(生成, 反応)
+    let settings = reaction_settings();
+    let tape = reaction_tape_with_production(["1.1+6", "2.0+7"], ["0.0", "0.76"]);
+    let data = process_nuclide(&tape, "X", &[293.6], None, &settings).unwrap();
+    let np = &data.temperatures[0].reactions[1];
+    assert_eq!(np.mt, 103);
+    let (state, rest) = (&np.channels[0], &np.channels[1]);
+    let production = |e: f64| 0.76 * (e - 1.1e6) / (2.0e7 - 1.1e6);
+    let integrate = |f: &dyn Fn(f64) -> f64| {
+        crate::multigroup::group_integrals(&settings.groups, &settings.weight, &[], f)[0]
+    };
+    let expected = integrate(&|e| production(e).clamp(0.0, 0.3)) / integrate(&|_| 1.0);
+    assert!(
+        (state.cross_section[0] - expected).abs() <= 1e-3 * expected,
+        "{} vs {expected}",
+        state.cross_section[0]
+    );
+    let total = state.cross_section[0] + rest.cross_section[0];
+    assert!(state.cross_section[0] <= total);
+    // 超過は MT103 の 1 つの警告で、最大は群の上端 10 MeV の (生成 − 0.3)/0.3（20 MeV の超過は群に入らない）
+    let warnings = excess_warnings(&tape, &settings);
+    let [(103, excess)] = warnings[..] else {
+        panic!("{warnings:?}")
+    };
+    let expected = (production(1.0e7) - 0.3) / 0.3;
+    assert!(
+        (excess - expected).abs() <= 1e-3 * expected,
+        "{excess} vs {expected}"
+    );
+}
+
+#[test]
+fn excess_within_the_tolerance_is_scaled_without_a_warning() {
+    // 多重度の和 1 + 5e-4 は、表の線形化の許容誤差 1e-3 の内なので警告しない
+    let settings = reaction_settings();
+    let tape = reaction_tape(&[(0, "0.0", "0.9"), (2, "5.0+4", "0.1005")]);
+    assert_eq!(excess_warnings(&tape, &settings), vec![]);
+    let data = process_nuclide(&tape, "X", &[293.6], None, &settings).unwrap();
+    let capture = &data.temperatures[0].reactions[0];
+    let tables = crate::pointwise::reconstruct_at(&tape, 1, 1.0e-3, 293.6).unwrap();
+    let averages =
+        crate::multigroup::reaction_averages(&settings.groups, &settings.weight, &tables, None);
+    for g in 0..settings.groups.len() {
+        let reaction = averages.sigma[&102][g];
+        let ground = capture.channels[0].cross_section[g];
+        assert!(
+            (ground - 0.9 / 1.0005 * reaction).abs() <= 1e-12 * reaction,
+            "group {g}: {ground} vs {reaction}"
+        );
+    }
+    // 1.2 は許容誤差を超えるので警告する
+    let tape = reaction_tape(&[(0, "0.0", "0.9"), (2, "5.0+4", "0.3")]);
+    let warnings = excess_warnings(&tape, &settings);
+    let [(102, excess)] = warnings[..] else {
+        panic!("{warnings:?}")
+    };
+    assert!((excess - 0.2).abs() <= 1e-9, "{excess}");
 }
 
 /// MF1 の ν(E) の節（一定値 `nu`）。MT455 には、2 族の崩壊定数の LIST を先に書く（`ldg` は MT455 の LDG）。
