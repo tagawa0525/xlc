@@ -234,7 +234,14 @@ class AllSeries(unittest.TestCase):
             "[nuclide]\n"
             'U-235 = { endf = "u", temperatures = [565] }\n'
             'A = { endf = "a", temperatures = [565] }\n'
+            'H-1 = { endf = "h", temperatures = [550, 600] }\n'
             'Th-232 = { endf = "t", temperatures = [565], activation = true }\n'
+        )
+        # 燃焼の入力: 燃焼させる物質 fuel の温度（被覆管の温度は燃焼の領域でないので数えない）
+        (root / "all" / "u" / "nominal.toml").write_text(
+            "[material.fuel]\ntemperature = 565\n"
+            "[material.zircaloy]\ntemperature = 600\n"
+            '[depletion]\nmaterials = ["fuel"]\n'
         )
         (root / "all" / "u" / "nominal.msgpack").write_bytes(
             msgpack.packb({"transportable": transported})
@@ -268,6 +275,17 @@ class AllSeries(unittest.TestCase):
             self.write_series(root, [])
             self.assertEqual(
                 ufg_subset.library_transported(root / "all" / "library" / "xs.toml"),
+                ["U-235", "A", "H-1"],
+            )
+
+    def test_the_history_leaves_out_nuclides_without_the_burnt_temperature(self):
+        # H-1 は燃焼させる物質の温度 565 K の点を持たない（S(α, β) の内挿の 4 点）。燃焼は H-1 を崩壊だけで追い、履歴の
+        # `transportable` に入れない
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "issue-0292"
+            self.write_series(root, ["A", "U-235"])
+            self.assertEqual(
+                ufg_subset.burnt_transported(root, ufg_subset.SERIES["all"], "u"),
                 ["U-235", "A"],
             )
 
