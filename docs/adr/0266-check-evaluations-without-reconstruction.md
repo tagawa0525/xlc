@@ -1,6 +1,6 @@
 ---
 type: ADR
-status: proposed
+status: accepted
 date: 2026-11-20
 requires: [ADR-0138]
 supersedes: []
@@ -70,3 +70,9 @@ xs が読めるかは分かっていない。調べるには、4 つの版（END
 
 - `crates/xs/src/check/tests.rs`: 読める評価が通り、しきい値の下の断面積、物質 2 つ、表の無い MF8 の状態、分布の無い放出、ν の
   無い核分裂で止まり、報告がファイルごとに理由を書く
+- 4 つの版の中性子のファイルの全部（393、423、557、558）を通した結果は、examples/depletion/verification.md の「中性子のファイルの
+  読み込みの走査」（ステージ `read-survey`）。1 つの版が手元の 8 スレッドで 1 秒に満たない
+- 同じ節の「走査が見逃す種類」: `xs check` が止めた 6 つの評価は、600 K の `xs nuclide` も同じ文で止まった。`xs check` が通した標本の
+  25 のうち、後の処理で止まったのは MF8 の経路の和の検査の 5 つだけ
+- 切り出した後の `xs nuclide` の出力は、ENDF/B-VIII.0 の O-16、B-10、Cr-52、Fe-57 で、main の examples/depletion/dvc.lock の md5 と同じ（35e57a2d、
+  2026-11-20）
