@@ -893,8 +893,8 @@ cargo run --release -p xlc-xs --example compare_njoy_gendf -- \
 
 ### 計算
 
-`compare_njoy_gendf` は xlc e7ce9cd5（分岐点 51245259、2026-11-21。重心系の変換は下の「重心系の分布の実験室系の群への振り分け」）で、手元で実行した。
-`xs nuclide` は 4a04ac94（分岐点 0f883589、2026-11-21）と e7ce9cd5 の `cargo build --release` の bin（どちらも 4 スレッド。終了コードは両方で確かめ、時間は 4a04ac94 のもの）で、`issue-0312/fission-<版>.toml`
+`compare_njoy_gendf` は xlc 7bcc9559（分岐点 51245259、2026-11-21。重心系の変換は下の「重心系の分布の実験室系の群への振り分け」）で、手元で実行した。
+`xs nuclide` は 4a04ac94（分岐点 0f883589、2026-11-21）と 7bcc9559 の `cargo build --release` の bin（どちらも 4 スレッド。終了コードは両方で確かめ、時間は 4a04ac94 のもの）で、`issue-0312/fission-<版>.toml`
 （σ0 と散乱の次数は `read-survey/sample-<版>.toml` と同じ、温度 1 点の 600 K）に `examples/depletion/xs-range.toml` を与えて実行した。
 
 ### 結果
@@ -943,10 +943,10 @@ Pa233 VIII.1 chi  : max rel diff 3.88e-1 in group 19 (ours 1.428718e-6, njoy 1.0
 
 ## 重心系の分布の実験室系の群への振り分け
 
-MF6 の LAW=1 の重心系の分布（LCT=2、3）を実験室系の群に振り分ける積分（`laboratory_group_integrals`。#0325）は、内側の群境界ごとに、その境界より下に
-出る量を、実験室系の範囲の端が境界を横切る点で分けて積分する（式と導出の要点はコードの注釈）。合成の分布のテスト
+MF6 の LAW=1 の重心系の分布（LCT=2、3）を実験室系の群に振り分ける積分（`laboratory_group_integrals`。#0325）は、線形化した区間ごとに、実験室系の
+範囲の届く群だけを、範囲の端がその群の境界を横切る点で分けて積分する（式と導出の要点はコードの注釈）。合成の分布のテスト
 （`centre_of_mass_panel_wider_than_ec_is_split_exactly_into_low_groups`）では、√E' についての細かい中点則と 1e-7 で合う。前の積分（E' の区間を
-16 等分して 4 点の Gauss-Legendre）は、同じテストの最上位の群で 1e-4 違った。
+16 等分して 4 点の Gauss-Legendre）は、同じテストの最上位の群で 1e-4 違った。届かない群がちょうど 0 で負の群が無いことは `centre_of_mass_groups_out_of_reach_stay_exactly_zero`。
 
 ```sh
 # NJOY の cm2lab の許容を 1e-4 にした手元のビルド（examples/depletion/issue-0325/njoy-cm2lab-tol.patch を references/NJOY2016 の src に当て、cmake で njoy_executable）
@@ -958,7 +958,7 @@ python3 examples/depletion/compare_xs_outputs.py <main の出力> <ブランチ�
 
 ### 計算
 
-xlc e7ce9cd5（分岐点 51245259、2026-11-21）。手元で実行した。NJOY の許容を変えたビルドは、references/NJOY2016（2016.79）の src に
+xlc 7bcc9559（分岐点 51245259、2026-11-21）。手元で実行した。NJOY の許容を変えたビルドは、references/NJOY2016（2016.79）の src に
 `issue-0325/njoy-cm2lab-tol.patch` だけを当て、手元で gfortran 13 と cmake でビルドしたもの（パッチなしで同じ手順でビルドした njoy の
 VIII.0 の Th-232 の GENDF は、references の devShell の njoy の GENDF とバイトで同じ）。入力は references/njoy-runs/mf6-fission/<核種>-VIII.0/ と同じで、
 出力は `<核種>-VIII.0-cm2lab-tol1e-4`、`Th232-VIII.0-isotropic-cm2lab-tol1e-4` に置いた（git で追跡しない）。`xs nuclide` は `issue-0325/existing-VIII.0.toml`
@@ -1007,8 +1007,8 @@ Th232-VIII.0-isotropic-cm2lab-tol1e-4 chi  : max rel diff 1.72e-3 in group 19 (o
 - 本番の結果への影響の見積もり（確かめていない）: 散乱行列の変わる量は行の和の 1e-5 以下で、χ が変わるのは MF6 MT18 の 3 核種（燃焼の
   チェーンで微量の核種）だけなので、格子計算の k への効きは 1 pcm に満たない程度と見込む
 - 時間: `perf stat` の `cycles:u`（手元の計算で、ほかのジョブと重なった時間があり、時間は記録の測定ではない）は、main に対してブランチが
-  U-235 0.75 倍、U-238 0.96 倍、Pu-239 1.11 倍、Zr-90 0.88 倍、O-16 1.06 倍、Fe-56 1.22 倍、H-1 1.01 倍、Th-232 0.93 倍、Pa-231 0.87 倍、Pa-233 1.00 倍で、
-  変わらない側の H-1 と同じく、ばらつきの幅に収まる。区間を折れ目ごとに分けて求積した途中の形（#0325 の「検討して捨てた形」）は、U-238 で
+  U-235 0.98 倍、U-238 0.98 倍、Pu-239 1.01 倍、Zr-90 0.99 倍、O-16 0.98 倍、Fe-56 1.04 倍、H-1 0.97 倍、Th-232 0.97 倍、Pa-231 0.96 倍、Pa-233 1.00 倍で、
+  変わらない側の H-1 と同じく、ばらつきの幅に収まる。区間をすべての境界の折れ目で分けて求積した途中の形（#0325 の「検討して捨てた形」）は、U-238 で
   main の 1.5 倍の時間（経過時間、手元）がかかった
 
 ## 版ごとのライブラリの分離共鳴の R 行列の制限形の核分裂
