@@ -515,10 +515,21 @@ NJOY は同じ日の references の devShell。差の原因を確かめる ENDF 
 
 ```sh
 target/release/examples/compare_njoy_gendf --rows references/njoy-runs/issue-0311/H2-VIII.0/tape20 references/njoy-runs/issue-0311/H2-VIII.0/tape24 128 16
+# 下の 1、2 の ENDF のコピー（git で追跡しない。issue-0311/*.endf に書く）と、それとの比較
+python3 -I examples/depletion/issue-0311/tabulate_phase_space.py references/endf/ENDF-B-VIII.1_neutrons/n-003_Li_006.endf 41 -3.698e6 lab examples/depletion/issue-0311/Li6-VIII.1-lab.endf
+target/release/examples/compare_njoy_gendf examples/depletion/issue-0311/Li6-VIII.1-lab.endf references/njoy-runs/issue-0311/Li6-VIII.1/tape24 325 41
+python3 -I examples/depletion/issue-0311/tabulate_phase_space.py references/endf/ENDF-B-VIII.0_neutrons/n-001_H_002.endf 16 -2.225002e6 lab examples/depletion/issue-0311/H2-VIII.0-lab.endf
+python3 -I examples/depletion/issue-0311/unit_base_be9.py references/endf/ENDF-B-VII.1_neutrons/n-004_Be_009.endf examples/depletion/issue-0311/Be9-VII.1-int22.endf
+target/release/examples/compare_njoy_gendf examples/depletion/issue-0311/Be9-VII.1-int22.endf references/njoy-runs/issue-0311/Be9-VII.1/tape24 425 16
+# 下の 3（references の devShell の numpy）
+nix develop .#references -c python3 -I examples/depletion/issue-0311/ll2lab_thinning.py references/endf/ENDF-B-VIII.0_neutrons/n-004_Be_009.endf 2.0e6
 ```
+
+Q は MF3 の QI（H-2 の MT16 は −2.225002 MeV、Li-6 の MT41 は −3.698 MeV）。`lab` を `cm` に替えると重心系の表になる。
 
 ### 差
 
+群の番号は `compare_njoy_gendf` が出す 0 始まり（高いエネルギーから。WIMS の 1 始まりの番号は 1 を足したもの）。
 断面積（MF3 の反応）は、どの評価も 6.4e-4 以内（H-2 の MT16 の 2 群）で、散乱行列の P0 の行の和もそれと同じ大きさで一致する。行の中の
 出射の群の分け方は、次の表のとおり違う。
 

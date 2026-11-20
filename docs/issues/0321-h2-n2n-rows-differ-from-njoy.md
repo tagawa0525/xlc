@@ -15,7 +15,7 @@ resolution:
 
 - ENDF/B-VIII.0 の H-2 の MT16（MF6 の LAW=6、3 体の位相空間分布）の P0 の散乱行列が、WIMS 69 群のしきい値を含む 2 群（2.231〜3.679 MeV）の行で、
   NJOY2016 GROUPR と 6.95e-1（行の差の絶対値の和 / P0 の行の和）違う。行の和（断面積）は 6.4e-4 で一致する（examples/depletion/verification.md の
-  「MF6 の LAW=6、7 の散乱行列（NJOY との比較）」）
+  「MF6 の LAW=6、7 の散乱行列（NJOY との比較）」）。群の番号は `compare_njoy_gendf` の 0 始まり（WIMS の 1 始まりの番号は 1 を足したもの）
 - 確かめたこと:
   - xs の群ごとの割合は、入射エネルギーごとに重心系の細かい中点則と 2e-7 で一致し（テスト `phase_space_spreads_by_the_centre_of_mass_motion`）、
     しきい値の群の行は入射エネルギーの細かい中点則と 1e-5 で一致する（`phase_space_rows_follow_the_kinks_above_threshold`）
