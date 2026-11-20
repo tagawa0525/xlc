@@ -21,7 +21,11 @@ def output():
         "scatter": [[[3.0, 1.0], [0.0, 2.0]], [[0.3, 0.1], [0.0, 0.2]]],
         "shielded": [shielded],
     }
-    return {"nuclides": [{"name": "U-235", "temperatures": [temperature]}]}
+    return {
+        "group_bounds": [2.0e7, 1.0e3, 1.0e-5],
+        "sigma0": [1.0e10],
+        "nuclides": [{"name": "U-235", "temperatures": [temperature]}],
+    }
 
 
 class CompareTest(unittest.TestCase):
@@ -63,12 +67,10 @@ class CompareTest(unittest.TestCase):
     def test_different_group_bounds_or_sigma0_stop(self):
         # 群の数が同じでも、群境界か σ0 が違う出力は比べない
         for key, value in (("group_bounds", [2.0e7, 1.0, 1.0e-5]), ("sigma0", [1.0e5])):
-            a, b = output(), output()
-            a[key], b[key] = [2.0e7, 1.0e3, 1.0e-5], value
-            if key == "sigma0":
-                a[key] = [1.0e10]
+            b = output()
+            b[key] = value
             with self.assertRaises(ValueError):
-                cxo.compare(a, b)
+                cxo.compare(output(), b)
 
     def test_different_nuclides_stop(self):
         b = copy.deepcopy(output())

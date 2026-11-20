@@ -3,7 +3,7 @@
 使い方: python3 compare_xs_outputs.py <出力 a> <出力 b>
 
 ビルドの違う 2 つの xs で同じ入力を処理した出力を比べ、変わった量と、その大きさと群を 1 行ずつ書く。核種は名前で、温度は並びで
-対応させ、形（核種の名前、温度、群の数、散乱の次数、σ0 の数）が違えば止まる。
+対応させ、形（群境界、σ0、核種の名前、温度、群の数、散乱の次数）が違えば止まる。
 
 - `chi`: χ の差の絶対値の最大と、その群（0 始まり）、差の絶対値の和
 - `scatter P<l>`: 散乱行列の l 次のモーメントの差の絶対値を、a の P0 のその行（入射の群）の和で割った値の最大と、その（入射の群、
@@ -81,6 +81,9 @@ def compare_temperature(a, b):
 
 def compare(a, b):
     """核種と温度ごとの差の行の一覧"""
+    for key in ("group_bounds", "sigma0"):
+        if a[key] != b[key]:
+            raise ValueError(f"{key} differ")
     by_name = {n["name"]: n for n in b["nuclides"]}
     if sorted(by_name) != sorted(n["name"] for n in a["nuclides"]):
         raise ValueError("nuclides differ")
