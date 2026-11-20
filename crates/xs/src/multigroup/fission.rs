@@ -2,15 +2,58 @@
 
 use xlc_format::library::DelayedGroups;
 
-use super::{GroupStructure, GroupedLaw, Weight, group_integrals_multi};
-use crate::endf::{Mf5, Tab1};
+use super::{GroupStructure, GroupedLaw, GroupedOutgoing, Weight, group_integrals_multi};
+use crate::endf::{Frame, Mf5, OutgoingDistributions, Tab1};
 
 /// 核分裂で生まれる中性子の 1 つの成分（即発、遅発の全族、または区別しない全数）の、1 核分裂あたりの数 ν(E) と
 /// 出射エネルギーの分布。
 #[derive(Debug, Clone)]
 pub struct FissionNeutrons {
     pub nubar: Tab1,
-    pub spectrum: Mf5,
+    pub spectrum: FissionSpectrum,
+}
+
+/// 核分裂の中性子の出射エネルギーの分布。
+#[derive(Debug, Clone)]
+pub enum FissionSpectrum {
+    /// MF5 の部分分布（割合 p_k(E) と分布）
+    Mf5(Mf5),
+    /// MF6 MT18 の中性子の表の分布（JPN=0 の平均の分布。ENDF-102 の 6.3.9.3）。`multiplicity` は y(E)（1 を読み込みで
+    /// 確かめる）、`awr` は重心系から実験室系への変換に使う標的の質量比
+    Mf6 {
+        multiplicity: Tab1,
+        distributions: OutgoingDistributions,
+        frame: Frame,
+        awr: f64,
+    },
+}
+
+impl FissionSpectrum {
+    /// 部分分布ごとの割合（MF6 は y(E)）と、群に振り分けた分布。MF6 の重心系の分布は、MF6 のほかの反応と同じく重心系で
+    /// 等方として実験室系に変換する（`GroupedOutgoing::center_of_mass`）
+    fn grouped(&self, groups: &GroupStructure) -> Vec<(&Tab1, GroupedLaw)> {
+        match self {
+            Self::Mf5(mf5) => mf5
+                .subsections
+                .iter()
+                .map(|(p, law)| (p, GroupedLaw::new(groups, law)))
+                .collect(),
+            Self::Mf6 {
+                multiplicity,
+                distributions,
+                frame,
+                awr,
+            } => {
+                let grouped = match frame {
+                    Frame::Laboratory => GroupedOutgoing::new(groups, distributions),
+                    Frame::CenterOfMass => {
+                        GroupedOutgoing::center_of_mass(groups, distributions, *awr)
+                    }
+                };
+                vec![(multiplicity, GroupedLaw::Table(grouped))]
+            }
+        }
+    }
 }
 
 /// 核分裂源で重み付けした核分裂スペクトル χ_g（和は 1）。成分 c の中性子は ν_c(E)σf(E)w(E) の重みで、その成分の
@@ -23,15 +66,7 @@ pub fn fission_spectrum(
 ) -> Vec<f64> {
     let parts: Vec<(&Tab1, Vec<(&Tab1, GroupedLaw)>)> = parts
         .iter()
-        .map(|part| {
-            let laws = part
-                .spectrum
-                .subsections
-                .iter()
-                .map(|(p, law)| (p, GroupedLaw::new(groups, law)))
-                .collect();
-            (&part.nubar, laws)
-        })
+        .map(|part| (&part.nubar, part.spectrum.grouped(groups)))
         .collect();
     let mut breakpoints: Vec<f64> = fission.x.clone();
     for (nubar, laws) in &parts {
@@ -123,9 +158,9 @@ pub fn delayed_groups(
                 fission,
                 &[FissionNeutrons {
                     nubar: nubar.clone(),
-                    spectrum: Mf5 {
+                    spectrum: FissionSpectrum::Mf5(Mf5 {
                         subsections: vec![subsection.clone()],
-                    },
+                    }),
                 }],
             )
         })

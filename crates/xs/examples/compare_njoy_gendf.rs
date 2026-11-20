@@ -4,7 +4,8 @@
 //!
 //! 群構造は WIMS 69群、重み関数は iwt=4（軽水炉向けの値）とする。GENDF は同じ条件で
 //! 0 K、無限希釈（σ0 = 1e10）として作っておくこと。MT452 は ν̄ を比べる。
-//! MF5 MT18 があれば、GENDF の MF6 MT18 から求めた核分裂スペクトル χ も比べる。
+//! 即発の核分裂中性子の分布（MF5 MT18 か、JPN=0 の MF6 MT18。`prompt_fission_spectrum`）があれば、GENDF の MF6 MT18 から
+//! 求めた核分裂スペクトル χ も比べる。
 //! NJOY は核分裂スペクトルを、θ や分布の表の2点目の入射エネルギー（econst）まで一定とみなす。
 //! 解析式（LF=7）の U-236 では econst が 15 MeV になり、1e-5 eV の θ のスペクトルを全入射エネルギーに
 //! 使うので、θ(E) の変化を積分するこちらの χ とずれる（高エネルギーの群で十数 %）。
@@ -23,6 +24,7 @@ use xlc_xs::multigroup::{
     scattering_moments, uses_angular,
 };
 use xlc_xs::pointwise::{DEFAULT_TOLERANCE, reconstruct};
+use xlc_xs::process::prompt_fission_spectrum;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (flags, args): (Vec<String>, Vec<String>) =
@@ -93,20 +95,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
 
-    if let (Some(fission), Some(nu), Some(section), Some(gendf)) = (
+    if let (Some(fission), Some(nu), Some(spectrum), Some(gendf)) = (
         tables.get(&18),
         &nubar,
-        tape.section(mat, 5, 18),
+        prompt_fission_spectrum(&tape, mat)?,
         reference.section(mat, 6, 18),
     ) {
-        // GROUPR の MF6 MT18 は MF5 MT18 の分布だけを使うので、遅発中性子の分布（MF5 MT455）は混ぜない
+        // GROUPR の MF6 MT18 は即発の分布（MF5 か MF6 の MT18）だけを使うので、遅発中性子の分布（MF5 MT455）は混ぜない
         let ours = fission_spectrum(
             &groups,
             &Weight::lwr(),
             fission,
             &[FissionNeutrons {
                 nubar: nu.clone(),
-                spectrum: Mf5::parse(&section)?,
+                spectrum,
             }],
         );
         let njoy = read_gendf_chi(&gendf, ng)?;
