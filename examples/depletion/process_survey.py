@@ -58,7 +58,8 @@ SIGNAL = re.compile(r"Command terminated by signal (\d+)")
 LOG = re.compile(
     r"\S+\s+(?P<level>[A-Z]+) (?:nuclide\{name=(?P<name>[^}]+)\}\S*: )?(?P<target>\S+): (?P<message>.*)"
 )
-NUMBER = re.compile(r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?")
+# 数は数字から始める（符号と前の点は区切りとして残す。`a..b` の 2 つ目を `.b` と読まない）
+NUMBER = re.compile(r"\d+(?:\.\d+)?(?:[eE][-+]?\d+)?")
 
 
 def name_from_file(file: str) -> str:
