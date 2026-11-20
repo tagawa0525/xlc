@@ -1,0 +1,9 @@
+# #0305 の変更の前後で、既存の形の核種の xs nuclide の出力がバイトで同じことを確かめる試行（ENDF/B-VIII.1、温度 1 点の 600 K）。
+# σ0 と散乱の次数は本番の xs.toml と同じ。Fe-54 は負の分離共鳴の弾性散乱を 0 にする（ADR-0267）
+output = "unused.msgpack"
+endf-directory = "../../../references/endf/ENDF-B-VIII.1_neutrons"
+sigma0 = [1e10, 1e5, 1e4, 1e3, 300, 100, 30, 10, 1]
+scattering-order = 3
+
+[nuclide]
+Fe-54 = { endf = "n-026_Fe_054.endf", temperatures = [600] }

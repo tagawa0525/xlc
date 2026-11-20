@@ -1,0 +1,9 @@
+# #0305 の変更の前後で、既存の形の核種の xs nuclide の出力がバイトで同じことを確かめる試行（ENDF/B-VII.1、温度 1 点の 600 K）。
+# σ0 と散乱の次数は本番の xs.toml と同じ。Pu-239 は分離共鳴の Reich-Moore の範囲を 3 つ持つ
+output = "unused.msgpack"
+endf-directory = "../../../references/endf/ENDF-B-VII.1_neutrons"
+sigma0 = [1e10, 1e5, 1e4, 1e3, 300, 100, 30, 10, 1]
+scattering-order = 3
+
+[nuclide]
+Pu-239 = { endf = "n-094_Pu_239.endf", temperatures = [600] }
