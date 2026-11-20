@@ -6,7 +6,7 @@ opened: 2026-11-20
 closed: 2026-11-21
 milestone:
 blocked-by: []
-resolution: コミット 8bed7fc7d
+resolution: コミット 603ea8067
 ---
 
 # xs が読めない MF2 の形式（ENDF/B-VII.0 の NIS > 1、VIII.1 の KBK = 1）が、燃焼チェーンの中性子のファイルに残る
