@@ -5,6 +5,7 @@ crates/outputs/tests/check.rs にある。
 実行: python3 -m unittest discover -s scripts -p 'test_check_readable_outputs.py'
 """
 
+import hashlib
 import json
 import os
 import subprocess
@@ -478,6 +479,58 @@ class CheckReadableOutputs(unittest.TestCase):
         result = self.run_check("--all")
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
         self.assertIn("MISSING: examples/a/axial/t2.msgpack", result.stdout)
+
+    def commit_range(self, data, lock_md5):
+        """範囲の TOML を git で追い（cache: false の出力）、lock の md5 を lock_md5 にしてコミットし、キャッシュから消す"""
+        lock = self.root / "examples/a/dvc.lock"
+        lock.write_text(lock.read_text().replace(MD5["range"], lock_md5))
+        (self.root / OUTPUTS["range"]).write_bytes(data)
+        git(self.root, "add", ".")
+        git(
+            self.root,
+            "-c",
+            "user.name=t",
+            "-c",
+            "user.email=t@t",
+            "commit",
+            "-qm",
+            "range",
+        )
+        self.cache_path(MD5["range"]).unlink()
+
+    def test_a_git_tracked_output_missing_from_the_cache_is_read_from_head(self):
+        data = b"ok range"
+        self.commit_range(data, hashlib.md5(data).hexdigest())
+        # 作業ツリーの版は読まない（読めば読み手が止める）
+        (self.root / OUTPUTS["range"]).write_bytes(b"bad")
+        result = self.run_check("--all")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn("MISSING:", result.stdout)
+        self.assertIn("READ: 6 files", result.stdout)
+        ranges = [line for line in self.read_lines() if line.startswith("xs-range\t")]
+        self.assertEqual(len(ranges), 1, self.read_lines())
+
+    def test_an_unreadable_git_tracked_output_names_its_path(self):
+        data = b"bad range"
+        self.commit_range(data, hashlib.md5(data).hexdigest())
+        result = self.run_check("--all")
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn(
+            "UNREADABLE: examples/a/xs-range.toml (md5 "
+            f"{hashlib.md5(data).hexdigest()}, written by examples/a/dvc.yaml:range)",
+            result.stdout,
+        )
+
+    def test_a_git_tracked_output_whose_head_differs_from_the_lock_stops(self):
+        self.commit_range(b"ok range", MD5["range"])
+        result = self.run_check("--all")
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn(
+            f"MISMATCH: examples/a/xs-range.toml (md5 {MD5['range']})", result.stdout
+        )
+        self.assertNotIn("MISSING:", result.stdout)
+        ranges = [line for line in self.read_lines() if line.startswith("xs-range\t")]
+        self.assertEqual(ranges, [])
 
     def test_a_reader_that_fails_to_run_stops(self):
         (self.d / "code").write_text("2")
