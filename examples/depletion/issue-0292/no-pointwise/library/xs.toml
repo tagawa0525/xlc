@@ -665,7 +665,7 @@ Sm-153 = { endf = "n-062_Sm_153.endf", temperatures = [560, 565, 570, 580, 590, 
 Sm-154 = { endf = "n-062_Sm_154.endf", temperatures = [560, 565, 570, 580, 590, 600, 610, 615, 750, 900, 1050, 1200, 1350], pointwise = false }
 Eu-151 = { endf = "n-063_Eu_151.endf", temperatures = [560, 565, 570, 580, 590, 600, 610, 615, 750, 900, 1050, 1200, 1350], activation = true }
 Eu-152 = { endf = "n-063_Eu_152.endf", temperatures = [560, 565, 570, 580, 590, 600, 610, 615, 750, 900, 1050, 1200, 1350], activation = true }
-Eu-154 = { endf = "n-063_Eu_154.endf", temperatures = [560, 565, 570, 580, 590, 600, 610, 615, 750, 900, 1050, 1200, 1350], pointwise = false }
+Eu-154 = { endf = "n-063_Eu_154.endf", temperatures = [560, 565, 570, 580, 590, 600, 610, 615, 750, 900, 1050, 1200, 1350], pointwise = false, unresolved-negative-background = "scale" }
 Eu-155 = { endf = "n-063_Eu_155.endf", temperatures = [560, 565, 570, 580, 590, 600, 610, 615, 750, 900, 1050, 1200, 1350] }
 Eu-156 = { endf = "n-063_Eu_156.endf", temperatures = [560, 565, 570, 580, 590, 600, 610, 615, 750, 900, 1050, 1200, 1350], activation = true }
 Eu-157 = { endf = "n-063_Eu_157.endf", temperatures = [560, 565, 570, 580, 590, 600, 610, 615, 750, 900, 1050, 1200, 1350], activation = true }
