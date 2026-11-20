@@ -1,6 +1,8 @@
 # #0292 の試行の対照: ../library/xs.toml と同じ核種の項目で、154 核種の試行のライブラリ（../../trial/library）が
 # 輸送する核種だけを輸送し、ほかを放射化の核種にしたもの。範囲（xs-range）とビルドを全核種のライブラリとそろえ、
 # 全核種を輸送した差から、範囲と xs の版の違いの分を分ける。all_nuclides.py が書く。手で直さない。
+# nuclides.txt の放射化の核種だけを ../library/xs-range.toml の範囲で xs-nuclides に作り、組み立ては、../library/xs-nuclides の上に
+# xs-nuclides を重ねた置き場で ../library/xs-range.toml と行う（輸送する核種は全核種のライブラリの xs のファイル）。
 output = "depletion.msgpack"
 endf-directory = "../../../../../references/endf/ENDF-B-VIII.0_neutrons"
 thermal-directory = "../../../../../references/endf/ENDF-B-VIII.0_thermal_scatt"
