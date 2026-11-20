@@ -256,7 +256,7 @@ python3 examples/depletion/read_survey.py --report examples/depletion/read-surve
 
 ### 計算
 
-`xs check` は 40fc7cc0 のもの（分岐点 31700f27、2026-11-20。`bin/xs` の正規形は `binary-forms/xs.md5`）で、4 つの版のステージと要約を
+`xs check` は 9c0a3968 のもの（分岐点 59d2dc07、2026-11-20。`bin/xs` の正規形は `binary-forms/xs.md5`）で、4 つの版のステージと要約を
 このコミットで実行した（要約のツールは 74f25be0 から変わっていない）。報告は `read-survey-<版>.toml`、要約の文章は `read-survey.txt`（`--report` と
 同じ）。1 つの版の全部のファイル（393〜558）は、手元の 8 スレッドで 1 秒に満たない（VII.0 の 393 ファイルで 0.4 秒。手元の計算で、時間は記録の
 測定ではない）。
@@ -270,7 +270,7 @@ python3 examples/depletion/read_survey.py --report examples/depletion/read-surve
 | VII.0  | 390            | 384    | 6        | 3                  | 3      | 0        | 3447 / 3837                  |
 | VII.1  | 422            | 416    | 6        | 1                  | 1      | 0        | 3398 / 3820                  |
 | VIII.0 | 556            | 549    | 7        | 1                  | 1      | 0        | 3264 / 3820                  |
-| VIII.1 | 557            | 547    | 10       | 1                  | 1      | 0        | 3263 / 3820                  |
+| VIII.1 | 557            | 549    | 8        | 1                  | 1      | 0        | 3263 / 3820                  |
 
 <!-- /table -->
 
@@ -281,25 +281,23 @@ python3 examples/depletion/read_survey.py --report examples/depletion/read-surve
 
 <!-- table: read-survey-reasons -->
 
-| 止まった理由                                                                 | VII.0                  | VII.1                  | VIII.0                 | VIII.1                 |
-| ---------------------------------------------------------------------------- | ---------------------- | ---------------------- | ---------------------- | ---------------------- |
-| neutron LAW=6 is not supported                                               | H-2                    | H-2                    | H-2                    | H-2、Li-6              |
-| neutron LAW=7 is not supported                                               | Be-9                   | Be-9                   | Be-9                   | Be-9                   |
-| last NBT must equal NP                                                       | Rb-87                  | –                      | –                      | –                      |
-| fission needs MF1 MT452 and MF5 MT18                                         | Th-232、Pa-231、Pa-233 | Th-232、Pa-231、Pa-233 | Th-232、Pa-231、Pa-233 | Th-232、Pa-231、Pa-233 |
-| particle pair 1: the shift factor (SHF=-1) is not supported                  | –                      | Cl-35                  | –                      | –                      |
-| particle pair 3: a charged particle (ZA=1) is not supported                  | –                      | –                      | Cl-35                  | Cl-35                  |
-| particle pair 3: a charged particle (ZA=2) is not supported                  | –                      | –                      | Ca-40                  | Ca-40                  |
-| particle pair 2: the shift factor (SHF=1) is not supported                   | –                      | –                      | –                      | Cu-63                  |
-| background R-matrix (KBK=1) and given phase shifts (KPS=0) are not supported | –                      | –                      | –                      | Sr-88                  |
+| 止まった理由                                                | VII.0                  | VII.1                  | VIII.0                 | VIII.1                 |
+| ----------------------------------------------------------- | ---------------------- | ---------------------- | ---------------------- | ---------------------- |
+| neutron LAW=6 is not supported                              | H-2                    | H-2                    | H-2                    | H-2、Li-6              |
+| neutron LAW=7 is not supported                              | Be-9                   | Be-9                   | Be-9                   | Be-9                   |
+| last NBT must equal NP                                      | Rb-87                  | –                      | –                      | –                      |
+| fission needs MF1 MT452 and MF5 MT18                        | Th-232、Pa-231、Pa-233 | Th-232、Pa-231、Pa-233 | Th-232、Pa-231、Pa-233 | Th-232、Pa-231、Pa-233 |
+| particle pair 3: a charged particle (ZA=1) is not supported | –                      | Cl-35                  | Cl-35                  | Cl-35                  |
+| particle pair 3: a charged particle (ZA=2) is not supported | –                      | –                      | Ca-40                  | Ca-40                  |
 
 <!-- /table -->
 
 理由は `xs check` の文から先頭の行番号を除いたもの。形式ごとの issue: MF6 の LAW=6、7 は #0311、MF6 MT18 の核分裂の中性子は #0312、
-Rb-87 の TAB1 は #0316、R 行列の制限形のシフト因子（Cl-35 の VII.1、Cu-63 の VIII.1）とバックグラウンドの
-R 行列（Sr-88 の VIII.1。#0305 にもある）は #0310、荷電粒子の対は #0264。VIII.1 の Pu-239 の核分裂の対は #0308 で、VII.0 の天然の V と Zn の
-複数の同位体（NIS > 1）は #0305 で、VII.0 と VII.1 の U-233 の MF5 の LF=11 は #0313 で読めるようになった（下の「天然の元素の評価の複数の
-同位体」と「版ごとのライブラリのエネルギーによる Watt の核分裂スペクトル」）。
+Rb-87 の TAB1 は #0316、荷電粒子の対は #0264。VIII.1 の Pu-239 の核分裂の対は #0308 で、VII.0 の天然の V と Zn の
+複数の同位体（NIS > 1）は #0305 で、VII.0 と VII.1 の U-233 の MF5 の LF=11 は #0313 で、R 行列の制限形のシフト因子（VII.1 の Cl-35 の SHF=−1、
+VIII.1 の Cu-63 の SHF=1）と VIII.1 の Sr-88 のバックグラウンドの R 行列は #0310 で読めるようになった（下の「天然の元素の評価の複数の
+同位体」、「版ごとのライブラリのエネルギーによる Watt の核分裂スペクトル」、「版ごとのライブラリの分離共鳴の R 行列の制限形のシフト因子と
+バックグラウンド」。VII.1 の Cl-35 は、その次の荷電粒子の対で止まる）。
 
 ### #0292 の 9 核種の `xs nuclide`
 
@@ -323,7 +321,8 @@ cd examples/depletion/read-survey && ../../../bin/xs --threads 1 nuclide nine-VI
   `xs check` は確かめない（ADR-0266）。原因は評価の側の不整合で、ADR-0172 の「変更」（2026-11-20）で経路を反応に縮めて警告するようにした後は通る
   （#0264 の「経路の和の超過の原因」）
 - `xs check` が止める評価（VII.0 の Rb-87、VIII.0 の H-2、Th-232、VIII.1 の Cu-63、Sr-88）は、`xs nuclide` も同じ文で止まった。VII.0 の U-233 は、
-  #0313 の後は終了コード 0 で終わる（下の「版ごとのライブラリのエネルギーによる Watt の核分裂スペクトル」）
+  #0313 の後は終了コード 0 で終わる（下の「版ごとのライブラリのエネルギーによる Watt の核分裂スペクトル」）。VIII.1 の Cu-63 と Sr-88 は、
+  #0310 の後は終了コード 0 で終わる（下の「版ごとのライブラリの分離共鳴の R 行列の制限形のシフト因子とバックグラウンド」）
 - ほかの 20（VIII.0 の Li-7、N-14、F-19、Na-23、Mg-24、Al-27、Si-28、P-31、K-39、Ti-48、Mn-55、Co-59、Ni-58、Cu-65、Nb-93、Y-89、VII.0 と VIII.1 の
   Li-7、Ni-58）は終了コード 0 で終わった
 
@@ -723,7 +722,7 @@ cargo run --release -p xlc-xs --example compare_njoy_rml_points -- \
 
 ### 計算
 
-xlc 885f0923（分岐点 49e3045c、2026-11-20）。手元で 2 つの比べるツールを実行した。`xs nuclide` は同じコミットの `cargo build --release` の bin で、
+xlc 9c0a3968（分岐点 59d2dc07、2026-11-20）。手元で 2 つの比べるツールを実行した。`xs nuclide` は同じコミットの `cargo build --release` の bin で、
 600 K の 1 点の入力（`sigma0` と `scattering-order` は examples/depletion/read-survey/sample-VIII.1.toml と同じ）を手元の試行に置き、
 1 スレッドで実行した。
 
@@ -763,8 +762,8 @@ Sr-88 MT102: compared 44326, max rel diff 1.00e-3 at 1.540038e5 eV, > 2 tol: 0
   VII.1 の Cl-35 は、シフト因子（SHF=−1、計算しない）を通り、次の荷電粒子の粒子対で止まる（#0264）。VII.0 の Cl-35 は LRF=7 でなく、
   MF3 の弾性散乱が 1e-5 eV で負で止まる（#0309）
 - 既存の形の出力は変わらない: VIII.0 の Fe-54、Fe-57、Cu-63 と VIII.1 の Cu-65、Pu-239、V-51、Rh-103、Si-29、W-183（どれも LRF=7 で、
-  シフト因子とバックグラウンドを持たない）の `xs nuclide` の出力は、分岐点の前の 51876d5c の bin の出力とバイトで同じ（上と同じ 600 K の
-  1 点の入力。51876d5c から 49e3045c までの main は crates/xs を変えていない）
+  シフト因子とバックグラウンドを持たない）の `xs nuclide` の出力は、main の 51876d5c の bin の出力とバイトで同じ（上と同じ 600 K の
+  1 点の入力）
 
 ## 版ごとのライブラリの負の分離共鳴の弾性散乱
 
