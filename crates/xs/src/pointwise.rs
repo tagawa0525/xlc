@@ -1024,6 +1024,19 @@ fn resolved_contributions(
         RangeKind::RMatrixLimited(rml) => {
             // ENDF の読み込みのエラー（行番号つき）にまとめるので、ここでは文にする
             let xs = RMatrixLimitedXs::new(rml).map_err(|e| e.to_string())?;
+            let approximated = xs.njoy_approximated_widths();
+            if !approximated.is_empty() {
+                let mts: std::collections::BTreeSet<u32> = approximated.iter().copied().collect();
+                xlc_log::warn!(
+                    "resolved range {}..{} eV: {} widths of charged particle pairs (MT {:?}) lie below the Coulomb barrier \
+                     with eta >= 5; xs computes the Coulomb penetrability exactly, NJOY RECONR approximates it there \
+                     (JWKB, the large-eta series, and 0 below 1e-35), so these reactions differ from NJOY (ADR-0273)",
+                    range.el,
+                    range.eh,
+                    approximated.len(),
+                    mts
+                );
+            }
             let nodes = resonance_nodes(xs.peaks());
             let f = |e: f64| xs.cross_sections(e);
             let tables =
