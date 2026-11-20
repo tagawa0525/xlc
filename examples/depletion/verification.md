@@ -545,7 +545,9 @@ target/release/examples/compare_njoy_gendf --rows references/njoy-runs/issue-031
    入射を比べると、群ごとの割合の差の絶対値の和は ENDF のヒストグラムから 3.14e-1（和は 1.139、群で平均したエネルギーは 66.3 keV が 78.3 keV）で、
    重みを正しくすると 3.19e-3（和 0.997、66.5 keV）になる
 
-xs の LAW=6 の群ごとの割合は、重心系のエネルギーの細かい中点則と 2e-7 で一致する（テスト `phase_space_spreads_by_the_centre_of_mass_motion`）。
+xs の LAW=6 の群ごとの割合は、入射エネルギーごとに重心系のエネルギーの細かい中点則と 2e-7 で一致し（テスト
+`phase_space_spreads_by_the_centre_of_mass_motion`）、H-2 の形の (n,2n) のしきい値の群の行は、入射エネルギーの細かい中点則と 1e-5 で一致する
+（テスト `phase_space_rows_follow_the_kinks_above_threshold`）。
 
 ## 版ごとのピンセルの燃焼
 
