@@ -152,6 +152,52 @@ class Library(unittest.TestCase):
             self.assertEqual(control[name]["temperatures"], [565])
 
 
+SCALE = {"unresolved-negative-background": "scale"}
+
+
+class Declarations(unittest.TestCase):
+    def test_declared_items_reach_the_transported_entries(self):
+        e = all_nuclides.declare(entries(), {"Am-242m": SCALE, "U-235": SCALE})
+        self.assertEqual(e["Am-242m"]["unresolved-negative-background"], "scale")
+        self.assertEqual(e["U-235"]["unresolved-negative-background"], "scale")
+        self.assertEqual(list(e), list(entries()))
+        self.assertNotIn("unresolved-negative-background", e["He-4"])
+
+    def test_activation_entries_take_the_reading_declarations_but_not_the_shielding(
+        self,
+    ):
+        # 放射化の核種は遮蔽しない（xs は宣言を書くと止まる）ので、非分離共鳴の読み替えだけを足さない
+        corrections = {"corrections": [{"line": 1, "mf": 5, "mt": 17}]}
+        e = all_nuclides.declare(entries(), {"Th-232": {**SCALE, **corrections}})
+        self.assertEqual(e["Th-232"]["corrections"], corrections["corrections"])
+        self.assertNotIn("unresolved-negative-background", e["Th-232"])
+
+    def test_a_declaration_outside_the_entries_is_an_error(self):
+        with self.assertRaises(SystemExit):
+            all_nuclides.declare(entries(), {"Es-253": SCALE})
+
+    def test_a_declaration_conflicting_with_the_base_entry_is_an_error(self):
+        e = entries()
+        e["U-235"] = {**e["U-235"], "unresolved-negative-background": "other"}
+        with self.assertRaises(SystemExit):
+            all_nuclides.declare(e, {"U-235": SCALE})
+        # 同じ値なら試行の入力の宣言をそのまま使う
+        e["U-235"]["unresolved-negative-background"] = "scale"
+        self.assertEqual(all_nuclides.declare(e, {"U-235": SCALE})["U-235"], e["U-235"])
+
+    def test_the_control_leaves_out_the_shielding_of_nuclides_it_makes_activation(self):
+        e = all_nuclides.declare(entries(), {"Am-242m": SCALE, "U-235": SCALE})
+        control = all_nuclides.control_entries(tomllib.loads(BASE)["nuclide"], e)
+        self.assertTrue(control["Am-242m"]["activation"])
+        self.assertNotIn("unresolved-negative-background", control["Am-242m"])
+        self.assertEqual(control["U-235"]["unresolved-negative-background"], "scale")
+
+    def test_lists_of_tables_render_inline(self):
+        e = {"Rb-87": {"endf": "rb.endf", "corrections": [{"line": 1194, "mf": 5}]}}
+        text = all_nuclides.render(BASE, ["見出し"], e)
+        self.assertEqual(tomllib.loads(text)["nuclide"], e)
+
+
 class Render(unittest.TestCase):
     def test_the_written_input_reads_back_with_the_global_keys(self):
         e = entries()
