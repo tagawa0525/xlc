@@ -4,8 +4,8 @@
   "VII.0": {
    "in_chain": {
     "evaluations": 390,
-    "readable": 383,
-    "stopped": 7
+    "readable": 384,
+    "stopped": 6
    },
    "outside_chain": {
     "evaluations": 3,
@@ -44,19 +44,14 @@
      "file": "n-091_Pa_233.endf",
      "nuclide": "Pa-233",
      "reason": "fission needs MF1 MT452 and MF5 MT18"
-    },
-    {
-     "file": "n-092_U_233.endf",
-     "nuclide": "U-233",
-     "reason": "LF=11 is not supported"
     }
    ]
   },
   "VII.1": {
    "in_chain": {
     "evaluations": 422,
-    "readable": 415,
-    "stopped": 7
+    "readable": 416,
+    "stopped": 6
    },
    "outside_chain": {
     "evaluations": 1,
@@ -95,11 +90,6 @@
      "file": "n-091_Pa_233.endf",
      "nuclide": "Pa-233",
      "reason": "fission needs MF1 MT452 and MF5 MT18"
-    },
-    {
-     "file": "n-092_U_233.endf",
-     "nuclide": "U-233",
-     "reason": "LF=11 is not supported"
     }
    ]
   },
@@ -278,14 +268,6 @@
     "Pa-233"
    ]
   },
-  "LF=11 is not supported": {
-   "VII.0": [
-    "U-233"
-   ],
-   "VII.1": [
-    "U-233"
-   ]
-  },
   "particle pair 1: the shift factor (SHF=-1) is not supported": {
    "VII.1": [
     "Cl-35"
@@ -404,7 +386,7 @@
  "inputs": [
   {
    "path": "read-survey-endfb70.toml",
-   "md5": "19cc1c83a1be615317bd96847f58caba"
+   "md5": "37c306096b13b590937e042294a6d78b"
   },
   {
    "path": "endfb70/chain.msgpack",
@@ -412,7 +394,7 @@
   },
   {
    "path": "read-survey-endfb71.toml",
-   "md5": "4f9ec699b8527b3081f3eaf099e6c3cf"
+   "md5": "982aa65d97932b8aaed7f1689a902f20"
   },
   {
    "path": "endfb71/chain.msgpack",

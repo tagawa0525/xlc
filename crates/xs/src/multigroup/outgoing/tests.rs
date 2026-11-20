@@ -406,3 +406,125 @@ fn madland_nix_keeps_the_relative_accuracy_of_low_groups() {
         );
     }
 }
+
+/// ENDF-102 の 5.1.1.5 の Watt の分布の正規化しない密度 exp(-E'/a) sinh(√(b E')) の [low, high] の積分。E' = s² と置き、
+/// 細かい区間の Gauss-Legendre で求める。
+fn watt_integral(low: f64, high: f64, a: f64, b: f64) -> f64 {
+    let (from, to) = (low.sqrt(), high.sqrt());
+    const PIECES: usize = 4000;
+    let width = (to - from) / PIECES as f64;
+    let mut sum = 0.0;
+    for i in 0..PIECES {
+        let (mid, half) = (from + (i as f64 + 0.5) * width, 0.5 * width);
+        for &(t, wk) in &xlc_numeric::quadrature::GAUSS_LEGENDRE_8 {
+            let s = mid + half * t;
+            sum += wk * half * (-s * s / a).exp() * (b.sqrt() * s).sinh() * 2.0 * s;
+        }
+    }
+    sum
+}
+
+/// ENDF/B-VII.1 の U-233 の 1e-5 eV と 20 MeV の a と b を、入射エネルギーに線形にしたもの。b の表は 1.5 MeV にも点を持つ
+fn watt(restriction: f64) -> EnergyLaw {
+    EnergyLaw::Watt {
+        restriction,
+        a: ClampedTab1::new(Tab1::linear(vec![1.0e-5, 2.0e7], vec![9.77e5, 1.06e6])).unwrap(),
+        b: ClampedTab1::new(Tab1::linear(
+            vec![1.0e-5, 1.5e6, 2.0e7],
+            vec![2.546e-6, 2.546e-6, 2.62e-6],
+        ))
+        .unwrap(),
+    }
+}
+
+/// `watt` の入射エネルギー e の a と b
+fn watt_parameters(e: f64) -> (f64, f64) {
+    let a = 9.77e5 + (1.06e6 - 9.77e5) * (e - 1.0e-5) / (2.0e7 - 1.0e-5);
+    let b = if e <= 1.5e6 {
+        2.546e-6
+    } else {
+        2.546e-6 + (2.62e-6 - 2.546e-6) * (e - 1.5e6) / (2.0e7 - 1.5e6)
+    };
+    (a, b)
+}
+
+#[test]
+fn watt_splits_the_endf_formula_by_group() {
+    // E' は 0 ≤ E' ≤ E - U（ENDF-102 の 5.1.1.5）。U = -30 MeV（U-233 の評価）では最上位の群が 2e7 eV より上の分を含み、
+    // U = 0 では E - U が群の中で分布を切る
+    let bounds = vec![2.0e7, 1.0e7, 2.0e6, 1.0e6, 1.0e5, 1.0e3, 1.0e-5];
+    let n = bounds.len() - 1;
+    let groups = GroupStructure::new(bounds.clone()).unwrap();
+    for (restriction, e) in [(-3.0e7, 1.0e-5), (-3.0e7, 1.0e7), (0.0, 5.0e6)] {
+        let grouped = GroupedLaw::new(&groups, &watt(restriction));
+        let mut out = vec![0.0; n];
+        grouped.accumulate(e, 2.0, &mut out);
+        let (a, b) = watt_parameters(e);
+        let top = e - restriction;
+        let mut edges: Vec<f64> = bounds.iter().map(|&edge| edge.min(top)).collect();
+        edges[0] = top;
+        *edges.last_mut().unwrap() = 0.0;
+        let total = watt_integral(0.0, top, a, b);
+        for g in 0..n {
+            let expected = 2.0 * watt_integral(edges[g + 1], edges[g], a, b) / total;
+            assert!(
+                (out[g] - expected).abs() <= 1e-12,
+                "U = {restriction}, E = {e}, group {g}: {} vs {expected}",
+                out[g]
+            );
+        }
+        assert!((out.iter().sum::<f64>() - 2.0).abs() <= 1e-13, "{out:?}");
+    }
+}
+
+#[test]
+fn watt_breaks_at_both_parameter_tables() {
+    let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e-5]).unwrap();
+    let breakpoints = GroupedLaw::new(&groups, &watt(-3.0e7)).breakpoints();
+    for e in [1.0e-5, 1.5e6, 2.0e7] {
+        assert!(breakpoints.contains(&e), "{e}: {breakpoints:?}");
+    }
+}
+
+#[test]
+fn watt_keeps_the_relative_accuracy_of_low_groups() {
+    // E'/a が 1e-11 まで小さい群でも、群の割合の相対誤差が小さく、負にならない（累積は E'^(3/2) で 0 に近づく）。
+    // 5e5〜2e6 eV の群は、E'/a = 1 をまたぐ
+    let bounds = vec![
+        2.0e7, 2.0e6, 5.0e5, 1.0e4, 1.0e3, 30.0, 1.0, 1.0e-2, 1.0e-3, 1.0e-4, 1.0e-5,
+    ];
+    let n = bounds.len() - 1;
+    let groups = GroupStructure::new(bounds.clone()).unwrap();
+    let grouped = GroupedLaw::new(&groups, &watt(-3.0e7));
+    let mut out = vec![0.0; n];
+    grouped.accumulate(1.0e-5, 1.0, &mut out);
+    let (a, b) = watt_parameters(1.0e-5);
+    let mut edges = bounds.clone();
+    edges[0] = 3.0e7;
+    *edges.last_mut().unwrap() = 0.0;
+    let total = watt_integral(0.0, 3.0e7, a, b);
+    for g in 1..n {
+        let expected = watt_integral(edges[g + 1], edges[g], a, b) / total;
+        assert!(
+            out[g] > 0.0 && (out[g] - expected).abs() <= 1e-9 * expected,
+            "group {g}: {} vs {expected}",
+            out[g]
+        );
+    }
+}
+
+#[test]
+fn watt_cumulative_keeps_its_accuracy_over_the_read_range_of_ab() {
+    // 読む範囲の a b/4 = c（5 以下。ENDF の読み込みが上限を確かめる）で、閉じた式と級数の切り替え（x = E'/a = 1）の前後の累積が、
+    // 数値積分と合う（a = 1 として b = 4c）
+    for c in [1.0e-6, 1.0e-3, 0.05, 0.3, 0.62, 2.0, 5.0] {
+        for x in [1.0e-6, 0.5, 0.999, 1.001, 2.0, 30.0] {
+            let expected = watt_integral(0.0, x, 1.0, 4.0 * c) * (-c).exp();
+            let actual = watt_cumulative(x, c);
+            assert!(
+                (actual - expected).abs() <= 1e-12 * expected,
+                "c = {c}, x = {x}: {actual} vs {expected}"
+            );
+        }
+    }
+}

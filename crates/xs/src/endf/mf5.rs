@@ -1,6 +1,6 @@
 //! MF5（出射中性子のエネルギー分布）。表形式（LF=1）と、θ(E) で決まる形のうち
 //! 一般の蒸発スペクトル（LF=5）、単純な核分裂スペクトル（LF=7）、蒸発スペクトル（LF=9）、
-//! Madland-Nix の核分裂スペクトル（LF=12）を扱う。
+//! エネルギーによる Watt の分布（LF=11）、Madland-Nix の核分裂スペクトル（LF=12）を扱う。
 //! それ以外の形式は、対象核種で必要になるまで追加しない。
 
 use super::Error;
@@ -20,7 +20,7 @@ pub struct OutgoingDistributions {
     pub spectra: Vec<Tab1>,
 }
 
-/// 部分分布の形。LF=5、7、9 の解析式の分布は、出射エネルギー E' を 0 ≤ E' ≤ E - U に制限する。
+/// 部分分布の形。LF=5、7、9、11 の解析式の分布は、出射エネルギー E' を 0 ≤ E' ≤ E - U に制限する。
 #[derive(Debug, Clone, PartialEq)]
 pub enum EnergyLaw {
     /// LF=1: 入射エネルギーごとの表
@@ -41,6 +41,14 @@ pub enum EnergyLaw {
     Evaporation {
         restriction: f64,
         theta: ClampedTab1,
+    },
+    /// LF=11: エネルギーによる Watt の分布 f(E') ∝ exp(-E'/a(E)) sinh(√(b(E) E'))（ENDF-102 の 5.1.1.5）
+    Watt {
+        restriction: f64,
+        /// a(E) (eV)
+        a: ClampedTab1,
+        /// b(E) (1/eV)
+        b: ClampedTab1,
     },
     /// LF=12: Madland-Nix の核分裂スペクトル f(E') = (g(E', E_F(L)) + g(E', E_F(H)))/2（ENDF-102 の 5.1.1.6）。
     /// E' は 0〜∞ で、U で切らない
@@ -70,7 +78,8 @@ impl Mf5 {
         for _ in 0..nk {
             let start = r.line() + 1;
             let probability = r.tab1()?;
-            // θ(E) で決まる分布では、p(E) の TAB1 の C1 が U で、θ(E) の TAB1 が続く（LF=5 はさらに g(x) の TAB1）
+            // θ(E) で決まる分布では、p(E) の TAB1 の C1 が U で、θ(E) の TAB1 が続く（LF=5 はさらに g(x) の TAB1）。
+            // LF=11 は a(E) と b(E) の TAB1 が続く（ENDF-102 の 5.2.5）
             let restriction = probability.c1;
             let law = match probability.l2 {
                 1 => EnergyLaw::Tabulated(parse_outgoing(&mut r)?),
@@ -87,6 +96,7 @@ impl Mf5 {
                     restriction,
                     theta: positive_theta(&mut r)?,
                 },
+                11 => watt(restriction, &mut r)?,
                 // ENDF-102 の 5.2.6 で p(E) の C1 は 0.0。E' は 0〜∞（5.1.1.6）なので、U を書いた評価は意味が決まらない
                 12 if restriction != 0.0 => {
                     return Err(Error::new(
@@ -106,7 +116,28 @@ impl Mf5 {
 /// 解析式の分布の θ(E) を読む。θ は分布の温度なので正でなければならない。
 fn positive_theta(r: &mut Reader<'_>) -> Result<ClampedTab1, Error> {
     let theta = r.tab1()?.table;
-    clamped_positive(theta, r.line())
+    clamped_positive(theta, r.line(), "theta")
+}
+
+/// LF=11 の c = a b/4 の上限。群への振り分け（multigroup::outgoing の `watt_cumulative`）は、x = E'/a = 1 で閉じた式と級数を
+/// 切り替え、その前後の精度をこの範囲で確かめてある。閉じた式は a b/4 が大きいと桁落ちし（a b/4 = 25 の x = 1 で相対誤差
+/// 1.3e-8、100 で桁が合わない）、級数は 700 ほどで溢れる。4 つの版の LF=11（ENDF/B-VII.0、VII.1 の U-233）は 0.71 以下
+const WATT_MAX_C: f64 = 5.0;
+
+/// Watt の分布の a(E)、b(E) を読む。a は分布の温度なので正。b = 0 では sinh が 0 になり分布が無く、負の b は sinh の引数が虚数になる。
+fn watt(restriction: f64, r: &mut Reader<'_>) -> Result<EnergyLaw, Error> {
+    let a = clamped_positive(r.tab1()?.table, r.line(), "a")?;
+    let b = clamped_positive(r.tab1()?.table, r.line(), "b")?;
+    // 表の間の補間の値は端の点の間にあり、表の外は端の値なので、a b/4 は両方の表の最大の積で抑えられる
+    let largest = |t: &ClampedTab1| t.table().y.iter().copied().fold(0.0, f64::max);
+    let c = 0.25 * largest(&a) * largest(&b);
+    if c > WATT_MAX_C {
+        return Err(Error::new(
+            r.line(),
+            format!("LF=11 with a b/4 up to {c} is not supported (accurate up to {WATT_MAX_C})"),
+        ));
+    }
+    Ok(EnergyLaw::Watt { restriction, a, b })
 }
 
 /// Madland-Nix のスペクトルの E_F(L)、E_F(H)（TAB1 の C1、C2）と T_M(E) を読む。どれも正のエネルギーでなければならない。
@@ -123,19 +154,19 @@ fn madland_nix(r: &mut Reader<'_>) -> Result<EnergyLaw, Error> {
     Ok(EnergyLaw::MadlandNix {
         light: record.c1,
         heavy: record.c2,
-        temperature: clamped_positive(record.table, r.line())?,
+        temperature: clamped_positive(record.table, r.line(), "T_M")?,
     })
 }
 
-/// 分布の温度（θ、T_M）の表を、範囲の外で端の値を使う表にする。温度は正でなければならない。
-fn clamped_positive(theta: Tab1, line: usize) -> Result<ClampedTab1, Error> {
-    if let Some(bad) = theta.y.iter().find(|&&t| t <= 0.0 || t.is_nan()) {
+/// 分布の正の量（θ、T_M、Watt の a と b）の表を、範囲の外で端の値を使う表にする。`name` はエラーの文に出す量の名前。
+fn clamped_positive(table: Tab1, line: usize, name: &str) -> Result<ClampedTab1, Error> {
+    if let Some(bad) = table.y.iter().find(|&&t| t <= 0.0 || t.is_nan()) {
         return Err(Error::new(
             line,
-            format!("theta must be positive, got {bad}"),
+            format!("{name} must be positive, got {bad}"),
         ));
     }
-    ClampedTab1::new(theta).ok_or_else(|| Error::new(line, "theta table is empty"))
+    ClampedTab1::new(table).ok_or_else(|| Error::new(line, format!("{name} table is empty")))
 }
 
 /// 一般の蒸発スペクトルの θ(E) を読む。エネルギーによる θ は、群の割合の折れ目の入射エネルギーが θ の逆関数で決まる

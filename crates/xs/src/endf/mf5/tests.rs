@@ -167,9 +167,76 @@ fn madland_nix_needs_positive_parameters() {
     }
 }
 
+/// p(E) = 1 のエネルギーによる Watt の分布（LF=11）。ENDF/B-VII.1 の U-233 の U と、a(E)、b(E) の始めの 2 点（lin-lin）。
+fn watt_mf5(a: &str, b: &str) -> String {
+    let r = |f: [&str; 6]| rec(f, 1, 5, 18);
+    [
+        r(["9.223300+4", "2.310377+2", "0", "0", "1", "0"]),
+        r(["-3.0+7", "0.0", "0", "11", "1", "2"]),
+        r(["2", "2", "", "", "", ""]),
+        r(["1.0-5", "1.0", "3.0+7", "1.0", "", ""]),
+        r(["0.0", "0.0", "0", "0", "1", "2"]),
+        r(["2", "2", "", "", "", ""]),
+        r(["1.0-5", a, "2.0+6", "9.8+5", "", ""]),
+        r(["0.0", "0.0", "0", "0", "1", "2"]),
+        r(["2", "2", "", "", "", ""]),
+        r(["1.0-5", b, "2.0+6", "2.532-6", "", ""]),
+    ]
+    .concat()
+}
+
+#[test]
+fn reads_watt() {
+    let tape = Tape::parse(&watt_mf5("9.77+5", "2.546-6")).unwrap();
+    let mf5 = Mf5::parse(&tape.section(1, 5, 18).unwrap()).unwrap();
+    let [(p, law)] = &mf5.subsections[..] else {
+        panic!("{:?}", mf5.subsections);
+    };
+    assert_eq!(p.eval(1.0e6), Some(1.0));
+    let EnergyLaw::Watt { restriction, a, b } = law else {
+        panic!("{law:?}");
+    };
+    assert_eq!(*restriction, -3.0e7);
+    assert_eq!(a.eval(1.0e-5), 9.77e5);
+    assert_eq!(b.eval(1.0e-5), 2.546e-6);
+    // 表の外は端の値
+    assert_eq!(a.eval(2.0e7), 9.8e5);
+    assert_eq!(b.eval(2.0e7), 2.532e-6);
+}
+
+#[test]
+fn watt_needs_positive_parameters() {
+    for (a, b) in [("0.0", "2.546-6"), ("9.77+5", "0.0"), ("9.77+5", "-1.0-6")] {
+        let tape = Tape::parse(&watt_mf5(a, b)).unwrap();
+        assert!(
+            Mf5::parse(&tape.section(1, 5, 18).unwrap()).is_err(),
+            "a = {a}, b = {b}"
+        );
+    }
+}
+
+#[test]
+fn watt_names_the_bad_parameter() {
+    let tape = Tape::parse(&watt_mf5("9.77+5", "0.0")).unwrap();
+    let err = Mf5::parse(&tape.section(1, 5, 18).unwrap()).unwrap_err();
+    assert!(
+        err.message.contains("b must be positive"),
+        "{}",
+        err.message
+    );
+}
+
+#[test]
+fn watt_beyond_the_grouped_range_of_ab_is_error() {
+    // a b/4 = 9.8e5 × 2.1e-5/4 ≈ 5.1。群への振り分けの精度を確かめた a b/4 ≤ 5 の外
+    let tape = Tape::parse(&watt_mf5("9.77+5", "2.1-5")).unwrap();
+    let err = Mf5::parse(&tape.section(1, 5, 18).unwrap()).unwrap_err();
+    assert!(err.message.contains("a b/4"), "{}", err.message);
+}
+
 #[test]
 fn other_lf_is_error() {
-    let text = two_point_mf5("11", ("1.0+6", "2.0+7", "1.0"), ("1.0-5", "1.0+6", "1.0"));
+    let text = two_point_mf5("3", ("1.0+6", "2.0+7", "1.0"), ("1.0-5", "1.0+6", "1.0"));
     let tape = Tape::parse(&text).unwrap();
     let err = Mf5::parse(&tape.section(1, 5, 18).unwrap()).unwrap_err();
     assert_eq!(err.line, 2);

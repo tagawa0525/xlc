@@ -256,7 +256,7 @@ python3 examples/depletion/read_survey.py --report examples/depletion/read-surve
 
 ### 計算
 
-`xs check` は 8bed7fc7 のもの（分岐点 49e3045c、2026-11-20。`bin/xs` の正規形は `binary-forms/xs.md5`）で、4 つの版のステージと要約を
+`xs check` は 40fc7cc0 のもの（分岐点 31700f27、2026-11-20。`bin/xs` の正規形は `binary-forms/xs.md5`）で、4 つの版のステージと要約を
 このコミットで実行した（要約のツールは 74f25be0 から変わっていない）。報告は `read-survey-<版>.toml`、要約の文章は `read-survey.txt`（`--report` と
 同じ）。1 つの版の全部のファイル（393〜558）は、手元の 8 スレッドで 1 秒に満たない（VII.0 の 393 ファイルで 0.4 秒。手元の計算で、時間は記録の
 測定ではない）。
@@ -267,8 +267,8 @@ python3 examples/depletion/read_survey.py --report examples/depletion/read-surve
 
 | 版     | チェーンの評価 | 読めた | 止まった | チェーンの外の評価 | 読めた | 止まった | ファイルの無いチェーンの核種 |
 | ------ | -------------- | ------ | -------- | ------------------ | ------ | -------- | ---------------------------- |
-| VII.0  | 390            | 383    | 7        | 3                  | 3      | 0        | 3447 / 3837                  |
-| VII.1  | 422            | 415    | 7        | 1                  | 1      | 0        | 3398 / 3820                  |
+| VII.0  | 390            | 384    | 6        | 3                  | 3      | 0        | 3447 / 3837                  |
+| VII.1  | 422            | 416    | 6        | 1                  | 1      | 0        | 3398 / 3820                  |
 | VIII.0 | 556            | 549    | 7        | 1                  | 1      | 0        | 3264 / 3820                  |
 | VIII.1 | 557            | 547    | 10       | 1                  | 1      | 0        | 3263 / 3820                  |
 
@@ -287,7 +287,6 @@ python3 examples/depletion/read_survey.py --report examples/depletion/read-surve
 | neutron LAW=7 is not supported                                               | Be-9                   | Be-9                   | Be-9                   | Be-9                   |
 | last NBT must equal NP                                                       | Rb-87                  | –                      | –                      | –                      |
 | fission needs MF1 MT452 and MF5 MT18                                         | Th-232、Pa-231、Pa-233 | Th-232、Pa-231、Pa-233 | Th-232、Pa-231、Pa-233 | Th-232、Pa-231、Pa-233 |
-| LF=11 is not supported                                                       | U-233                  | U-233                  | –                      | –                      |
 | particle pair 1: the shift factor (SHF=-1) is not supported                  | –                      | Cl-35                  | –                      | –                      |
 | particle pair 3: a charged particle (ZA=1) is not supported                  | –                      | –                      | Cl-35                  | Cl-35                  |
 | particle pair 3: a charged particle (ZA=2) is not supported                  | –                      | –                      | Ca-40                  | Ca-40                  |
@@ -296,10 +295,11 @@ python3 examples/depletion/read_survey.py --report examples/depletion/read-surve
 
 <!-- /table -->
 
-理由は `xs check` の文から先頭の行番号を除いたもの。形式ごとの issue: MF6 の LAW=6、7 は #0311、MF6 MT18 の核分裂の中性子は #0312、MF5 の
-LF=11 は #0313、Rb-87 の TAB1 は #0316、R 行列の制限形のシフト因子（Cl-35 の VII.1、Cu-63 の VIII.1）とバックグラウンドの
+理由は `xs check` の文から先頭の行番号を除いたもの。形式ごとの issue: MF6 の LAW=6、7 は #0311、MF6 MT18 の核分裂の中性子は #0312、
+Rb-87 の TAB1 は #0316、R 行列の制限形のシフト因子（Cl-35 の VII.1、Cu-63 の VIII.1）とバックグラウンドの
 R 行列（Sr-88 の VIII.1。#0305 にもある）は #0310、荷電粒子の対は #0264。VIII.1 の Pu-239 の核分裂の対は #0308 で、VII.0 の天然の V と Zn の
-複数の同位体（NIS > 1）は #0305 で読めるようになった（下の「天然の元素の評価の複数の同位体」）。
+複数の同位体（NIS > 1）は #0305 で、VII.0 と VII.1 の U-233 の MF5 の LF=11 は #0313 で読めるようになった（下の「天然の元素の評価の複数の
+同位体」と「版ごとのライブラリのエネルギーによる Watt の核分裂スペクトル」）。
 
 ### #0292 の 9 核種の `xs nuclide`
 
@@ -322,7 +322,8 @@ cd examples/depletion/read-survey && ../../../bin/xs --threads 1 nuclide nine-VI
   生成物の状態の経路の和が反応を超えるという温度ごとの処理の検査（`chain_reactions` の許容。#0264）で止まった。群の平均の値で決まるので、
   `xs check` は確かめない（ADR-0266）。原因は評価の側の不整合で、ADR-0172 の「変更」（2026-11-20）で経路を反応に縮めて警告するようにした後は通る
   （#0264 の「経路の和の超過の原因」）
-- `xs check` が止める評価（VII.0 の Rb-87、U-233、VIII.0 の H-2、Th-232、VIII.1 の Cu-63、Sr-88）は、`xs nuclide` も同じ文で止まった
+- `xs check` が止める評価（VII.0 の Rb-87、VIII.0 の H-2、Th-232、VIII.1 の Cu-63、Sr-88）は、`xs nuclide` も同じ文で止まった。VII.0 の U-233 は、
+  #0313 の後は終了コード 0 で終わる（下の「版ごとのライブラリのエネルギーによる Watt の核分裂スペクトル」）
 - ほかの 20（VIII.0 の Li-7、N-14、F-19、Na-23、Mg-24、Al-27、Si-28、P-31、K-39、Ti-48、Mn-55、Co-59、Ni-58、Cu-65、Nb-93、Y-89、VII.0 と VIII.1 の
   Li-7、Ni-58）は終了コード 0 で終わった
 
@@ -610,6 +611,51 @@ Np239 VII.0 chi  : max rel diff 2.87e-5 in group 0 (ours 2.644276e-2, njoy 2.644
   終わる。VII.0 の Am-241、Am-243 に、SLBW の弾性散乱が負になる点の warn は出ない
 - 既存の形の出力は変わらない: VIII.0 の U-235（MF5 MT18 は LF=1、MT455 は LF=5）、U-236、Pu-241（LF=7）の `xs nuclide` の出力は、
   分岐点 7c219dd2 の bin の出力とバイトで同じ（本番の `xs.toml` と同じ入力を手元の試行に置いた）
+
+## 版ごとのライブラリのエネルギーによる Watt の核分裂スペクトル
+
+核分裂スペクトルの MF5 の LF=11（エネルギーによる Watt の分布 exp(−E'/a) sinh(√(b E'))。ENDF-102 の 5.1.1.5）を読む xs（#0313）の無限希釈の
+0 K の群の値（WIMS 69 群、重みは iwt=4）を、NJOY2016.79 の RECONR（許容誤差 1e-3）と GROUPR の GENDF（MF3 MT452 と、MF6 MT18 から求めた χ）と
+比べた。核種は版ごとのライブラリでこの形を持つもの（VII.0 と VII.1 の U-233。MF5 MT18 の U = −30 MeV と a(E)、b(E) の表は 2 つの版で同じで、
+a b/4 は 0.71 以下。xs は群への振り分けの精度を確かめた a b/4 ≤ 5 の評価だけを読む）。
+NJOY の入力と出力は references/njoy-runs/lf11/U233-<版>/（git で追跡しない。入力は references/njoy-runs/U236-groupr/ と同じ形で MAT だけが違う）。
+
+```sh
+cargo run --release -p xlc-xs --example compare_njoy_gendf -- \
+  references/njoy-runs/lf11/U233-VII.0/tape20 references/njoy-runs/lf11/U233-VII.0/tape24 9222 452 18
+```
+
+### 計算
+
+xlc 40fc7cc0（分岐点 31700f27、2026-11-20）。手元で `compare_njoy_gendf` を実行した。`xs nuclide` は同じコミットの `cargo build --release` の bin
+（4 スレッド）で、`read-survey/sample-<版>.toml` と同じ σ0 と散乱の次数の温度 1 点（600 K）の入力を手元の試行に置き、
+`examples/depletion/xs-range.toml` を与えて実行した。
+
+### 結果
+
+`compare_njoy_gendf` の出力（先頭に核種と版を付けた。MT452 は群の ν、chi は χ の 1e-6 以上の群の相対差の最大と、差の絶対値の和）:
+
+```text
+U233 VII.0 MT452: max rel diff 1.02e-5 in group 0 [6.0655e6, 1.0000e7] eV (ours 3.466535e0, njoy 3.466500e0)
+U233 VII.0 MT 18: max rel diff 3.89e-4 in group 61 [3.5000e-2, 4.2000e-2] eV (ours 4.302447e2, njoy 4.300773e2)
+U233 VII.0 chi  : max rel diff 4.68e-7 in group 18 (ours 1.107068e-5, njoy 1.107067e-5), sum of |diff| 1.33e-7
+U233 VII.1 MT452: max rel diff 9.87e-6 in group 0 [6.0655e6, 1.0000e7] eV (ours 3.459374e0, njoy 3.459340e0)
+U233 VII.1 MT 18: max rel diff 3.89e-4 in group 61 [3.5000e-2, 4.2000e-2] eV (ours 4.302447e2, njoy 4.300773e2)
+U233 VII.1 chi  : max rel diff 4.66e-7 in group 18 (ours 1.107068e-5, njoy 1.107067e-5), sum of |diff| 1.33e-7
+```
+
+- χ: 2 つの版とも、1e-6 以上の群の相対差は 4.7e-7 以下、差の絶対値の和は 1.3e-7。最大の群の差は、GENDF の 7 桁の表示の 1 桁（1.107067e-5 と
+  1.107068e-5）。GROUPR は核分裂スペクトルを 1.353 MeV（`spectrum constant below 1.3530E+06 ev`）より下で一定とみなす（`econst`）が、U-233 の
+  a(E) と b(E) は 1.5 MeV より下で一定なので、Madland-Nix の Am-241 のような `econst` の近似による差は出ない（上の「版ごとのライブラリの
+  Madland-Nix の核分裂スペクトルと多項式の ν」）。GROUPR の `anased` は √(E'/a) < 0.01（E' < 98 eV）の累積を x^(3/2) の初項だけで近似する（xs は項の
+  正の級数）。級数と比べた初項の相対の差は 0.352 x（U-233 の a b/4 = 0.62。x = 1e-4 で 3.5e-5）で、その群の χ は 1e-6 より小さく、上の
+  比較の範囲の外なので、GENDF との差としては確かめていない
+- ν の差は 1.0e-5 以下、MT18 の群の断面積の差（群 61 で 3.9e-4）は、docs/environment.md の NJOY 側の近似による既知の差の RECONR の粗い格子と同じ種類の候補
+  （どちらも LF=11 の変更が触れない量）
+- `xs nuclide` は、VII.0 と VII.1 の U-233 が終了コード 0 で終わる。どちらにも、22 の反応の閾値を運動学の閾値に移した warn が出る
+  （MF3 の閾値の扱い。LF=11 とは別）
+- 既存の形の出力は変わらない: VIII.0 の U-235（MF5 MT18 は LF=1、MT455 は LF=5）、U-236、Pu-241（LF=7）の `xs nuclide` の出力は、
+  main の `bin/xs`（分岐点 31700f27 の `build` の出力）の出力とバイトで同じ（同じ入力、どちらも 4 スレッド）
 
 ## 版ごとのライブラリの分離共鳴の R 行列の制限形の核分裂
 

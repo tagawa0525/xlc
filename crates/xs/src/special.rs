@@ -73,7 +73,7 @@ pub fn gamma_p_2(x: f64) -> f64 {
 const GAMMA_SERIES_LIMIT: f64 = 1.0;
 
 /// P(a, x) = x^a e^(-x)/Γ(a+1) Σ xⁿ/((a+1)…(a+n)) の和の部分。項がすべて正なので桁落ちしない。
-fn lower_gamma_series(a: f64, x: f64) -> f64 {
+pub(crate) fn lower_gamma_series(a: f64, x: f64) -> f64 {
     let (mut term, mut sum, mut n) = (1.0, 1.0, 0.0);
     while term > sum * f64::EPSILON {
         n += 1.0;

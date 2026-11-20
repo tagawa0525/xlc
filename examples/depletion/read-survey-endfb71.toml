@@ -1083,7 +1083,6 @@ endf = "../../references/endf/ENDF-B-VII.1_neutrons/n-092_U_232.endf"
 
 [[evaluation]]
 endf = "../../references/endf/ENDF-B-VII.1_neutrons/n-092_U_233.endf"
-error = "line 12895: LF=11 is not supported"
 
 [[evaluation]]
 endf = "../../references/endf/ENDF-B-VII.1_neutrons/n-092_U_234.endf"
