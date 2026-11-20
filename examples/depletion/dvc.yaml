@@ -67,6 +67,42 @@ stages:
             cache: false
         - compare-chain-versions-${key}.txt:
             cache: false
+  read-survey:
+    # 版ごとの中性子のファイルの全部を、xs nuclide の読み込みと形式の検査だけ（xs check。ADR-0266）に通した報告。全核種を
+    # 輸送する案（#0292）の費用の材料
+    foreach:
+      endfb70: ENDF-B-VII.0
+      endfb71: ENDF-B-VII.1
+      endfb80: ENDF-B-VIII.0
+      endfb81: ENDF-B-VIII.1
+    do:
+      cmd: ../../bin/xs check read-survey-${key}.toml ../../references/endf/${item}_neutrons/*.endf
+      deps:
+        - ../../references/endf/${item}_neutrons
+        - ../../binary-forms/xs.md5
+      outs:
+        - read-survey-${key}.toml:
+            cache: false
+  read-survey-summary:
+    # 版ごとの報告を、チェーンの核種とその外、止まった理由ごとに数えた要約（JSON）と、その文章
+    cmd: python3 read_survey.py --json read-survey.json VII.0=read-survey-endfb70.toml,endfb70/chain.msgpack
+      VII.1=read-survey-endfb71.toml,endfb71/chain.msgpack VIII.0=read-survey-endfb80.toml,chain.msgpack
+      VIII.1=read-survey-endfb81.toml,endfb81/chain.msgpack > read-survey.txt
+    deps:
+      - ../../python-ast/examples/depletion/read_survey.py.ast
+      - read-survey-endfb70.toml
+      - read-survey-endfb71.toml
+      - read-survey-endfb80.toml
+      - read-survey-endfb81.toml
+      - endfb70/chain.msgpack
+      - endfb71/chain.msgpack
+      - chain.msgpack
+      - endfb81/chain.msgpack
+    outs:
+      - read-survey.json:
+          cache: false
+      - read-survey.txt:
+          cache: false
   openmc-chain:
     cmd: nix develop ../..#references -c python3 openmc_chain.py ../../references/endf openmc-chain.xml
     deps:

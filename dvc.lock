@@ -8562,3 +8562,20 @@ stages:
       hash: md5
       md5: cff385bafa10677bc93a2d2f7e518d8a
       size: 395
+  python-ast@examples/depletion/read_survey.py:
+    cmd: python3 scripts/normalize_python.py examples/depletion/read_survey.py 
+      python-ast/examples/depletion/read_survey.py.ast
+    deps:
+    - path: examples/depletion/read_survey.py
+      hash: md5
+      md5: 826935b1672e1a3ec3624f1e2ce03d5b
+      size: 7431
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/depletion/read_survey.py.ast
+      hash: md5
+      md5: 430aac22400babad4ba55c38a4c636d3
+      size: 5095
