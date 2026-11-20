@@ -51,53 +51,57 @@ pub fn outgoing_group_integrals(groups: &GroupStructure, density: &Tab1) -> Vec<
 /// [(√E'cm - √Ec)², (√E'cm + √Ec)²] に一様に分布する。Ec = E/(A+1)² は重心の運動による
 /// 中性子1個あたりのエネルギー。
 ///
-/// u = √E'cm、c = √Ec とおくと、線形化した区間の密度 f = α + β u² と dE' = 2u du、一様な範囲の幅 4uc から、群 [a, b] に
-/// 入る量は ∫ (α + β u²) |[a, b] ∩ [(u − c)², (u + c)²]| / (2c) du になる。重なりの長さは、範囲の端が群境界 B を横切る
-/// u = √B ± c、c − √B の間では b − a、b − (u − c)²、(u + c)² − a、4uc のどれかで u の 2 次以下なので、被積分関数は u の 4 次以下の
-/// 多項式になる。区間をこの折れ目で分け、それぞれに 4 点の Gauss-Legendre（7 次まで厳密）を u について当てれば、丸めの誤差を除いて
-/// 厳密になる。群構造の外は端の群に入る（`uniform_fractions`）ので、両端の境界は折れ目でない
+/// 群の値は、内側の群境界 B ごとに実験室系で B より下に出る量を積分し、その差で求める（群構造の外は端の群に入るので、両端の境界は
+/// 使わない）。u = √E'cm、c = √Ec とおくと、B より下に出る割合は、u ≤ √B − c で 1、u ≥ √B + c と u ≤ c − √B で 0、その間で
+/// (B − (u − c)²) / (4uc)。線形化した区間の密度 f = α + β u² と dE' = 2u du から、割合が 1 の所は f の台形則で、その間は
+/// (α + β u²)(B − (u − c)²) / (2c)（u の 4 次の多項式）を u について 4 点の Gauss-Legendre（7 次まで厳密）で積分すれば、丸めの
+/// 誤差を除いて厳密になる
 fn laboratory_group_integrals(groups: &GroupStructure, density: &Tab1, ec: f64) -> Vec<f64> {
     let linear = linearize(density, DENSITY_TOLERANCE);
     let bounds = groups.bounds();
+    let ng = groups.len();
     let c = ec.sqrt();
-    let mut kinks: Vec<f64> = bounds[1..groups.len()]
-        .iter()
-        .flat_map(|&b| [b.sqrt() + c, b.sqrt() - c, c - b.sqrt()])
-        .filter(|&u| u > 0.0)
-        .collect();
-    kinks.sort_by(f64::total_cmp);
-    let mut integrals = vec![0.0; groups.len()];
+    let mut total = 0.0;
+    // below[j] は bounds[j + 1] より下に出る量
+    let mut below = vec![0.0; ng - 1];
     for k in 0..linear.x.len().saturating_sub(1) {
         let (x0, x1) = (linear.x[k], linear.x[k + 1]);
         if x1 <= x0 {
             continue;
         }
         let (y0, y1) = (linear.y[k], linear.y[k + 1]);
+        let f = |e: f64| y0 + (y1 - y0) * (e - x0) / (x1 - x0);
+        // E' の [a, b] での f の積分（f は線形なので台形則で厳密）
+        let whole = |a: f64, b: f64| 0.5 * (b - a) * (f(a) + f(b));
+        total += whole(x0, x1);
         let (u0, u1) = (x0.sqrt(), x1.sqrt());
-        let first = kinks.partition_point(|&u| u <= u0);
-        let last = kinks.partition_point(|&u| u < u1);
-        let cuts = std::iter::once(u0)
-            .chain(kinks[first..last].iter().copied())
-            .chain(std::iter::once(u1));
-        let mut low = u0;
-        for high in cuts.skip(1) {
-            let (mid, half) = (0.5 * (low + high), 0.5 * (high - low));
-            for &(t, wk) in &GAUSS_LEGENDRE_4 {
-                let u = mid + half * t;
-                let e = u * u;
-                let density = y0 + (y1 - y0) * (e - x0) / (x1 - x0);
-                let (lo, hi) = ((u - c).powi(2), (u + c).powi(2));
-                uniform_fractions(
-                    groups,
-                    lo,
-                    hi,
-                    density * 2.0 * u * wk * half,
-                    &mut integrals,
-                );
+        for (slot, &bound) in below.iter_mut().zip(&bounds[1..ng]) {
+            let s = bound.sqrt();
+            if c == 0.0 {
+                // 重心の運動が無ければ実験室系も E'
+                *slot += whole(x0, x1.min(bound).max(x0));
+                continue;
             }
-            low = high;
+            // 割合が 1 の [0, s − c] と、割合が (B − (u − c)²)/(4uc) の [|s − c|, s + c]
+            let full = (s - c).max(0.0).clamp(u0, u1);
+            *slot += whole(x0, full * full);
+            let (lo, hi) = ((s - c).abs().clamp(u0, u1), (s + c).clamp(u0, u1));
+            if hi > lo {
+                let (mid, half) = (0.5 * (lo + hi), 0.5 * (hi - lo));
+                for &(t, w) in &GAUSS_LEGENDRE_4 {
+                    let u = mid + half * t;
+                    *slot += f(u * u) * (bound - (u - c).powi(2)) / (2.0 * c) * w * half;
+                }
+            }
         }
     }
+    let mut integrals = vec![0.0; ng];
+    let mut above = total;
+    for (g, &b) in below.iter().enumerate() {
+        integrals[g] = above - b;
+        above = b;
+    }
+    integrals[ng - 1] = above;
     integrals
 }
 
