@@ -603,10 +603,11 @@ fn capture_is_kept_per_sigma0_and_pointwise() {
     }
     // ポイントワイズの捕獲は、温度に拡げた MT102 の表そのもの
     let tables = crate::pointwise::reconstruct_at(&reaction_tape(&[]), 1, 1.0e-3, 293.6).unwrap();
-    for (&e, &c) in t.pointwise.energy.iter().zip(&t.pointwise.capture) {
+    let pointwise = t.pointwise.as_ref().unwrap();
+    for (&e, &c) in pointwise.energy.iter().zip(&pointwise.capture) {
         assert_eq!(c, tables[&102].eval(e).unwrap(), "{e} eV");
     }
-    assert_eq!(t.pointwise.capture.len(), t.pointwise.energy.len());
+    assert_eq!(pointwise.capture.len(), pointwise.energy.len());
 }
 
 #[test]

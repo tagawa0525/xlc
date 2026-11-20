@@ -183,7 +183,7 @@ pub(crate) fn plain_library() -> Library {
                         })
                         .collect(),
                     shielded: vec![table.clone(), table.clone(), table],
-                    pointwise: Pointwise::default(),
+                    pointwise: Some(Pointwise::default()),
                     // 捕獲は状態に分けない 1 つの経路
                     reactions: vec![GroupReaction {
                         mt: 102,

@@ -323,6 +323,12 @@ pub enum SelfShieldingError {
     /// UFG で解く核種（`ufg-nuclides`。ADR-0268）がライブラリに無い
     #[error("ufg-nuclides: `{0}` is not a nuclide of the library")]
     UnknownUfgNuclide(String),
+    /// UFG で解く核種（`ufg-nuclides`）が、ライブラリにポイントワイズの断面積を持たない（xs の `pointwise = false`。ADR-0269）
+    #[error(
+        "ufg-nuclides: the library has no pointwise cross sections of `{0}` (xs `pointwise = false`), so the UFG \
+         cannot solve it; leave it out of the list to solve it by its group constants (ADR-0268, ADR-0269)"
+    )]
+    UfgNuclideWithoutPointwise(String),
     /// UFG で解く核種に挙げない核種が、中心の物質（燃料か棒）でないリングにある（段の断面積で解くのは中心の物質の核種だけ。ADR-0268）
     #[error(
         "cell {cell}: `{name}` is outside the centre material of the UFG cell, so it must be in ufg-nuclides"
@@ -1065,6 +1071,16 @@ fn shield_fuel_by(
         .find(|name| !library.nuclides.iter().any(|n| &n.name == *name))
     {
         return Err(SelfShieldingError::UnknownUfgNuclide(name.clone()));
+    }
+    // 挙げた核種はポイントワイズの断面積で解くので、持たない核種（xs の `pointwise = false`）は挙げられない（ADR-0269）
+    if let Some(name) = options.ufg_nuclides.iter().flatten().find(|name| {
+        library
+            .nuclides
+            .iter()
+            .filter(|n| &n.name == *name)
+            .any(|n| n.temperatures.iter().any(|t| t.pointwise.is_none()))
+    }) {
+        return Err(SelfShieldingError::UfgNuclideWithoutPointwise(name.clone()));
     }
     if region_materials.len() != regions {
         return Err(SelfShieldingError::Regions {

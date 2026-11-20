@@ -21,7 +21,7 @@ fn library() -> Library {
                         sab_transfer: None,
                         delayed: None,
                         reactions: Vec::new(),
-                        pointwise: Default::default(),
+                        pointwise: Some(Default::default()),
                         temperature,
                         chi: fission(vec![1.0, 0.0]),
                         scatter: vec![

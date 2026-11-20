@@ -15,13 +15,16 @@
 //!              temperatures: [{temperature (K), chi: [G 個],
 //!                              scatter: [[[無限希釈の σ_l(g→g')、行が入射の群]]（ルジャンドルの次数 l = 0, 1, … の順）],
 //!                              shielded: [{total, elastic, fission, nu_fission, capture}（σ0 の順）],
-//!                              pointwise: {energy, total, elastic, fission, nu_fission, capture},
+//!                              pointwise: nil か {energy, total, elastic, fission, nu_fission, capture},
 //!                              sab_transfer: nil か {incident, transfer, cumulative}（S(α, β) を持つ核種だけ）,
 //!                              reactions: [{mt: チェーンの反応の代表の MT, channels: [{final_state: nil か {mf, lfs（nil は残り）},
 //!                                           cross_section: [無限希釈の G 個]}]}],
 //!                              delayed: nil か {nu: [[族ごとの群の遅発中性子数]], chi: [[族ごとの遅発スペクトル]]}]}],
 //!  activation: [{name, za, awr, temperatures: [{temperature (K), fission: [無限希釈の G 個], reactions: [nuclides と同じ形]}]}]}
 //! ```
+//!
+//! `pointwise` の nil は、UFG で解かない核種（xs の `pointwise = false`）がポイントワイズの断面積を持たないこと（ADR-0269）で、核種の
+//! すべての温度で nil か、すべてで持つ。S(α, β) の核種（減速材の核種で UFG で解く）は nil にしない。
 //!
 //! 遅発中性子の族のデータ（ADR-0238）は、ENDF の MF1 MT455 と MF5 MT455 の両方を持つ評価だけが持つ。`activation` は輸送しない
 //! 核種（放射化の核種）の、チェーンの反応と核分裂の無限希釈の群の断面積で、格子計算は輸送せず、冷却計算の 1 群の微視的断面積に使う。
@@ -184,8 +187,10 @@ pub struct TemperatureData {
     /// 無限希釈の散乱行列のルジャンドルのモーメント [次数 l][入射の群][出射の群]（少なくとも P0）
     pub scatter: Vec<Vec<Vec<f64>>>,
     pub shielded: Vec<Shielded>,
-    /// 超微細群の減速計算に使うポイントワイズの断面積
-    pub pointwise: Pointwise,
+    /// 超微細群の減速計算に使うポイントワイズの断面積。UFG で解かない核種（xs の `pointwise = false`）は nil で、核種のすべての
+    /// 温度で nil か、すべてで持つ（ADR-0269。nil でも項目は省けない）
+    #[serde(deserialize_with = "crate::msgpack::nil_or")]
+    pub pointwise: Option<Pointwise>,
     /// 燃焼チェーンの反応の群の断面積（代表の MT の昇順）
     pub reactions: Vec<GroupReaction>,
     /// S(α, β) による P0 の散乱の移行（熱中性子散乱を S(α, β) で作り、ポイントワイズの範囲のあるライブラリだけ。ほかは nil で、
@@ -747,7 +752,25 @@ fn interpolate(
         }),
         _ => return Err("the two temperatures have different delayed neutron families".into()),
     };
-    let (p, q) = (&low.pointwise, &high.pointwise);
+    // 内挿するのは S(α, β) の核種だけで、それはポイントワイズの断面積を持つ（`NuclideData::check`）
+    let (Some(p), Some(q)) = (&low.pointwise, &high.pointwise) else {
+        return Err("S(α, β) temperatures need their pointwise data".into());
+    };
+    let pointwise = Some(interpolate_pointwise(p, q, f)?);
+    Ok(TemperatureData {
+        temperature,
+        chi: mix(&low.chi, &high.chi),
+        scatter,
+        shielded,
+        pointwise,
+        reactions,
+        sab_transfer,
+        delayed,
+    })
+}
+
+/// 2つの温度のポイントワイズの断面積 `p`, `q` を、両方のエネルギーの点を合わせた格子で、`q` の側への割合 `f` で内挿する
+fn interpolate_pointwise(p: &Pointwise, q: &Pointwise, f: f64) -> Result<Pointwise, String> {
     let repeated = |e: &[f64]| e.windows(2).any(|w| w[0] == w[1]);
     if repeated(&p.energy) || repeated(&q.energy) {
         return Err("pointwise data have discontinuities".into());
@@ -768,23 +791,13 @@ fn interpolate(
             })
             .collect()
     };
-    let pointwise = Pointwise {
+    Ok(Pointwise {
         total: column(&p.total, &q.total),
         elastic: column(&p.elastic, &q.elastic),
         fission: column(&p.fission, &q.fission),
         nu_fission: column(&p.nu_fission, &q.nu_fission),
         capture: column(&p.capture, &q.capture),
         energy,
-    };
-    Ok(TemperatureData {
-        temperature,
-        chi: mix(&low.chi, &high.chi),
-        scatter,
-        shielded,
-        pointwise,
-        reactions,
-        sab_transfer,
-        delayed,
     })
 }
 
@@ -1127,6 +1140,47 @@ impl SabTransfer {
     }
 }
 
+impl Pointwise {
+    /// 列の長さ、エネルギーの順、有限な値と、ライブラリの範囲 `range` をちょうど覆うこと（超微細群の減速計算が範囲の外を
+    /// 引かないように。範囲がなければ空）を確かめる
+    fn check(&self, range: Option<[f64; 2]>) -> Result<(), String> {
+        let columns = [
+            &self.total,
+            &self.elastic,
+            &self.fission,
+            &self.nu_fission,
+            &self.capture,
+        ];
+        if columns.iter().any(|c| c.len() != self.energy.len()) {
+            return Err("pointwise columns must match the energies".into());
+        }
+        if self.energy.windows(2).any(|w| w[1] < w[0]) {
+            return Err("pointwise energies must not decrease".into());
+        }
+        match range {
+            Some(range) => {
+                if self.energy.first() != Some(&range[0]) || self.energy.last() != Some(&range[1]) {
+                    return Err(format!("pointwise data must cover the range {range:?}"));
+                }
+            }
+            None => {
+                if !self.energy.is_empty() {
+                    return Err("pointwise data without a pointwise range".into());
+                }
+            }
+        }
+        if let Some(bad) = self
+            .energy
+            .iter()
+            .chain(columns.into_iter().flatten())
+            .find(|v| !v.is_finite())
+        {
+            return Err(format!("non-finite value {bad}"));
+        }
+        Ok(())
+    }
+}
+
 impl NuclideData {
     /// 配列の長さ（群の数 `ng`、σ0 の数 `n_sigma0`）と温度の表があることを確かめる。
     fn check(&self, ng: usize, n_sigma0: usize, range: Option<[f64; 2]>) -> Result<(), String> {
@@ -1235,30 +1289,27 @@ impl NuclideData {
                     ));
                 }
             }
-            let p = &t.pointwise;
-            let columns = [&p.total, &p.elastic, &p.fission, &p.nu_fission, &p.capture];
-            if columns.iter().any(|c| c.len() != p.energy.len()) {
-                return Err(at("pointwise columns must match the energies".into()));
-            }
-            if p.energy.windows(2).any(|w| w[1] < w[0]) {
-                return Err(at("pointwise energies must not decrease".into()));
-            }
-            // 範囲をちょうど覆うこと（超微細群の減速計算が範囲の外を引かないように）。範囲がなければ空で、
-            // 分離共鳴も持たない（範囲は分離共鳴を持つ核種がないときだけない）
+            // 範囲は分離共鳴を持つ核種がないときだけない
             if range.is_none() && self.resolved.is_some() {
                 return Err(format!(
                     "{name}: resolved resonances need a pointwise range"
                 ));
             }
-            match range {
-                Some(range) => {
-                    if p.energy.first() != Some(&range[0]) || p.energy.last() != Some(&range[1]) {
-                        return Err(at(format!("pointwise data must cover the range {range:?}")));
-                    }
-                }
+            if t.pointwise.is_some() != self.temperatures[0].pointwise.is_some() {
+                return Err(at(
+                    "pointwise data must be on every temperature or none".into()
+                ));
+            }
+            match &t.pointwise {
+                Some(p) => p.check(range).map_err(at)?,
+                // 持たない核種は UFG で解かない核種（ADR-0269）。S(α, β) の核種は減速材の核種で UFG で解く（ADR-0268）ので持つ
+                // （範囲の無いライブラリでは空の表）。S(α, β) の移行は S(α, β) の核種だけが持つ（下）ので、持たない核種は持たない
                 None => {
-                    if !p.energy.is_empty() {
-                        return Err(at("pointwise data without a pointwise range".into()));
+                    if self.thermal_scattering {
+                        return Err(at(
+                            "S(α, β) nuclides are solved by the UFG and need their pointwise data"
+                                .into(),
+                        ));
                     }
                 }
             }
@@ -1299,9 +1350,7 @@ impl NuclideData {
                         .iter()
                         .flat_map(|r| &r.channels)
                         .flat_map(|c| &c.cross_section),
-                )
-                .chain(p.energy.iter())
-                .chain(columns.into_iter().flatten());
+                );
             if let Some(bad) = values.copied().find(|v| !v.is_finite()) {
                 return Err(at(format!("non-finite value {bad}")));
             }

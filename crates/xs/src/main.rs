@@ -44,10 +44,18 @@
 //! endf = "n-055_Cs_134.endf"
 //! temperatures = [600, 900]
 //! activation = true           # 放射化の核種（輸送しない。省略すると false）
+//!
+//! [nuclide.Nd-144]
+//! endf = "n-060_Nd_144.endf"
+//! temperatures = [600, 900]
+//! pointwise = false           # ポイントワイズの断面積を持たせない（UFG で解かない核種。省略すると true）
 //! ```
 //!
 //! `activation = true` の核種は、チェーンの反応と核分裂の無限希釈の群の断面積だけを作り、ライブラリの `activation` に置く
 //! （ADR-0238。輸送しないので `thermal` を持てず、ポイントワイズの範囲を決めない）。ライブラリは群速度の逆数も持つ。
+//!
+//! `pointwise = false` の核種は、ライブラリにポイントワイズの断面積を持たせない（ADR-0269。格子計算の `ufg-nuclides` に挙げない
+//! 中心の物質の核種にだけ使える）。`activation` と `thermal` とは組めない。ポイントワイズの範囲は、持たせない核種も含めて決める。
 //!
 //! 核種ごとの処理時間はログとして標準エラーに出す（`RUST_LOG=debug` で温度・段階ごとの内訳）。
 //!
@@ -99,6 +107,8 @@ struct NuclideInput {
     temperatures: Vec<f64>,
     /// 放射化の核種（輸送しない。ADR-0238）
     activation: bool,
+    /// ライブラリにポイントワイズの断面積を持たせる（false は UFG で解かない核種。ADR-0269）
+    pointwise: bool,
     thermal: Option<ThermalInput>,
 }
 
@@ -151,6 +161,14 @@ struct NuclideEntry {
     /// 放射化の核種（ADR-0238）。省略すると輸送する核種
     #[serde(default)]
     activation: bool,
+    /// ポイントワイズの断面積を持たせるか（ADR-0269）。省略すると持たせる
+    #[serde(default = "keeps_pointwise")]
+    pointwise: bool,
+}
+
+/// `pointwise` を省略したときの値（ADR-0269 の既定。今のとおり持たせる）
+fn keeps_pointwise() -> bool {
+    true
 }
 
 #[derive(Deserialize)]
@@ -248,10 +266,18 @@ fn parse_input(text: &str, base: &Path) -> Result<Input, InputError> {
                 "{name}: activation nuclides are not transported and take no `thermal`"
             ));
         }
+        // 放射化の核種はもともと持たず、S(α, β) の核種は減速材の核種で UFG で解く（ADR-0268、ADR-0269）
+        if !entry.pointwise && (entry.activation || thermal.is_some()) {
+            return invalid(format!(
+                "{name}: `pointwise = false` is for transported nuclides without `thermal` (activation nuclides have no \
+                 pointwise data, and S(α, β) nuclides are moderator nuclides the UFG solves)"
+            ));
+        }
         nuclides.push(NuclideInput {
             endf: endf_directory.join(&entry.endf),
             temperatures: entry.temperatures,
             activation: entry.activation,
+            pointwise: entry.pointwise,
             thermal,
             name,
         });
@@ -588,6 +614,19 @@ fn check_part(nuclide: &NuclideInput, part: &Library) -> anyhow::Result<()> {
             nuclide.temperatures
         ));
     }
+    if let Some(data) = part.nuclides.first()
+        && data
+            .temperatures
+            .iter()
+            .any(|t| t.pointwise.is_some() != nuclide.pointwise)
+    {
+        return Err(anyhow!(
+            "{}: the result {} pointwise data, the input has `pointwise = {}`",
+            nuclide.name,
+            if nuclide.pointwise { "lacks" } else { "has" },
+            nuclide.pointwise
+        ));
+    }
     Ok(())
 }
 
@@ -634,6 +673,17 @@ fn check_shared(input: &Input, range: Option<(f64, f64)>, part: &Library) -> any
     Ok(())
 }
 
+/// 輸送する核種の結果 `data` を、入力 `nuclide` の `pointwise` に合わせる（false ならポイントワイズの断面積を外す）。
+/// 処理の中で取り出さないようにしないのは、取り出しの時間が測ったばらつきの中だから（ADR-0269 の案 P1）
+fn keep_pointwise(nuclide: &NuclideInput, mut data: NuclideData) -> NuclideData {
+    if !nuclide.pointwise {
+        for t in &mut data.temperatures {
+            t.pointwise = None;
+        }
+    }
+    data
+}
+
 /// 核種を処理する（処理の時間をログに出す）。
 #[tracing::instrument(name = "nuclide", skip_all, fields(name = %nuclide.name))]
 fn process_file(
@@ -665,7 +715,7 @@ fn process_file(
         settings,
     )
     .with_context(|| name.clone())?;
-    Ok(Processed::Transported(data))
+    Ok(Processed::Transported(keep_pointwise(nuclide, data)))
 }
 
 /// S(α, β) を持たない核種で、この入射エネルギー (eV) 未満の弾性散乱を自由ガス模型で扱う（WIMS 69群の熱群の上限）。

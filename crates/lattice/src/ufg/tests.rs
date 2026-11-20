@@ -70,14 +70,14 @@ fn library_with(specs: Vec<Spec>, temperature: f64, bounds: &[f64]) -> Library {
                         nu_fission: group(3).iter().map(|f| 2.4 * f).collect(),
                         capture: group(3),
                     }],
-                    pointwise: Pointwise {
+                    pointwise: Some(Pointwise {
                         energy: column(0),
                         total: column(1),
                         elastic: column(2),
                         fission: column(3),
                         nu_fission: column(3).iter().map(|f| 2.4 * f).collect(),
                         capture: column(3),
-                    },
+                    }),
                 }],
             }
         })
@@ -700,11 +700,13 @@ fn thinned_grids_keep_the_macroscopic_cross_sections_within_the_tolerance() {
         .map(|name| {
             let (d, t) = lib.lookup(name, TEMPERATURE).unwrap();
             let alpha = ((d.awr - 1.0) / (d.awr + 1.0)).powi(2);
+            let (table, pointwise) = split_pointwise(name, t).unwrap();
             Data {
                 name: &d.name,
                 gain: 1.0 / (1.0 - alpha),
                 width: -alpha.ln(),
-                table: t,
+                table,
+                pointwise,
                 gas: None,
             }
         })
@@ -1036,11 +1038,13 @@ fn macroscopic_totals_match_point_by_point_evaluation_across_blocks() {
         .iter()
         .map(|name| {
             let (d, t) = lib.lookup(name, TEMPERATURE).unwrap();
+            let (table, pointwise) = split_pointwise(name, t).unwrap();
             Data {
                 name: &d.name,
                 gain: 1.0,
                 width: 1.0,
-                table: t,
+                table,
+                pointwise,
                 gas: None,
             }
         })
@@ -1098,11 +1102,13 @@ fn macroscopic_totals_report_the_first_error_in_nuclide_then_point_order() {
         .iter()
         .map(|name| {
             let (d, t) = lib.lookup(name, TEMPERATURE).unwrap();
+            let (table, pointwise) = split_pointwise(name, t).unwrap();
             Data {
                 name: &d.name,
                 gain: 1.0,
                 width: 1.0,
-                table: t,
+                table,
+                pointwise,
                 gas: None,
             }
         })

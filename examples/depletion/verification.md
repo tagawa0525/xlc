@@ -11202,3 +11202,50 @@ k∞ の差（pcm。列は燃焼度 (MWd/kg)。`--report` の出力）:
 - 時間の比は、燃焼度 10〜60 MWd/kg で `none` 0.72〜0.81、`s4` 0.73〜0.82、`s17` 0.77〜0.86。足した 65 核種をどれも UFG で解かなくても自己遮蔽の
   時間は 2〜3 割しか減らない。残りの内訳（UFG で解き続けるもとの 89 核種と被覆管と減速材の核種の分と、核種の数によらない分）は測っていない。
   この比は輸送する核種 154 のライブラリの値で、データのある全核種を輸送するときの差と比は測っていない
+
+### UFG で解かない核種のポイントワイズの断面積を持たせないライブラリ（試行）
+
+目的: UFG で解かない核種のポイントワイズの断面積をライブラリに持たせない xs の入力の項目（`pointwise = false`。
+[ADR-0269](../../docs/adr/0269-let-xs-leave-out-pointwise-of-nuclides-the-ufg-does-not-solve.md)）で、格子計算の結果が変わらないことと、
+ライブラリの大きさと読み込みのメモリの利得を、上の試行のライブラリ（輸送する核種 154）で確かめる（区分 decision、#0292）。
+
+`issue-0292/no-pointwise/library/xs.toml` は上の試行のライブラリの入力のコピーで、`s17` の組に入らない足した 48 核種に
+`pointwise = false` を付けた。48 核種だけを `xs nuclide` で作り直し、ほかの核種は試行のライブラリの xs のファイル（足した 17 核種。上の節の Slurm 942）と p2 の xs の
+ファイル（もとの輸送する核種と放射化の核種。p2 の dvc.lock の出力）をそのまま使って組み立てた（試行のライブラリと同じ組み立て方で、
+48 核種のほかは試行のライブラリと値が同じ。下の結果）。ライブラリは 1 つのコミットの xs で作ったものではなく、48 核種だけがこのブランチの
+xs のもの。
+U の `s17` の入力（`issue-0292/no-pointwise/u/s17.toml`）はライブラリだけを替えたもので、比べる基準は同じ実行ファイルで試行のライブラリを
+解いた `s17-full.toml`。
+
+```sh
+cd examples/depletion/issue-0292/no-pointwise/library
+for n in $(grep 'pointwise = false }$' xs.toml | cut -d' ' -f1); do ../../../../../target/release/xs nuclide xs.toml xs-range.toml $n xs-nuclides/$n.msgpack; done
+# ../../../p2/xs-nuclides、../../trial/library/xs-nuclides、xs-nuclides の順に重ねて parts/ に置いてから
+../../../../../target/release/xs assemble xs.toml xs-range.toml parts
+cd ../u && for c in s17 s17-full; do ../../../../../target/release/lattice $c.toml > out/$c.out 2> out/$c.log; done
+```
+
+48 核種は、上の試行の入力の `pointwise = false` の核種（`../../trial/added-65.txt` のうち `../../ufg-subset/u/s17.toml` の `ufg-nuclides` に無いもの）。
+ライブラリ（`depletion.msgpack`）、48 核種の xs のファイル、xs のログ、格子計算の出力（`u/out`）は `dvc add` で追う。
+
+#### 計算
+
+ブランチの 88c740fc（分岐点 e40645cb7）の release のビルド（`target/release/xs` md5 880318b2、`target/release/lattice` md5 b2845f55）で、
+2026-11-20、r995 の Slurm 998（区分 decision。割り込まれうるので時間は使わない。xs は 16 スレッド（既定）、格子計算は 32 スレッド（既定））。
+最大の常駐は GNU time の `%M`。ライブラリどうしの比べ方は、MessagePack を読んだ値の比較（手元）。
+
+#### 結果
+
+- ライブラリは 2,112,495,301 から 1,820,679,481 バイト（md5 9eeecb5d から da150ec9）で、291,815,820 バイト（13.8%）減った。減った分は、
+  上の 48 核種のポイントワイズの断面積の大きさ（#0292 の 2026-11-20 の測定で 291,816,444 バイト）と、nil の 1 バイトの 624 表分の差で合う
+- 2 つのライブラリは、48 核種の 13 温度の `pointwise` が nil であることと、I-127 のチェーンの反応の群の断面積を除いて、値がすべて同じ。
+  I-127 の差は、試行のライブラリ（Slurm 942）の後に main に入った xs の生成物の状態の割合の修正（2e714a80b）による。今の xs で I-127 を
+  `pointwise` を付けずに作り直すと、新しいライブラリの I-127 とポイントワイズの断面積のほかは同じ
+- U の `s17` の k∞ は、4 つの燃焼度（0、10、30、60 MWd/kg）で `s17-full` と同じ（`out/*.out` の表示の 6 桁で 1.187073、1.045755、0.897766、
+  0.774489）で、出力のテーブルも、冷却計算の I-127 のチェーンの反応（相対 1e-10 以下）のほかはビットで同じ。`s17-full` のテーブルは、
+  上の節の `ufg-subset/u/out/s17.msgpack` と md5 が同じ（f31475bc）
+- 格子計算の最大の常駐は 13,046,772 kB から 11,726,604 kB（10.1% 減）。組み立ての最大の常駐は 5.8 GB（試行のライブラリは 6.7 GB。手元）
+- このライブラリは、後で足したライブラリの検査（S(α, β) の核種は nil にできない。H-1 は `s17` に入り、ポイントワイズの断面積を持つ）の
+  後でも読める。09a97df3 の release のビルドで `s17` を解き直したテーブルは、上の `out/s17.msgpack` と md5 が同じ（b1dacaac。手元、2026-11-20）
+- 同じライブラリで `ufg-nuclides` を省く（すべての核種を UFG で解く）入力は、自己遮蔽の始めに「Se-79: the library has no pointwise cross
+  sections of this nuclide」で止まる（手元）

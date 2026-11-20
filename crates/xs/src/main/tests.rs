@@ -42,6 +42,7 @@ fn parses_input_relative_to_its_directory() {
                 endf: PathBuf::from("work/endf/h.endf"),
                 temperatures: vec![293.6, 600.0],
                 activation: false,
+                pointwise: true,
                 thermal: Some(ThermalInput {
                     path: PathBuf::from("work/tsl/h2o.endf"),
                     upper: SabUpper::Evaluated,
@@ -54,6 +55,7 @@ fn parses_input_relative_to_its_directory() {
                 endf: PathBuf::from("work/endf/u.endf"),
                 temperatures: vec![293.6, 900.0],
                 activation: false,
+                pointwise: true,
                 thermal: None,
             },
         ]
@@ -190,7 +192,7 @@ fn part_of(name: &str, temperatures: &[f64]) -> Library {
                     chi: Vec::new(),
                     scatter: Vec::new(),
                     shielded: Vec::new(),
-                    pointwise: Default::default(),
+                    pointwise: Some(Default::default()),
                     reactions: Vec::new(),
                     sab_transfer: None,
                     delayed: None,
@@ -373,4 +375,50 @@ fn libraries_carry_the_inverse_velocities_of_their_groups() {
         library.inverse_velocity,
         inverse_velocity(&GroupStructure::wims69(), &Weight::lwr())
     );
+}
+
+#[test]
+fn reads_nuclides_without_pointwise_data() {
+    let input = INPUT.replace(
+        "temperatures = [293.6, 900]",
+        "temperatures = [293.6, 900]\npointwise = false",
+    );
+    let flags: Vec<(String, bool)> = parse_input(&input, Path::new("."))
+        .unwrap()
+        .nuclides
+        .into_iter()
+        .map(|n| (n.name, n.pointwise))
+        .collect();
+    assert_eq!(flags, vec![("H-1".into(), true), ("U-238".into(), false)]);
+    // S(α, β) の核種（減速材。UFG で解く）と放射化の核種（もともと持たない）は選べない
+    let thermal = INPUT.replace(
+        "thermal = \"h2o.endf\"",
+        "thermal = \"h2o.endf\"\npointwise = false",
+    );
+    assert!(parse_input(&thermal, Path::new(".")).is_err());
+    let activation =
+        ACTIVATION_INPUT.replace("activation = true", "activation = true\npointwise = false");
+    assert!(parse_input(&activation, Path::new(".")).is_err());
+}
+
+#[test]
+fn results_leave_out_the_pointwise_data_the_input_leaves_out() {
+    let input = INPUT.replace(
+        "temperatures = [293.6, 900]",
+        "temperatures = [293.6, 900]\npointwise = false",
+    );
+    let without = &parse_input(&input, Path::new(".")).unwrap().nuclides[1];
+    let with = &parse_input(INPUT, Path::new(".")).unwrap().nuclides[1];
+    let data = part_of("U-238", &[293.6, 900.0]).nuclides.remove(0);
+    let kept = keep_pointwise(with, data.clone());
+    assert_eq!(kept, data);
+    let left = keep_pointwise(without, data);
+    assert!(left.temperatures.iter().all(|t| t.pointwise.is_none()));
+    // 組み立ては、結果がポイントワイズの断面積を持つかを入力と比べる（古い結果を黙って組み立てない）
+    let mut part = part_of("U-238", &[293.6, 900.0]);
+    assert!(check_part(with, &part).is_ok());
+    assert!(check_part(without, &part).is_err());
+    part.nuclides[0] = left;
+    assert!(check_part(without, &part).is_ok());
+    assert!(check_part(with, &part).is_err());
 }
