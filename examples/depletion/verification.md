@@ -289,14 +289,14 @@ python3 examples/depletion/read_survey.py --report examples/depletion/read-surve
 
 <!-- /table -->
 
-理由は `xs check` の文から先頭の行番号を除いたもの。形式ごとの issue: MF6 MT18 の核分裂の中性子は #0312、
+理由は `xs check` の文から先頭の行番号を除いたもの。形式ごとの issue:
 Rb-87 の TAB1 は #0316（入力に修正を宣言すれば読める。走査は宣言を読まないので止まると数える。ADR-0272）。VIII.1 の Pu-239 の核分裂の対は #0308 で、VII.0 の天然の V と Zn の
 複数の同位体（NIS > 1）は #0305 で、VII.0 と VII.1 の U-233 の MF5 の LF=11 は #0313 で、R 行列の制限形のシフト因子（VII.1 の Cl-35 の SHF=−1、
 VIII.1 の Cu-63 の SHF=1）と VIII.1 の Sr-88 のバックグラウンドの R 行列は #0310 で、MF6 の中性子の LAW=6（H-2 の 4 つの版と VIII.1 の
-Li-6）と LAW=7（Be-9 の 4 つの版）は #0311 で、VII.1、VIII.0、VIII.1 の Cl-35 と VIII.0、VIII.1 の Ca-40 の荷電粒子の粒子対は #0264 で読めるように
+Li-6）と LAW=7（Be-9 の 4 つの版）は #0311 で、VII.1、VIII.0、VIII.1 の Cl-35 と VIII.0、VIII.1 の Ca-40 の荷電粒子の粒子対は #0264 で、MF6 MT18 の核分裂の中性子（Th-232、Pa-231、Pa-233 の 4 つの版）は #0312 で読めるように
 なった（下の「天然の元素の評価の複数の同位体」、「版ごとのライブラリのエネルギーによる Watt の核分裂スペクトル」、「版ごとのライブラリの分離共鳴の
 R 行列の制限形のシフト因子とバックグラウンド」、「MF6 の LAW=6、7 の散乱行列（NJOY との比較）」、「版ごとのライブラリの分離共鳴の R 行列の制限形の
-荷電粒子の粒子対」）。
+荷電粒子の粒子対」、「版ごとのライブラリの MF6 MT18 の核分裂スペクトル」）。
 
 ### #0292 の 9 核種の `xs nuclide`
 
@@ -337,7 +337,7 @@ cd examples/depletion/issue-0311 && ../../../bin/xs --threads 1 nuclide light-VI
 - `xs check` が止める評価（VIII.0 の Th-232、VIII.1 の Cu-63、Sr-88）は、`xs nuclide` も同じ文で止まった。VII.0 の U-233 は、
   #0313 の後は終了コード 0 で終わる（下の「版ごとのライブラリのエネルギーによる Watt の核分裂スペクトル」）。VIII.1 の Cu-63 と Sr-88 は、
   #0310 の後は終了コード 0 で終わる（下の「版ごとのライブラリの分離共鳴の R 行列の制限形のシフト因子とバックグラウンド」）。VIII.0 の H-2 は、
-  #0311 の後は終了コード 0 で終わる（上の「#0311 の 9 評価の `xs nuclide`」）
+  #0311 の後は終了コード 0 で終わる（上の「#0311 の 9 評価の `xs nuclide`」）。VIII.0 の Th-232 は、#0312 の後は終了コード 0 で終わる（下の「版ごとのライブラリの MF6 MT18 の核分裂スペクトル」）
 - VII.0 の Rb-87 は、MF5 MT17 の TAB1 の区切りの修正（1194 行の最初の欄を 1 から 3。ENDF/B-VII.1 の修正と同じ）を `sample-VII.0.toml` に
   宣言すると（ADR-0272）、`xs nuclide` が終了コード 0 で終わり、修正の warn を 1 つ出した（8515d2be、分岐点 74a54401 の `cargo build --release`、手元で 1 スレッド、2026-11-20）。宣言しなければ `xs check` と同じ文で止まる（#0316）。MT17 のしきい値
   （18.80 MeV）は群の上端（10 MeV）より上なので、修正した分布は群の値に入らない
@@ -891,6 +891,86 @@ U233 VII.1 chi  : max rel diff 4.66e-7 in group 18 (ours 1.107068e-5, njoy 1.107
   （MF3 の閾値の扱い。LF=11 とは別）
 - 既存の形の出力は変わらない: VIII.0 の U-235（MF5 MT18 は LF=1、MT455 は LF=5）、U-236、Pu-241（LF=7）の `xs nuclide` の出力は、
   main の `bin/xs`（分岐点 31700f27 の `build` の出力）の出力とバイトで同じ（同じ入力、どちらも 4 スレッド）
+
+## 版ごとのライブラリの MF6 MT18 の核分裂スペクトル
+
+即発の核分裂中性子の分布を MF5 MT18 でなく MF6 MT18 で与えた評価（Th-232、Pa-231、Pa-233 の 4 つの版）を読む xs（#0312）の無限希釈の 0 K の
+群の値（WIMS 69 群、重みは iwt=4）を、NJOY2016.79 の RECONR（許容誤差 1e-3）と GROUPR の GENDF（MF3 MT452 と、MF6 MT18 の行列から求めた χ）と
+比べた。12 の評価の MF6 MT18 は、どれも JP=0、LCT=2（重心系）、中性子 1 つで、LAW=1、LANG=1（Legendre 係数）、LEP=2、入射エネルギーの補間は
+単位基底の lin-lin（INT=22）、y(E) = 1。ENDF-102 の 6.3.9.3（JPX=0）のとおり、これは即発の平均の分布で、数は MF1 MT456 の ν_p が与える。
+12 の評価は MF1 MT452、455、456 と MF5 MT455 も持つので、χ は ADR-0186 の即発と遅発の 2 つの成分で、即発の分布の出どころだけが MF6 になる。
+MF1 の MT452 と MT455 + MT456 の差は、表の点で Th-232 が 5.0e-4、Pa-231 が 1.8e-6、Pa-233 が 1.7e-16（相対。4 つの版で同じ）で、MT452 を
+νσf に、MT455 と MT456 を χ の重みに使う今の分け方（ADR-0186）はこの差をそのまま持つ。
+
+GROUPR は MF6 の核分裂の行列を `mfd=8` で出す（`6 18` は MF4 MT18 を探して止まる）。行列には ν_p（`getff` が MF1 MT456 を掛ける）を掛けるので、
+`compare_njoy_gendf` は χ の入射エネルギーの重みを ν_p σf w にした。NJOY の入力と出力は references/njoy-runs/mf6-fission/<核種>-<版>/（git で
+追跡しない。入力は references/njoy-runs/U236-groupr/ と同じ形で、MAT と `8 18` だけが違う）。VII.0 の Th-232 は、NJOY の MODER が MF32 で
+「unknown isr」と止まるので、MF30 以上（共分散）を除いた ENDF を tape20 にした（群の値に使わない節）。
+
+```sh
+cargo run --release -p xlc-xs --example compare_njoy_gendf -- \
+  references/njoy-runs/mf6-fission/Th232-VIII.0/tape20 references/njoy-runs/mf6-fission/Th232-VIII.0/tape24 9040 452 18
+```
+
+### 計算
+
+xlc 13282581（分岐点 8e2b6c91、2026-11-20。xs のコードは 9568e9a0 から、`compare_njoy_gendf` は 26976aad から変わっていない）。手元で
+`compare_njoy_gendf` を実行した。`xs nuclide` は 9568e9a0 の `cargo build --release` の bin（4 スレッド）で、`issue-0312/fission-<版>.toml`
+（σ0 と散乱の次数は `read-survey/sample-<版>.toml` と同じ、温度 1 点の 600 K）に `examples/depletion/xs-range.toml` を与えて実行した。
+
+### 結果
+
+`compare_njoy_gendf` の出力（先頭に核種と版を付けた。MT452 は群の ν、chi は χ の 1e-6 以上の群の相対差の最大と、差の絶対値の和）:
+
+```text
+Th232 VII.0 MT452: max rel diff 1.02e-5 in group 1 [3.6790e6, 6.0655e6] eV (ours 2.538395e0, njoy 2.538369e0)
+Th232 VII.0 chi  : max rel diff 3.99e-1 in group 19 (ours 1.565973e-6, njoy 1.119396e-6), sum of |diff| 7.12e-4
+Pa231 VII.0 MT452: max rel diff 8.32e-6 in group 1 [3.6790e6, 6.0655e6] eV (ours 2.603868e0, njoy 2.603846e0)
+Pa231 VII.0 chi  : max rel diff 3.35e-1 in group 19 (ours 1.340200e-6, njoy 1.003739e-6), sum of |diff| 7.76e-4
+Pa233 VII.0 MT452: max rel diff 2.20e-5 in group 0 [6.0655e6, 1.0000e7] eV (ours 3.284129e0, njoy 3.284201e0)
+Pa233 VII.0 chi  : max rel diff 3.19e-1 in group 19 (ours 1.357520e-6, njoy 1.029020e-6), sum of |diff| 9.93e-4
+Th232 VII.1 MT452: max rel diff 1.04e-5 in group 1 [3.6790e6, 6.0655e6] eV (ours 2.537533e0, njoy 2.537507e0)
+Th232 VII.1 chi  : max rel diff 3.99e-1 in group 19 (ours 1.568753e-6, njoy 1.121634e-6), sum of |diff| 7.10e-4
+Pa231 VII.1 MT452: max rel diff 8.32e-6 in group 1 [3.6790e6, 6.0655e6] eV (ours 2.603868e0, njoy 2.603846e0)
+Pa231 VII.1 chi  : max rel diff 3.35e-1 in group 19 (ours 1.340200e-6, njoy 1.003739e-6), sum of |diff| 7.76e-4
+Pa233 VII.1 MT452: max rel diff 2.20e-5 in group 0 [6.0655e6, 1.0000e7] eV (ours 3.284129e0, njoy 3.284201e0)
+Pa233 VII.1 chi  : max rel diff 3.19e-1 in group 19 (ours 1.357520e-6, njoy 1.029020e-6), sum of |diff| 9.93e-4
+Th232 VIII.0 MT452: max rel diff 1.04e-5 in group 1 [3.6790e6, 6.0655e6] eV (ours 2.537533e0, njoy 2.537507e0)
+Th232 VIII.0 chi  : max rel diff 8.37e-3 in group 20 (ours 3.289930e-6, njoy 3.262621e-6), sum of |diff| 7.08e-4
+Pa231 VIII.0 MT452: max rel diff 8.32e-6 in group 1 [3.6790e6, 6.0655e6] eV (ours 2.603868e0, njoy 2.603846e0)
+Pa231 VIII.0 chi  : max rel diff 3.35e-1 in group 19 (ours 1.340200e-6, njoy 1.003739e-6), sum of |diff| 7.76e-4
+Pa233 VIII.0 MT452: max rel diff 2.20e-5 in group 0 [6.0655e6, 1.0000e7] eV (ours 3.284129e0, njoy 3.284201e0)
+Pa233 VIII.0 chi  : max rel diff 3.19e-1 in group 19 (ours 1.357520e-6, njoy 1.029020e-6), sum of |diff| 9.93e-4
+Th232 VIII.1 MT452: max rel diff 1.04e-5 in group 1 [3.6790e6, 6.0655e6] eV (ours 2.537533e0, njoy 2.537507e0)
+Th232 VIII.1 chi  : max rel diff 8.37e-3 in group 20 (ours 3.289930e-6, njoy 3.262621e-6), sum of |diff| 7.08e-4
+Pa231 VIII.1 MT452: max rel diff 8.32e-6 in group 1 [3.6790e6, 6.0655e6] eV (ours 2.603868e0, njoy 2.603846e0)
+Pa231 VIII.1 chi  : max rel diff 3.35e-1 in group 19 (ours 1.340200e-6, njoy 1.003739e-6), sum of |diff| 7.76e-4
+Pa233 VIII.1 MT452: max rel diff 2.20e-5 in group 0 [6.0655e6, 1.0000e7] eV (ours 3.284129e0, njoy 3.284201e0)
+Pa233 VIII.1 chi  : max rel diff 3.19e-1 in group 19 (ours 1.357520e-6, njoy 1.029020e-6), sum of |diff| 9.93e-4
+```
+
+- ν: 群の ν の差は 2.2e-5 以下（MF6 MT18 の変更が触れない量）
+- χ: 差の絶対値の和は 7.1e-4〜9.9e-4 で、MF5 MT18 の評価の比較（上の 2 つの節。`econst` の近似で説明のつく Am-241、Am-243 の 9.1e-4〜1.76e-3 を除いて
+  1.5e-6 以下）より大きい。相対差の最大は χ が 1e-6 の程度の群（367〜907 eV）で 0.3〜0.4、上の群では NJOY が硬い（VIII.0 の Th-232 の群 0〜2（3.68〜10 MeV。
+  出力の群の番号）で NJOY が 0.07〜0.1 % 大きい）。確かめた診断（VIII.0 の Th-232 の MF6 MT18 だけを替えた ENDF を、両方に与えた。references/njoy-runs/mf6-fission/ の
+  `Th232-VIII.0-lab`、`Th232-VIII.0-isotropic`）:
+  - LCT を 1（実験室系）にした ENDF: χ の差の和 1.05e-5、1e-6 以上の群の相対差の最大 2.8e-4（群 20）。分布の読み込み、入射エネルギーの補間、
+    群への振り分けと重みは GROUPR と合い、差は重心系から実験室系への変換にある
+  - Legendre 係数を落とした（NA=0。重心系で等方）ENDF: χ の差の和 6.81e-4。NJOY の χ は元の ENDF と比べて差の和 8.3e-5 だけ動く（xs は
+    MF6 の LAW=1 の角度を使わない。ADR-0082 の M0 の近似）。差の大部分は角度分布でなく、等方のままの変換にある
+- 等方の変換の差の候補（確かめていない）: GROUPR の `cm2lab` は実験室系の分布の格子を、区間の比 1.01 と中点の 1 % の許容（`tol=0.01`）で
+  作る。重心の運動のエネルギー Ec = E/(A+1)² は群の上端の入射 10 MeV で 184 eV なので、変換が群 0 の χ を動かす大きさは、分布を指数関数と
+  みた見積もり（平均 Ec の移動と幅の分散）で相対 1e-4 の程度になる。xs の変換は実験室系の ENDF との比較で群 0 を相対 1.7e-4 動かし、
+  見積もりと同じ桁になる。GROUPR は 1.1e-3 動かす
+- xs の側の候補: `laboratory_group_integrals` は E' の区間を、実験室系の範囲の端が群境界を横切る点で分けない（#0325）。折れ目で区間を分けて
+  8 点の Gauss-Legendre にした試し（コミットしていない）では、Pa-233 の VIII.0 の χ の差の和が 9.93e-4 から 8.60e-4 になり、群 0 の値は
+  2e-8 しか動かず、χ が 1e-6 以下の群（48〜907 eV）で数十 % 動き、27.7 eV より下の群が 0 でなくなる。Pa-233 の MF6 MT18 は入射 1e-5 eV で
+  E' = 0〜100 keV を 1 区間の lin-lin で与え、低い群の値はこの区間の扱いで決まる
+- `xs check` と `xs nuclide`: 12 の評価は `xs check` を通り（上の「中性子のファイルの読み込みの走査」）、`xs nuclide` は 12 のすべてが終了コード 0 で
+  終わる（1 つあたり 21〜91 秒）。warn は、どれも反応の閾値を運動学の閾値に移したもの 1 つだけ（MF3 の閾値の扱い。MF6 MT18 とは別）
+- 既存の形の出力は変わらない: VIII.0 の U-235、Pu-239（MF5 MT18 と、JP=11 の MF6 MT18。平均の分布は MF5 MT18 のまま）、U-238 の
+  `xs nuclide` の出力（`issue-0312/existing-VIII.0.toml`）は、main の `bin/xs`（分岐点 8e2b6c91 の `build` の出力）の出力とバイトで同じ
+  （md5 は U-235 d279db74、Pu-239 b09b0c8b、U-238 b4974bf3。同じ入力、どちらも 4 スレッド）
 
 ## 版ごとのライブラリの分離共鳴の R 行列の制限形の核分裂
 

@@ -1437,7 +1437,6 @@ endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-090_Th_231.endf"
 
 [[evaluation]]
 endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-090_Th_232.endf"
-error = "fission needs MF1 MT452 and MF5 MT18"
 
 [[evaluation]]
 endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-090_Th_233.endf"
@@ -1453,14 +1452,12 @@ endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-091_Pa_230.endf"
 
 [[evaluation]]
 endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-091_Pa_231.endf"
-error = "fission needs MF1 MT452 and MF5 MT18"
 
 [[evaluation]]
 endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-091_Pa_232.endf"
 
 [[evaluation]]
 endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-091_Pa_233.endf"
-error = "fission needs MF1 MT452 and MF5 MT18"
 
 [[evaluation]]
 endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_230.endf"
