@@ -5,7 +5,7 @@ date: 2026-11-20
 requires: [ADR-0057, ADR-0082]
 supersedes: []
 superseded-by:
-issues: ["#0311", "#0321", "#0322", "#0323"]
+issues: ["#0311", "#0321", "#0322", "#0323", "#0324"]
 ---
 
 # ADR-0271: MF6 の中性子の LAW=6 は入射エネルギーごとに ENDF-102 の式で、LAW=7 は余弦で積分したエネルギー分布で群に振り分け、NJOY の表の作り方を真似ない
@@ -30,6 +30,9 @@ ENDF/B-VIII.1 の Li-6、Be-9（4 つの版）で止まっていた（#0311）�
   傾きに替わる。Be-9 の ENDF/B-VIII.0 の 2 MeV の入射で、群ごとの割合が ENDF のヒストグラムから差の絶対値の和で 31% ずれ、和が
   14% 大きくなる（重みを正しくすると 0.3%。`ll2lab` を真似た examples/depletion/issue-0311/ll2lab_thinning.py で測った。examples/depletion/verification.md）。
   採らない
+- LAW=7 の余弦が開いた範囲を覆うかを、運動学から前方の円錐の μ_min を求めて余弦の範囲と比べて確かめる: 開いた範囲は出射の
+  エネルギーごとに違い、式 6.2 の規格化で足りる。採らない（#0323）
+- LAW=7 の余弦の範囲を確かめずに通す: 範囲の一部を欠いた分布が中性子を黙って失う。採らない（#0323）
 - ENDF-102 の定義のとおりに振り分ける（採用）
 
 ## 決定と理由
@@ -54,10 +57,12 @@ Manual（ENDF-102）の 6.2.8（LAW=6。式 6.21〜6.24、6.27、6.28）と 6.2.
   エラーにする。開いた範囲は重心が中性子より速いと前方の円錐 μ_min〜1 になるので、余弦の範囲は −1〜1 を求めず、表の範囲で積分する。
   余弦が 1 つだけ（積分の幅が 0）と、−1〜1 の外の余弦はエラーにする。範囲の全部を覆うかは、運動学から開いた範囲を求めずに、式 6.2 の規格化で
   確かめる: 入射エネルギーごとの ∫∫ f dμ dE'（xs が積分に使う補間則で）が 1 から 1e-5 を超えてずれたら、入射エネルギーと積分の値を示して
-  止める（黙って規格化し直さない）。正しい前方の円錐は 1 になり、範囲の一部を欠いた分布は欠いた割合だけ足りない。1e-5 は、ENDF の 11 桁の
-  欄の実数（指数が 1 桁なら 7 桁、2 桁なら 6 桁）の値ごとの丸めの相対誤差 5e-7〜5e-6 が正の項の和でも同じ上限になることから、評価者の
-  規格化の丸めを含めてその上限の 2 倍にした。4 つの版の Be-9 の MT16 のずれは最大 7.0e-7（VII.0、VII.1 の 2.7 MeV。VIII.0、VIII.1 は
-  しきい値の 1.74883 MeV の 5.2e-7。examples/depletion/issue-0311/law7_norm.py）。LAW=1 の表の規格化は確かめていない
+  止める（黙って規格化し直さない）。しきい値（最初の入射エネルギー）の 0 の分布は、断面積が 0 なので通す。正しい前方の円錐は 1 になり、範囲の
+  一部を欠いた分布は欠いた割合だけ足りない。1e-5 は見込みからの値で、ENDF の 11 桁の欄の実数（指数が 1 桁なら 7 桁、2 桁なら 6 桁）の値と
+  格子の丸めの相対誤差 5e-7〜5e-6 から和のずれを 1e-6 の桁と見込み、余裕をとった（格子の近い点の幅の丸めは見込みに入れていない）。4 つの版の
+  Be-9 の MT16 のずれは最大 7.0e-7（VII.0、VII.1 の 2.7 MeV。VIII.0、VIII.1 はしきい値の 1.74883 MeV の 5.2e-7。xs と同じ補間則で積分する
+  examples/depletion/issue-0311/law7_norm.py で、556c1372、2026-11-20）。xs の検査も 4 つの版の Be-9 を通す（読み込みの走査）。LAW=1 と
+  MF5 の表の規格化は確かめていない（#0324）
 - 入射エネルギーの間の補間は、LAW=1 と同じくファイルのとおり（ADR-0057。NJOY は INT=2 を単位基底に替える）
 - P1 以上は、LAW=1 と同じく 0 とする（ADR-0082）。H-2、Li-6、Be-9 は軽く、重心の運動による実験室系の P1 は小さくない
   （NJOY の P1 の行の和は P0 の 4〜9 割。examples/depletion/verification.md）が、どれも 1.7 MeV 以上のしきい反応である
@@ -78,7 +83,7 @@ Manual（ENDF-102）の 6.2.8（LAW=6。式 6.21〜6.24、6.27、6.28）と 6.2.
 - テスト: `law6_neutrons_are_phase_space_in_the_centre_of_mass`、`phase_space_max_energy_follows_endf_102`、
   `phase_space_density_integrates_to_one`、`phase_space_spreads_by_the_centre_of_mass_motion`（実験室系の群ごとの割合を、
   重心系のエネルギーの細かい中点則と 2e-7 で比べる）、`law7_neutrons_integrate_the_cosines_into_a_laboratory_spectrum`、
-  `law7_histogram_cosines_weight_the_left_tables`、`law7_single_cosine_is_error`、`law7_forward_cone_normalized_to_one_passes`、`law7_distribution_short_of_one_is_error`、`two_step_phase_space_is_error`、
+  `law7_histogram_cosines_short_of_one_are_error`、`law7_single_cosine_is_error`、`law7_zero_distribution_at_threshold_passes`、`law7_histogram_cosines_of_a_normalized_distribution_take_the_left_table`、`law7_forward_cone_normalized_to_one_passes`、`law7_distribution_short_of_one_is_error`、`two_step_phase_space_is_error`、
   `phase_space_rows_carry_the_neutrons_above_threshold`、`phase_space_rows_follow_the_kinks_above_threshold`（しきい値の群の行を、
   入射エネルギーの細かい中点則と 1e-5 で比べる）、
   `a_phase_space_emission_takes_its_q_value_from_mf3`

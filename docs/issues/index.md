@@ -319,3 +319,4 @@
 * [H-2 の (n,2n) の散乱行列のしきい値の群の出射の分け方が NJOY と 6.95e-1 違う原因が候補のまま](0321-h2-n2n-rows-differ-from-njoy.md)
 * [H-2、Li-6、Be-9 の MF6 の LAW=6、7 の反応の P1 以上を 0 にしている（ADR-0082）](0322-mf6-continuum-p1-left-out-for-light-nuclides.md)
 * [LAW=7 の余弦の範囲が −1〜1 に足りない分布を、通すか止めるか（積分の和の検査の要否）](0323-law7-partial-cosine-range.md)
+* [MF6 の LAW=1 と MF5 の表の出射分布の規格化を確かめていない](0324-law1-outgoing-tables-not-normalization-checked.md)
