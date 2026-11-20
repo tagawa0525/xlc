@@ -1219,6 +1219,44 @@ fn mf6_multiplicity_probabilities_without_mf5_are_an_error() {
 }
 
 #[test]
+fn mf6_without_a_neutron_distribution_and_without_mf5_is_an_error() {
+    // JPN=0 の MF6 MT18 の中性子が LAW=0（分布なし）で、MF5 MT18 も無ければ、平均の分布が無い
+    let tape = mf6_fission_tape(&[(452, "2.43")], &[], &mf6_fission_section("0", "0", "1.0"));
+    let error = parts(&tape).unwrap_err();
+    assert!(
+        matches!(
+            error,
+            ProcessError::PromptFissionNeutrons {
+                continuum: 0,
+                two_body: false
+            }
+        ),
+        "{error}"
+    );
+}
+
+#[test]
+fn mf6_with_two_neutron_distributions_is_an_error() {
+    // 平均の分布は 1 つ。2 つの中性子の分布のどちらを使うかは決まらない
+    let one = mf6_fission_section("0", "1", "1.0");
+    let (_, neutron) = one.split_once('\n').unwrap();
+    let head = crate::endf::rec(["9.223500+4", "2.330248+2", "0", "1", "2", "0"], 1, 6, 18);
+    let text = head + neutron + neutron;
+    let tape = mf6_fission_tape(&[(452, "2.43")], &[], &text);
+    let error = parts(&tape).unwrap_err();
+    assert!(
+        matches!(
+            error,
+            ProcessError::PromptFissionNeutrons {
+                continuum: 2,
+                two_body: false
+            }
+        ),
+        "{error}"
+    );
+}
+
+#[test]
 fn mf6_fission_neutron_yield_other_than_one_is_an_error() {
     // JPN=0 の y(E) は 1（ENDF-102 の 6.3.9.3。MF1 の ν と二重に数えない）
     let tape = mf6_fission_tape(
