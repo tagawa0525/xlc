@@ -441,7 +441,7 @@ cargo run --release -p xlc-xs --example compare_njoy_pendf -- \
 
 ### 計算
 
-xlc deb0c79c（分岐点 f6360d71、2026-11-20）。手元で `compare_njoy_pendf` を実行した。`xs nuclide` は同じコミットの `cargo build --release`
+xlc fef94235（分岐点 f6360d71、2026-11-20）。手元で `compare_njoy_pendf` を実行した。`xs nuclide` は同じコミットの `cargo build --release`
 の bin で、ブランチ feat/0303-pin-depletion-by-endf-version の `endfb81/xs.toml` と `endfb81/xs-range.toml` を手元の試行に置いて実行した。
 メモリの上限（`systemd-run --scope -p MemoryMax=8G`）を付け、最大常駐は子の `ru_maxrss` で測った。
 
