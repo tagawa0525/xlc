@@ -196,6 +196,24 @@ fn nonzero_values_below_q_are_an_error() {
 }
 
 #[test]
+fn negative_broadened_cross_sections_are_an_error() {
+    // ドップラー拡がりの格子の判定は正の値を前提にし、負の区間を際限なく分ける。広げる上限（分離共鳴の無い核種では 6.5 MeV）より
+    // 下の負の値は、0 K の再構成で止める。上限より上の値は広げないので、ここでは止めない
+    let full = ["1.0-5", "2.0+7"];
+    let tape = |capture: [&str; 2]| {
+        let text = [
+            mf3_section(2, full, ["10.0", "10.0"]),
+            mf3_section(102, full, capture),
+        ]
+        .concat();
+        Tape::parse(&text).unwrap()
+    };
+    let error = ColdParts::read(&tape(["-1.0", "1.0"]), 1, 1.0e-3).unwrap_err();
+    assert!(error.message.contains("MT102"), "{error}");
+    assert!(ColdParts::read(&tape(["1.0", "-1.0"]), 1, 1.0e-3).is_ok());
+}
+
+#[test]
 fn tables_without_points_above_the_threshold_are_an_error() {
     let points = [("1.0+3", "0.0"), ("1.1+3", "0.1")];
     assert!(adjusted("9.0", "-1.0+3", "2", &points).is_err());
