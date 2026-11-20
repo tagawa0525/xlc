@@ -26,7 +26,7 @@ resolution:
 - NJOY PURR が捕獲のバックグラウンドの負の点をどう扱うかは確かめていない
 - 再現: examples/depletion/process-survey/VII.0 で `../../../../bin/xs --threads 2 nuclide xs.toml xs-range.toml Ta-181 <出力>`（Es-253 も同じ）
 
-関係する ADR: [ADR-0274](../adr/0274-shield-negative-unresolved-backgrounds-by-declared-factors.md)
+関係する ADR: [ADR-0274](../adr/0274-scale-sampled-reactions-with-negative-unresolved-backgrounds.md)
 
 ## 完了の条件
 
