@@ -403,7 +403,7 @@ def report_text(summary: dict) -> list[str]:
         )
         lines.append("")
     lines.append(
-        "| 版 | チェーンの評価 | 通った | 止まった | うち読み込み | チェーンの外の評価 | 通した | 通った | 止まった | 入れない |"
+        "| 版 | チェーンの評価 | 通った | 止まった | うち走査でも止まる | チェーンの外の評価 | 通した | 通った | 止まった | 入れない |"
     )
     lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
     for label, v in summary["versions"].items():

@@ -215,7 +215,7 @@ def report_text(summary: dict) -> list[str]:
     if summary.get('inputs'):
         lines.append('inputs: ' + ', '.join((f"{i['path']} {i['md5'][:8]}" for i in summary['inputs'])))
         lines.append('')
-    lines.append('| 版 | チェーンの評価 | 通った | 止まった | うち読み込み | チェーンの外の評価 | 通した | 通った | 止まった | 入れない |')
+    lines.append('| 版 | チェーンの評価 | 通った | 止まった | うち走査でも止まる | チェーンの外の評価 | 通した | 通った | 止まった | 入れない |')
     lines.append('| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |')
     for label, v in summary['versions'].items():
         i, o = (v['in_chain'], v['outside_chain'])
