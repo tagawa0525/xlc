@@ -459,9 +459,69 @@ fn declarations_apply_in_the_same_way_in_any_order() {
     let second = declaration_error(&tape, &[take.clone(), raise]);
     assert_eq!(first, second);
     assert!(first.contains("makes MT2 negative"), "{first}");
-    // 引く先の負の値を宣言しなければ、引いたせいでなく、引く先がもともと負であることを示して止める
+    // 引く先の負の値を宣言しなければ、引いたせいでなく、引く先がもともと負で引く分を出せないことを示して止める
     let message = declaration_error(&tape, &[take]);
-    assert!(message.contains("MT2 is negative before"), "{message}");
+    assert!(message.contains("MT2 is negative where"), "{message}");
+}
+
+#[test]
+fn a_take_from_and_a_declaration_of_its_source_elsewhere_give_the_same_tables_in_any_order() {
+    // MT2 の 100 eV の負の点を 0 にする宣言と、10 eV までの捕獲の分を MT2 から引く宣言は、範囲が重ならないので両方とも当たり、
+    // 並べた順によらず同じ表になる
+    let text = [
+        mf3_points(
+            2,
+            &[
+                ("1.0-5", "10.0"),
+                ("90.0", "10.0"),
+                ("100.0", "-1.0"),
+                ("110.0", "10.0"),
+                ("2.0+7", "10.0"),
+            ],
+        ),
+        mf3_points(102, &NEGATIVE_CAPTURE),
+    ]
+    .concat();
+    let tape = Tape::parse(&text).unwrap();
+    let (raise, take) = (
+        declared(2, 50.0, 200.0, None),
+        declared(102, 1.0e-5, 10.0, Some(2)),
+    );
+    let first = ColdParts::read(&tape, 1, 1.0e-3, &[raise.clone(), take.clone()]).unwrap();
+    let second = ColdParts::read(&tape, 1, 1.0e-3, &[take, raise]).unwrap();
+    assert_eq!(first.at(0.0), second.at(0.0));
+    assert_eq!(first.at(0.0)[&2].eval(100.0), Some(0.0));
+}
+
+#[test]
+fn a_take_from_cannot_take_from_a_reaction_that_takes_from_another() {
+    // 引く先が別の `take-from` の宣言の反応なら、当てる順で引く先の値が変わるので止める
+    let text = [
+        mf3_points(
+            2,
+            &[
+                ("1.0-5", "10.0"),
+                ("90.0", "10.0"),
+                ("100.0", "-1.0"),
+                ("110.0", "10.0"),
+                ("2.0+7", "10.0"),
+            ],
+        ),
+        mf3_points(102, &NEGATIVE_CAPTURE),
+    ]
+    .concat();
+    let tape = Tape::parse(&text).unwrap();
+    let (a, b) = (
+        declared(102, 1.0e-5, 10.0, Some(2)),
+        declared(2, 50.0, 200.0, Some(102)),
+    );
+    let first = declaration_error(&tape, &[a.clone(), b.clone()]);
+    let second = declaration_error(&tape, &[b, a]);
+    assert!(first.contains("also declared with `take-from`"), "{first}");
+    assert!(
+        second.contains("also declared with `take-from`"),
+        "{second}"
+    );
 }
 
 #[test]
