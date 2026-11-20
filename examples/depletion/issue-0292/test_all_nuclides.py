@@ -108,6 +108,11 @@ class Library(unittest.TestCase):
         self.assertTrue(th["activation"])
         self.assertEqual(th["temperatures"], [565])
 
+    def test_with_no_exclusions_an_activation_nuclide_of_the_base_is_transported(self):
+        th = entries(errors={}, excluded={})["Th-232"]
+        self.assertNotIn("activation", th)
+        self.assertEqual(th["temperatures"], [565])
+
     def test_an_excluded_nuclide_without_an_activation_entry_is_left_out(self):
         excluded = {**EXCLUDED, "He-4": ("#0311", "理由")}
         e = entries(
@@ -244,6 +249,10 @@ class Notes(unittest.TestCase):
         self.assertIn("放射化の核種として残す", notes[0])
         self.assertIn("#0312", notes[0])
         self.assertNotIn("放射化", notes[1])
+
+    def test_with_no_exclusions_the_note_says_none(self):
+        base = tomllib.loads(BASE)["nuclide"]
+        self.assertEqual(all_nuclides.exclusion_notes(base, {}), ["なし"])
 
 
 class Jobs(unittest.TestCase):
