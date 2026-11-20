@@ -175,6 +175,8 @@ def ranked_names(names, cooled, unranked):
 
 
 def summarize(history, table, shares, transported_dir, added_dir, names, temperature):
+    if not names:
+        raise SystemExit("no added nuclide is left to rank")
     index = {n: i for i, n in enumerate(history["nuclides"])}
     volume = sum(r["volume"] for r in history["regions"])
     points = {p["burnup"]: p for p in history["points"]}

@@ -137,7 +137,8 @@ def render(base_text: str, head: list[str], entries: dict) -> str:
     for line in base_text.splitlines():
         if line.startswith("["):
             break
-        if line and not line.startswith("#"):
+        # ファイルの先頭の注釈（試行の入力の説明）は `head` に替え、共通の項目の間の注釈（書いておく理由など）は残す
+        if line and (common or not line.startswith("#")):
             common.append(line)
     rows = [
         f"{n} = {{ " + ", ".join(f"{k} = {value(v)}" for k, v in e.items()) + " }"

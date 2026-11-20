@@ -33,6 +33,7 @@ import tomllib
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent.parent))
+from all_nuclides import transported as transported_names
 from inputs import NOMINAL_DENSITY, ZIRCALOY, branch_input
 from verification_tables import markdown_table, signed
 
@@ -189,11 +190,7 @@ def history_file(root: Path, config: dict, fuel: str) -> Path:
 
 def library_transported(path: Path) -> list[str]:
     """xs の入力の輸送する核種（放射化の核種でないもの）"""
-    return [
-        n
-        for n, v in tomllib.loads(path.read_text())["nuclide"].items()
-        if not v.get("activation")
-    ]
+    return transported_names(tomllib.loads(path.read_text())["nuclide"])
 
 
 def write_inputs(series: str) -> None:
@@ -325,6 +322,11 @@ def compare(fuel: str, root: Path, series: str, cases_of=None) -> dict:
             raise SystemExit("the control has other burnup points than all")
         out["library_change_pcm"] = [
             1e5 * (1.0 / trial[b] - 1.0 / control[b]) for b in burnup
+        ]
+        # 2 つのテーブルと、それを出した入力
+        paths += [
+            root / SERIES["trial"]["directory"] / fuel / "all.toml",
+            directory / "control.toml",
         ]
         inputs += [
             {"path": str(p.relative_to(root.parent)), "md5": md5(p)} for p in paths
