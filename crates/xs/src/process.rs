@@ -784,7 +784,44 @@ pub fn read_evaluation(tape: &Tape, tolerance: f64) -> Result<Evaluation, Proces
     let head = mf3(first)?;
     let nubar = total_nubar(tape, mat)?;
     let cold = ColdParts::read(tape, mat, tolerance)?;
-    let fission_parts = fission_parts(tape, mat, nubar.as_ref())?;
+    let Distributions {
+        fission_parts,
+        delayed,
+        q_values,
+        emissions,
+        angular,
+    } = read_distributions(tape, mat, nubar.as_ref())?;
+    Ok(Evaluation {
+        mat,
+        za: head.za,
+        awr: head.awr,
+        nubar,
+        cold,
+        fission_parts,
+        delayed,
+        q_values,
+        emissions,
+        angular,
+    })
+}
+
+/// 再構成した断面積と ν のほかに、`read_evaluation` が読む出射の分布（`Evaluation` の同じ名前の項目）。
+#[derive(Debug, Clone)]
+pub struct Distributions {
+    pub fission_parts: Vec<FissionNeutrons>,
+    pub delayed: Option<DelayedFamilies>,
+    pub q_values: BTreeMap<u32, f64>,
+    pub emissions: BTreeMap<u32, Emission>,
+    pub angular: BTreeMap<u32, Mf4>,
+}
+
+/// 物質 `mat` の出射の分布（MF1 MT455、456、MF3 の離散準位の Q 値、MF4〜6）を読む。`nubar` は MF1 MT452。
+pub fn read_distributions(
+    tape: &Tape,
+    mat: i32,
+    nubar: Option<&Tab1>,
+) -> Result<Distributions, ProcessError> {
+    let fission_parts = fission_parts(tape, mat, nubar)?;
     let delayed = delayed_families(tape, mat)?;
     let mut q_values = BTreeMap::new();
     for mt in tape
@@ -792,7 +829,10 @@ pub fn read_evaluation(tape: &Tape, tolerance: f64) -> Result<Evaluation, Proces
         .into_iter()
         .filter(|mt| (51..=90).contains(mt))
     {
-        q_values.insert(mt, mf3(mt)?.qi);
+        let section = tape
+            .section(mat, 3, mt)
+            .ok_or(ProcessError::MissingMf3(mt))?;
+        q_values.insert(mt, Mf3::parse(&section)?.qi);
     }
     let mut emissions = BTreeMap::new();
     for (mt, section) in tape.sections(mat, 6) {
@@ -813,12 +853,7 @@ pub fn read_evaluation(tape: &Tape, tolerance: f64) -> Result<Evaluation, Proces
             angular.insert(mt, Mf4::parse(&section)?);
         }
     }
-    Ok(Evaluation {
-        mat,
-        za: head.za,
-        awr: head.awr,
-        nubar,
-        cold,
+    Ok(Distributions {
         fission_parts,
         delayed,
         q_values,

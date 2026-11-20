@@ -147,20 +147,7 @@ pub fn scattering_moments(
         emissions,
         angular,
     } = *reactions;
-    // 2体反応の角度分布は重心系で使う（対象の評価済みデータはすべて重心系で与えている）
-    for (&mt, mf4) in angular {
-        if (mt == 2 || (51..=90).contains(&mt)) && mf4.frame != Frame::CenterOfMass {
-            return Err(ScatterError::LabTwoBody(mt));
-        }
-        // MF5 の放出は出射エネルギーと角度を独立に掛けるので、角度分布は実験室系で使う。
-        // 重心系で等方（O-18 など）は、これまでどおり P1 以上を 0 とする（重心系の運動の分を入れない近似）
-        if matches!(emissions.get(&mt), Some(Emission::Mf5(_)))
-            && mf4.frame != Frame::Laboratory
-            && mf4.angular != Angular::Isotropic
-        {
-            return Err(ScatterError::CenterOfMassContinuum(mt));
-        }
-    }
+    check_frames(angular, emissions)?;
     if let Some(Thermal::FreeGas(free_gas) | Thermal::Sab { free_gas, .. }) = thermal
         && !(free_gas.kt > 0.0 && free_gas.kt.is_finite() && free_gas.cutoff.is_finite())
     {
@@ -179,36 +166,21 @@ pub fn scattering_moments(
     }
     let ng = groups.len();
     let flux = group_integrals(groups, weight, &[], |_| 1.0);
-    let has_n2n_partials = tables.keys().any(|mt| (875..=891).contains(mt));
-    let has_inelastic_partials = tables.keys().any(|mt| (51..=91).contains(mt));
     let mut moments = vec![vec![vec![0.0; ng]; ng]; order + 1];
-    for (&mt, table) in tables {
-        // 部分反応のある MT4 と MT16 は和なので、部分反応の側で数える
-        if !emits_neutrons(mt)
-            || (mt == 4 && has_inelastic_partials)
-            || (mt == 16 && has_n2n_partials)
-        {
-            continue;
-        }
-        // 弾性散乱は MF6 の有無にかかわらず2体反応（熱領域では自由ガス）で扱う
-        let rows = if mt == 2 {
-            elastic_rows(groups, weight, awr, table, thermal, angular.get(&2), order)
-        } else if let Some(Emission::Mf6(data)) = emissions.get(&mt)
-            && !data.two_body
-        {
-            isotropic(emission_rows(groups, weight, table, data), order)
-        } else if let Some(Emission::Mf6(_)) = emissions.get(&mt)
-            && !(51..=90).contains(&mt)
-        {
-            return Err(ScatterError::TwoBody(mt));
-        } else if let Some(Emission::Mf5(data)) = emissions.get(&mt) {
-            let count = multiplicity(mt).ok_or(ScatterError::Multiplicity(mt))?;
-            spectrum_moments(groups, weight, table, data, count, angular.get(&mt), order)
-        } else if (51..=90).contains(&mt) {
-            let q = *q_values.get(&mt).ok_or(ScatterError::QValue(mt))?;
-            two_body_rows(groups, weight, awr, q, table, angular.get(&mt), order)
-        } else {
-            return Err(ScatterError::NoDistribution(mt));
+    let mts: Vec<u32> = tables.keys().copied().collect();
+    for (mt, source) in sources(&mts, q_values, emissions)? {
+        let table = &tables[&mt];
+        let rows = match source {
+            Source::Elastic => {
+                elastic_rows(groups, weight, awr, table, thermal, angular.get(&2), order)
+            }
+            Source::Continuum(data) => isotropic(emission_rows(groups, weight, table, data), order),
+            Source::Spectrum(data, count) => {
+                spectrum_moments(groups, weight, table, data, count, angular.get(&mt), order)
+            }
+            Source::Discrete(q) => {
+                two_body_rows(groups, weight, awr, q, table, angular.get(&mt), order)
+            }
         };
         for (sum, part) in moments.iter_mut().zip(rows) {
             for (row, values) in sum.iter_mut().zip(part) {
@@ -226,6 +198,82 @@ pub fn scattering_moments(
         }
     }
     Ok(moments)
+}
+
+/// 散乱行列の行を作る、反応の中性子の出どころ。
+enum Source<'a> {
+    /// 弾性散乱（MF6 の有無にかかわらず2体反応。熱領域では熱領域の扱い）
+    Elastic,
+    /// MF6 の連続的な放出
+    Continuum(&'a Mf6),
+    /// MF5 のエネルギー分布と、反応で決まる多重度
+    Spectrum(&'a Mf5, f64),
+    /// 離散準位の2体反応と、その Q 値 (eV)
+    Discrete(f64),
+}
+
+/// 角度分布の系を確かめる: 2体反応の角度分布は重心系で使い（対象の評価済みデータはすべて重心系で与えている）、MF5 の放出は
+/// 出射エネルギーと角度を独立に掛けるので、角度分布は実験室系で使う。重心系で等方（O-18 など）は、これまでどおり P1 以上を
+/// 0 とする（重心系の運動の分を入れない近似）
+fn check_frames(
+    angular: &BTreeMap<u32, Mf4>,
+    emissions: &BTreeMap<u32, Emission>,
+) -> Result<(), ScatterError> {
+    for (&mt, mf4) in angular {
+        if (mt == 2 || (51..=90).contains(&mt)) && mf4.frame != Frame::CenterOfMass {
+            return Err(ScatterError::LabTwoBody(mt));
+        }
+        if matches!(emissions.get(&mt), Some(Emission::Mf5(_)))
+            && mf4.frame != Frame::Laboratory
+            && mf4.angular != Angular::Isotropic
+        {
+            return Err(ScatterError::CenterOfMassContinuum(mt));
+        }
+    }
+    Ok(())
+}
+
+/// 表のある反応 `mts` のうち散乱行列に数えるものの、MT と中性子の出どころ（MT の順）。中性子を放出するのに分布のない反応は
+/// エラーにする（中性子を黙って失わないため）。
+fn sources<'a>(
+    mts: &[u32],
+    q_values: &BTreeMap<u32, f64>,
+    emissions: &'a BTreeMap<u32, Emission>,
+) -> Result<Vec<(u32, Source<'a>)>, ScatterError> {
+    let has_n2n_partials = mts.iter().any(|mt| (875..=891).contains(mt));
+    let has_inelastic_partials = mts.iter().any(|mt| (51..=91).contains(mt));
+    let mut sources = Vec::new();
+    for &mt in mts {
+        // 部分反応のある MT4 と MT16 は和なので、部分反応の側で数える
+        if !emits_neutrons(mt)
+            || (mt == 4 && has_inelastic_partials)
+            || (mt == 16 && has_n2n_partials)
+        {
+            continue;
+        }
+        let source = if mt == 2 {
+            Source::Elastic
+        } else if let Some(Emission::Mf6(data)) = emissions.get(&mt)
+            && !data.two_body
+        {
+            Source::Continuum(data)
+        } else if let Some(Emission::Mf6(_)) = emissions.get(&mt)
+            && !(51..=90).contains(&mt)
+        {
+            return Err(ScatterError::TwoBody(mt));
+        } else if let Some(Emission::Mf5(data)) = emissions.get(&mt) {
+            Source::Spectrum(
+                data,
+                multiplicity(mt).ok_or(ScatterError::Multiplicity(mt))?,
+            )
+        } else if (51..=90).contains(&mt) {
+            Source::Discrete(*q_values.get(&mt).ok_or(ScatterError::QValue(mt))?)
+        } else {
+            return Err(ScatterError::NoDistribution(mt));
+        };
+        sources.push((mt, source));
+    }
+    Ok(sources)
 }
 
 /// P0 の行だけを持ち、P1 以上を 0 とした [l][g][g']（角度分布をまだ入れていない反応）
