@@ -50,7 +50,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let groups = GroupStructure::wims69();
     let ng = groups.len();
     let start = std::time::Instant::now();
-    let shielding = unresolved_shielding(&tape, mat, temperature, &sigma0)?;
+    let shielding =
+        unresolved_shielding(&tape, mat, &[temperature], &sigma0)?.map(|mut at| at.remove(0));
     println!(
         "unresolved shielding in {:.1} s",
         start.elapsed().as_secs_f64()

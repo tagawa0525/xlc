@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [xs]
 opened: 2026-10-23
-closed:
+closed: 2026-11-20
 milestone:
 blocked-by: []
-resolution:
+resolution: ADR-0188
 ---
 
 # 非分離共鳴のラダーと係数を温度の間で再利用する
@@ -25,9 +25,20 @@ process.rs の温度のループ（`Common::at_temperature`）から呼び方を
 
 ## 完了の条件
 
-ラダーと係数を温度の間で 1 度だけ作り、65 核種の燃焼のライブラリ（examples/depletion）の出力の md5 が変わらないことと、CPU 時間の
-変化を確かめる。
+- [x] ラダーと係数を温度の間で 1 度だけ作り、65 核種の燃焼のライブラリ（examples/depletion）の出力の md5 が変わらないことと、CPU
+  時間の変化を確かめる
 
 ## 経緯
 
 - 2026-10-23: #0138 の測定（ADR-0188 の「確認」）で、Am-242m の残りの時間の約半分が係数の和と分かった
+- 2026-11-20: 直す前の内訳を再測定した。1 コア、565 K の 1 温度の Am-242m（xlc f6360d711、perf の標本、手元）は、係数 C_r の和の
+  ループが 48%、`faddeeva_along_x` が 33%、`bondarenko` のほか（ラダーの生成、漸近形、和）が 13%、ラダーの乱数の sin、cos、log が 4%。
+  ADR-0188 の「確認」の内訳（係数の和が約 5 割）は今も当てはまる。温度ごとに作り直すのは係数の和とラダーの生成（合わせて約 5 割）で、
+  4 温度では全体の約 4 割、13 温度では約 5 割が繰り返しになる見込み
+- 2026-11-20: ラダーと係数を温度の間で 1 度だけ作る形にした（ブランチ perf/0155-reuse-unresolved-ladders）。テスト
+  `shielding_temperatures_together_gives_the_bits_of_each_temperature_alone`（crates/xs/src/process/tests.rs）が、3 温度を一緒に作った補正と
+  温度ごとに作った補正がビットまで同じことを示す。13 温度の Am-242m の出力の md5 は直す前と後で同じ（048df745。手元で
+  `xs nuclide` を 8 スレッドで実行）、4 温度の Cm-244 も同じで、燃焼のライブラリの出力とも同じ（756a0a60）。時間は区分 timed の
+  ジョブで測った（次の項）
+- 2026-11-20: Am-242m の時間を区分 timed の Slurm 990（直す前）と 991（直した後）で、65 核種の燃焼のライブラリの md5 を Slurm 992 で
+  確かめた。CPU 時間は 4 温度で約 4 割、13 温度で約 5 割減り、65 核種すべての md5 が変わらない。値とコミットは ADR-0188 の「確認」

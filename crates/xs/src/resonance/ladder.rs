@@ -51,7 +51,8 @@ const ELASTIC_FLOOR: f64 = 1.0e-6;
 /// |x| か y がこれより大きいと、w(z) を漸近形 i/(√π z) で求める（相対誤差 1/(2|z|²) ≈ 5e-5）
 const ASYMPTOTIC: f64 = 100.0;
 
-/// 1 つの系列の、エネルギー E での平均のパラメータ。幅 (eV) は平均で、自由度の χ² 分布でゆらぐ。
+/// 1 つの系列の、エネルギー E での平均のパラメータ。幅 (eV) は平均で、自由度の χ² 分布でゆらぐ。温度によらない
+/// （ドップラー幅は `bondarenko` に温度ごとに渡す）。
 #[derive(Debug, Clone, Copy)]
 pub(super) struct LadderSequence {
     /// 4π/k² × gJ (barn)
@@ -65,8 +66,6 @@ pub(super) struct LadderSequence {
     pub(super) dof_x: WidthDof,
     /// 準位間隔 D (eV)
     pub(super) d: f64,
-    /// ドップラー幅 Δ (eV)
-    pub(super) delta: f64,
     /// cos 2φ と sin 2φ（φ は位相シフト）
     pub(super) cos2: f64,
     pub(super) sin2p: f64,
@@ -97,19 +96,25 @@ pub(super) enum LadderError {
     NonPositiveTotal { offset: f64, floored: bool },
 }
 
-/// 系列 `sequences` のラダーで、σ0 ごとの実効断面積を求める。`potential` はポテンシャル散乱 (barn)、`background` は
-/// MF3 のバックグラウンド断面積。サンプルの数は `sampling`、乱数は種 `seed` から決まる。弾性散乱（バックグラウンドを含む）が負の点は弾性散乱を
-/// 1 μb にし（数を `floored` に数える）、それでも全断面積が 0 以下になる点があれば止める。
+/// 系列 `sequences` のラダーで、温度ごとに σ0 ごとの実効断面積を求める。`deltas` は温度ごとの、系列ごとのドップラー幅 Δ (eV)
+/// で、結果はその温度の順に並ぶ。`potential` はポテンシャル散乱 (barn)、`background` は MF3 のバックグラウンド断面積。サンプルの数は
+/// `sampling`、乱数は種 `seed` から決まる。弾性散乱（バックグラウンドを含む）が負の点は弾性散乱を 1 μb にし（数を `floored` に
+/// 数える）、それでも全断面積が 0 以下になる点があれば、その温度を止める。
+///
+/// ラダーと弾性散乱の多準位の係数は温度によらないので、ラダーごとに 1 度だけ作り、どの温度にも使う（#0155）。乱数を引くのは
+/// ラダーとエネルギーを作るときだけなので、温度ごとの和は、その温度だけを求めたときと同じ演算を同じ順序で足し、結果のビットは
+/// 温度の組によらない。
 pub(super) fn bondarenko(
     sequences: &[LadderSequence],
+    deltas: &[Vec<f64>],
     potential: f64,
     background: Sigma,
     sigma0: &[f64],
     sampling: Sampling,
     seed: u64,
-) -> Result<Bondarenko, LadderError> {
+) -> Vec<Result<Bondarenko, LadderError>> {
     if sampling.ladders == 0 || sampling.samples == 0 {
-        return Err(LadderError::EmptySampling);
+        return vec![Err(LadderError::EmptySampling); deltas.len()];
     }
     let mut rng = Rng::new(seed);
     // 共鳴を持つ系列（下のラダーのループが使う系列）の最大の準位間隔
@@ -119,16 +124,17 @@ pub(super) fn bondarenko(
         .map(|q| q.d)
         .fold(0.0, f64::max);
     let half = 0.5 * SAMPLE_SPACINGS * d_max;
-    // σ0 ごとの Σ w σt, Σ w σel, Σ w σf, Σ w σc, Σ w, Σ w² σt, Σ w²（w = 1/(σt + σ0)）
-    let mut sums = vec![[0.0; 7]; sigma0.len()];
-    let mut mean = [0.0; 4];
-    let mut count = 0usize;
-    let mut floored = 0usize;
     // 弾性散乱、核分裂、捕獲の外の反応のバックグラウンド（MF3 の全断面積との差）
     let other = background.total - background.elastic - background.fission - background.capture;
     let mut energies = vec![0.0; sampling.samples];
-    let mut parts = Parts::zeroed(sampling.samples);
+    let mut temperatures: Vec<Accumulator> = deltas
+        .iter()
+        .map(|_| Accumulator::new(sigma0.len(), sampling.samples))
+        .collect();
     for _ in 0..sampling.ladders {
+        if temperatures.iter().all(|t| t.error.is_some()) {
+            break;
+        }
         // 等間隔の点を一様な乱数でずらす（系統抽出）。どの点も窓の中で一様なので偏りがなく、共鳴の間の谷を独立な一様の点より
         // 漏れなく拾う
         let offset = rng.uniform();
@@ -136,22 +142,83 @@ pub(super) fn bondarenko(
         for (i, x) in energies.iter_mut().enumerate() {
             *x = -half + step * (i as f64 + offset);
         }
-        parts.clear();
-        for q in sequences.iter().filter(|q| q.has_resonances()) {
-            let ladder = sample_ladder(q, half, sampling.margin, &mut rng);
-            add_ladder(q, &ladder, &energies, &mut parts);
+        for t in &mut temperatures {
+            t.parts.clear();
         }
+        for (k, q) in sequences
+            .iter()
+            .enumerate()
+            .filter(|(_, q)| q.has_resonances())
+        {
+            let ladder = sample_ladder(q, half, sampling.margin, &mut rng);
+            let coefficients = elastic_coefficients(q, &ladder);
+            for (t, deltas) in temperatures.iter_mut().zip(deltas) {
+                if t.error.is_none() {
+                    add_ladder(
+                        q,
+                        deltas[k],
+                        &ladder,
+                        &coefficients,
+                        &energies,
+                        &mut t.parts,
+                    );
+                }
+            }
+        }
+        for t in temperatures.iter_mut().filter(|t| t.error.is_none()) {
+            t.error = t
+                .add_samples(&energies, potential, background, other, sigma0)
+                .err();
+        }
+    }
+    temperatures.into_iter().map(Accumulator::finish).collect()
+}
+
+/// 1 つの温度の、サンプルの和。
+struct Accumulator {
+    /// σ0 ごとの Σ w σt, Σ w σel, Σ w σf, Σ w σc, Σ w, Σ w² σt, Σ w²（w = 1/(σt + σ0)）
+    sums: Vec<[f64; 7]>,
+    mean: [f64; 4],
+    count: usize,
+    floored: usize,
+    /// 今のラダーの、エネルギーごとの共鳴の断面積の和
+    parts: Parts,
+    /// この温度を止めた理由（止めた後のラダーは足さない）
+    error: Option<LadderError>,
+}
+
+impl Accumulator {
+    fn new(sigma0: usize, samples: usize) -> Self {
+        Self {
+            sums: vec![[0.0; 7]; sigma0],
+            mean: [0.0; 4],
+            count: 0,
+            floored: 0,
+            parts: Parts::zeroed(samples),
+            error: None,
+        }
+    }
+
+    /// 今のラダーの `parts` に、ポテンシャル散乱とバックグラウンドを足した断面積を、エネルギーの順に和に足す
+    fn add_samples(
+        &mut self,
+        energies: &[f64],
+        potential: f64,
+        background: Sigma,
+        other: f64,
+        sigma0: &[f64],
+    ) -> Result<(), LadderError> {
         for (j, &x) in energies.iter().enumerate() {
-            let mut elastic = background.elastic + potential + parts.elastic[j];
+            let mut elastic = background.elastic + potential + self.parts.elastic[j];
             // MF3 の負のバックグラウンドを足したとき、遠い極を漸近形で求めた |1 − U|² の誤差、窓の外の共鳴を落とした分で負になりうる。
             // NJOY PURR（purr.f90 の unrest）と同じく 1 μb にして、参照解の確率テーブルと扱いを揃える（ADR-0177）
             let floor = elastic < 0.0;
             if floor {
                 elastic = ELASTIC_FLOOR;
-                floored += 1;
+                self.floored += 1;
             }
-            let fission = background.fission + parts.fission[j];
-            let capture = background.capture + parts.capture[j];
+            let fission = background.fission + self.parts.fission[j];
+            let capture = background.capture + self.parts.capture[j];
             let total = elastic + fission + capture + other;
             if total.is_nan() || total <= 0.0 {
                 return Err(LadderError::NonPositiveTotal {
@@ -159,7 +226,7 @@ pub(super) fn bondarenko(
                     floored: floor,
                 });
             }
-            for (sum, &s0) in sums.iter_mut().zip(sigma0) {
+            for (sum, &s0) in self.sums.iter_mut().zip(sigma0) {
                 let w = 1.0 / (total + s0);
                 sum[0] += w * total;
                 sum[1] += w * elastic;
@@ -169,33 +236,41 @@ pub(super) fn bondarenko(
                 sum[5] += w * w * total;
                 sum[6] += w * w;
             }
-            mean[0] += total;
-            mean[1] += elastic;
-            mean[2] += fission;
-            mean[3] += capture;
-            count += 1;
+            self.mean[0] += total;
+            self.mean[1] += elastic;
+            self.mean[2] += fission;
+            self.mean[3] += capture;
+            self.count += 1;
         }
+        Ok(())
     }
-    let m = mean.map(|v| v / count as f64);
-    Ok(Bondarenko {
-        shielded: sums
-            .iter()
-            .map(|s| ShieldedSigma {
-                total: s[0] / s[4],
-                elastic: s[1] / s[4],
-                fission: s[2] / s[4],
-                capture: s[3] / s[4],
-                current_total: s[5] / s[6],
-            })
-            .collect(),
-        mean: Sigma {
-            total: m[0],
-            elastic: m[1],
-            fission: m[2],
-            capture: m[3],
-        },
-        floored,
-    })
+
+    fn finish(self) -> Result<Bondarenko, LadderError> {
+        if let Some(error) = self.error {
+            return Err(error);
+        }
+        let m = self.mean.map(|v| v / self.count as f64);
+        Ok(Bondarenko {
+            shielded: self
+                .sums
+                .iter()
+                .map(|s| ShieldedSigma {
+                    total: s[0] / s[4],
+                    elastic: s[1] / s[4],
+                    fission: s[2] / s[4],
+                    capture: s[3] / s[4],
+                    current_total: s[5] / s[6],
+                })
+                .collect(),
+            mean: Sigma {
+                total: m[0],
+                elastic: m[1],
+                fission: m[2],
+                capture: m[3],
+            },
+            floored: self.floored,
+        })
+    }
 }
 
 /// ラダーの 1 つの共鳴。
@@ -274,48 +349,30 @@ fn sample_ladder(
 /// |A|² = 4 sin²φ はポテンシャル散乱で、系列の外で足す。ドップラーで広げた f_r は (i√π/Δ) w((E − E_r + iΓ_r/2)/Δ)
 /// （w(z) = (i/π) ∫ e^{−t²}/(z − t) dt から）。σ = (π/k²) g |1 − U|² で、π/k² g = scale/4
 ///
-/// C_r は s を外、r を内のループで、エネルギーごとの和は共鳴を外、エネルギーを内のループで求め、内側の独立な点をベクトル命令で
-/// 並べる。どの点の値も、点ごとに求めたときと同じ演算を同じ順序で足すので、結果のビットは変わらない（ADR-0188）。
-fn add_ladder(q: &LadderSequence, ladder: &[Resonance], energies: &[f64], parts: &mut Parts) {
-    // 極 p_r = E_r − iΓ_r/2 の実部と虚部を別の配列に置き、num_complex の Γn_s/(p̄_s − p_r) と和と同じ式を成分で書く
-    let pole_re: Vec<f64> = ladder.iter().map(|r| r.energy).collect();
-    let pole_im: Vec<f64> = ladder.iter().map(|r| -0.5 * r.gamma).collect();
-    let mut sum_re = vec![0.0; ladder.len()];
-    let mut sum_im = vec![0.0; ladder.len()];
-    for s in ladder {
-        // p̄_s
-        let (conjugate_re, conjugate_im) = (s.energy, 0.5 * s.gamma);
-        for (((sum_re, sum_im), &p_re), &p_im) in sum_re
-            .iter_mut()
-            .zip(sum_im.iter_mut())
-            .zip(&pole_re)
-            .zip(&pole_im)
-        {
-            let (d_re, d_im) = (conjugate_re - p_re, conjugate_im - p_im);
-            let norm = d_re * d_re + d_im * d_im;
-            *sum_re += s.gn * d_re / norm;
-            *sum_im += 0.0 - s.gn * d_im / norm;
-        }
-    }
-    let sums = sum_re
-        .iter()
-        .zip(&sum_im)
-        .map(|(&re, &im)| Complex64::new(re, im));
-    let a = Complex64::new(1.0 - q.cos2, q.sin2p);
+/// a_r は温度によらないので `elastic_coefficients` が温度の外で求め、ここではドップラー幅 `delta` による部分だけを求める（#0155）。
+/// エネルギーごとの和は共鳴を外、エネルギーを内のループで求め、内側の独立な点をベクトル命令で並べる。どの点の値も、点ごとに
+/// 求めたときと同じ演算を同じ順序で足すので、結果のビットは変わらない（ADR-0188）。
+fn add_ladder(
+    q: &LadderSequence,
+    delta: f64,
+    ladder: &[Resonance],
+    coefficients: &[Complex64],
+    energies: &[f64],
+    parts: &mut Parts,
+) {
     let root_pi = PI.sqrt();
     // 弾性散乱 (π/k²) g 2 Re[a_r (i√π/Δ) w] = scale/2 · √π/Δ · Re[i a_r w]
-    let elastic_scale = 0.5 * q.scale * root_pi / q.delta;
+    let elastic_scale = 0.5 * q.scale * root_pi / delta;
     let mut x = vec![0.0; energies.len()];
     let mut w = Vec::with_capacity(energies.len());
-    for (r, c) in ladder.iter().zip(sums) {
-        let ar = r.gn * (c + Complex64::i() * a);
-        let y = 0.5 * r.gamma / q.delta;
+    for (r, &ar) in ladder.iter().zip(coefficients) {
+        let y = 0.5 * r.gamma / delta;
         // 捕獲 scale (Γn Γγ/Γ²) ψ、核分裂 scale (Γn Γf/Γ²) ψ
         let c = q.scale * r.gn / r.gamma * root_pi * y / r.gamma;
         let (fission_re, capture_re) = (c * r.gf, c * q.gg);
         let iar = Complex64::i() * ar * elastic_scale;
         for (x, &e) in x.iter_mut().zip(energies) {
-            *x = (e - r.energy) / q.delta;
+            *x = (e - r.energy) / delta;
         }
         // |x| か y が ASYMPTOTIC を超える点は w(z) ≈ i/(√π z)。エネルギーは昇順なので、|x| ≤ ASYMPTOTIC の点は連続した範囲になる
         let (first, last) = if y > ASYMPTOTIC {
@@ -343,6 +400,39 @@ fn add_ladder(q: &LadderSequence, ladder: &[Resonance], energies: &[f64], parts:
             *capture += capture_re * w.re;
         }
     }
+}
+
+/// 系列 `q` のラダー `ladder` の、弾性散乱の多準位の係数 a_r = Γn_r (C_r + i A)、C_r = Σ_s Γn_s/(p̄_s − p_r)（`add_ladder`）。
+/// 温度によらない。
+///
+/// C_r は s を外、r を内のループで求め、内側の独立な r をベクトル命令で並べる（ADR-0188）。
+fn elastic_coefficients(q: &LadderSequence, ladder: &[Resonance]) -> Vec<Complex64> {
+    // 極 p_r = E_r − iΓ_r/2 の実部と虚部を別の配列に置き、num_complex の Γn_s/(p̄_s − p_r) と和と同じ式を成分で書く
+    let pole_re: Vec<f64> = ladder.iter().map(|r| r.energy).collect();
+    let pole_im: Vec<f64> = ladder.iter().map(|r| -0.5 * r.gamma).collect();
+    let mut sum_re = vec![0.0; ladder.len()];
+    let mut sum_im = vec![0.0; ladder.len()];
+    for s in ladder {
+        // p̄_s
+        let (conjugate_re, conjugate_im) = (s.energy, 0.5 * s.gamma);
+        for (((sum_re, sum_im), &p_re), &p_im) in sum_re
+            .iter_mut()
+            .zip(sum_im.iter_mut())
+            .zip(&pole_re)
+            .zip(&pole_im)
+        {
+            let (d_re, d_im) = (conjugate_re - p_re, conjugate_im - p_im);
+            let norm = d_re * d_re + d_im * d_im;
+            *sum_re += s.gn * d_re / norm;
+            *sum_im += 0.0 - s.gn * d_im / norm;
+        }
+    }
+    let a = Complex64::new(1.0 - q.cos2, q.sin2p);
+    ladder
+        .iter()
+        .zip(sum_re.iter().zip(&sum_im))
+        .map(|(r, (&re, &im))| r.gn * (Complex64::new(re, im) + Complex64::i() * a))
+        .collect()
 }
 
 /// 自由度 `dof` の χ² 分布を自由度で割った値（平均 1）。自由度なしは 1。

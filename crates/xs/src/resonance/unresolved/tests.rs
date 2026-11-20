@@ -6,6 +6,30 @@ use crate::special::erfc;
 const AWRI: f64 = 236.0;
 const AP: f64 = 0.948;
 
+impl UnresolvedXs<'_> {
+    /// 1 つの温度 `temperature` だけの `shielded`
+    fn shielded_at(
+        &self,
+        e: f64,
+        temperature: f64,
+        sigma0: &[f64],
+        background: Sigma,
+        sampling: Sampling,
+        seed: u64,
+    ) -> Result<Bondarenko, UrrError> {
+        let [result] = <[_; 1]>::try_from(self.shielded(
+            e,
+            &[temperature],
+            sigma0,
+            background,
+            sampling,
+            seed,
+        )?)
+        .expect("one temperature gives one result");
+        result
+    }
+}
+
 /// テストのサンプルの数。ライブラリの数（`Sampling::LIBRARY`）は黒い極限のテストだけで使う
 const TEST: Sampling = Sampling {
     ladders: 64,
@@ -200,7 +224,7 @@ fn three_fluctuating_widths_converge() {
 
 /// 種 7 の、σ0 ごとのサンプリングした実効断面積
 fn sampled(xs: &UnresolvedXs, e: f64, temperature: f64, sigma0: &[f64]) -> Bondarenko {
-    xs.shielded(e, temperature, sigma0, Sigma::default(), TEST, 7)
+    xs.shielded_at(e, temperature, sigma0, Sigma::default(), TEST, 7)
         .unwrap()
 }
 
@@ -215,7 +239,7 @@ fn over_seeds(
     let values: Vec<f64> = (1..=16)
         .map(|seed| {
             of(&xs
-                .shielded(e, temperature, sigma0, Sigma::default(), TEST, seed)
+                .shielded_at(e, temperature, sigma0, Sigma::default(), TEST, seed)
                 .unwrap())
         })
         .collect();
@@ -343,7 +367,7 @@ fn black_limit_stays_positive_below_the_mean() {
     urr.l_values[0].awri = 147.0;
     let xs = UnresolvedXs::new(&urr).unwrap();
     let b = xs
-        .shielded(
+        .shielded_at(
             2.6,
             565.0,
             &[1.0e10, 10.0, 1.0],
@@ -375,7 +399,7 @@ fn ladders_follow_the_seed_and_keep_it_across_temperatures() {
     let a = sampled(&xs, 1.0e4, 300.0, &sigma0);
     assert_eq!(a.shielded, sampled(&xs, 1.0e4, 300.0, &sigma0).shielded);
     let other = xs
-        .shielded(1.0e4, 300.0, &sigma0, Sigma::default(), TEST, 8)
+        .shielded_at(1.0e4, 300.0, &sigma0, Sigma::default(), TEST, 8)
         .unwrap();
     assert_ne!(a.shielded, other.shielded);
     // 同じ種なら、温度を変えてもラダーとエネルギーは同じ: 実効断面積は温度の滑らかな関数になり、1 K ずつの差がほぼ等しい。
@@ -428,7 +452,7 @@ fn negative_elastic_background_floors_the_elastic_at_one_microbarn() {
         capture: 0.0,
     };
     let b = xs
-        .shielded(1.0e4, 300.0, &sigma0, background, TEST, 7)
+        .shielded_at(1.0e4, 300.0, &sigma0, background, TEST, 7)
         .unwrap();
     let samples = TEST.ladders * TEST.samples;
     assert_eq!(b.floored, samples);
@@ -458,7 +482,7 @@ fn empty_sampling_is_an_error() {
         Sampling { ladders: 0, ..TEST },
         Sampling { samples: 0, ..TEST },
     ] {
-        let result = xs.shielded(1.0e4, 300.0, &[1.0e10], Sigma::default(), sampling, 7);
+        let result = xs.shielded_at(1.0e4, 300.0, &[1.0e10], Sigma::default(), sampling, 7);
         assert!(
             matches!(result, Err(UrrError::EmptySampling { .. })),
             "{result:?}"

@@ -1,6 +1,7 @@
 //! ENDF の1核種から多群定数を作る処理の全体。
 
 use std::collections::BTreeMap;
+use std::convert::Infallible;
 
 use crate::endf::{
     Mf2, Mf3, Mf4, Mf5, Mf6, Mf7Incoherent, OrbitalL, RangeKind, Tab1, Tape, final_state_table,
@@ -18,7 +19,7 @@ use crate::pointwise::{
     ColdParts, DEFAULT_TOLERANCE, left_limit, linearize, resonance_tables, right_limit,
 };
 use crate::resonance::{
-    Sampling, Sigma, UnresolvedXs, UrrError, unresolved_grid, unresolved_interpolation,
+    Bondarenko, Sampling, Sigma, UnresolvedXs, UrrError, unresolved_grid, unresolved_interpolation,
 };
 use xlc_format::group::GroupStructure;
 use xlc_format::library::{
@@ -165,15 +166,20 @@ pub fn read_thermal_scattering(tape: &Tape) -> Result<Mf7Incoherent, ProcessErro
     Ok(Mf7Incoherent::parse(&section)?)
 }
 
-/// 非分離共鳴の自己遮蔽の補正を、温度 `temperature` (K) とバックグラウンド断面積 `sigma0` について作る
-/// （NJOY UNRESR に相当）。非分離共鳴がなければ `None`。
+/// 非分離共鳴の自己遮蔽の補正を、温度 `temperatures` (K) ごとに、バックグラウンド断面積 `sigma0` について作る
+/// （NJOY UNRESR に相当）。結果は温度の順に並ぶ。非分離共鳴がなければ `None`。
+///
+/// どの温度にも同じラダーを使う（ADR-0177）ので、ラダーと係数は温度の間で 1 度だけ作る。どの温度の補正も、その温度だけを
+/// 作ったときとビットまで同じ（#0155）。サンプリングのエラーは、温度ごとに作ったときに最初にエラーになる温度のものを、その温度の
+/// `ProcessError::Temperature` で包んで返す。温度によらないエラー（MF2 の読み、格子、正でない温度）は包まず、正でない温度は
+/// その位置によらず先に返る。
 #[tracing::instrument(level = "debug", skip_all)]
 pub fn unresolved_shielding(
     tape: &Tape,
     mat: i32,
-    temperature: f64,
+    temperatures: &[f64],
     sigma0: &[f64],
-) -> Result<Option<UnresolvedShielding>, ProcessError> {
+) -> Result<Option<Vec<UnresolvedShielding>>, ProcessError> {
     let Some(section) = tape.section(mat, 2, 151) else {
         return Ok(None);
     };
@@ -189,6 +195,9 @@ pub fn unresolved_shielding(
     let Some((range, urr)) = unresolved else {
         return Ok(None);
     };
+    if temperatures.is_empty() {
+        return Ok(Some(Vec::new()));
+    }
     let xs = UnresolvedXs::new(urr)?;
     let law = unresolved_interpolation(urr)?;
     let grid = unresolved_grid(urr, range.el, range.eh);
@@ -220,7 +229,7 @@ pub fn unresolved_shielding(
     };
 
     // 格子点ごとに独立なので並列に求める。種は格子点の番号（温度と σ0 によらず同じラダーを使い、温度の間の相関を保つ。
-    // スレッドの数によらない。ADR-0177）
+    // スレッドの数によらない。ADR-0177）。エラーでも止めず、下で温度ごとに作ったときと同じエラーを選ぶ
     let sampled = in_parallel(grid.len(), |i| {
         let e = grid[i];
         let background = Sigma {
@@ -229,36 +238,90 @@ pub fn unresolved_shielding(
             fission: at(&fission, e),
             capture: at(&capture, e),
         };
-        xs.shielded(
+        Ok::<_, Infallible>(xs.shielded(
             e,
-            temperature,
+            temperatures,
             sigma0,
             background,
             Sampling::LIBRARY,
             i as u64,
-        )
-    })?;
-    let floored: usize = sampled.iter().map(|b| b.floored).sum();
-    if floored > 0 {
-        let samples = Sampling::LIBRARY.ladders * Sampling::LIBRARY.samples * grid.len();
-        xlc_log::warn!(
-            "{temperature} K: the sampled elastic (with the MF3 background) is negative at {floored} of \
-             {samples} sampled energies in the unresolved range and is raised to 1 microbarn, as NJOY PURR does"
-        );
-    }
-    let mut shielded = vec![Vec::with_capacity(grid.len()); sigma0.len()];
-    let mut infinite = Vec::with_capacity(grid.len());
-    for b in &sampled {
-        for (row, s) in shielded.iter_mut().zip(&b.shielded) {
-            row.push([s.total, s.elastic, s.fission, s.capture]);
+        ))
+    })
+    .unwrap_or_else(|never| match never {});
+    // 温度ごとに作ると、最初にエラーになる温度の、最も小さい格子点のエラーで止まる。それと同じエラーを返す。温度によらない
+    // エラーの格子点では最初の温度も止まるので、そこで最初の温度のエラーが決まる
+    let mut sampled_at: Vec<Vec<Bondarenko>> =
+        vec![Vec::with_capacity(grid.len()); temperatures.len()];
+    let mut errors: Vec<Option<UrrError>> = temperatures.iter().map(|_| None).collect();
+    for point in sampled {
+        let at = match point {
+            Ok(at) => at,
+            Err(error) => {
+                return Err(match errors[0].take() {
+                    Some(first) => ProcessError::Temperature {
+                        temperature: temperatures[0],
+                        source: Box::new(first.into()),
+                    },
+                    None => error.into(),
+                });
+            }
+        };
+        for ((result, points), error) in at.into_iter().zip(&mut sampled_at).zip(&mut errors) {
+            match result {
+                _ if error.is_some() => {}
+                Ok(b) => points.push(b),
+                Err(e) => *error = Some(e),
+            }
         }
-        // 無限希釈の欄は同じサンプルの平均にして、補正（LSSF=0 の差、LSSF=1 の比）がサンプルの揺らぎの 1 次を打ち消すようにする
-        let mean = b.mean;
-        infinite.push([mean.total, mean.elastic, mean.fission, mean.capture]);
     }
-    Ok(Some(UnresolvedShielding::new(
-        range.el, range.eh, urr.lssf, grid, law, shielded, infinite,
-    )?))
+    if let Some((temperature, error)) = temperatures
+        .iter()
+        .zip(errors)
+        .find_map(|(&t, error)| error.map(|e| (t, e)))
+    {
+        return Err(ProcessError::Temperature {
+            temperature,
+            source: Box::new(error.into()),
+        });
+    }
+    temperatures
+        .iter()
+        .zip(&sampled_at)
+        .map(|(&temperature, points)| {
+            let floored: usize = points.iter().map(|b| b.floored).sum();
+            if floored > 0 {
+                let samples = Sampling::LIBRARY.ladders * Sampling::LIBRARY.samples * grid.len();
+                xlc_log::warn!(
+                    "{temperature} K: the sampled elastic (with the MF3 background) is negative at {floored} of \
+                     {samples} sampled energies in the unresolved range and is raised to 1 microbarn, as NJOY PURR does"
+                );
+            }
+            let mut shielded = vec![Vec::with_capacity(grid.len()); sigma0.len()];
+            let mut infinite = Vec::with_capacity(grid.len());
+            for b in points {
+                for (row, s) in shielded.iter_mut().zip(&b.shielded) {
+                    row.push([s.total, s.elastic, s.fission, s.capture]);
+                }
+                // 無限希釈の欄は同じサンプルの平均にして、補正（LSSF=0 の差、LSSF=1 の比）がサンプルの揺らぎの 1 次を打ち消すようにする
+                let mean = b.mean;
+                infinite.push([mean.total, mean.elastic, mean.fission, mean.capture]);
+            }
+            UnresolvedShielding::new(
+                range.el,
+                range.eh,
+                urr.lssf,
+                grid.clone(),
+                law,
+                shielded,
+                infinite,
+            )
+            .map_err(|source| ProcessError::Temperature {
+                temperature,
+                source: Box::new(source.into()),
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()
+        .map(Some)
 }
 
 /// 分離共鳴の範囲を持つ核種の、σ0 ごとの群定数の重みを減速計算で作る範囲（ADR-0072）。
@@ -456,12 +519,14 @@ pub fn process_nuclide(
         thermal,
         settings,
     };
-    // 温度ごとに独立なので並列に求める。温度の処理のうち格子点の並列（`unresolved_shielding`）の外の部分を、ほかの温度と
-    // 重ねる。結果は温度の順で、エラーは最初の温度のもの（順に求めたときと同じ）
+    // 非分離共鳴の補正は、温度の間で同じラダーを 1 度だけ作る（#0155）ので、温度のループの前に全温度を求める
+    let shielding = unresolved_shielding(tape, evaluation.mat, temperatures, &settings.sigma0)?;
+    // 温度ごとに独立なので並列に求める。結果は温度の順で、エラーは最初の温度のもの。非分離共鳴の補正のエラーは、上で
+    // ほかの処理のエラーより先に返る
     let temperatures = in_parallel(temperatures.len(), |k| {
         let t = temperatures[k];
         common
-            .at_temperature(t)
+            .at_temperature(t, shielding.as_ref().map(|s| &s[k]))
             .map_err(|source| ProcessError::Temperature {
                 temperature: t,
                 source: Box::new(source),
@@ -854,18 +919,17 @@ struct Common<'a> {
 }
 
 impl Common<'_> {
-    #[tracing::instrument(level = "debug", skip(self))]
-    fn at_temperature(&self, temperature: f64) -> Result<TemperatureData, ProcessError> {
+    /// 温度 `temperature` の処理。`shielding` はその温度の非分離共鳴の補正（`unresolved_shielding`）
+    #[tracing::instrument(level = "debug", skip(self, shielding))]
+    fn at_temperature(
+        &self,
+        temperature: f64,
+        shielding: Option<&UnresolvedShielding>,
+    ) -> Result<TemperatureData, ProcessError> {
         let settings = self.settings;
         let (groups, weight) = (&settings.groups, &settings.weight);
         let ng = groups.len();
         let tables = self.evaluation.cold.at(temperature);
-        let shielding = unresolved_shielding(
-            self.tape,
-            self.evaluation.mat,
-            temperature,
-            &settings.sigma0,
-        )?;
         let slowing = slowing_down_range(self.tape, self.evaluation.mat, groups, weight)?;
         let averages = shielded_averages(
             groups,
@@ -873,7 +937,7 @@ impl Common<'_> {
             &tables,
             self.evaluation.nubar.as_ref(),
             &settings.sigma0,
-            shielding.as_ref(),
+            shielding,
             slowing.as_ref(),
         )?;
         let parts = &self.evaluation.fission_parts;
