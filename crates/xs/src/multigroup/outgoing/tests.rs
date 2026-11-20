@@ -112,6 +112,126 @@ fn center_of_mass_energy_spreads_in_laboratory() {
     );
 }
 
+/// 重心系の密度 `density`（線形の区間）を実験室系の群に振り分けた値の参照。√E' について細かい中点則で、E' ごとの実験室系の一様な
+/// 範囲 [(√E' − √Ec)², (√E' + √Ec)²] と群の重なりを数える（群構造の外は端の群）
+fn laboratory_reference(groups: &GroupStructure, density: &Tab1, ec: f64) -> Vec<f64> {
+    const STEPS: usize = 400_000;
+    let bounds = groups.bounds();
+    let ng = groups.len();
+    let c = ec.sqrt();
+    let (u0, u1) = (density.x[0].sqrt(), density.x[density.x.len() - 1].sqrt());
+    let du = (u1 - u0) / STEPS as f64;
+    let mut out = vec![0.0; ng];
+    for i in 0..STEPS {
+        let u = u0 + (i as f64 + 0.5) * du;
+        let f = density.eval(u * u).unwrap_or(0.0) * 2.0 * u * du;
+        let (lo, hi) = ((u - c).powi(2), (u + c).powi(2));
+        for g in 0..ng {
+            let top = if g == 0 { f64::INFINITY } else { bounds[g] };
+            let bottom = if g == ng - 1 { 0.0 } else { bounds[g + 1] };
+            let overlap = hi.min(top) - lo.max(bottom);
+            if overlap > 0.0 {
+                out[g] += f * overlap / (hi - lo);
+            }
+        }
+    }
+    out
+}
+
+#[test]
+fn center_of_mass_panel_wider_than_ec_is_split_exactly_into_low_groups() {
+    // Pa-233 の MF6 MT18 の入射 1e-5 eV の形: E' = 0〜100 keV の 1 区間の線形の密度。Ec = 100 eV の程度の群（10〜1000 eV）にも
+    // 実験室系の範囲が掛かる
+    let density = Tab1::linear(vec![0.0, 1.0e5], vec![1.0e-6 / 0.55, 1.0e-5 / 0.55]);
+    let groups =
+        GroupStructure::new(vec![2.0e5, 1.0e4, 1.0e3, 300.0, 100.0, 30.0, 10.0, 1.0e-5]).unwrap();
+    let ec = 100.0;
+    let actual = laboratory_group_integrals(&groups, &density, ec);
+    let expected = laboratory_reference(&groups, &density, ec);
+    for (g, (a, e)) in actual.iter().zip(&expected).enumerate() {
+        assert!(
+            (a - e).abs() <= 1e-7 * e.abs() + 1e-15,
+            "group {g}: {a:e} vs {e:e}"
+        );
+    }
+    assert!(
+        (actual.iter().sum::<f64>() - 1.0).abs() < 1e-12,
+        "{actual:?}"
+    );
+}
+
+#[test]
+fn center_of_mass_groups_out_of_reach_stay_exactly_zero() {
+    // 重心系で 1〜3 MeV の 30 区間の密度、Ec = 1 keV。実験室系の範囲 [(√E' − √Ec)², (√E' + √Ec)²] の届かない群は丸めの値でなく
+    // ちょうど 0 で、どの群も負にならない（負の χ は媒質の検査で止まる）
+    let x: Vec<f64> = (0..=30)
+        .map(|i| 1.0e6 + 2.0e6 * f64::from(i) / 30.0)
+        .collect();
+    let y: Vec<f64> = x.iter().map(|e| 1.0 + (e / 1.0e6).sin()).collect();
+    let density = Tab1::linear(x, y);
+    let bounds: Vec<f64> = (0..200)
+        .map(|i| 2.0e7 * (1.0e-12_f64).powf(f64::from(i) / 199.0))
+        .collect();
+    let groups = GroupStructure::new(bounds).unwrap();
+    let ec = 1.0e3;
+    let actual = laboratory_group_integrals(&groups, &density, ec);
+    let (low, high) = (
+        (1.0e6_f64.sqrt() - ec.sqrt()).powi(2),
+        (3.0e6_f64.sqrt() + ec.sqrt()).powi(2),
+    );
+    for (g, value) in actual.iter().enumerate() {
+        let (bottom, top) = groups.range(g);
+        assert!(*value >= 0.0, "group {g}: {value:e}");
+        if top <= low || bottom >= high {
+            assert_eq!(*value, 0.0, "group {g} [{bottom:e}, {top:e}]");
+        }
+    }
+    let total: f64 = density
+        .x
+        .windows(2)
+        .zip(density.y.windows(2))
+        .map(|(x, y)| 0.5 * (x[1] - x[0]) * (y[0] + y[1]))
+        .sum();
+    assert!((actual.iter().sum::<f64>() / total - 1.0).abs() < 1e-13);
+}
+
+#[test]
+fn center_of_mass_motion_far_smaller_than_the_outgoing_energy_keeps_the_total() {
+    // 入射 1e-5 eV の重い標的（A ≈ 232）の Ec ≈ 1.8e-10 eV。実験室系の範囲の幅 4√(E' Ec) は E' の丸めの桁に近く、範囲の両端の差から
+    // 幅を求めると相対 1e-8 ほど狂う。群に入る量の和は重心系の密度の積分のまま
+    let density = Tab1::linear(vec![0.0, 1.0e6, 2.0e7], vec![1.0e-7, 1.0e-7, 0.0]);
+    let groups = GroupStructure::wims69();
+    let ec = 1.0e-5 / 233.0_f64.powi(2);
+    let actual = laboratory_group_integrals(&groups, &density, ec);
+    let total = 0.5 * 1.0e6 * 2.0e-7 + 0.5 * 1.9e7 * 1.0e-7;
+    assert!(
+        (actual.iter().sum::<f64>() / total - 1.0).abs() < 1e-13,
+        "{}",
+        actual.iter().sum::<f64>() / total - 1.0
+    );
+    // 重心の運動がほとんど無いので、群ごとの値も実験室系の分布として群に分けた値と合う（差は Ec の程度の広がりの分）
+    let laboratory = outgoing_group_integrals(&groups, &density);
+    for (g, (a, l)) in actual.iter().zip(&laboratory).enumerate() {
+        assert!(
+            (a - l).abs() <= 1e-6 * l + 1e-15,
+            "group {g}: {a:e} vs {l:e}"
+        );
+    }
+}
+
+#[test]
+fn no_center_of_mass_motion_groups_the_outgoing_energies_as_given() {
+    // 入射 0 では Ec = 0 で、実験室系の出射エネルギーは重心系と同じ
+    let density = Tab1::linear(vec![5.0e5, 1.5e6], vec![1.0e-6, 1.0e-6]);
+    let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e-5]).unwrap();
+    let actual = laboratory_group_integrals(&groups, &density, 0.0);
+    assert_eq!(actual, outgoing_group_integrals(&groups, &density));
+    assert!(
+        (actual[0] - 0.5).abs() < 1e-12 && (actual[1] - 0.5).abs() < 1e-12,
+        "{actual:?}"
+    );
+}
+
 /// 入射エネルギー 10 と 20 で、[0, 1] と [0, 3] の一様分布
 fn widening(law: IncidentLaw) -> OutgoingDistributions {
     OutgoingDistributions {

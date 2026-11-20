@@ -1,0 +1,11 @@
+--- a/src/groupr.f90
++++ b/src/groupr.f90
+@@ -8149,7 +8149,7 @@
+    integer,parameter::nlmax=65
+    real(kr)::term(nlmax),x(imax),y(imax,nlmax)
+    character(60)::strng
+-   real(kr),parameter::tol=0.01e0_kr
++   real(kr),parameter::tol=0.0001e0_kr
+    real(kr),parameter::eps=1.e-8_kr
+    real(kr),parameter::small=1.e-10_kr
+    real(kr),parameter::emax=1.e10_kr

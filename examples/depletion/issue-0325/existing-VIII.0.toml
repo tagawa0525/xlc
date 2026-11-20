@@ -1,0 +1,34 @@
+# #0325: 重心系の分布を実験室系の群に振り分ける積分の変更で、既存の核種の出力の変わる量（ENDF/B-VIII.0、600 K の 1 点）。
+# H-1 は MF6 に中性子の分布を持たない（MT102 の光子だけ）ので変わらないはずの核種
+output = "existing-VIII.0.msgpack"
+endf-directory = "../../../references/endf/ENDF-B-VIII.0_neutrons"
+sigma0 = [1e10, 1e5, 1e4, 1e3, 300, 100, 30, 10, 1]
+scattering-order = 3
+
+[nuclide.U-235]
+endf = "n-092_U_235.endf"
+temperatures = [600]
+
+[nuclide.U-238]
+endf = "n-092_U_238.endf"
+temperatures = [600]
+
+[nuclide.Pu-239]
+endf = "n-094_Pu_239.endf"
+temperatures = [600]
+
+[nuclide.Zr-90]
+endf = "n-040_Zr_090.endf"
+temperatures = [600]
+
+[nuclide.O-16]
+endf = "n-008_O_016.endf"
+temperatures = [600]
+
+[nuclide.Fe-56]
+endf = "n-026_Fe_056.endf"
+temperatures = [600]
+
+[nuclide.H-1]
+endf = "n-001_H_001.endf"
+temperatures = [600]

@@ -50,27 +50,81 @@ pub fn outgoing_group_integrals(groups: &GroupStructure, density: &Tab1) -> Vec<
 /// 重心系でエネルギー E'cm の中性子は、重心系で等方なら、実験室系で
 /// [(√E'cm - √Ec)², (√E'cm + √Ec)²] に一様に分布する。Ec = E/(A+1)² は重心の運動による
 /// 中性子1個あたりのエネルギー。
+///
+/// u = √E'cm、c = √Ec とおくと、線形化した区間の密度 f = α + β u² と dE' = 2u du、一様な範囲の幅 4uc から、群 [a, b] に入る量は
+/// ∫ (α + β u²) |[a, b] ∩ [(u − c)², (u + c)²]| / (2c) du。重なりの長さは、範囲の端が a か b を横切る u = √B ± c、c − √B（B は a か b）の
+/// 間では b − a、b − (u − c)²、(u + c)² − a、4uc、0 のどれかで u の 2 次以下なので、被積分関数は u の 4 次以下の多項式になる。
+/// 区間ごとに、実験室系の範囲の届く群だけを、その群の 2 つの境界の折れ目で分けて 4 点の Gauss-Legendre（7 次まで厳密）を u に
+/// ついて当てれば、丸めの誤差を除いて厳密で、届かない群はちょうど 0、どの群も負にならない。群構造の外は端の群に入る
 fn laboratory_group_integrals(groups: &GroupStructure, density: &Tab1, ec: f64) -> Vec<f64> {
-    const PIECES: usize = 16;
+    if ec == 0.0 {
+        // 重心の運動が無ければ実験室系も E'
+        return outgoing_group_integrals(groups, density);
+    }
     let linear = linearize(density, DENSITY_TOLERANCE);
-    let mut integrals = vec![0.0; groups.len()];
+    let bounds = groups.bounds();
+    let ng = groups.len();
+    let edge = |e: f64| {
+        groups
+            .find(e)
+            .unwrap_or(if e > bounds[0] { 0 } else { ng - 1 })
+    };
+    // 群 g の範囲（両端の群は群構造の外まで）
+    let range = |g: usize| {
+        let top = if g == 0 { f64::INFINITY } else { bounds[g] };
+        let bottom = if g == ng - 1 { 0.0 } else { bounds[g + 1] };
+        (bottom, top)
+    };
+    let c = ec.sqrt();
+    let mut integrals = vec![0.0; ng];
     for k in 0..linear.x.len().saturating_sub(1) {
         let (x0, x1) = (linear.x[k], linear.x[k + 1]);
         if x1 <= x0 {
             continue;
         }
         let (y0, y1) = (linear.y[k], linear.y[k + 1]);
-        let width = (x1 - x0) / PIECES as f64;
-        for i in 0..PIECES {
-            let (mid, half) = (x0 + (i as f64 + 0.5) * width, 0.5 * width);
-            for &(t, wk) in &GAUSS_LEGENDRE_4 {
-                let e = mid + half * t;
-                let density = y0 + (y1 - y0) * (e - x0) / (x1 - x0);
-                let (lo, hi) = (
-                    (e.sqrt() - ec.sqrt()).powi(2),
-                    (e.sqrt() + ec.sqrt()).powi(2),
-                );
-                uniform_fractions(groups, lo, hi, density * wk * half, &mut integrals);
+        let f = |e: f64| y0 + (y1 - y0) * (e - x0) / (x1 - x0);
+        let (u0, u1) = (x0.sqrt(), x1.sqrt());
+        let highest = (u1 + c).powi(2);
+        let lowest = if (u0..=u1).contains(&c) {
+            0.0
+        } else {
+            (u0 - c).powi(2).min((u1 - c).powi(2))
+        };
+        for (g, value) in integrals
+            .iter_mut()
+            .enumerate()
+            .take(edge(lowest) + 1)
+            .skip(edge(highest))
+        {
+            let (bottom, top) = range(g);
+            let mut cuts = [u0; 8];
+            let mut n = 1;
+            for bound in [bottom, top] {
+                if bound > 0.0 && bound.is_finite() {
+                    let s = bound.sqrt();
+                    for u in [s - c, s + c, c - s] {
+                        if u > u0 && u < u1 {
+                            cuts[n] = u;
+                            n += 1;
+                        }
+                    }
+                }
+            }
+            cuts[n] = u1;
+            n += 1;
+            cuts[..n].sort_by(f64::total_cmp);
+            for w in cuts[..n].windows(2) {
+                let (mid, half) = (0.5 * (w[0] + w[1]), 0.5 * (w[1] - w[0]));
+                for &(t, weight) in &GAUSS_LEGENDRE_4 {
+                    let u = mid + half * t;
+                    let (lo, hi) = ((u - c).powi(2), (u + c).powi(2));
+                    // 重なりは幅 4uc から群の外にはみ出す分を引く。両端の差 hi − lo で幅を求めると、Ec が E' の丸めの桁に近い
+                    // （入射が熱の重い標的）とき相対 1e-8 ほど狂い、群の和が密度の積分からずれる
+                    let overlap =
+                        (4.0 * u * c - (bottom - lo).max(0.0) - (hi - top).max(0.0)).max(0.0);
+                    *value += f(u * u) * overlap / (2.0 * c) * weight * half;
+                }
             }
         }
     }
