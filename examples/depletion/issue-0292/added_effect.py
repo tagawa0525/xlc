@@ -3,7 +3,7 @@
 
 使い方: python3 added_effect.py --json <出力> <試行の履歴> <全核種の履歴> <試行の組成のテーブル> <全核種の組成のテーブル>
           <全核種の組成のテーブルの入力> <足した核種の一覧>
-          [--shares <吸収の割合の JSON の形の出力>]
+          [--shares <吸収の割合の JSON の形の出力> <その核種の一覧>]
         python3 added_effect.py --report <出力の JSON>...
 
 テーブルは、2 つの履歴の組成から同じ燃焼点の基準条件の 1 状態を、すべての核種を UFG で解いたブランチ計算（ufg_subset.py の組
@@ -131,23 +131,25 @@ def contributions(before, after, before_table, after_table, volume, added):
     return points
 
 
-def shares(points: list[dict]) -> dict:
-    """足した核種の、全核種の組成の格子の吸収に占める割合を、吸収の割合の JSON（untransported_absorption.py）の形で
+def shares(points: list[dict], names: list[str]) -> dict:
+    """核種 `names` の、全核種の組成の格子の吸収に占める割合を、吸収の割合の JSON（untransported_absorption.py）の形で
     （dilution_shielding.py が全核種の組成で順位を付けるため）。数密度は全核種の燃焼が自分の吸収で減らしたものなので、比は 1"""
-    return {
-        "points": [
+    out = []
+    for p in points:
+        missing = [n for n in names if n not in p["nuclides"]]
+        if missing:
+            raise SystemExit(f"{missing[:5]} have no cooling cross sections")
+        out.append(
             {
                 "burnup": p["burnup"],
                 "k_inf": p["k_inf"],
                 "untransported_all": {
-                    n: {"fraction": v["fraction"], "captured_ratio": 1.0}
-                    for n, v in p["nuclides"].items()
-                    if v["added"]
+                    n: {"fraction": p["nuclides"][n]["fraction"], "captured_ratio": 1.0}
+                    for n in names
                 },
             }
-            for p in points
-        ]
-    }
+        )
+    return {"points": out}
 
 
 def top(point: dict) -> list[dict]:
@@ -216,8 +218,10 @@ def main() -> None:
     parser.add_argument("--json", type=Path)
     parser.add_argument(
         "--shares",
+        nargs=2,
         type=Path,
-        help="足した核種の吸収の割合を、吸収の割合の JSON の形で書く置き場",
+        metavar=("OUTPUT", "NAMES"),
+        help="一覧 NAMES の核種の吸収の割合を、吸収の割合の JSON の形で OUTPUT に書く",
     )
     parser.add_argument("files", nargs="*", type=Path)
     args = parser.parse_args()
@@ -249,8 +253,15 @@ def main() -> None:
     }
     args.json.write_text(json.dumps(summary, indent=1) + "\n")
     if args.shares:
-        out = {**shares(points), "inputs": summary["inputs"]}
-        args.shares.write_text(json.dumps(out, indent=1) + "\n")
+        output, names = args.shares
+        out = {
+            **shares(points, names.read_text().split()),
+            "inputs": [
+                *summary["inputs"],
+                {"path": str(names), "md5": md5(names)},
+            ],
+        }
+        output.write_text(json.dumps(out, indent=1) + "\n")
 
 
 if __name__ == "__main__":
