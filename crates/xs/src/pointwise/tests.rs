@@ -1,6 +1,6 @@
 use super::*;
 use crate::endf::ResonanceRange;
-use crate::resonance::r_matrix_limited_tests::inelastic_level;
+use crate::resonance::r_matrix_limited_tests::{fission_level, inelastic_level};
 use crate::resonance::reich_moore_tests::{AWRI, single_level, single_level_exact};
 
 fn linear(x: &[f64], y: &[f64]) -> Tab1 {
@@ -655,6 +655,35 @@ fn r_matrix_limited_adds_level_inelastic_scattering() {
     assert!(level.eval(2.0e3).unwrap() > 0.0);
     assert!(tables[&102].eval(2.0e3).unwrap() > 0.0);
     assert!(tables[&2].eval(2.0e3).unwrap() > 1.0);
+}
+
+#[test]
+fn r_matrix_limited_fission_goes_to_the_fission_mt() {
+    let mf2 = Mf2 {
+        za: 0.0,
+        awr: AWRI,
+        ranges: vec![ResonanceRange {
+            el: 1.0,
+            eh: 50.0,
+            kind: RangeKind::RMatrixLimited(fission_level(1.5e-3, 2.3e-2, 4.0e-2)),
+        }],
+    };
+    // MF3 が MT19 を持つと、共鳴の核分裂は MT19 に足す（MT18 は部分反応の和で作り直す）
+    for fission_mt in [18, 19] {
+        let mut tables = BTreeMap::new();
+        add_resonances(&mut tables, &mf2, fission_mt, 1.0e-3).unwrap();
+        let expected = single_level_exact(6.674, 1.5e-3, 2.3e-2, 4.0e-2).fission;
+        let fission = tables[&fission_mt].eval(6.674).unwrap();
+        assert!(
+            (fission - expected).abs() <= 1e-3 * expected,
+            "MT{fission_mt}: {fission} vs {expected}"
+        );
+        let other = if fission_mt == 18 { 19 } else { 18 };
+        assert!(
+            !tables.contains_key(&other),
+            "MT{other} with MT{fission_mt}"
+        );
+    }
 }
 
 /// 分離共鳴の SLBW の範囲 [1, 50] eV だけの MF2

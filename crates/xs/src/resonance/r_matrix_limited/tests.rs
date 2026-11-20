@@ -179,3 +179,124 @@ fn rejects_charged_pairs() {
     data.pairs[1].za = 1.0;
     assert!(RMatrixLimitedXs::new(&data).is_err());
 }
+
+/// 核分裂の粒子対（MT=18、透過因子を計算しない PNT=-1）。
+fn fission_pair() -> ParticlePair {
+    ParticlePair {
+        pnt: -1,
+        ..pair(1.0, AWRI, 0.0, 18)
+    }
+}
+
+/// Reich-Moore の `single_level` と同じ l=0 の単一準位に、核分裂のチャネルを 1 つ加えたもの。
+pub(crate) fn fission_level(gn: f64, gg: f64, gf: f64) -> RMatrixLimited {
+    let mut data = single_level(gn, gg);
+    data.pairs.push(fission_pair());
+    let group = &mut data.spin_groups[0];
+    group.channels.push(channel(2, OrbitalL::S, 0.0));
+    group.resonances[0].widths.push(gf);
+    data
+}
+
+#[test]
+fn fission_channel_matches_single_level_breit_wigner() {
+    let (gn, gg, gf) = (1.5e-3, 2.3e-2, 4.0e-2);
+    let xs = RMatrixLimitedXs::new(&fission_level(gn, gg, gf)).unwrap();
+    assert_eq!(xs.reactions(), vec![1, 2, 102, 18]);
+    for e in [1.0e-3, 1.0, 6.0, 6.674, 6.69, 7.0, 100.0, 1.0e4] {
+        let expected = single_level_exact(e, gn, gg, gf);
+        let [total, elastic, capture, fission] = xs.cross_sections(e).unwrap()[..] else {
+            panic!("expected total, elastic, capture and fission");
+        };
+        assert_close(total, expected.total, &format!("total at {e}"));
+        assert_close(elastic, expected.elastic, &format!("elastic at {e}"));
+        assert_close(capture, expected.capture, &format!("capture at {e}"));
+        assert_close(fission, expected.fission, &format!("fission at {e}"));
+    }
+}
+
+#[test]
+fn two_fission_channels_match_reich_moore() {
+    use crate::endf::{ReichMoore, RmLValue, RmResonance};
+    use crate::resonance::ReichMooreXs;
+    // 負の共鳴、核分裂の幅の符号が違う共鳴、核分裂の幅のない共鳴を含め、準位とチャネルの間の干渉を比べる
+    // （gn, gg, gfa, gfb）
+    let levels = [
+        (-3.0, 2.0e-3, 4.0e-2, 0.1, -5.0e-2),
+        (0.3, 1.0e-4, 4.0e-2, 6.0e-2, 2.0e-2),
+        (7.8, 1.5e-3, 3.5e-2, -0.3, 0.1),
+        (11.0, 2.0e-3, 4.0e-2, 0.0, 0.0),
+    ];
+    let rm = ReichMoore {
+        spi: 0.0,
+        ap: AP,
+        naps: 1,
+        l_values: vec![RmLValue {
+            awri: AWRI,
+            apl: 0.0,
+            l: OrbitalL::S,
+            resonances: levels
+                .iter()
+                .map(|&(er, gn, gg, gfa, gfb)| RmResonance {
+                    er,
+                    aj: 0.5,
+                    gn,
+                    gg,
+                    gfa,
+                    gfb,
+                })
+                .collect(),
+        }],
+    };
+    let mut pairs = pairs(&[]);
+    pairs.push(fission_pair());
+    let rml = RMatrixLimited {
+        pairs,
+        spin_groups: vec![SpinGroup {
+            aj: 0.5,
+            pj: 0.0,
+            channels: vec![
+                channel(0, OrbitalL::S, 0.0),
+                channel(1, OrbitalL::S, 0.5),
+                channel(2, OrbitalL::S, 0.0),
+                channel(2, OrbitalL::S, 0.0),
+            ],
+            resonances: levels
+                .iter()
+                .map(|&(er, gn, gg, gfa, gfb)| RmlResonance {
+                    er,
+                    widths: vec![gg, gn, gfa, gfb],
+                })
+                .collect(),
+        }],
+    };
+    let reich_moore = ReichMooreXs::new(&rm);
+    let xs = RMatrixLimitedXs::new(&rml).unwrap();
+    assert_eq!(xs.reactions(), vec![1, 2, 102, 18]);
+    for e in [1.0e-5, 0.0253, 0.3, 1.0, 5.0, 7.8, 9.0, 11.0, 100.0] {
+        let expected = reich_moore.cross_sections(e).unwrap();
+        let [total, elastic, capture, fission] = xs.cross_sections(e).unwrap()[..] else {
+            panic!("expected total, elastic, capture and fission");
+        };
+        assert_close(total, expected.total, &format!("total at {e}"));
+        assert_close(elastic, expected.elastic, &format!("elastic at {e}"));
+        assert_close(capture, expected.capture, &format!("capture at {e}"));
+        assert_close(fission, expected.fission, &format!("fission at {e}"));
+    }
+}
+
+#[test]
+fn rejects_penetrability_for_fission() {
+    let mut data = fission_level(1.5e-3, 2.3e-2, 4.0e-2);
+    data.pairs[2].pnt = 1;
+    let error = RMatrixLimitedXs::new(&data).unwrap_err().to_string();
+    assert!(error.contains("PNT=1"), "{error}");
+}
+
+#[test]
+fn rejects_two_fission_pairs() {
+    let mut data = fission_level(1.5e-3, 2.3e-2, 4.0e-2);
+    data.pairs.push(fission_pair());
+    let error = RMatrixLimitedXs::new(&data).unwrap_err().to_string();
+    assert!(error.contains("MT18"), "{error}");
+}
