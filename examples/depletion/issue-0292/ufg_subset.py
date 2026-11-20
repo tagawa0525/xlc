@@ -37,6 +37,7 @@ import tomllib
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent.parent))
+from all_nuclides import VERSIONS
 from all_nuclides import transported as transported_names
 from inputs import CHECK_FUELS, NOMINAL_DENSITY, ZIRCALOY, branch_input
 from verification_tables import markdown_table, signed
@@ -87,6 +88,22 @@ SERIES = {
         "library_input": "all/library/xs.toml",
     },
 }
+# 版ごとの全核種の系列（all_nuclides.py の `VERSIONS`。VIII.0 は上の `all`）: 基準の組 `all` だけを解く（自己遮蔽の目安の順位を
+# 版ごとに付けるテーブルと、版の差を核種に分けるテーブル。ADR-0270 の組の計算は、順位が VIII.0 と違った版だけで足す）
+for _key, _version in VERSIONS.items():
+    if _version["directory"] == "all":
+        continue
+    SERIES[_version["directory"]] = {
+        "directory": f"all-ufg-{_key}",
+        "library": f"../../{_version['directory']}/library/depletion.msgpack",
+        "history": f"../../{_version['directory']}/{{fuel}}/nominal.msgpack",
+        "added": f"{_version['directory']}/added-to-p2.txt",
+        "label": f"{_version['label']} の全核種の ",
+        "sets": "base",
+        "library_input": f"{_version['directory']}/library/xs.toml",
+        # 履歴の核種の並びは版のチェーンのもの
+        "chain": f"../../../{_version['chain'].relative_to(HERE.parent)}",
+    }
 CONTROL_LIBRARY = "../../all/control/depletion.msgpack"
 
 
@@ -116,13 +133,25 @@ def listed(
     return names + [n for n in structural() if n not in names]
 
 
-def branch_text(fuel: str, case: str, head: str, library: str, history: str) -> str:
-    """`history` の組成から `BURNUP` を解く基準条件の 1 状態のブランチ計算（ライブラリだけを `library` に替える）"""
+def branch_text(
+    fuel: str,
+    case: str,
+    head: str,
+    library: str,
+    history: str,
+    chain: str | None = None,
+) -> str:
+    """`history` の組成から `BURNUP` を解く基準条件の 1 状態のブランチ計算（ライブラリを `library` に、`chain` があればチェーンも替える）"""
     text = branch_input(fuel, f"out/{case}", history, BURNUP, None, NOMINAL_DENSITY)
     old = 'library = "../../../p2/depletion.msgpack"'
     if old not in text:
         raise SystemExit("the branch input names another library")
     body = text.replace(old, f'library = "{library}"')
+    if chain is not None:
+        old_chain = 'chain = "../../../chain.msgpack"'
+        if old_chain not in body:
+            raise SystemExit("the branch input names another chain")
+        body = body.replace(old_chain, f'chain = "{chain}"')
     return head + body.split("\n", 1)[1]
 
 
@@ -135,7 +164,12 @@ def case_input(
         f"{'すべて' if names is None else kept}）。ufg_subset.py が書く。手で直さない\n"
     )
     text = branch_text(
-        fuel, case, head, series["library"], series["history"].format(fuel=fuel)
+        fuel,
+        case,
+        head,
+        series["library"],
+        series["history"].format(fuel=fuel),
+        series.get("chain"),
     )
     if names is None:
         return text
@@ -191,7 +225,7 @@ def ranking_files(root: Path, rankings) -> dict[str, list[Path]]:
 
 def set_sources(series: str, root: Path, rankings=tuple(RANKINGS)) -> list[Path]:
     """系列の組を決めるファイル（自己遮蔽の目安の JSON。順位ごとに燃料の順）"""
-    if SERIES[series]["sets"] == "fixed":
+    if SERIES[series]["sets"] in ("fixed", "base"):
         return []
     return [p for paths in ranking_files(root, rankings).values() for p in paths]
 
@@ -201,6 +235,8 @@ def sets(series: str, root: Path, rankings=tuple(RANKINGS)) -> dict:
     `all` を解いた後に出すので、その前の入力は `t` だけで書く）"""
     if SERIES[series]["sets"] == "fixed":
         return SETS
+    if SERIES[series]["sets"] == "base":
+        return {"all": None}
     out = {"all": None, "none": [], "s17": SHIELDED_17}
     for prefix, paths in ranking_files(root, rankings).items():
         summaries = [json.loads(p.read_text()) for p in paths]
