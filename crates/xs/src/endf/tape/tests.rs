@@ -406,6 +406,11 @@ fn a_correction_that_does_not_match_the_tape_is_an_error() {
             field: 3,
             ..break_correction()
         },
+        // 11 桁に収まらない値
+        Correction {
+            to: 123_456_789_012,
+            ..break_correction()
+        },
     ];
     for correction in wrong {
         let mut tape = Tape::parse(&short_break_table()).unwrap();
