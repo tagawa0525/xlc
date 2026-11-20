@@ -5,7 +5,9 @@
 //! Λ = L/P（対角）で書くと X = (I − KΛ)⁻¹K で、シフト因子がなければ Λ = i なので X = (I − iK)⁻¹K。
 //! 衝突行列は U = e^{−i(φ+φ')} (I + 2iX)。R には、チャネルのバックグラウンドの R 行列（SAMMY の対数の形、
 //! ENDF-102 の式 D.77）を対角に足す。
-//! 中性子の透過因子とシフト因子は剛体球のもの（シフト因子は SHF=1 の粒子対だけ）。核分裂のチャネルは透過因子を 1 とし（ENDF-102 の D.1.7）、
+//! 中性子の透過因子とシフト因子は剛体球のもの（シフト因子は SHF=1 の粒子対だけ）。荷電粒子の放出のチャネル（MT600〜849）の透過因子は
+//! Coulomb の波動関数のもの（ENDF-102 の式 D.84。`coulomb`）で、出口のチャネルにだけなるので位相シフトを使わない。
+//! 核分裂のチャネルは透過因子を 1 とし（ENDF-102 の D.1.7）、
 //! 幅は Γ = 2γ² になる（LRF=3 の Reich-Moore の Γfa、Γfb と同じチャネル）。位相シフトは 0 とする（核分裂は入射の
 //! チャネルにならず、断面積は |U_ab|² = 4|X_ab|² だけで位相によらない）。
 //! 閾値より下の非弾性散乱のチャネルは閉じているので除く（NJOY2016 samm と同じ）。
@@ -19,10 +21,14 @@ use std::f64::consts::PI;
 
 use num_complex::Complex64;
 
+use super::coulomb;
 use super::factors::{penetrability, phase_shift, shift};
 use super::linear::{Singular, pole_limit, solve};
 use crate::endf::{LogBackground, OrbitalL, ParticlePair, RMatrixLimited};
-use crate::physics::wave_number_factor;
+use crate::physics::{AMASSN, AMU, CLIGHT, EV, HBAR, wave_number_factor};
+
+/// NJOY2016 samm の coulx が η の大きいときの近似の式に切り替える η（`eta.ge.five`）。
+const NJOY_LARGE_ETA: f64 = 5.0;
 
 /// R-matrix limited の断面積の計算のエラー。
 #[derive(Debug, thiserror::Error)]
@@ -40,6 +46,15 @@ pub enum RmlError {
          which is closed at that energy"
     )]
     ClosedWidth {
+        group: usize,
+        er: f64,
+        channel: usize,
+    },
+    #[error(
+        "spin group {group}: the resonance at {er} eV has a width in channel {channel}, \
+         whose penetrability underflows to 0 at that energy"
+    )]
+    Underflow {
         group: usize,
         er: f64,
         channel: usize,
@@ -66,8 +81,8 @@ pub enum RmlError {
 /// 断面積の計算に使う形に前処理した R-matrix limited のパラメータ。
 #[derive(Debug, Clone)]
 pub struct RMatrixLimitedXs {
-    /// 非弾性散乱の準位の MT（粒子対の順）
-    levels: Vec<u32>,
+    /// 出口のチャネルの反応の MT（非弾性散乱の準位と荷電粒子の放出。粒子対の順）
+    exits: Vec<u32>,
     /// 核分裂の粒子対があるか（あれば `cross_sections` の最後の値が核分裂）
     fission: bool,
     groups: Vec<Group>,
@@ -78,8 +93,8 @@ pub struct RMatrixLimitedXs {
 enum Role {
     Capture,
     Elastic,
-    /// `levels` の添字
-    Level(usize),
+    /// `exits` の添字
+    Exit(usize),
     Fission,
 }
 
@@ -98,8 +113,10 @@ struct Group {
 struct Channel {
     role: Role,
     l: OrbitalL,
-    /// 透過因子と位相シフトを剛体球で計算するか（しなければ P = 1、φ = 0）
+    /// 透過因子と位相シフトを計算するか（しなければ P = 1、φ = 0）
     penetrable: bool,
+    /// Coulomb のパラメータと波数の積 ηk（10^12 cm⁻¹。荷電粒子の対でなければ 0 で、透過因子は剛体球のもの）
+    eta_k: f64,
     /// 閾値（実験室系, eV）
     threshold: f64,
     /// 波数 k = factor × sqrt(E − threshold)（10^-12 cm 単位）
@@ -121,13 +138,18 @@ impl Channel {
     }
 
     fn penetrability(&self, e: f64) -> f64 {
-        if self.penetrable {
-            penetrability(self.l, self.wave_number(e) * self.apt)
+        if !self.penetrable {
+            return 1.0;
+        }
+        let k = self.wave_number(e);
+        if self.eta_k > 0.0 {
+            coulomb::penetrability(self.l.number(), self.eta_k / k, k * self.apt)
         } else {
-            1.0
+            penetrability(self.l, k * self.apt)
         }
     }
 
+    /// 剛体球の位相シフト。入射のチャネル（中性子の弾性散乱）にだけ使う。
     fn phase_shift(&self, e: f64) -> f64 {
         if self.penetrable {
             phase_shift(self.l, self.wave_number(e) * self.ape)
@@ -173,12 +195,12 @@ struct Level {
 
 impl RMatrixLimitedXs {
     pub fn new(data: &RMatrixLimited) -> Result<Self, RmlError> {
-        let mut levels = Vec::new();
+        let mut exits = Vec::new();
         let roles = data
             .pairs
             .iter()
             .enumerate()
-            .map(|(i, pair)| role(i + 1, pair, &mut levels))
+            .map(|(i, pair)| role(i + 1, pair, &mut exits))
             .collect::<Result<Vec<_>, _>>()?;
         let fission = match roles.iter().filter(|r| **r == Role::Fission).count() {
             0 => false,
@@ -222,6 +244,7 @@ impl RMatrixLimitedXs {
                                     role,
                                     l: c.l,
                                     penetrable: role != Role::Fission,
+                                    eta_k: coulomb_eta_k(pair, reduced),
                                     threshold: -pair.q / arat,
                                     factor: wave_number_factor() * (reduced * arat).sqrt(),
                                     apt: c.apt,
@@ -258,25 +281,45 @@ impl RMatrixLimitedXs {
             })
             .collect::<Result<_, _>>()?;
         Ok(Self {
-            levels,
+            exits,
             fission,
             groups,
         })
     }
 
-    /// `cross_sections` の値の反応: 全断面積（MT1）、弾性散乱（MT2）、捕獲（MT102）、準位ごとの非弾性散乱、
-    /// 核分裂（MT18。核分裂の粒子対があるときだけ）。
+    /// `cross_sections` の値の反応: 全断面積（MT1）、弾性散乱（MT2）、捕獲（MT102）、出口のチャネル（準位ごとの非弾性散乱と
+    /// 荷電粒子の放出）、核分裂（MT18。核分裂の粒子対があるときだけ）。
     pub fn reactions(&self) -> Vec<u32> {
         [1, 2, 102]
             .into_iter()
-            .chain(self.levels.iter().copied())
+            .chain(self.exits.iter().copied())
             .chain(self.fission.then_some(18))
             .collect()
     }
 
-    /// NJOY2016 RECONR が Coulomb の透過因子を近似する荷電粒子の幅の反応の MT（幅ごとに 1 つ）。
+    /// 荷電粒子のチャネルの幅のうち、共鳴エネルギーで Coulomb の障壁の下（ρ が転回点 η + √(η² + l(l+1)) より小さい）にあり、
+    /// η が `NJOY_LARGE_ETA` 以上のものの反応の MT（幅ごとに 1 つ）。NJOY2016 RECONR（samm の coulx と coulfg）は、そこで透過因子を
+    /// 近似の式（JWKB、η の大きいときの漸近級数）で求め、1e-35 以下の透過因子を 0 にする（共鳴の幅の換算では 1 にする）ので、
+    /// その反応は NJOY と違う（ADR-0273）。
     pub fn njoy_approximated_widths(&self) -> Vec<u32> {
-        Vec::new()
+        let mut mts = Vec::new();
+        for g in &self.groups {
+            for r in &g.resonances {
+                for (&a, c) in r.amplitudes.iter().zip(&g.channels) {
+                    let Role::Exit(i) = c.role else { continue };
+                    if a == 0.0 || c.eta_k == 0.0 {
+                        continue;
+                    }
+                    let k = c.wave_number(r.er);
+                    let (eta, rho) = (c.eta_k / k, k * c.apt);
+                    let l = f64::from(c.l.number());
+                    if eta >= NJOY_LARGE_ETA && rho < eta + (eta * eta + l * (l + 1.0)).sqrt() {
+                        mts.push(self.exits[i]);
+                    }
+                }
+            }
+        }
+        mts
     }
 
     /// 共鳴のピークのエネルギーと半値幅（ピークのまわりの格子点に使う）。シフト因子を計算するチャネルがあれば、
@@ -300,7 +343,7 @@ impl RMatrixLimitedXs {
 
     /// エネルギー e (eV) での断面積 (barn)。`reactions` の順に並べる。
     pub fn cross_sections(&self, e: f64) -> Result<Vec<f64>, RmlError> {
-        let fission_index = 3 + self.levels.len();
+        let fission_index = 3 + self.exits.len();
         let mut sigma = vec![0.0; fission_index + usize::from(self.fission)];
         for (group, g) in self.groups.iter().enumerate() {
             let open: Vec<&Channel> = g.channels.iter().filter(|c| e > c.threshold).collect();
@@ -313,7 +356,6 @@ impl RMatrixLimitedXs {
                 .map(|(i, _)| i)
                 .collect();
             let root_p: Vec<f64> = open.iter().map(|c| c.penetrability(e).sqrt()).collect();
-            let phi: Vec<f64> = open.iter().map(|c| c.phase_shift(e)).collect();
 
             // K = P^½ R P^½、R = Σ γγ / (E_λ − E − iΓγ/2)。極の共鳴は w = P^½ γ として分ける
             let mut k = vec![Complex64::ZERO; n * n];
@@ -398,11 +440,11 @@ impl RMatrixLimitedXs {
                 if ca.role != Role::Elastic {
                     continue;
                 }
-                let (s2, c2) = (2.0 * phi[a]).sin_cos();
+                let phi = ca.phase_shift(e);
+                let (s2, c2) = (2.0 * phi).sin_cos();
                 let xaa = x[a * n + a];
                 // 1 − Re U_aa と Im U_aa（1 − cos 2φ を 2 sin²φ にして桁落ちを避ける）
-                let one_minus_re =
-                    2.0 * phi[a].sin().powi(2) + 2.0 * xaa.im * c2 - 2.0 * xaa.re * s2;
+                let one_minus_re = 2.0 * phi.sin().powi(2) + 2.0 * xaa.im * c2 - 2.0 * xaa.re * s2;
                 let im = -s2 * (1.0 - 2.0 * xaa.im) + 2.0 * xaa.re * c2;
                 part[0] += 2.0 * pifac * one_minus_re;
                 part[1] += pifac * (one_minus_re * one_minus_re + im * im);
@@ -411,7 +453,7 @@ impl RMatrixLimitedXs {
                     let transfer = 4.0 * pifac * x[a * n + b].norm_sqr();
                     match cb.role {
                         Role::Elastic if b != a => part[1] += transfer,
-                        Role::Level(i) => part[3 + i] += transfer,
+                        Role::Exit(i) => part[3 + i] += transfer,
                         Role::Fission => part[fission_index] += transfer,
                         Role::Elastic | Role::Capture => {}
                     }
@@ -429,53 +471,74 @@ impl RMatrixLimitedXs {
     }
 }
 
-/// 粒子対の役割を決める（扱えない粒子対はエラー）。非弾性散乱の準位は `levels` に MT を加える。
-fn role(index: usize, pair: &ParticlePair, levels: &mut Vec<u32>) -> Result<Role, RmlError> {
+/// 粒子対の役割を決める（扱えない粒子対はエラー）。出口のチャネル（非弾性散乱の準位と荷電粒子の放出）は `exits` に MT を加える。
+fn role(index: usize, pair: &ParticlePair, exits: &mut Vec<u32>) -> Result<Role, RmlError> {
     let unsupported = |what: String| Err(RmlError::Pair { pair: index, what });
-    if pair.za != 0.0 {
-        return unsupported(format!("a charged particle (ZA={})", pair.za));
-    }
     // SHF=1 は計算し、0 と -1 は計算しない（-1 は ENDF-102 の 2005 年版の「計算しない」。2023 年版は 0 と書く）
     if !matches!(pair.shf, -1..=1) {
         return unsupported(format!("the shift factor flag SHF={}", pair.shf));
     }
-    let role = role_of(index, pair, levels)?;
+    let role = role_of(index, pair, exits)?;
     // シフト因子は透過因子と同じ剛体球の量なので、透過因子を計算しない捕獲と核分裂には定義がない
     if pair.shf == 1 && matches!(role, Role::Capture | Role::Fission) {
         return unsupported(format!("the shift factor (SHF=1) for MT={}", pair.mt));
     }
+    // 荷電粒子のシフト因子は Coulomb の波動関数のもので、剛体球の式は使えない（4 つの版の評価に SHF=1 の荷電粒子の対は無い。ADR-0273）
+    if pair.shf == 1 && pair.za != 0.0 {
+        return unsupported(format!(
+            "the shift factor (SHF=1) for a charged particle (ZA={})",
+            pair.za
+        ));
+    }
     Ok(role)
 }
 
-fn role_of(index: usize, pair: &ParticlePair, levels: &mut Vec<u32>) -> Result<Role, RmlError> {
+fn role_of(index: usize, pair: &ParticlePair, exits: &mut Vec<u32>) -> Result<Role, RmlError> {
     let unsupported = |what: String| Err(RmlError::Pair { pair: index, what });
+    let mut exit = |mt: u32| {
+        if exits.contains(&mt) {
+            Err(RmlError::DuplicateMt(mt))
+        } else {
+            exits.push(mt);
+            Ok(Role::Exit(exits.len() - 1))
+        }
+    };
+    let neutron = pair.za == 0.0;
     match (pair.ma, pair.mt) {
         // 光子と捕獲。透過因子は計算しない（PNT=0 は MT=102 なら計算しないこと）
         (0.0, 102) if pair.pnt <= 0 => Ok(Role::Capture),
         (0.0, 102) => unsupported(format!("penetrability for capture (PNT={})", pair.pnt)),
-        (1.0, mt @ (2 | 51..=90)) if pair.pnt >= 0 => {
-            if mt == 2 {
-                if pair.q != 0.0 {
-                    return unsupported(format!("elastic scattering with Q={}", pair.q));
-                }
-                Ok(Role::Elastic)
-            } else if levels.contains(&mt) {
-                Err(RmlError::DuplicateMt(mt))
-            } else {
-                levels.push(mt);
-                Ok(Role::Level(levels.len() - 1))
+        (1.0, 2) if neutron && pair.pnt >= 0 => {
+            if pair.q != 0.0 {
+                return unsupported(format!("elastic scattering with Q={}", pair.q));
             }
+            Ok(Role::Elastic)
         }
-        (1.0, 2 | 51..=90) => {
+        (1.0, mt @ 51..=90) if neutron && pair.pnt >= 0 => exit(mt),
+        (1.0, 2 | 51..=90) if neutron => {
             unsupported(format!("neutrons without penetrability (PNT={})", pair.pnt))
         }
+        // 荷電粒子の放出（p、d、t、³He、α の準位の MT600〜849。ENDF-102 の 3.4.6）。質量と電荷から Coulomb の透過因子を求める
+        (ma, mt @ 600..=849) if pair.za > 0.0 && ma > 0.0 && pair.pnt >= 0 => exit(mt),
+        (_, 600..=849) if pair.za > 0.0 && pair.pnt < 0 => unsupported(format!(
+            "a charged particle without penetrability (PNT={})",
+            pair.pnt
+        )),
         // 核分裂の片割れの粒子は決まらないので MA を見ない。核分裂の透過因子は 1（ENDF-102 の D.1.7）なので、PNT=-1 と、
         // 既定の PNT=0 を受ける。PNT=0 の既定を 2.2.1.6 は「fission (MT=19)」を -1、ほかを +1 と書くが、D.1.7 と NJOY2016 samm の
         // ppdefs（MT=18 の lpent=0）に合わせる。PNT=1（剛体球の透過因子）は核分裂に定義がないのでエラーにする
         (_, 18) if pair.pnt <= 0 => Ok(Role::Fission),
         (_, 18) => unsupported(format!("penetrability for fission (PNT={})", pair.pnt)),
-        (ma, mt) => unsupported(format!("MA={ma} MT={mt}")),
+        (ma, mt) => unsupported(format!("MA={ma} ZA={} MT={mt}", pair.za)),
     }
+}
+
+/// Coulomb のパラメータ η = z Z e² μ / (ħ² k)（ENDF-102 の式 D.80）に k を掛けた値 z Z α μ c / ħ（10^12 cm⁻¹）。`reduced` は
+/// 換算質量（中性子の質量の単位）。片方の電荷が 0 なら 0。
+fn coulomb_eta_k(pair: &ParticlePair, reduced: f64) -> f64 {
+    // 微細構造定数 α = e²/(ħc)。e² を EV（erg/eV）で書くと EV² c / (10^16 ħ)（NJOY2016 phys の finstri の逆数）
+    let alpha = EV * EV * CLIGHT / (1.0e16 * HBAR);
+    pair.za * pair.zb * alpha * reduced * AMASSN * AMU * CLIGHT / HBAR * 1.0e-12
 }
 
 /// 共鳴エネルギーでの幅 Γ から換算幅の振幅 γ = sign(Γ) √(|Γ| / 2P) を求める（ENDF の約束）。
@@ -501,6 +564,10 @@ fn amplitude(
     }
     let e = (er - c.threshold).abs();
     let p = c.penetrability(c.threshold + e);
+    // 荷電粒子のチャネルは、障壁の深い下で透過因子が倍精度の 0 になる
+    if p <= 0.0 && e > 0.0 && c.eta_k > 0.0 {
+        return Err(RmlError::Underflow { group, er, channel });
+    }
     if p <= 0.0 {
         return Err(closed());
     }
