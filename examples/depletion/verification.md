@@ -321,7 +321,8 @@ cd examples/depletion/read-survey && ../../../bin/xs --threads 1 nuclide nine-VI
 
 - 後の処理で初めて止まった: VIII.0 の Tm-169（MT107）、W-182（MT103）、W-186（MT16）、Pt-193（MT103）、Pb-207（MT103）が、MF8 の挙げた
   生成物の状態の経路の和が反応を超えるという温度ごとの処理の検査（`chain_reactions` の許容。#0264）で止まった。群の平均の値で決まるので、
-  `xs check` は確かめない（ADR-0266）
+  `xs check` は確かめない（ADR-0266）。原因は評価の側の不整合で、ADR-0172 の「変更」（2026-11-20）で経路を反応に縮めて警告するようにした後は通る
+  （#0264 の「経路の和の超過の原因」）
 - `xs check` が止める評価（VII.0 の Rb-87、U-233、VIII.0 の H-2、Th-232、VIII.1 の Cu-63、Sr-88）は、`xs nuclide` も同じ文で止まった
 - ほかの 20（VIII.0 の Li-7、N-14、F-19、Na-23、Mg-24、Al-27、Si-28、P-31、K-39、Ti-48、Mn-55、Co-59、Ni-58、Cu-65、Nb-93、Y-89、VII.0 と VIII.1 の
   Li-7、Ni-58）は終了コード 0 で終わった
