@@ -312,6 +312,18 @@ VIII.1 の Cu-63 の SHF=1）と VIII.1 の Sr-88 のバックグラウンドの
 cd examples/depletion/read-survey && ../../../bin/xs --threads 1 nuclide nine-VIII.0.toml ../xs-range.toml Am-242m <出力>
 ```
 
+### #0311 の 9 評価の `xs nuclide`
+
+MF6 の LAW=6、7 で止まっていた 9 評価（H-2 と Be-9 の 4 つの版、VIII.1 の Li-6）を、温度 1 点（600 K）の入力
+（`issue-0311/light-<版>.toml`。σ0 と散乱の次数は本番の `xs.toml` と同じ）で `xs nuclide` に最後まで通すと、9 つのすべてが終了コード 0 で
+終わった（65811ac5、分岐点 49e3045c の `build` の `bin/xs`、手元で 1 スレッド、2026-11-20）。既存の核種の出力が変わらないことは、VIII.0 の
+O-16、Zr-90、U-235 の 600 K の 1 点（`issue-0311/existing-VIII.0.toml`）の出力を、main（49e3045c）の `bin/xs` の出力とバイトで比べて
+確かめた（md5 は O-16 d915d683、Zr-90 3ab3f9ac、U-235 00ea03f3 で、どれも同じ）。
+
+```sh
+cd examples/depletion/issue-0311 && ../../../bin/xs --threads 1 nuclide light-VIII.1.toml light-VIII.1-range.toml Li-6 <出力>
+```
+
 ### 走査が見逃す種類
 
 `xs check` が通し、後の処理で初めて止まる評価の標本として、温度 1 点（600 K）の入力（`read-survey/sample-<版>.toml`）の 31 の評価を
@@ -321,9 +333,10 @@ cd examples/depletion/read-survey && ../../../bin/xs --threads 1 nuclide nine-VI
   生成物の状態の経路の和が反応を超えるという温度ごとの処理の検査（`chain_reactions` の許容。#0264）で止まった。群の平均の値で決まるので、
   `xs check` は確かめない（ADR-0266）。原因は評価の側の不整合で、ADR-0172 の「変更」（2026-11-20）で経路を反応に縮めて警告するようにした後は通る
   （#0264 の「経路の和の超過の原因」）
-- `xs check` が止める評価（VIII.0 の H-2、Th-232、VIII.1 の Cu-63、Sr-88）は、`xs nuclide` も同じ文で止まった。VII.0 の U-233 は、
+- `xs check` が止める評価（VIII.0 の Th-232、VIII.1 の Cu-63、Sr-88）は、`xs nuclide` も同じ文で止まった。VII.0 の U-233 は、
   #0313 の後は終了コード 0 で終わる（下の「版ごとのライブラリのエネルギーによる Watt の核分裂スペクトル」）。VIII.1 の Cu-63 と Sr-88 は、
-  #0310 の後は終了コード 0 で終わる（下の「版ごとのライブラリの分離共鳴の R 行列の制限形のシフト因子とバックグラウンド」）
+  #0310 の後は終了コード 0 で終わる（下の「版ごとのライブラリの分離共鳴の R 行列の制限形のシフト因子とバックグラウンド」）。VIII.0 の H-2 は、
+  #0311 の後は終了コード 0 で終わる（上の「#0311 の 9 評価の `xs nuclide`」）
 - VII.0 の Rb-87 は、MF5 MT17 の TAB1 の区切りの修正（1194 行の最初の欄を 1 から 3。ENDF/B-VII.1 の修正と同じ）を `sample-VII.0.toml` に
   宣言すると（ADR-0272）、`xs nuclide` が終了コード 0 で終わり、修正の warn を 1 つ出した（8515d2be、分岐点 74a54401 の `cargo build --release`、手元で 1 スレッド、2026-11-20）。宣言しなければ `xs check` と同じ文で止まる（#0316）。MT17 のしきい値
   （18.80 MeV）は群の上端（10 MeV）より上なので、修正した分布は群の値に入らない
@@ -485,6 +498,54 @@ Ni-60）、SLBW の共鳴の弾性散乱が負（ADR-0265）、SLBW の J が標
 版の間で時間か常駐が 10 倍以上違う核種は 10（同じ節の「版の間で時間か常駐が 10 倍以上違う核種」。H-1、Mn-55、Fe-58、Ni-59、Au-197、
 Th-229、Pa-232、Np-236、Np-238、Bk-250）で、どれも 400 秒、300 MB に満たない。原因の候補は版ごとの評価の違い（非分離共鳴の有無など。
 確かめていない）。
+
+## MF6 の LAW=6、7 の散乱行列（NJOY との比較）
+
+MF6 の中性子の LAW=6（位相空間分布）と LAW=7（実験室系の角度とエネルギー）の散乱行列を、NJOY2016.79 の RECONR（許容誤差 1e-3）と GROUPR
+（WIMS 69 群、iwt=4、Legendre の次数 3、0 K、無限希釈。入力は references/njoy-runs/issue-0311/<評価>/input、git で追跡しない）と
+`compare_njoy_gendf` で比べた。形は examples/m3-nuclides/verification.md の「NJOY との比較」と同じで、散乱行列の差は行の差の絶対値の和 /
+P0 の行の和の、群ごとの最大値。比べたのは H-2 の VIII.0（MT16、LAW=6、3 体）、Li-6 の VIII.1（MT41、LAW=6、4 体）、Be-9 の VII.1（MT16、LAW=7、
+E' は lin-lin）と VIII.0（MT16、LAW=7、E' はヒストグラム）。読み方と NJOY との違いの決定は [ADR-0271](../../docs/adr/0271-group-mf6-law6-and-law7-by-endf-102.md)。
+
+### 計算
+
+xs は 65811ac5（分岐点 49e3045c、2026-11-20）の `compare_njoy_gendf`（`cargo build --release -p xlc-xs --example compare_njoy_gendf`）、
+NJOY は同じ日の references の devShell。差の原因を確かめる ENDF のコピーと GROUPR を真似るスクリプトは `issue-0311/` にある。どれも手元で数秒。
+
+```sh
+target/release/examples/compare_njoy_gendf --rows references/njoy-runs/issue-0311/H2-VIII.0/tape20 references/njoy-runs/issue-0311/H2-VIII.0/tape24 128 16
+```
+
+### 差
+
+断面積（MF3 の反応）は、どの評価も 6.4e-4 以内（H-2 の MT16 の 2 群）で、散乱行列の P0 の行の和もそれと同じ大きさで一致する。行の中の
+出射の群の分け方は、次の表のとおり違う。
+
+| 評価        | 反応          | P0 の差（群）   | P1 の差 | 原因                                                           |
+| ----------- | ------------- | --------------- | ------- | -------------------------------------------------------------- |
+| H-2 VIII.0  | MT16（LAW=6） | 6.95e-1（2 群） | 8.9e-1  | NJOY の入射エネルギーの格子（候補。下の 1）                    |
+| Li-6 VIII.1 | MT41（LAW=6） | 1.59e-1（1 群） | 5.6e-1  | NJOY の入射エネルギーの格子（下の 1）                          |
+| Be-9 VII.1  | MT16（LAW=7） | 1.88e-1（3 群） | 4.1e-1  | 入射エネルギーの補間（ADR-0057。下の 2）                       |
+| Be-9 VIII.0 | MT16（LAW=7） | 4.09e-1（3 群） | 5.1e-1  | 入射エネルギーの補間と、NJOY の `ll2lab` の間引き（下の 2、3） |
+
+差の最大の群は、どれもしきい値を含む群（H-2 は 3.34 MeV、Li-6 は 4.32 MeV、Be-9 は 1.75 MeV）。P1 以上は、xs は ADR-0082 のとおり 0 で、
+差は NJOY の P1 の大きさそのもの（軽い核で重心の運動が大きい）。
+
+1. LAW=6: GROUPR は位相空間分布を、多重度の最初の点 / 1.1999 から 1.2 倍ずつの入射エネルギーで、E' = 0 から始まる実験室系の表にして、
+   その間を単位基底で補間する。xs の入力で同じ格子の実験室系の表（LAW=1、INT=22）を与える（`tabulate_phase_space.py <ENDF> <MT> <Q> lab`）と、
+   Li-6 の差は 1.59e-1 から 4.07e-3 になる。同じ格子の重心系の表（`cm`）では差は変わらない（1.59e-1）ので、xs の入射エネルギーごとの式と、
+   重心系の表を単位基底で補間したものは一致し、差は実験室系の表を補間することによる。H-2 は実験室系の表で差が 1.07 になり、GROUPR の値を
+   再現しない（H-2 の残りの原因は確かめていない）。H-2 の 2 群（2.23〜3.68 MeV）の入射では、実験室系の出射エネルギーは
+   (√Ec − √E_max)² ≥ 63 keV（3.68 MeV で Ec = 409.7 keV、E_max = 150.9 keV）だが、GROUPR はその行の 1.6% を 40.85 keV より下の 11〜14 群に
+   置く（xs は 0）。運動学で届かない群なので、GROUPR の格子の補間によるものと見る
+2. 入射エネルギーの補間: Be-9 の LAW=7 の入射エネルギーの間の補間 INT=2 を、xs はファイルのとおり、GROUPR は単位基底で扱う（ADR-0057）。
+   INT=22 に替えたコピー（`unit_base_be9.py`）では、VII.1 の差は 1.88e-1 から 9.11e-4 になる
+3. `ll2lab` の間引き: INT=22 のコピーでも、VIII.0 の差は 1.97e-1 残る。GROUPR の `ll2lab` は、点を間引く判定の直線の値の重みが入れ替わって
+   いて（ADR-0271 の「検討した案」）、ヒストグラムの E' の段を傾きに替える。`ll2lab` の P0〜P3 と間引きを真似た `ll2lab_thinning.py` で 2 MeV の
+   入射を比べると、群ごとの割合の差の絶対値の和は ENDF のヒストグラムから 3.14e-1（和は 1.139、群で平均したエネルギーは 66.3 keV が 78.3 keV）で、
+   重みを正しくすると 3.19e-3（和 0.997、66.5 keV）になる
+
+xs の LAW=6 の群ごとの割合は、重心系のエネルギーの細かい中点則と 2e-7 で一致する（テスト `phase_space_spreads_by_the_centre_of_mass_motion`）。
 
 ## 版ごとのピンセルの燃焼
 

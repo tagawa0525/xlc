@@ -52,8 +52,9 @@ ENDF-102 の定義のとおりに群に振り分け、NJOY の表の作り方は
 ### 帰結
 
 - H-2、Li-6、Be-9 の 4 つの版の評価を、輸送する核種として処理できる
-- NJOY との散乱行列の差は、LAW=6 では NJOY の入射エネルギーの格子と単位基底の補間、LAW=7 では単位基底（ADR-0057）と `ll2lab` の
-  間引きの重み、P1 以上は ADR-0082 による（差の大きさは examples/depletion/verification.md）
+- NJOY との散乱行列の差は、LAW=6 では NJOY の入射エネルギーの格子と実験室系の単位基底の補間（Li-6 で確かめた。H-2 の残りの原因は
+  確かめていない）、LAW=7 では単位基底（ADR-0057）と `ll2lab` の間引きの重み、P1 以上は ADR-0082 による（差の大きさは
+  examples/depletion/verification.md）
 - n が 3〜5 の外の LAW=6 と、lin-lin とヒストグラムの外の E' の表と余弦の補間則の LAW=7 は、エラーで止まる
 
 ### 確認

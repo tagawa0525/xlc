@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [xs, depletion]
 opened: 2026-11-20
-closed:
+closed: 2026-11-20
 milestone:
 blocked-by: []
-resolution:
+resolution: ADR-0271
 ---
 
 # xs が MF6 の中性子の LAW=6（位相空間）と LAW=7（実験室系の角度とエネルギー）を読めない
@@ -26,8 +26,10 @@ resolution:
 
 ## 完了の条件
 
-- [ ] LAW=6 と LAW=7 を ENDF-102 の式で読み、散乱行列に入れる（NJOY と比べる）か、輸送しない核種に限ることを決める
+- [x] LAW=6 と LAW=7 を ENDF-102 の式で読み、散乱行列に入れる（NJOY と比べる）か、輸送しない核種に限ることを決める
 
 ## 経緯
 
 - 2026-11-20: 4 つの版の中性子のファイルの全部を `xs check` に通し、起こした
+- 2026-11-20: 4 つの版の全部の核種が流れることが求められ（ユーザー 2026-11-20。別のセッションが伝えたもの）、読むことにした。ENDF-102 の式で読み、
+  NJOY との差の原因を examples/depletion/verification.md の「MF6 の LAW=6、7 の散乱行列（NJOY との比較）」に書いた（ADR-0271）
