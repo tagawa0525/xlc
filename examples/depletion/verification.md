@@ -256,9 +256,10 @@ python3 examples/depletion/read_survey.py --report examples/depletion/read-surve
 
 ### 計算
 
-`xs check` は 5b63048e、ステージを実行したのは 8809a4ff（分岐点 f6360d71、2026-11-20。`bin/xs` の正規形は md5 3497396e）。報告は
-`read-survey-<版>.toml`、要約の文章は `read-survey.txt`（`--report` と同じ）。1 つの版の全部のファイル（393〜558）は、手元の 8 スレッドで 1 秒に
-満たない（VII.0 の 393 ファイルで 0.4 秒。手元の計算で、時間は記録の測定ではない）。
+`xs check` と要約のツールは fcf905f5 のもの（分岐点 4968867b、2026-11-20。`bin/xs` の正規形は `binary-forms/xs.md5`）で、ステージは rebase の後の
+付け直し（`chore: relock read-survey after the rebase`）で実行した。報告は `read-survey-<版>.toml`、要約の文章は `read-survey.txt`（`--report` と
+同じ）。1 つの版の全部のファイル（393〜558）は、手元の 8 スレッドで 1 秒に満たない（VII.0 の 393 ファイルで 0.4 秒。手元の計算で、時間は記録の
+測定ではない）。
 
 ### 版ごとの数
 
@@ -269,7 +270,7 @@ python3 examples/depletion/read_survey.py --report examples/depletion/read-surve
 | VII.0  | 390            | 383    | 7        | 3                  | 1      | 2        | 3447 / 3837                  |
 | VII.1  | 422            | 415    | 7        | 1                  | 1      | 0        | 3398 / 3820                  |
 | VIII.0 | 556            | 549    | 7        | 1                  | 1      | 0        | 3264 / 3820                  |
-| VIII.1 | 557            | 546    | 11       | 1                  | 1      | 0        | 3263 / 3820                  |
+| VIII.1 | 557            | 547    | 10       | 1                  | 1      | 0        | 3263 / 3820                  |
 
 <!-- /table -->
 
@@ -294,20 +295,20 @@ python3 examples/depletion/read_survey.py --report examples/depletion/read-surve
 | particle pair 3: a charged particle (ZA=2) is not supported                  | –                      | –                      | Ca-40                  | Ca-40                  |
 | particle pair 2: the shift factor (SHF=1) is not supported                   | –                      | –                      | –                      | Cu-63                  |
 | background R-matrix (KBK=1) and given phase shifts (KPS=0) are not supported | –                      | –                      | –                      | Sr-88                  |
-| particle pair 3: MA=1 MT=18 is not supported                                 | –                      | –                      | –                      | Pu-239                 |
 
 <!-- /table -->
 
 理由は `xs check` の文から先頭の行番号を除いたもの。形式ごとの issue: MF6 の LAW=6、7 は #0311、MF6 MT18 の核分裂の中性子は #0312、MF5 の
-LF=11 は #0313、Rb-87 の TAB1 は #0316、NIS > 1 と KBK = 1 は #0305、荷電粒子の対は #0264。R 行列の制限形のシフト因子（Cl-35 の VII.1、Cu-63 の
-VIII.1）と核分裂の対（Pu-239 の VIII.1）は、ほかのブランチの issue（まだ main に無い）で扱う。
+LF=11 は #0313、Rb-87 の TAB1 は #0316、NIS > 1 は #0305、R 行列の制限形のシフト因子（Cl-35 の VII.1、Cu-63 の VIII.1）とバックグラウンドの
+R 行列（Sr-88 の VIII.1。#0305 にもある）は #0310、荷電粒子の対は #0264。VIII.1 の Pu-239 の核分裂の対は、#0308 で読めるようになった。
 
 ### #0292 の 9 核種の `xs nuclide`
 
 輸送に足すと高燃焼度の負の差が消えた 9 核種（Cm-245、Am-242m、Np-238、Cm-243、Am-242、U-237、Pu-243、U-239、Am-244。#0292）は、4 つの版の
 どれでも `xs check` で止まらない（上の要約の `watched`）。同じ 36 の評価を、温度 1 点（600 K）の入力（`read-survey/nine-<版>.toml`。σ0 と散乱の
 次数は本番の `xs.toml` と同じ）で `xs nuclide` に最後まで通すと、36 のすべてが終了コード 0 で終わった（5b63048e の `cargo build --release`、
-手元で 1 スレッドずつ 8 並列、2026-11-20）。本番の 4 温度で止まるかは確かめていない（温度ごとにだけ止まる検査は、非分離共鳴のサンプルの
+分岐点 f6360d71、手元で 1 スレッドずつ 8 並列、2026-11-20）。その後に入った xs の変更（#0308 の R 行列の制限形の核分裂の対と、fcf905f5 の
+報告の順）は、36 の評価が通る経路に無い（36 の評価の分離共鳴に R 行列の制限形は無い）ので、通し直していない。本番の 4 温度で止まるかは確かめていない（温度ごとにだけ止まる検査は、非分離共鳴のサンプルの
 全断面積が正でないとき（`UrrError::NonPositiveTotal`）などで、候補）。
 
 ```sh
@@ -317,7 +318,7 @@ cd examples/depletion/read-survey && ../../../bin/xs --threads 1 nuclide nine-VI
 ### 走査が見逃す種類
 
 `xs check` が通し、後の処理で初めて止まる評価の標本として、温度 1 点（600 K）の入力（`read-survey/sample-<版>.toml`）の 31 の評価を
-`xs nuclide` に最後まで通した（上と同じコミットと条件）。
+`xs nuclide` に最後まで通した（fcf905f5 の `cargo build --release`、分岐点 4968867b、ほかは上と同じ条件。2026-11-20）。
 
 - 後の処理で初めて止まった: VIII.0 の Tm-169（MT107）、W-182（MT103）、W-186（MT16）、Pt-193（MT103）、Pb-207（MT103）が、MF8 の挙げた
   生成物の状態の経路の和が反応を超えるという温度ごとの処理の検査（`chain_reactions` の許容。#0264）で止まった。群の平均の値で決まるので、

@@ -1540,7 +1540,6 @@ endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-094_Pu_238.endf"
 
 [[evaluation]]
 endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-094_Pu_239.endf"
-error = "line 3342: particle pair 3: MA=1 MT=18 is not supported"
 
 [[evaluation]]
 endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-094_Pu_240.endf"

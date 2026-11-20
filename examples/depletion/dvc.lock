@@ -5791,7 +5791,7 @@ stages:
     deps:
     - path: ../../binary-forms/xs.md5
       hash: md5
-      md5: 3497396e961a4ad700813520825182b8
+      md5: bfcb65bf2b776b1d01b72a1c69f201a3
       size: 33
     - path: ../../references/endf/ENDF-B-VII.0_neutrons
       hash: md5
@@ -5809,7 +5809,7 @@ stages:
     deps:
     - path: ../../binary-forms/xs.md5
       hash: md5
-      md5: 3497396e961a4ad700813520825182b8
+      md5: bfcb65bf2b776b1d01b72a1c69f201a3
       size: 33
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons
       hash: md5
@@ -5827,7 +5827,7 @@ stages:
     deps:
     - path: ../../binary-forms/xs.md5
       hash: md5
-      md5: 3497396e961a4ad700813520825182b8
+      md5: bfcb65bf2b776b1d01b72a1c69f201a3
       size: 33
     - path: ../../references/endf/ENDF-B-VIII.1_neutrons
       hash: md5
@@ -5837,15 +5837,15 @@ stages:
     outs:
     - path: read-survey-endfb81.toml
       hash: md5
-      md5: 35c059e9ab0a5fc6909be7c787fe104d
-      size: 49790
+      md5: 48090184d2bf88ae6537112a15869f96
+      size: 49724
   read-survey@endfb71:
     cmd: ../../bin/xs check read-survey-endfb71.toml 
       ../../references/endf/ENDF-B-VII.1_neutrons/*.endf
     deps:
     - path: ../../binary-forms/xs.md5
       hash: md5
-      md5: 3497396e961a4ad700813520825182b8
+      md5: bfcb65bf2b776b1d01b72a1c69f201a3
       size: 33
     - path: ../../references/endf/ENDF-B-VII.1_neutrons
       hash: md5
@@ -5866,8 +5866,8 @@ stages:
     deps:
     - path: ../../python-ast/examples/depletion/read_survey.py.ast
       hash: md5
-      md5: 430aac22400babad4ba55c38a4c636d3
-      size: 5095
+      md5: cd0025150d19086de08a89a7502f0859
+      size: 5096
     - path: chain.msgpack
       hash: md5
       md5: 1f1de1800363a19f23af2f7b4417c426
@@ -5898,14 +5898,14 @@ stages:
       size: 49405
     - path: read-survey-endfb81.toml
       hash: md5
-      md5: 35c059e9ab0a5fc6909be7c787fe104d
-      size: 49790
+      md5: 48090184d2bf88ae6537112a15869f96
+      size: 49724
     outs:
     - path: read-survey.json
       hash: md5
-      md5: 17169d2e85c9bbb42e54e606bdadfd50
-      size: 9319
+      md5: 379d7d48095515aa21de6540ff77343d
+      size: 9094
     - path: read-survey.txt
       hash: md5
-      md5: 54857c0828d6492c3469b869939107d3
-      size: 2763
+      md5: dffd4296a0e93f32674ceb1035270ffa
+      size: 2690

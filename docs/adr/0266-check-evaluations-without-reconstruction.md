@@ -76,5 +76,5 @@ xs が読めるかは分かっていない。調べるには、4 つの版（END
   読み込みの走査」（ステージ `read-survey`）。1 つの版が手元の 8 スレッドで 1 秒に満たない
 - 同じ節の「走査が見逃す種類」: `xs check` が止めた 6 つの評価は、600 K の `xs nuclide` も同じ文で止まった。`xs check` が通した標本の
   25 のうち、後の処理で止まったのは MF8 の経路の和の検査の 5 つだけ
-- 切り出した後の `xs nuclide` の出力は、ENDF/B-VIII.0 の O-16、B-10、Cr-52、Fe-57 で、main の examples/depletion/dvc.lock の md5 と同じ（5b63048e、
-  2026-11-20）
+- 切り出した後の `xs nuclide` の出力は、ENDF/B-VIII.0 の O-16、B-10、Cr-52、Fe-57 で、main の examples/depletion/dvc.lock の md5 と同じ（fcf905f5、
+  分岐点 4968867b、2026-11-20）

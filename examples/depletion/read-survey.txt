@@ -1,11 +1,11 @@
-inputs: read-survey-endfb70.toml d38b4dd0, endfb70/chain.msgpack 5c4c8194, read-survey-endfb71.toml 4f9ec699, endfb71/chain.msgpack 32ee4517, read-survey-endfb80.toml 5b469fe4, chain.msgpack 1f1de180, read-survey-endfb81.toml 35c059e9, endfb81/chain.msgpack 4b084932
+inputs: read-survey-endfb70.toml d38b4dd0, endfb70/chain.msgpack 5c4c8194, read-survey-endfb71.toml 4f9ec699, endfb71/chain.msgpack 32ee4517, read-survey-endfb80.toml 5b469fe4, chain.msgpack 1f1de180, read-survey-endfb81.toml 48090184, endfb81/chain.msgpack 4b084932
 
 | 版 | チェーンの評価 | 読めた | 止まった | チェーンの外の評価 | 読めた | 止まった | ファイルの無いチェーンの核種 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | VII.0 | 390 | 383 | 7 | 3 | 1 | 2 | 3447 / 3837 |
 | VII.1 | 422 | 415 | 7 | 1 | 1 | 0 | 3398 / 3820 |
 | VIII.0 | 556 | 549 | 7 | 1 | 1 | 0 | 3264 / 3820 |
-| VIII.1 | 557 | 546 | 11 | 1 | 1 | 0 | 3263 / 3820 |
+| VIII.1 | 557 | 547 | 10 | 1 | 1 | 0 | 3263 / 3820 |
 
 ## 止まった理由（版ごとの評価）
 - neutron LAW=6 is not supported
@@ -44,8 +44,6 @@ inputs: read-survey-endfb70.toml d38b4dd0, endfb70/chain.msgpack 5c4c8194, read-
   - VIII.1: 1（Cu-63）
 - background R-matrix (KBK=1) and given phase shifts (KPS=0) are not supported
   - VIII.1: 1（Sr-88）
-- particle pair 3: MA=1 MT=18 is not supported
-  - VIII.1: 1（Pu-239）
 
 ## 注目する 9 核種（#0292）
 - Cm-245: VII.0 readable、VII.1 readable、VIII.0 readable、VIII.1 readable

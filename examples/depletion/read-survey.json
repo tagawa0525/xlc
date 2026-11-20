@@ -167,8 +167,8 @@
   "VIII.1": {
    "in_chain": {
     "evaluations": 557,
-    "readable": 546,
-    "stopped": 11
+    "readable": 547,
+    "stopped": 10
    },
    "outside_chain": {
     "evaluations": 1,
@@ -227,11 +227,6 @@
      "file": "n-091_Pa_233.endf",
      "nuclide": "Pa-233",
      "reason": "fission needs MF1 MT452 and MF5 MT18"
-    },
-    {
-     "file": "n-094_Pu_239.endf",
-     "nuclide": "Pu-239",
-     "reason": "particle pair 3: MA=1 MT=18 is not supported"
     }
    ]
   }
@@ -340,11 +335,6 @@
   "background R-matrix (KBK=1) and given phase shifts (KPS=0) are not supported": {
    "VIII.1": [
     "Sr-88"
-   ]
-  },
-  "particle pair 3: MA=1 MT=18 is not supported": {
-   "VIII.1": [
-    "Pu-239"
    ]
   }
  },
@@ -458,7 +448,7 @@
   },
   {
    "path": "read-survey-endfb81.toml",
-   "md5": "35c059e9ab0a5fc6909be7c787fe104d"
+   "md5": "48090184d2bf88ae6537112a15869f96"
   },
   {
    "path": "endfb81/chain.msgpack",
