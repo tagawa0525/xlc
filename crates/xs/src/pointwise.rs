@@ -526,28 +526,33 @@ fn parts_broadening_limit(tables: &BTreeMap<u32, Tab1>, mf2: Option<&Mf2>) -> f6
 
 /// 広げる反応の、広げる上限より下に負の値があれば、その MT と文を返す（ADR-0267）。
 ///
-/// ドップラー拡がりの格子の判定（`doppler::split`）は正の値を前提にし、両端が負の区間を際限なく分ける。
+/// ドップラー拡がりの格子の判定（`doppler::split`）は正の値を前提にし、両端が負の区間を際限なく分ける。上限より下の表の点と、
+/// 上限をまたぐ区間の上限での値（左からの極限）を見る。上限より上の値は広げないので見ない（扱いは #0309）。
 fn reject_negative_broadened(
     tables: &BTreeMap<u32, Tab1>,
     mf2: Option<&Mf2>,
 ) -> Result<(), (u32, String)> {
     let e_max = parts_broadening_limit(tables, mf2);
     for (&mt, t) in tables.iter().filter(|(mt, _)| is_broadened(**mt)) {
-        let negative: Vec<usize> = (0..t.x.len())
-            .filter(|&k| t.x[k] < e_max && t.y[k] < 0.0)
+        let points = t.x.iter().zip(&t.y).filter(|(e, _)| **e < e_max);
+        let at_limit = (t.x[0] < e_max).then(|| (e_max, left_limit(t, e_max)));
+        let negative: Vec<(f64, f64)> = points
+            .map(|(e, v)| (*e, *v))
+            .chain(at_limit)
+            .filter(|(_, v)| *v < 0.0)
             .collect();
-        let (Some(&first), Some(&last)) = (negative.first(), negative.last()) else {
+        let (Some(first), Some(last)) = (negative.first(), negative.last()) else {
             continue;
         };
-        let lowest = negative.iter().map(|&k| t.y[k]).fold(0.0, f64::min);
+        let lowest = negative.iter().map(|(_, v)| *v).fold(0.0, f64::min);
         return Err((
             mt,
             format!(
-                "MT{mt} is negative at {} points below the Doppler broadening limit {e_max} eV \
+                "MT{mt} is negative at {} points up to the Doppler broadening limit {e_max} eV \
                  ({:.4e}..{:.4e} eV, down to {lowest:.3e} b); a negative cross section cannot be broadened",
                 negative.len(),
-                t.x[first],
-                t.x[last]
+                first.0,
+                last.0
             ),
         ));
     }
