@@ -22,14 +22,25 @@ const LN_UNDERFLOW: f64 = -746.0;
 /// CF2 の項の数の上限（l ≤ 4、η ≤ 1e8 で 2624 項）
 const MAX_TERMS: usize = 100_000;
 
+/// Steed の CF2 が `MAX_TERMS` 項で収束しなかった（ρ₀ ≥ max(ρ_t, `RHO_MIN`) では起きない見込みで、NaN の入力などで起きる）。
+#[derive(Debug, Clone, Copy, PartialEq, thiserror::Error)]
+#[error(
+    "Steed's CF2 for the Coulomb functions with l={l} eta={eta} rho={rho} did not converge in {MAX_TERMS} terms"
+)]
+pub struct NotConverged {
+    pub l: u32,
+    pub eta: f64,
+    pub rho: f64,
+}
+
 /// 軌道角運動量 l、Coulomb のパラメータ η ≥ 0、ρ > 0 の透過因子 P_l(η, ρ)。
-pub(super) fn penetrability(l: u32, eta: f64, rho: f64) -> f64 {
+pub(super) fn penetrability(l: u32, eta: f64, rho: f64) -> Result<f64, NotConverged> {
     let ll = f64::from(l * (l + 1));
     let turning = eta + (eta * eta + ll).sqrt();
     let start = rho.max(turning).max(RHO_MIN);
-    let y = cf2(l, eta, start);
+    let y = cf2(l, eta, start)?;
     if start == rho {
-        return rho * y.im;
+        return Ok(rho * y.im);
     }
     let mut s = start * y.re;
     let mut p = (start * y.im).ln();
@@ -45,23 +56,23 @@ pub(super) fn penetrability(l: u32, eta: f64, rho: f64) -> f64 {
         // 障壁の下（ρ < ρ_t）で S < 0 なら、内向きに S < 0 のまま（S = 0 では dS/dx > 0）で、d(ln P)/dx = 1 − 2S > 0 から
         // ln P は ρ まで減り続ける。ここで倍精度の 0 になれば、ρ でも 0
         if x < x_turning && s < 0.0 && p < LN_UNDERFLOW {
-            return 0.0;
+            return Ok(0.0);
         }
     }
-    p.exp()
+    Ok(p.exp())
 }
 
 /// H'/H = i(1 − η/ρ) + (i/ρ) ab / (2(ρ − η + i) + (a+1)(b+1) / (2(ρ − η + 2i) + ...))、a = 1 + l + iη、b = −l + iη
 /// （DLMF 33.8.2）。分母の連分数を修正 Lentz 法で求める（先頭の項を分子に置くと、η の大きいときに初期値で
 /// 桁があふれる）。
-fn cf2(l: u32, eta: f64, rho: f64) -> Complex64 {
+fn cf2(l: u32, eta: f64, rho: f64) -> Result<Complex64, NotConverged> {
     let a = Complex64::new(1.0 + f64::from(l), eta);
     let b = Complex64::new(-f64::from(l), eta);
     let tiny = Complex64::new(f64::MIN_POSITIVE, 0.0);
     let mut g = Complex64::new(2.0 * (rho - eta), 2.0);
     let (mut c, mut d) = (g, Complex64::ZERO);
     for n in 2..MAX_TERMS {
-        let k = f64::from(u32::try_from(n).expect("the term count fits u32"));
+        let k = n as f64;
         let an = (a + k - 1.0) * (b + k - 1.0);
         let bn = Complex64::new(2.0 * (rho - eta), 2.0 * k);
         d = bn + an * d;
@@ -76,10 +87,10 @@ fn cf2(l: u32, eta: f64, rho: f64) -> Complex64 {
         let delta = c * d;
         g *= delta;
         if (delta - 1.0).norm() < 2.0 * f64::EPSILON {
-            return Complex64::new(0.0, 1.0 - eta / rho) + Complex64::I * a * b / (rho * g);
+            return Ok(Complex64::new(0.0, 1.0 - eta / rho) + Complex64::I * a * b / (rho * g));
         }
     }
-    panic!("Steed's CF2 for l={l} eta={eta} rho={rho} did not converge in {MAX_TERMS} terms");
+    Err(NotConverged { l, eta, rho })
 }
 
 /// x = ln r での S と ln P の Taylor 級数の係数（0 から `ORDER` 次）。P² の係数も同じ漸化式で求める

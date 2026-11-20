@@ -59,6 +59,8 @@ pub enum RmlError {
         er: f64,
         channel: usize,
     },
+    #[error(transparent)]
+    Coulomb(#[from] coulomb::NotConverged),
     #[error("spin group {group}: several resonances without capture width at {energy} eV")]
     Poles { group: usize, energy: f64 },
     #[error("spin group {group}: singular level matrix at {energy} eV")]
@@ -137,15 +139,19 @@ impl Channel {
         self.factor * (e - self.threshold).sqrt()
     }
 
-    fn penetrability(&self, e: f64) -> f64 {
+    fn penetrability(&self, e: f64) -> Result<f64, RmlError> {
         if !self.penetrable {
-            return 1.0;
+            return Ok(1.0);
         }
         let k = self.wave_number(e);
         if self.eta_k > 0.0 {
-            coulomb::penetrability(self.l.number(), self.eta_k / k, k * self.apt)
+            Ok(coulomb::penetrability(
+                self.l.number(),
+                self.eta_k / k,
+                k * self.apt,
+            )?)
         } else {
-            penetrability(self.l, k * self.apt)
+            Ok(penetrability(self.l, k * self.apt))
         }
     }
 
@@ -189,6 +195,8 @@ struct Level {
     er: f64,
     /// Γγ / 2
     half_capture: f64,
+    /// ピークの半値幅 Γγ/2 + Σ γ²P（P はチャネルのエネルギー |E_λ − 閾値| で求める。`peaks` が使う）
+    half_width: f64,
     /// チャネルごとの換算幅の振幅 γ（`Group::channels` の順）
     amplitudes: Vec<f64>,
 }
@@ -261,13 +269,20 @@ impl RMatrixLimitedXs {
                     .resonances
                     .iter()
                     .map(|r| {
-                        let amplitudes = channels
+                        let amplitudes: Vec<f64> = channels
                             .iter()
                             .map(|(k, c)| amplitude(r.er, r.widths[*k], c, group + 1, *k + 1))
                             .collect::<Result<_, _>>()?;
-                        Ok(Level {
+                        let half_capture = capture.map_or(0.0, |k| 0.5 * r.widths[k].abs());
+                        let mut neutron = 0.0;
+                        for (&a, (_, c)) in amplitudes.iter().zip(&channels) {
+                            let e = c.threshold + (r.er - c.threshold).abs();
+                            neutron += 2.0 * a * a * c.penetrability(e)?;
+                        }
+                        Ok::<_, RmlError>(Level {
                             er: r.er,
-                            half_capture: capture.map_or(0.0, |k| 0.5 * r.widths[k].abs()),
+                            half_capture,
+                            half_width: half_capture + 0.5 * neutron,
                             amplitudes,
                         })
                     })
@@ -327,16 +342,14 @@ impl RMatrixLimitedXs {
     pub fn peaks(&self) -> impl Iterator<Item = (f64, f64)> + '_ {
         self.groups.iter().flat_map(|g| {
             g.resonances.iter().map(|r| {
-                let mut neutron = 0.0;
                 let mut level_shift = 0.0;
                 for (&a, c) in r.amplitudes.iter().zip(&g.channels) {
                     let e = c.threshold + (r.er - c.threshold).abs();
-                    neutron += 2.0 * a * a * c.penetrability(e);
                     if let Some(d) = c.shift_minus_boundary(e) {
                         level_shift -= a * a * d;
                     }
                 }
-                (r.er + level_shift, r.half_capture + 0.5 * neutron)
+                (r.er + level_shift, r.half_width)
             })
         })
     }
@@ -355,7 +368,10 @@ impl RMatrixLimitedXs {
                 .filter(|(_, c)| e > c.threshold)
                 .map(|(i, _)| i)
                 .collect();
-            let root_p: Vec<f64> = open.iter().map(|c| c.penetrability(e).sqrt()).collect();
+            let root_p: Vec<f64> = open
+                .iter()
+                .map(|c| c.penetrability(e).map(f64::sqrt))
+                .collect::<Result<_, _>>()?;
 
             // K = P^½ R P^½、R = Σ γγ / (E_λ − E − iΓγ/2)。極の共鳴は w = P^½ γ として分ける
             let mut k = vec![Complex64::ZERO; n * n];
@@ -563,7 +579,7 @@ fn amplitude(
         return Err(closed());
     }
     let e = (er - c.threshold).abs();
-    let p = c.penetrability(c.threshold + e);
+    let p = c.penetrability(c.threshold + e)?;
     // 荷電粒子のチャネルは、障壁の深い下で透過因子が倍精度の 0 になる
     if p <= 0.0 && e > 0.0 && c.eta_k > 0.0 {
         return Err(RmlError::Underflow { group, er, channel });

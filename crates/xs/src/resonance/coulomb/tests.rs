@@ -12,7 +12,7 @@ fn tolerance(p: f64) -> f64 {
 #[test]
 fn penetrability_matches_multiprecision_values() {
     for &(l, eta, rho, expected) in COULOMB_REFERENCE {
-        let actual = penetrability(l, eta, rho);
+        let actual = penetrability(l, eta, rho).unwrap();
         let error = (actual / expected - 1.0).abs();
         let allowed = tolerance(expected);
         assert!(
@@ -25,7 +25,11 @@ fn penetrability_matches_multiprecision_values() {
 #[test]
 fn penetrability_underflows_to_zero_far_below_the_barrier() {
     for &(l, eta, rho) in COULOMB_UNDERFLOW {
-        assert_eq!(penetrability(l, eta, rho), 0.0, "l={l} eta={eta} rho={rho}");
+        assert_eq!(
+            penetrability(l, eta, rho).unwrap(),
+            0.0,
+            "l={l} eta={eta} rho={rho}"
+        );
     }
 }
 
@@ -42,7 +46,7 @@ fn zero_eta_is_the_hard_sphere_penetrability() {
         // RHO_MIN より下（積分する）、RHO_MIN、その上（CF2 だけ）
         for rho in [0.01, 0.5, 1.9, 2.0, 3.0, 30.0] {
             let expected = crate::resonance::factors::penetrability(l, rho);
-            let actual = penetrability(l.number(), 0.0, rho);
+            let actual = penetrability(l.number(), 0.0, rho).unwrap();
             let error = (actual / expected - 1.0).abs();
             assert!(
                 error <= tolerance(expected),

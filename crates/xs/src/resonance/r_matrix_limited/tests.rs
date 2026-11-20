@@ -537,7 +537,7 @@ fn proton_penetrability(e: f64, q: f64) -> f64 {
     let e_cm = e * AWRI / (AWRI + 1.0) + q;
     let eta = 16.0 * ALPHA * (mu_c2 / (2.0 * e_cm)).sqrt();
     let rho = (2.0 * mu_c2 * e_cm).sqrt() / HBAR_C * AP * 1.0e-12;
-    crate::resonance::coulomb::penetrability(0, eta, rho)
+    crate::resonance::coulomb::penetrability(0, eta, rho).unwrap()
 }
 
 #[test]
