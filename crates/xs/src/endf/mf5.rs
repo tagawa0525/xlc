@@ -119,10 +119,10 @@ fn positive_theta(r: &mut Reader<'_>) -> Result<ClampedTab1, Error> {
     clamped_positive(theta, r.line(), "theta")
 }
 
-/// LF=11 の a b/4 の上限。群への振り分け（multigroup::outgoing の `watt_cumulative`）は、x = E'/a = 1 で閉じた式と級数を
+/// LF=11 の c = a b/4 の上限。群への振り分け（multigroup::outgoing の `watt_cumulative`）は、x = E'/a = 1 で閉じた式と級数を
 /// 切り替え、その前後の精度をこの範囲で確かめてある。閉じた式は a b/4 が大きいと桁落ちし（a b/4 = 25 の x = 1 で相対誤差
 /// 1.3e-8、100 で桁が合わない）、級数は 700 ほどで溢れる。4 つの版の LF=11（ENDF/B-VII.0、VII.1 の U-233）は 0.71 以下
-const WATT_MAX_AB: f64 = 5.0;
+const WATT_MAX_C: f64 = 5.0;
 
 /// Watt の分布の a(E)、b(E) を読む。a は分布の温度なので正。b = 0 では sinh が 0 になり分布が無く、負の b は sinh の引数が虚数になる。
 fn watt(restriction: f64, r: &mut Reader<'_>) -> Result<EnergyLaw, Error> {
@@ -130,11 +130,11 @@ fn watt(restriction: f64, r: &mut Reader<'_>) -> Result<EnergyLaw, Error> {
     let b = clamped_positive(r.tab1()?.table, r.line(), "b")?;
     // 表の間の補間の値は端の点の間にあり、表の外は端の値なので、a b/4 は両方の表の最大の積で抑えられる
     let largest = |t: &ClampedTab1| t.table().y.iter().copied().fold(0.0, f64::max);
-    let ab = 0.25 * largest(&a) * largest(&b);
-    if ab > WATT_MAX_AB {
+    let c = 0.25 * largest(&a) * largest(&b);
+    if c > WATT_MAX_C {
         return Err(Error::new(
             r.line(),
-            format!("LF=11 with a b/4 up to {ab} is not supported (accurate up to {WATT_MAX_AB})"),
+            format!("LF=11 with a b/4 up to {c} is not supported (accurate up to {WATT_MAX_C})"),
         ));
     }
     Ok(EnergyLaw::Watt { restriction, a, b })

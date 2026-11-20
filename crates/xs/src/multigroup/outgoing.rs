@@ -290,7 +290,8 @@ pub enum GroupedLaw {
 /// θ(E) で決まる出射分布（LF=5, 7, 9, 11, 12）。入射エネルギーごとに、群ごとの割合を x = E'/θ までの累積の差で
 /// 厳密に求める（LF=7, 9 は不完全ガンマ関数、LF=11 は誤差関数、LF=12 は閉じた式。累積の差で分けるのは NJOY GROUPR の anased と
 /// 同じ）。LF=11 の θ は a(E)。LF=11 の √(E'/a) < 0.01 の累積は、anased が x^(3/2) の初項だけで近似するのに対し、ここでは
-/// 正の級数で求める（`watt_small_cumulative`）。
+/// 正の級数で求める（`watt_small_cumulative`）。初項は級数の打ち切りで、相対の差は (0.6 - 0.4 a b/4) x ほど（U-233 の a b/4 = 0.62 で、
+/// √x = 0.01 の 3.5e-5）。近似の差なので、NJOY の誤りとして warn は出さない。
 #[derive(Debug, Clone)]
 pub struct AnalyticSpectrum {
     /// x = E'/θ 未満の出射の割合
@@ -343,7 +344,7 @@ impl Cumulative {
     }
 
     /// 入射エネルギー e（θ は `theta`）で決まり、x によらない累積の形の量（`at` に渡す）。LF=11 は a b/4、LF=12 は θ、
-    /// ほかは使わない
+    /// ほかは使わない。群ごとに呼ぶ `at` の外で 1 度だけ求める（LF=11 の b(E) の補間を群ごとに繰り返さない）
     fn parameter(&self, e: f64, theta: f64) -> f64 {
         match self {
             Self::Watt { b } => 0.25 * theta * b.eval(e),
@@ -380,8 +381,8 @@ impl Cumulative {
 
 /// x = E'/a がこれより小さいところは、閉じた式でなく級数で累積を求める（`watt_small_cumulative`）。閉じた式は 1 程度の項の
 /// 差で、累積（x^(3/2) で 0 に近づく）の相対誤差が ε x^(-3/2) ほどになる。級数は項がすべて正で、x が大きいと項の数が増える
-/// （`special` の不完全ガンマ関数と同じ切り替え）。x = 1 の前後の両者の相対差は 6e-15 以下（c = a b/4 = 0.05〜5。読み込みが
-/// c ≤ 5 に限る。endf の mf5 の `WATT_MAX_AB`）
+/// （`special` の不完全ガンマ関数と同じ切り替え）。x = 1 の前後の両者の相対差は 6e-15 以下（c = a b/4 = 0.05〜5）。数値積分との
+/// 比較は c = 1e-6〜5（テスト）。読み込みが c ≤ 5 に限る（endf の mf5 の `WATT_MAX_C`）
 const WATT_SERIES_LIMIT: f64 = 1.0;
 
 /// ENDF-102 の 5.1.1.5 の exp(-E'/a) sinh(√(b E')) の、E'/a < x の（正規化しない）累積を a e^c で割ったもの。`c` は a b/4。
