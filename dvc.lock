@@ -17,8 +17,8 @@ stages:
       size: 1422
     - path: crates
       hash: md5
-      md5: 0ad34d0c99fae4218a8831157218ac27.dir
-      size: 6043412
+      md5: bfb1c999d8df30303be60dc09956d17c.dir
+      size: 6065492
       nfiles: 287
     - path: flake.lock
       hash: md5
@@ -40,8 +40,8 @@ stages:
     outs:
     - path: bin/chain
       hash: md5
-      md5: ce41b0c4daee479d7f7d4f09e3079a03
-      size: 2025664
+      md5: d9023130254274caceaa68bb4fc33362
+      size: 2025600
       isexec: true
     - path: bin/core
       hash: md5
@@ -55,8 +55,8 @@ stages:
       isexec: true
     - path: bin/xs
       hash: md5
-      md5: 8418ba79af1436a636911008ca053f00
-      size: 3436136
+      md5: 839a7705ae2e588d16b68cdce34cdbf4
+      size: 3458816
       isexec: true
   python-ast@examples/c5g7/compare.py:
     cmd: python3 scripts/normalize_python.py examples/c5g7/compare.py 
@@ -8446,8 +8446,8 @@ stages:
     deps:
     - path: bin/xs
       hash: md5
-      md5: 8418ba79af1436a636911008ca053f00
-      size: 3436136
+      md5: 839a7705ae2e588d16b68cdce34cdbf4
+      size: 3458816
       isexec: true
     - path: python-ast/scripts/normalize_binary.py.ast
       hash: md5
@@ -8456,15 +8456,15 @@ stages:
     outs:
     - path: binary-forms/xs.md5
       hash: md5
-      md5: ab06402b073efb75a20e8d98d80d7496
+      md5: 13b3d2fd4e967eca798f6c68a32019ed
       size: 33
   binary-forms@chain:
     cmd: python3 scripts/normalize_binary.py bin/chain binary-forms/chain.md5
     deps:
     - path: bin/chain
       hash: md5
-      md5: ce41b0c4daee479d7f7d4f09e3079a03
-      size: 2025664
+      md5: d9023130254274caceaa68bb4fc33362
+      size: 2025600
       isexec: true
     - path: python-ast/scripts/normalize_binary.py.ast
       hash: md5
@@ -8473,7 +8473,7 @@ stages:
     outs:
     - path: binary-forms/chain.md5
       hash: md5
-      md5: 9e125d78c91ad005761b418d882fc425
+      md5: e93aaaa7db5f11522d955deb96ebebb4
       size: 33
   toml-values@examples/vera/endfb70/openmc/openmc-1D.toml:
     cmd: python3 scripts/normalize_toml.py 
