@@ -417,13 +417,22 @@ fn summarize_thresholds(shifts: &[ThresholdShift]) -> Option<ThresholdSummary> {
     })
 }
 
-impl ColdParts {
-    /// MF3 と共鳴パラメータから、許容誤差 `tol` で 0 K の部分反応を作る。
-    #[tracing::instrument(name = "reconstruct", level = "debug", skip_all)]
-    pub fn read(tape: &Tape, mat: i32, tol: f64) -> Result<Self, Error> {
+/// MF3 の部分反応を読み、運動学のしきい値から始めたもの（線形化の前。`ColdParts::read` と `ColdParts::check` が共有する）。
+struct RawParts {
+    /// MF3 にある MT
+    available: Vec<u32>,
+    /// 和で作り直す反応と断面積でない量を除いた反応の、しきい値から始めた表
+    parts: Vec<(u32, Tab1)>,
+    shifts: Vec<ThresholdShift>,
+    /// 読んだ最初の部分反応の AWR
+    awr: Option<f64>,
+}
+
+impl RawParts {
+    fn read(tape: &Tape, mat: i32) -> Result<Self, Error> {
         let sections = tape.sections(mat, 3);
         let available: Vec<u32> = sections.iter().map(|(mt, _)| *mt).collect();
-        let mut tables = BTreeMap::new();
+        let mut parts = Vec::new();
         let mut awr = None;
         let mut shifts = Vec::new();
         // しきい値は、運動学（2体の散乱行列）と同じく最初の MF3 の見出しの AWR で求める
@@ -441,8 +450,31 @@ impl ColdParts {
             let (sigma, shift) = start_at_threshold(mt, &mf3, head_awr)
                 .map_err(|message| Error::new(section.reader().line(), message))?;
             shifts.extend(shift);
-            tables.insert(mt, linearize(&sigma, tol));
+            parts.push((mt, sigma));
         }
+        Ok(Self {
+            available,
+            parts,
+            shifts,
+            awr,
+        })
+    }
+}
+
+impl ColdParts {
+    /// MF3 と共鳴パラメータから、許容誤差 `tol` で 0 K の部分反応を作る。
+    #[tracing::instrument(name = "reconstruct", level = "debug", skip_all)]
+    pub fn read(tape: &Tape, mat: i32, tol: f64) -> Result<Self, Error> {
+        let RawParts {
+            available,
+            parts,
+            shifts,
+            awr,
+        } = RawParts::read(tape, mat)?;
+        let mut tables: BTreeMap<u32, Tab1> = parts
+            .into_iter()
+            .map(|(mt, sigma)| (mt, linearize(&sigma, tol)))
+            .collect();
         if let Some(summary) = summarize_thresholds(&shifts) {
             let (largest, relative) = (summary.largest, summary.largest_relative);
             let zeroed = summary.largest_zeroed.map_or(String::new(), |z| {
@@ -488,6 +520,34 @@ impl ColdParts {
             available,
             tol,
         })
+    }
+
+    /// `read` が再構成の前に止まる検査（MF3 の読み込みと運動学のしきい値、MF2 の読み込みと範囲の組み合わせ）だけを行い、
+    /// `at` が返す表の MT を返す。線形化、共鳴の再構成、ドップラー拡がりはしない。分離共鳴だけが足す反応（MF3 に無い
+    /// 弾性散乱、核分裂、捕獲）は返す MT に入らない
+    pub fn check(tape: &Tape, mat: i32) -> Result<Vec<u32>, Error> {
+        let RawParts {
+            available, parts, ..
+        } = RawParts::read(tape, mat)?;
+        if let Some(section) = tape.section(mat, 2, 151) {
+            let parsed = Mf2::parse(&section)?;
+            for range in &parsed.ranges {
+                check_range(&parsed, range)
+                    .map_err(|message| Error::new(section.reader().line(), message))?;
+            }
+        }
+        let mut mts: Vec<u32> = parts.into_iter().map(|(mt, _)| mt).collect();
+        mts.extend(
+            SUMS.iter()
+                .filter(|sum| is_rebuilt(sum.mt, &available))
+                .map(|sum| sum.mt),
+        );
+        if mts.iter().any(|&mt| is_part_of_total(mt)) {
+            mts.push(1);
+        }
+        mts.sort_unstable();
+        mts.dedup();
+        Ok(mts)
     }
 
     /// 温度 `temperature` (K) のポイントワイズの断面積。キーは MT。
@@ -675,6 +735,41 @@ fn add_all<'a>(tables: impl Iterator<Item = &'a Tab1>) -> Option<Tab1> {
     })
 }
 
+/// 共鳴の範囲を再構成する前の検査: 非分離共鳴の LSSF は 0 か 1、LSSF=0 の非分離共鳴は分離共鳴と重ならない、R 行列の
+/// 制限形は扱える粒子の対とチャネルだけを持つ。
+fn check_range(mf2: &Mf2, range: &ResonanceRange) -> Result<(), String> {
+    match &range.kind {
+        RangeKind::Unresolved(Unresolved { lssf: 0, .. }) => {
+            // 平均で置き換えると、重なった部分の分離共鳴が消える（NJOY は分離共鳴の上端まで分離共鳴を使う）
+            let resolved_top = mf2
+                .ranges
+                .iter()
+                .filter(|r| r.kind.is_resolved())
+                .map(|r| r.eh)
+                .fold(f64::NEG_INFINITY, f64::max);
+            if range.el < resolved_top {
+                return Err(format!(
+                    "unresolved range from {} eV overlaps the resolved range up to {resolved_top} eV",
+                    range.el
+                ));
+            }
+            Ok(())
+        }
+        RangeKind::Unresolved(Unresolved { lssf: 1, .. }) => Ok(()),
+        RangeKind::Unresolved(Unresolved { lssf, .. }) => Err(format!(
+            "unresolved range with LSSF={lssf} is not supported"
+        )),
+        // ENDF の読み込みのエラー（行番号つき）にまとめるので、ここでは文にする
+        RangeKind::RMatrixLimited(rml) => RMatrixLimitedXs::new(rml)
+            .map(drop)
+            .map_err(|e| e.to_string()),
+        RangeKind::ScatteringRadius { .. }
+        | RangeKind::ReichMoore(_)
+        | RangeKind::Slbw(_)
+        | RangeKind::Mlbw(_) => Ok(()),
+    }
+}
+
 /// 分離共鳴の寄与を弾性散乱・核分裂・捕獲に足す。
 fn add_resonances(
     tables: &mut BTreeMap<u32, Tab1>,
@@ -683,30 +778,14 @@ fn add_resonances(
     tol: f64,
 ) -> Result<(), String> {
     for range in &mf2.ranges {
+        check_range(mf2, range)?;
         let contributions = match &range.kind {
             RangeKind::ScatteringRadius { .. } => continue,
             RangeKind::Unresolved(urr) if urr.lssf == 1 => continue,
-            RangeKind::Unresolved(urr) if urr.lssf == 0 => {
-                // 平均で置き換えると、重なった部分の分離共鳴が消える（NJOY は分離共鳴の上端まで分離共鳴を使う）
-                let resolved_top = mf2
-                    .ranges
-                    .iter()
-                    .filter(|r| r.kind.is_resolved())
-                    .map(|r| r.eh)
-                    .fold(f64::NEG_INFINITY, f64::max);
-                if range.el < resolved_top {
-                    return Err(format!(
-                        "unresolved range from {} eV overlaps the resolved range up to {resolved_top} eV",
-                        range.el
-                    ));
-                }
+            // LSSF は 0 か 1（`check_range`）
+            RangeKind::Unresolved(urr) => {
                 replace_with_unresolved(tables, urr, range.el, range.eh, fission_mt, tol)?;
                 continue;
-            }
-            RangeKind::Unresolved(Unresolved { lssf, .. }) => {
-                return Err(format!(
-                    "unresolved range with LSSF={lssf} is not supported"
-                ));
             }
             RangeKind::ReichMoore(rm) => {
                 let peaks = rm

@@ -308,3 +308,7 @@
 * [R 行列の制限形（LRF=7）の核分裂の粒子対（MT=18）を読めない](0308-lrf7-fission-pair.md)
 * [負の 0 K の断面積で、ドップラー拡がりの格子が止まらず、メモリを使い尽くす](0309-negative-elastic-doppler-memory.md)
 * [R 行列の制限形（LRF=7）のシフト因子とバックグラウンドの R 行列を読めない（ENDF/B-VIII.1 の Cu-63、Sr-88）](0310-lrf7-shift-factor-and-background.md)
+* [xs が MF6 の中性子の LAW=6（位相空間）と LAW=7（実験室系の角度とエネルギー）を読めない](0311-mf6-neutron-law-6-and-7.md)
+* [xs が核分裂の中性子の分布を MF6 MT18 で与えた評価（Th-232、Pa-231、Pa-233）を輸送する核種として処理できない](0312-fission-neutrons-in-mf6.md)
+* [xs が MF5 の LF=11（エネルギーによる Watt 分布）を読めない（ENDF/B-VII.0、VII.1 の U-233）](0313-mf5-lf11-energy-dependent-watt.md)
+* [ENDF/B-VII.0 の Rb-87 の MF5 MT17 の TAB1 の補間の区切り（NBT）が点の数と食い違い、xs が読めない](0316-rb87-vii0-tab1-nbt.md)

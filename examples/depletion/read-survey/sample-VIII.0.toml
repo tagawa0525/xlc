@@ -1,0 +1,30 @@
+# xs check が見逃す種類（後の処理で初めて止まるもの）を、温度 1 点で xs nuclide に最後まで通して探す標本（ENDF/B-VIII.0）
+output = "unused.msgpack"
+endf-directory = "../../../references/endf/ENDF-B-VIII.0_neutrons"
+sigma0 = [1e10, 1e5, 1e4, 1e3, 300, 100, 30, 10, 1]
+scattering-order = 3
+
+[nuclide]
+Th-232 = { endf = "n-090_Th_232.endf", temperatures = [600] }
+Tm-169 = { endf = "n-069_Tm_169.endf", temperatures = [600] }
+W-182 = { endf = "n-074_W_182.endf", temperatures = [600] }
+W-186 = { endf = "n-074_W_186.endf", temperatures = [600] }
+Pt-193 = { endf = "n-078_Pt_193.endf", temperatures = [600] }
+Pb-207 = { endf = "n-082_Pb_207.endf", temperatures = [600] }
+Li-7 = { endf = "n-003_Li_007.endf", temperatures = [600] }
+N-14 = { endf = "n-007_N_014.endf", temperatures = [600] }
+F-19 = { endf = "n-009_F_019.endf", temperatures = [600] }
+Na-23 = { endf = "n-011_Na_023.endf", temperatures = [600] }
+Mg-24 = { endf = "n-012_Mg_024.endf", temperatures = [600] }
+Al-27 = { endf = "n-013_Al_027.endf", temperatures = [600] }
+Si-28 = { endf = "n-014_Si_028.endf", temperatures = [600] }
+P-31 = { endf = "n-015_P_031.endf", temperatures = [600] }
+K-39 = { endf = "n-019_K_039.endf", temperatures = [600] }
+Ti-48 = { endf = "n-022_Ti_048.endf", temperatures = [600] }
+Mn-55 = { endf = "n-025_Mn_055.endf", temperatures = [600] }
+Co-59 = { endf = "n-027_Co_059.endf", temperatures = [600] }
+Ni-58 = { endf = "n-028_Ni_058.endf", temperatures = [600] }
+Cu-65 = { endf = "n-029_Cu_065.endf", temperatures = [600] }
+Nb-93 = { endf = "n-041_Nb_093.endf", temperatures = [600] }
+Y-89 = { endf = "n-039_Y_089.endf", temperatures = [600] }
+H-2 = { endf = "n-001_H_002.endf", temperatures = [600] }

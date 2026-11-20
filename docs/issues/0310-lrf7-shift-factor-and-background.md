@@ -19,7 +19,10 @@ resolution:
   - VIII.1 の Cu-63: 弾性散乱の粒子対が SHF=1。VIII.0 の Cu-63 は SHF=0 で読める
   - VIII.1 の Sr-88: spin group が KBK=1、2 と KPS=2 を持つ
 - どちらも版ごとのピンセルの燃焼（#0303）の 65 核種には入っていない。VIII.1 で放射化の核種（2A のライブラリの examples/depletion/p2/xs.toml
-  の形）を作るときに止まる。`xs nuclide` で止まることは確かめていない（ファイルの値から xs のコードの検査に照らした）
+  の形）を作るときに止まる
+- 4 つの版の中性子のファイルを `xs check`（ADR-0266）に通すと、VII.1 の Cl-35（SHF=−1）、VIII.1 の Cu-63（SHF=1）、Sr-88（KBK=1）がこの検査で
+  止まり、600 K の `xs nuclide` でも Cu-63 と Sr-88 が同じ文で止まった（examples/depletion/verification.md の「中性子のファイルの読み込みの走査」）。
+  #0292 の 9 核種には当たらない
 
 関係する ADR: なし
 

@@ -4,6 +4,7 @@
 //!         xs [--threads <数>] range <入力ファイル> <範囲のファイル>
 //!         xs [--threads <数>] nuclide <入力ファイル> <範囲のファイル> <核種> <出力>
 //!         xs [--threads <数>] assemble <入力ファイル> <範囲のファイル> <核種ごとの結果のディレクトリ>
+//!         xs [--threads <数>] check <報告> <ENDF のファイル>...
 //!
 //! `--threads` は同時に使うスレッドの数で、省略すると物理コアの数をこのプロセスに許された CPU の数で抑えたもの
 //! （ADR-0067）。結果はスレッドの数によらない。
@@ -13,6 +14,10 @@
 //! `nuclide` は、その範囲で核種 1 つだけを処理し、1 核種のライブラリを書く。`assemble` は、ディレクトリの
 //! `<核種>.msgpack` を入力の核種の順に、入力と範囲のファイルと同じ条件で作られたことを確かめて、1 つのライブラリにして、
 //! 入力の `output` に書く。
+//!
+//! `check` は入力ファイルを使わず、ENDF のファイルごとに、輸送する核種として `nuclide` が読むものの読み込みと形式の検査だけを
+//! 行い、止まった理由をファイルごとに報告（TOML の `[[evaluation]]` をパスの順に並べ、`endf` に与えたパス、止まれば `error` に
+//! 理由）に書く（ADR-0266）。止まったファイルがあっても成功で終わる。
 //!
 //! 入力ファイルは TOML（パスは入力ファイルのディレクトリからの相対パス）:
 //!
@@ -67,6 +72,7 @@ use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
 use xlc_format::group::GroupStructure;
 use xlc_format::library::{ActivationData, Library, NuclideData, is_nuclide_name};
+use xlc_xs::check::{Checked, check_contents, report_toml};
 use xlc_xs::endf::Tape;
 use xlc_xs::multigroup::{SabOutside, Weight, inverse_velocity};
 use xlc_xs::parallel::{in_parallel, set_threads};
@@ -261,7 +267,8 @@ fn parse_input(text: &str, base: &Path) -> Result<Input, InputError> {
 const USAGE: &str = "usage: xs [--threads <count>] <input file>
        xs [--threads <count>] range <input file> <range file>
        xs [--threads <count>] nuclide <input file> <range file> <nuclide> <output>
-       xs [--threads <count>] assemble <input file> <range file> <nuclide directory>";
+       xs [--threads <count>] assemble <input file> <range file> <nuclide directory>
+       xs [--threads <count>] check <report> <ENDF file>...";
 
 /// 引数の先頭の `--threads <数>` を読み、残りの引数と分ける。
 fn thread_option(args: &[String]) -> anyhow::Result<(Option<NonZeroUsize>, &[String])> {
@@ -299,6 +306,9 @@ fn main() -> ExitCode {
                     .and_then(|input| run_nuclide(&input, Path::new(range), name, Path::new(out))),
                 ["assemble", path, range, directory] => read_input(Path::new(path))
                     .and_then(|input| run_assemble(&input, Path::new(range), Path::new(directory))),
+                ["check", out, ref files @ ..] if !files.is_empty() => {
+                    run_check(files, Path::new(out))
+                }
                 _ => Err(anyhow!(USAGE)),
             },
         );
@@ -479,6 +489,26 @@ fn run_assemble(input: &Input, range: &Path, directory: &Path) -> anyhow::Result
         parts.push(part);
     }
     write_library(&Library::merge(parts)?, &input.output)
+}
+
+/// ENDF のファイルごとに読み込みと形式の検査を行い（ADR-0266）、止まった理由をファイルごとに報告に書く。
+fn run_check(paths: &[&str], out: &Path) -> anyhow::Result<()> {
+    let checked = in_parallel(paths.len(), |i| check_file(paths[i]))?;
+    let stopped = checked.iter().filter(|c| c.error.is_some()).count();
+    xlc_log::info!(
+        "{stopped} of {} evaluations stop the reading checks",
+        checked.len()
+    );
+    write_file(out, report_toml(&checked)?.as_bytes())
+}
+
+/// ファイル `path` の検査の結果。ファイルが読めなければエラー（中身がテープとして読めないのは、検査で止まった理由）。
+fn check_file(path: &str) -> anyhow::Result<Checked> {
+    let bytes = std::fs::read(path).with_context(|| path.to_string())?;
+    Ok(Checked {
+        endf: path.to_string(),
+        error: check_contents(&bytes).err(),
+    })
 }
 
 fn read_tape(path: &Path) -> anyhow::Result<Tape> {

@@ -1,0 +1,57 @@
+inputs: read-survey-endfb70.toml d38b4dd0, endfb70/chain.msgpack 5c4c8194, read-survey-endfb71.toml 4f9ec699, endfb71/chain.msgpack 32ee4517, read-survey-endfb80.toml 5b469fe4, chain.msgpack 1f1de180, read-survey-endfb81.toml 48090184, endfb81/chain.msgpack 4b084932
+
+| 版 | チェーンの評価 | 読めた | 止まった | チェーンの外の評価 | 読めた | 止まった | ファイルの無いチェーンの核種 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| VII.0 | 390 | 383 | 7 | 3 | 1 | 2 | 3447 / 3837 |
+| VII.1 | 422 | 415 | 7 | 1 | 1 | 0 | 3398 / 3820 |
+| VIII.0 | 556 | 549 | 7 | 1 | 1 | 0 | 3264 / 3820 |
+| VIII.1 | 557 | 547 | 10 | 1 | 1 | 0 | 3263 / 3820 |
+
+## 止まった理由（版ごとの評価）
+- neutron LAW=6 is not supported
+  - VII.0: 1（H-2）
+  - VII.1: 1（H-2）
+  - VIII.0: 1（H-2）
+  - VIII.1: 2（H-2 Li-6）
+- neutron LAW=7 is not supported
+  - VII.0: 1（Be-9）
+  - VII.1: 1（Be-9）
+  - VIII.0: 1（Be-9）
+  - VIII.1: 1（Be-9）
+- NIS=2 isotopes are not supported
+  - VII.0: 1（n-023_V_000.endf）
+- NIS=5 isotopes are not supported
+  - VII.0: 1（n-030_Zn_000.endf）
+- last NBT must equal NP
+  - VII.0: 1（Rb-87）
+- fission needs MF1 MT452 and MF5 MT18
+  - VII.0: 3（Th-232 Pa-231 Pa-233）
+  - VII.1: 3（Th-232 Pa-231 Pa-233）
+  - VIII.0: 3（Th-232 Pa-231 Pa-233）
+  - VIII.1: 3（Th-232 Pa-231 Pa-233）
+- LF=11 is not supported
+  - VII.0: 1（U-233）
+  - VII.1: 1（U-233）
+- particle pair 1: the shift factor (SHF=-1) is not supported
+  - VII.1: 1（Cl-35）
+- particle pair 3: a charged particle (ZA=1) is not supported
+  - VIII.0: 1（Cl-35）
+  - VIII.1: 1（Cl-35）
+- particle pair 3: a charged particle (ZA=2) is not supported
+  - VIII.0: 1（Ca-40）
+  - VIII.1: 1（Ca-40）
+- particle pair 2: the shift factor (SHF=1) is not supported
+  - VIII.1: 1（Cu-63）
+- background R-matrix (KBK=1) and given phase shifts (KPS=0) are not supported
+  - VIII.1: 1（Sr-88）
+
+## 注目する 9 核種（#0292）
+- Cm-245: VII.0 readable、VII.1 readable、VIII.0 readable、VIII.1 readable
+- Am-242m: VII.0 readable、VII.1 readable、VIII.0 readable、VIII.1 readable
+- Np-238: VII.0 readable、VII.1 readable、VIII.0 readable、VIII.1 readable
+- Cm-243: VII.0 readable、VII.1 readable、VIII.0 readable、VIII.1 readable
+- Am-242: VII.0 readable、VII.1 readable、VIII.0 readable、VIII.1 readable
+- U-237: VII.0 readable、VII.1 readable、VIII.0 readable、VIII.1 readable
+- Pu-243: VII.0 readable、VII.1 readable、VIII.0 readable、VIII.1 readable
+- U-239: VII.0 readable、VII.1 readable、VIII.0 readable、VIII.1 readable
+- Am-244: VII.0 readable、VII.1 readable、VIII.0 readable、VIII.1 readable

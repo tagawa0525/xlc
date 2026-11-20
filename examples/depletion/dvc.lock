@@ -45,7 +45,7 @@ stages:
     deps:
     - path: ../../binary-forms/chain.md5
       hash: md5
-      md5: 8391b8ec885103684ffcf5db0ad6415a
+      md5: 1fe99a3a3e69c3f6c466b86a3de3f76d
       size: 33
     - path: ../../references/endf/ENDF-B-VIII.0_decay
       hash: md5
@@ -5619,7 +5619,7 @@ stages:
     deps:
     - path: ../../binary-forms/chain.md5
       hash: md5
-      md5: 8391b8ec885103684ffcf5db0ad6415a
+      md5: 1fe99a3a3e69c3f6c466b86a3de3f76d
       size: 33
     - path: ../../references/endf/ENDF-B-VII.0_decay
       hash: md5
@@ -5650,7 +5650,7 @@ stages:
     deps:
     - path: ../../binary-forms/chain.md5
       hash: md5
-      md5: 8391b8ec885103684ffcf5db0ad6415a
+      md5: 1fe99a3a3e69c3f6c466b86a3de3f76d
       size: 33
     - path: ../../references/endf/ENDF-B-VII.1_decay
       hash: md5
@@ -5707,7 +5707,7 @@ stages:
     deps:
     - path: ../../binary-forms/chain.md5
       hash: md5
-      md5: 8391b8ec885103684ffcf5db0ad6415a
+      md5: 1fe99a3a3e69c3f6c466b86a3de3f76d
       size: 33
     - path: ../../references/endf/ENDF-B-VIII.1_decay
       hash: md5
@@ -5785,3 +5785,127 @@ stages:
       hash: md5
       md5: dc8b361a28f5ed7fab47cb0aae529b60
       size: 27682
+  read-survey@endfb70:
+    cmd: ../../bin/xs check read-survey-endfb70.toml 
+      ../../references/endf/ENDF-B-VII.0_neutrons/*.endf
+    deps:
+    - path: ../../binary-forms/xs.md5
+      hash: md5
+      md5: a3546c8d86a7e2087c74e56dd2f7f145
+      size: 33
+    - path: ../../references/endf/ENDF-B-VII.0_neutrons
+      hash: md5
+      md5: 48c057110a0cd8d1a04d52246e1d5fa6.dir
+      size: 408193809
+      nfiles: 393
+    outs:
+    - path: read-survey-endfb70.toml
+      hash: md5
+      md5: d38b4dd07e57807bd699e1b961584167
+      size: 34605
+  read-survey@endfb80:
+    cmd: ../../bin/xs check read-survey-endfb80.toml 
+      ../../references/endf/ENDF-B-VIII.0_neutrons/*.endf
+    deps:
+    - path: ../../binary-forms/xs.md5
+      hash: md5
+      md5: a3546c8d86a7e2087c74e56dd2f7f145
+      size: 33
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons
+      hash: md5
+      md5: dde810c1fe3594b1ab0b8236de7b51dc.dir
+      size: 1212542189
+      nfiles: 561
+    outs:
+    - path: read-survey-endfb80.toml
+      hash: md5
+      md5: 5b469fe4cc44068c53fc44c2e0cad63c
+      size: 49405
+  read-survey@endfb81:
+    cmd: ../../bin/xs check read-survey-endfb81.toml 
+      ../../references/endf/ENDF-B-VIII.1_neutrons/*.endf
+    deps:
+    - path: ../../binary-forms/xs.md5
+      hash: md5
+      md5: a3546c8d86a7e2087c74e56dd2f7f145
+      size: 33
+    - path: ../../references/endf/ENDF-B-VIII.1_neutrons
+      hash: md5
+      md5: e62a62fb1f8b3e076cd3f0744ae1c5f3.dir
+      size: 1342498390
+      nfiles: 562
+    outs:
+    - path: read-survey-endfb81.toml
+      hash: md5
+      md5: 48090184d2bf88ae6537112a15869f96
+      size: 49724
+  read-survey@endfb71:
+    cmd: ../../bin/xs check read-survey-endfb71.toml 
+      ../../references/endf/ENDF-B-VII.1_neutrons/*.endf
+    deps:
+    - path: ../../binary-forms/xs.md5
+      hash: md5
+      md5: a3546c8d86a7e2087c74e56dd2f7f145
+      size: 33
+    - path: ../../references/endf/ENDF-B-VII.1_neutrons
+      hash: md5
+      md5: e480b32a811b36d4c1257a9c3fb7f68a.dir
+      size: 839330424
+      nfiles: 423
+    outs:
+    - path: read-survey-endfb71.toml
+      hash: md5
+      md5: 4f9ec699b8527b3081f3eaf099e6c3cf
+      size: 37143
+  read-survey-summary:
+    cmd: python3 read_survey.py --json read-survey.json 
+      VII.0=read-survey-endfb70.toml,endfb70/chain.msgpack 
+      VII.1=read-survey-endfb71.toml,endfb71/chain.msgpack 
+      VIII.0=read-survey-endfb80.toml,chain.msgpack 
+      VIII.1=read-survey-endfb81.toml,endfb81/chain.msgpack > read-survey.txt
+    deps:
+    - path: ../../python-ast/examples/depletion/read_survey.py.ast
+      hash: md5
+      md5: cd0025150d19086de08a89a7502f0859
+      size: 5096
+    - path: chain.msgpack
+      hash: md5
+      md5: 1f1de1800363a19f23af2f7b4417c426
+      size: 4613695
+    - path: endfb70/chain.msgpack
+      hash: md5
+      md5: 5c4c81940ae00f9e9cdcd561ac4610a3
+      size: 3650797
+    - path: endfb71/chain.msgpack
+      hash: md5
+      md5: 32ee4517036e5333f7c38a69b34adeed
+      size: 4380622
+    - path: endfb81/chain.msgpack
+      hash: md5
+      md5: 4b08493286f1d7840d777ac2cbfa9877
+      size: 4613905
+    - path: read-survey-endfb70.toml
+      hash: md5
+      md5: d38b4dd07e57807bd699e1b961584167
+      size: 34605
+    - path: read-survey-endfb71.toml
+      hash: md5
+      md5: 4f9ec699b8527b3081f3eaf099e6c3cf
+      size: 37143
+    - path: read-survey-endfb80.toml
+      hash: md5
+      md5: 5b469fe4cc44068c53fc44c2e0cad63c
+      size: 49405
+    - path: read-survey-endfb81.toml
+      hash: md5
+      md5: 48090184d2bf88ae6537112a15869f96
+      size: 49724
+    outs:
+    - path: read-survey.json
+      hash: md5
+      md5: 379d7d48095515aa21de6540ff77343d
+      size: 9094
+    - path: read-survey.txt
+      hash: md5
+      md5: dffd4296a0e93f32674ceb1035270ffa
+      size: 2690

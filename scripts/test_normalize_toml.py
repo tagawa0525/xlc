@@ -246,8 +246,10 @@ class RepositoryDepsTest(unittest.TestCase):
 
 class JsonInputsTest(unittest.TestCase):
     def test_tracked_json_inputs_match_the_locked_deps(self):
-        """比較のステージの JSON の `inputs` が、そのステージの dvc.lock の deps（TOML は正規形）と同じ md5 を持つ（#0295）"""
+        """比較のステージの JSON の `inputs` が、そのステージの dvc.lock の deps（入力の TOML は正規形、ステージの出力の TOML は
+        そのまま）と同じ md5 を持つ（#0295）"""
         files = set(tracked("*.json"))
+        outputs = {out for stage in example_stages() for out in stage["outs"]}
         problems = []
         for lock in tracked(":(glob)examples/**/dvc.lock"):
             base = (ROOT / lock).parent
@@ -263,8 +265,8 @@ class JsonInputsTest(unittest.TestCase):
                         continue
                     for item in summary["inputs"]:
                         dep = item["path"]
-                        if dep.endswith(".toml"):
-                            source = os.path.relpath(os.path.normpath(base / dep), ROOT)
+                        source = os.path.relpath(os.path.normpath(base / dep), ROOT)
+                        if dep.endswith(".toml") and source not in outputs:
                             dep = os.path.relpath(ROOT / form_path(source), base)
                         if deps.get(dep) != item["md5"]:
                             problems.append(

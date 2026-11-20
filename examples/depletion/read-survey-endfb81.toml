@@ -1,0 +1,1683 @@
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-000_n_001.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-001_H_001.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-001_H_002.endf"
+error = "line 1641: neutron LAW=6 is not supported"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-001_H_003.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-002_He_003.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-002_He_004.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-003_Li_006.endf"
+error = "line 4908: neutron LAW=6 is not supported"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-003_Li_007.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-004_Be_007.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-004_Be_009.endf"
+error = "line 1802: neutron LAW=7 is not supported"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-005_B_010.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-005_B_011.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-006_C_012.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-006_C_013.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-007_N_014.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-007_N_015.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-008_O_016.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-008_O_017.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-008_O_018.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-009_F_019.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-010_Ne_020.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-010_Ne_021.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-010_Ne_022.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-011_Na_022.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-011_Na_023.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-012_Mg_024.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-012_Mg_025.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-012_Mg_026.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-013_Al_026m1.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-013_Al_027.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-014_Si_028.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-014_Si_029.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-014_Si_030.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-014_Si_031.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-014_Si_032.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-015_P_031.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-016_S_032.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-016_S_033.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-016_S_034.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-016_S_035.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-016_S_036.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-017_Cl_035.endf"
+error = "line 874: particle pair 3: a charged particle (ZA=1) is not supported"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-017_Cl_036.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-017_Cl_037.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-018_Ar_036.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-018_Ar_037.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-018_Ar_038.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-018_Ar_039.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-018_Ar_040.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-018_Ar_041.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-019_K_039.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-019_K_040.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-019_K_041.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-020_Ca_040.endf"
+error = "line 828: particle pair 3: a charged particle (ZA=2) is not supported"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-020_Ca_041.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-020_Ca_042.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-020_Ca_043.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-020_Ca_044.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-020_Ca_045.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-020_Ca_046.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-020_Ca_047.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-020_Ca_048.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-021_Sc_045.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-022_Ti_046.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-022_Ti_047.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-022_Ti_048.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-022_Ti_049.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-022_Ti_050.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-023_V_049.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-023_V_050.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-023_V_051.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-024_Cr_050.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-024_Cr_051.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-024_Cr_052.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-024_Cr_053.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-024_Cr_054.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-025_Mn_054.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-025_Mn_055.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-026_Fe_054.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-026_Fe_055.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-026_Fe_056.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-026_Fe_057.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-026_Fe_058.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-027_Co_058.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-027_Co_058m1.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-027_Co_059.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-028_Ni_058.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-028_Ni_059.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-028_Ni_060.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-028_Ni_061.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-028_Ni_062.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-028_Ni_063.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-028_Ni_064.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-029_Cu_063.endf"
+error = "line 384: particle pair 2: the shift factor (SHF=1) is not supported"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-029_Cu_064.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-029_Cu_065.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-030_Zn_064.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-030_Zn_065.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-030_Zn_066.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-030_Zn_067.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-030_Zn_068.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-030_Zn_069.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-030_Zn_070.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-031_Ga_069.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-031_Ga_070.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-031_Ga_071.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-032_Ge_070.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-032_Ge_071.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-032_Ge_072.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-032_Ge_073.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-032_Ge_074.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-032_Ge_075.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-032_Ge_076.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-033_As_073.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-033_As_074.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-033_As_075.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-034_Se_074.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-034_Se_075.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-034_Se_076.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-034_Se_077.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-034_Se_078.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-034_Se_079.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-034_Se_080.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-034_Se_081.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-034_Se_082.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-035_Br_079.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-035_Br_080.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-035_Br_081.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-036_Kr_078.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-036_Kr_079.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-036_Kr_080.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-036_Kr_081.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-036_Kr_082.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-036_Kr_083.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-036_Kr_084.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-036_Kr_085.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-036_Kr_086.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-037_Rb_085.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-037_Rb_086.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-037_Rb_087.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-038_Sr_084.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-038_Sr_085.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-038_Sr_086.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-038_Sr_087.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-038_Sr_088.endf"
+error = "line 193: background R-matrix (KBK=1) and given phase shifts (KPS=0) are not supported"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-038_Sr_089.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-038_Sr_090.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-039_Y_089.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-039_Y_090.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-039_Y_091.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-040_Zr_090.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-040_Zr_091.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-040_Zr_092.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-040_Zr_093.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-040_Zr_094.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-040_Zr_095.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-040_Zr_096.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-041_Nb_093.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-041_Nb_094.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-041_Nb_095.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-042_Mo_092.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-042_Mo_093.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-042_Mo_094.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-042_Mo_095.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-042_Mo_096.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-042_Mo_097.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-042_Mo_098.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-042_Mo_099.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-042_Mo_100.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-043_Tc_098.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-043_Tc_099.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-044_Ru_096.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-044_Ru_097.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-044_Ru_098.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-044_Ru_099.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-044_Ru_100.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-044_Ru_101.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-044_Ru_102.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-044_Ru_103.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-044_Ru_104.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-044_Ru_105.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-044_Ru_106.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-045_Rh_103.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-045_Rh_104.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-045_Rh_105.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-046_Pd_102.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-046_Pd_103.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-046_Pd_104.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-046_Pd_105.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-046_Pd_106.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-046_Pd_107.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-046_Pd_108.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-046_Pd_109.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-046_Pd_110.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-047_Ag_107.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-047_Ag_108.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-047_Ag_109.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-047_Ag_110m1.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-047_Ag_111.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-047_Ag_112.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-047_Ag_113.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-047_Ag_114.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-047_Ag_115.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-047_Ag_116.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-047_Ag_117.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-047_Ag_118m1.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-048_Cd_106.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-048_Cd_107.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-048_Cd_108.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-048_Cd_109.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-048_Cd_110.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-048_Cd_111.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-048_Cd_112.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-048_Cd_113.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-048_Cd_114.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-048_Cd_115m1.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-048_Cd_116.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-049_In_113.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-049_In_114.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-049_In_115.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-050_Sn_112.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-050_Sn_113.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-050_Sn_114.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-050_Sn_115.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-050_Sn_116.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-050_Sn_117.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-050_Sn_118.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-050_Sn_119.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-050_Sn_120.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-050_Sn_121m1.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-050_Sn_122.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-050_Sn_123.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-050_Sn_124.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-050_Sn_125.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-050_Sn_126.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-051_Sb_121.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-051_Sb_122.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-051_Sb_123.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-051_Sb_124.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-051_Sb_125.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-051_Sb_126.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-052_Te_120.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-052_Te_121.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-052_Te_121m1.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-052_Te_122.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-052_Te_123.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-052_Te_124.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-052_Te_125.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-052_Te_126.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-052_Te_127m1.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-052_Te_128.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-052_Te_129m1.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-052_Te_130.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-052_Te_131.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-052_Te_131m1.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-052_Te_132.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-053_I_127.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-053_I_128.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-053_I_129.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-053_I_130.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-053_I_131.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-053_I_132.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-053_I_132m1.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-053_I_133.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-053_I_134.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-053_I_135.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-054_Xe_123.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-054_Xe_124.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-054_Xe_125.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-054_Xe_126.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-054_Xe_127.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-054_Xe_128.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-054_Xe_129.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-054_Xe_130.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-054_Xe_131.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-054_Xe_132.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-054_Xe_133.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-054_Xe_134.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-054_Xe_135.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-054_Xe_136.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-055_Cs_133.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-055_Cs_134.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-055_Cs_135.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-055_Cs_136.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-055_Cs_137.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-056_Ba_130.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-056_Ba_131.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-056_Ba_132.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-056_Ba_133.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-056_Ba_134.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-056_Ba_135.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-056_Ba_136.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-056_Ba_137.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-056_Ba_138.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-056_Ba_139.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-056_Ba_140.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-057_La_138.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-057_La_139.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-057_La_140.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-058_Ce_136.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-058_Ce_137.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-058_Ce_137m1.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-058_Ce_138.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-058_Ce_139.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-058_Ce_140.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-058_Ce_141.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-058_Ce_142.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-058_Ce_143.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-058_Ce_144.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-059_Pr_141.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-059_Pr_142.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-059_Pr_143.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-060_Nd_142.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-060_Nd_143.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-060_Nd_144.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-060_Nd_145.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-060_Nd_146.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-060_Nd_147.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-060_Nd_148.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-060_Nd_149.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-060_Nd_150.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-061_Pm_143.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-061_Pm_144.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-061_Pm_145.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-061_Pm_146.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-061_Pm_147.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-061_Pm_148.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-061_Pm_148m1.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-061_Pm_149.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-061_Pm_150.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-061_Pm_151.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-062_Sm_144.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-062_Sm_145.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-062_Sm_146.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-062_Sm_147.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-062_Sm_148.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-062_Sm_149.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-062_Sm_150.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-062_Sm_151.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-062_Sm_152.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-062_Sm_153.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-062_Sm_154.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-063_Eu_151.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-063_Eu_152.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-063_Eu_153.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-063_Eu_154.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-063_Eu_155.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-063_Eu_156.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-063_Eu_157.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-064_Gd_152.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-064_Gd_153.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-064_Gd_154.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-064_Gd_155.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-064_Gd_156.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-064_Gd_157.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-064_Gd_158.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-064_Gd_159.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-064_Gd_160.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-065_Tb_158.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-065_Tb_159.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-065_Tb_160.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-065_Tb_161.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-066_Dy_154.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-066_Dy_155.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-066_Dy_156.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-066_Dy_157.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-066_Dy_158.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-066_Dy_159.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-066_Dy_160.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-066_Dy_161.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-066_Dy_162.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-066_Dy_163.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-066_Dy_164.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-067_Ho_165.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-067_Ho_166m1.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-068_Er_162.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-068_Er_163.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-068_Er_164.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-068_Er_165.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-068_Er_166.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-068_Er_167.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-068_Er_168.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-068_Er_169.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-068_Er_170.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-069_Tm_168.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-069_Tm_169.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-069_Tm_170.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-069_Tm_171.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-070_Yb_168.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-070_Yb_169.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-070_Yb_170.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-070_Yb_171.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-070_Yb_172.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-070_Yb_173.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-070_Yb_174.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-070_Yb_175.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-070_Yb_176.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-071_Lu_175.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-071_Lu_176.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-072_Hf_174.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-072_Hf_175.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-072_Hf_176.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-072_Hf_177.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-072_Hf_178.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-072_Hf_179.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-072_Hf_180.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-072_Hf_181.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-072_Hf_182.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-073_Ta_180.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-073_Ta_180m1.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-073_Ta_181.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-073_Ta_182.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-074_W_180.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-074_W_181.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-074_W_182.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-074_W_183.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-074_W_184.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-074_W_185.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-074_W_186.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-075_Re_185.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-075_Re_186m1.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-075_Re_187.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-076_Os_184.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-076_Os_185.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-076_Os_186.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-076_Os_187.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-076_Os_188.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-076_Os_189.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-076_Os_190.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-076_Os_191.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-076_Os_192.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-077_Ir_191.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-077_Ir_192.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-077_Ir_193.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-077_Ir_194m1.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-078_Pt_190.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-078_Pt_191.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-078_Pt_192.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-078_Pt_193.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-078_Pt_194.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-078_Pt_195.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-078_Pt_196.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-078_Pt_197.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-078_Pt_198.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-079_Au_197.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-080_Hg_196.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-080_Hg_197.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-080_Hg_197m1.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-080_Hg_198.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-080_Hg_199.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-080_Hg_200.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-080_Hg_201.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-080_Hg_202.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-080_Hg_203.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-080_Hg_204.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-081_Tl_203.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-081_Tl_204.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-081_Tl_205.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-082_Pb_204.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-082_Pb_205.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-082_Pb_206.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-082_Pb_207.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-082_Pb_208.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-083_Bi_209.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-083_Bi_210m1.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-084_Po_208.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-084_Po_209.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-084_Po_210.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-088_Ra_223.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-088_Ra_224.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-088_Ra_225.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-088_Ra_226.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-089_Ac_225.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-089_Ac_226.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-089_Ac_227.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-090_Th_227.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-090_Th_228.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-090_Th_229.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-090_Th_230.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-090_Th_231.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-090_Th_232.endf"
+error = "fission needs MF1 MT452 and MF5 MT18"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-090_Th_233.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-090_Th_234.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-091_Pa_229.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-091_Pa_230.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-091_Pa_231.endf"
+error = "fission needs MF1 MT452 and MF5 MT18"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-091_Pa_232.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-091_Pa_233.endf"
+error = "fission needs MF1 MT452 and MF5 MT18"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-092_U_230.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-092_U_231.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-092_U_232.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-092_U_233.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-092_U_234.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-092_U_235.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-092_U_236.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-092_U_237.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-092_U_238.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-092_U_239.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-092_U_240.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-092_U_241.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-093_Np_234.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-093_Np_235.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-093_Np_236.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-093_Np_236m1.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-093_Np_237.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-093_Np_238.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-093_Np_239.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-094_Pu_236.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-094_Pu_237.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-094_Pu_238.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-094_Pu_239.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-094_Pu_240.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-094_Pu_241.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-094_Pu_242.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-094_Pu_243.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-094_Pu_244.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-094_Pu_245.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-094_Pu_246.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-095_Am_240.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-095_Am_241.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-095_Am_242.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-095_Am_242m1.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-095_Am_243.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-095_Am_244.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-095_Am_244m1.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-096_Cm_240.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-096_Cm_241.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-096_Cm_242.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-096_Cm_243.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-096_Cm_244.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-096_Cm_245.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-096_Cm_246.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-096_Cm_247.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-096_Cm_248.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-096_Cm_249.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-096_Cm_250.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-097_Bk_245.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-097_Bk_246.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-097_Bk_247.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-097_Bk_248.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-097_Bk_249.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-097_Bk_250.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-098_Cf_246.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-098_Cf_247.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-098_Cf_248.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-098_Cf_249.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-098_Cf_250.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-098_Cf_251.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-098_Cf_252.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-098_Cf_253.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-098_Cf_254.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-099_Es_251.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-099_Es_252.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-099_Es_253.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-099_Es_254.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-099_Es_254m1.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-099_Es_255.endf"
+
+[[evaluation]]
+endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-100_Fm_255.endf"

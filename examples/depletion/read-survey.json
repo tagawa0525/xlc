@@ -1,0 +1,458 @@
+{
+ "format": "xlc-read-survey",
+ "versions": {
+  "VII.0": {
+   "in_chain": {
+    "evaluations": 390,
+    "readable": 383,
+    "stopped": 7
+   },
+   "outside_chain": {
+    "evaluations": 3,
+    "readable": 1,
+    "stopped": 2
+   },
+   "chain_nuclides": 3837,
+   "chain_without_file": 3447,
+   "stopped": [
+    {
+     "file": "n-001_H_002.endf",
+     "nuclide": "H-2",
+     "reason": "neutron LAW=6 is not supported"
+    },
+    {
+     "file": "n-004_Be_009.endf",
+     "nuclide": "Be-9",
+     "reason": "neutron LAW=7 is not supported"
+    },
+    {
+     "file": "n-023_V_000.endf",
+     "nuclide": null,
+     "reason": "NIS=2 isotopes are not supported"
+    },
+    {
+     "file": "n-030_Zn_000.endf",
+     "nuclide": null,
+     "reason": "NIS=5 isotopes are not supported"
+    },
+    {
+     "file": "n-037_Rb_087.endf",
+     "nuclide": "Rb-87",
+     "reason": "last NBT must equal NP"
+    },
+    {
+     "file": "n-090_Th_232.endf",
+     "nuclide": "Th-232",
+     "reason": "fission needs MF1 MT452 and MF5 MT18"
+    },
+    {
+     "file": "n-091_Pa_231.endf",
+     "nuclide": "Pa-231",
+     "reason": "fission needs MF1 MT452 and MF5 MT18"
+    },
+    {
+     "file": "n-091_Pa_233.endf",
+     "nuclide": "Pa-233",
+     "reason": "fission needs MF1 MT452 and MF5 MT18"
+    },
+    {
+     "file": "n-092_U_233.endf",
+     "nuclide": "U-233",
+     "reason": "LF=11 is not supported"
+    }
+   ]
+  },
+  "VII.1": {
+   "in_chain": {
+    "evaluations": 422,
+    "readable": 415,
+    "stopped": 7
+   },
+   "outside_chain": {
+    "evaluations": 1,
+    "readable": 1,
+    "stopped": 0
+   },
+   "chain_nuclides": 3820,
+   "chain_without_file": 3398,
+   "stopped": [
+    {
+     "file": "n-001_H_002.endf",
+     "nuclide": "H-2",
+     "reason": "neutron LAW=6 is not supported"
+    },
+    {
+     "file": "n-004_Be_009.endf",
+     "nuclide": "Be-9",
+     "reason": "neutron LAW=7 is not supported"
+    },
+    {
+     "file": "n-017_Cl_035.endf",
+     "nuclide": "Cl-35",
+     "reason": "particle pair 1: the shift factor (SHF=-1) is not supported"
+    },
+    {
+     "file": "n-090_Th_232.endf",
+     "nuclide": "Th-232",
+     "reason": "fission needs MF1 MT452 and MF5 MT18"
+    },
+    {
+     "file": "n-091_Pa_231.endf",
+     "nuclide": "Pa-231",
+     "reason": "fission needs MF1 MT452 and MF5 MT18"
+    },
+    {
+     "file": "n-091_Pa_233.endf",
+     "nuclide": "Pa-233",
+     "reason": "fission needs MF1 MT452 and MF5 MT18"
+    },
+    {
+     "file": "n-092_U_233.endf",
+     "nuclide": "U-233",
+     "reason": "LF=11 is not supported"
+    }
+   ]
+  },
+  "VIII.0": {
+   "in_chain": {
+    "evaluations": 556,
+    "readable": 549,
+    "stopped": 7
+   },
+   "outside_chain": {
+    "evaluations": 1,
+    "readable": 1,
+    "stopped": 0
+   },
+   "chain_nuclides": 3820,
+   "chain_without_file": 3264,
+   "stopped": [
+    {
+     "file": "n-001_H_002.endf",
+     "nuclide": "H-2",
+     "reason": "neutron LAW=6 is not supported"
+    },
+    {
+     "file": "n-004_Be_009.endf",
+     "nuclide": "Be-9",
+     "reason": "neutron LAW=7 is not supported"
+    },
+    {
+     "file": "n-017_Cl_035.endf",
+     "nuclide": "Cl-35",
+     "reason": "particle pair 3: a charged particle (ZA=1) is not supported"
+    },
+    {
+     "file": "n-020_Ca_040.endf",
+     "nuclide": "Ca-40",
+     "reason": "particle pair 3: a charged particle (ZA=2) is not supported"
+    },
+    {
+     "file": "n-090_Th_232.endf",
+     "nuclide": "Th-232",
+     "reason": "fission needs MF1 MT452 and MF5 MT18"
+    },
+    {
+     "file": "n-091_Pa_231.endf",
+     "nuclide": "Pa-231",
+     "reason": "fission needs MF1 MT452 and MF5 MT18"
+    },
+    {
+     "file": "n-091_Pa_233.endf",
+     "nuclide": "Pa-233",
+     "reason": "fission needs MF1 MT452 and MF5 MT18"
+    }
+   ]
+  },
+  "VIII.1": {
+   "in_chain": {
+    "evaluations": 557,
+    "readable": 547,
+    "stopped": 10
+   },
+   "outside_chain": {
+    "evaluations": 1,
+    "readable": 1,
+    "stopped": 0
+   },
+   "chain_nuclides": 3820,
+   "chain_without_file": 3263,
+   "stopped": [
+    {
+     "file": "n-001_H_002.endf",
+     "nuclide": "H-2",
+     "reason": "neutron LAW=6 is not supported"
+    },
+    {
+     "file": "n-003_Li_006.endf",
+     "nuclide": "Li-6",
+     "reason": "neutron LAW=6 is not supported"
+    },
+    {
+     "file": "n-004_Be_009.endf",
+     "nuclide": "Be-9",
+     "reason": "neutron LAW=7 is not supported"
+    },
+    {
+     "file": "n-017_Cl_035.endf",
+     "nuclide": "Cl-35",
+     "reason": "particle pair 3: a charged particle (ZA=1) is not supported"
+    },
+    {
+     "file": "n-020_Ca_040.endf",
+     "nuclide": "Ca-40",
+     "reason": "particle pair 3: a charged particle (ZA=2) is not supported"
+    },
+    {
+     "file": "n-029_Cu_063.endf",
+     "nuclide": "Cu-63",
+     "reason": "particle pair 2: the shift factor (SHF=1) is not supported"
+    },
+    {
+     "file": "n-038_Sr_088.endf",
+     "nuclide": "Sr-88",
+     "reason": "background R-matrix (KBK=1) and given phase shifts (KPS=0) are not supported"
+    },
+    {
+     "file": "n-090_Th_232.endf",
+     "nuclide": "Th-232",
+     "reason": "fission needs MF1 MT452 and MF5 MT18"
+    },
+    {
+     "file": "n-091_Pa_231.endf",
+     "nuclide": "Pa-231",
+     "reason": "fission needs MF1 MT452 and MF5 MT18"
+    },
+    {
+     "file": "n-091_Pa_233.endf",
+     "nuclide": "Pa-233",
+     "reason": "fission needs MF1 MT452 and MF5 MT18"
+    }
+   ]
+  }
+ },
+ "reasons": {
+  "neutron LAW=6 is not supported": {
+   "VII.0": [
+    "H-2"
+   ],
+   "VII.1": [
+    "H-2"
+   ],
+   "VIII.0": [
+    "H-2"
+   ],
+   "VIII.1": [
+    "H-2",
+    "Li-6"
+   ]
+  },
+  "neutron LAW=7 is not supported": {
+   "VII.0": [
+    "Be-9"
+   ],
+   "VII.1": [
+    "Be-9"
+   ],
+   "VIII.0": [
+    "Be-9"
+   ],
+   "VIII.1": [
+    "Be-9"
+   ]
+  },
+  "NIS=2 isotopes are not supported": {
+   "VII.0": [
+    "n-023_V_000.endf"
+   ]
+  },
+  "NIS=5 isotopes are not supported": {
+   "VII.0": [
+    "n-030_Zn_000.endf"
+   ]
+  },
+  "last NBT must equal NP": {
+   "VII.0": [
+    "Rb-87"
+   ]
+  },
+  "fission needs MF1 MT452 and MF5 MT18": {
+   "VII.0": [
+    "Th-232",
+    "Pa-231",
+    "Pa-233"
+   ],
+   "VII.1": [
+    "Th-232",
+    "Pa-231",
+    "Pa-233"
+   ],
+   "VIII.0": [
+    "Th-232",
+    "Pa-231",
+    "Pa-233"
+   ],
+   "VIII.1": [
+    "Th-232",
+    "Pa-231",
+    "Pa-233"
+   ]
+  },
+  "LF=11 is not supported": {
+   "VII.0": [
+    "U-233"
+   ],
+   "VII.1": [
+    "U-233"
+   ]
+  },
+  "particle pair 1: the shift factor (SHF=-1) is not supported": {
+   "VII.1": [
+    "Cl-35"
+   ]
+  },
+  "particle pair 3: a charged particle (ZA=1) is not supported": {
+   "VIII.0": [
+    "Cl-35"
+   ],
+   "VIII.1": [
+    "Cl-35"
+   ]
+  },
+  "particle pair 3: a charged particle (ZA=2) is not supported": {
+   "VIII.0": [
+    "Ca-40"
+   ],
+   "VIII.1": [
+    "Ca-40"
+   ]
+  },
+  "particle pair 2: the shift factor (SHF=1) is not supported": {
+   "VIII.1": [
+    "Cu-63"
+   ]
+  },
+  "background R-matrix (KBK=1) and given phase shifts (KPS=0) are not supported": {
+   "VIII.1": [
+    "Sr-88"
+   ]
+  }
+ },
+ "watched": [
+  {
+   "nuclide": "Cm-245",
+   "versions": {
+    "VII.0": "readable",
+    "VII.1": "readable",
+    "VIII.0": "readable",
+    "VIII.1": "readable"
+   }
+  },
+  {
+   "nuclide": "Am-242m",
+   "versions": {
+    "VII.0": "readable",
+    "VII.1": "readable",
+    "VIII.0": "readable",
+    "VIII.1": "readable"
+   }
+  },
+  {
+   "nuclide": "Np-238",
+   "versions": {
+    "VII.0": "readable",
+    "VII.1": "readable",
+    "VIII.0": "readable",
+    "VIII.1": "readable"
+   }
+  },
+  {
+   "nuclide": "Cm-243",
+   "versions": {
+    "VII.0": "readable",
+    "VII.1": "readable",
+    "VIII.0": "readable",
+    "VIII.1": "readable"
+   }
+  },
+  {
+   "nuclide": "Am-242",
+   "versions": {
+    "VII.0": "readable",
+    "VII.1": "readable",
+    "VIII.0": "readable",
+    "VIII.1": "readable"
+   }
+  },
+  {
+   "nuclide": "U-237",
+   "versions": {
+    "VII.0": "readable",
+    "VII.1": "readable",
+    "VIII.0": "readable",
+    "VIII.1": "readable"
+   }
+  },
+  {
+   "nuclide": "Pu-243",
+   "versions": {
+    "VII.0": "readable",
+    "VII.1": "readable",
+    "VIII.0": "readable",
+    "VIII.1": "readable"
+   }
+  },
+  {
+   "nuclide": "U-239",
+   "versions": {
+    "VII.0": "readable",
+    "VII.1": "readable",
+    "VIII.0": "readable",
+    "VIII.1": "readable"
+   }
+  },
+  {
+   "nuclide": "Am-244",
+   "versions": {
+    "VII.0": "readable",
+    "VII.1": "readable",
+    "VIII.0": "readable",
+    "VIII.1": "readable"
+   }
+  }
+ ],
+ "inputs": [
+  {
+   "path": "read-survey-endfb70.toml",
+   "md5": "d38b4dd07e57807bd699e1b961584167"
+  },
+  {
+   "path": "endfb70/chain.msgpack",
+   "md5": "5c4c81940ae00f9e9cdcd561ac4610a3"
+  },
+  {
+   "path": "read-survey-endfb71.toml",
+   "md5": "4f9ec699b8527b3081f3eaf099e6c3cf"
+  },
+  {
+   "path": "endfb71/chain.msgpack",
+   "md5": "32ee4517036e5333f7c38a69b34adeed"
+  },
+  {
+   "path": "read-survey-endfb80.toml",
+   "md5": "5b469fe4cc44068c53fc44c2e0cad63c"
+  },
+  {
+   "path": "chain.msgpack",
+   "md5": "1f1de1800363a19f23af2f7b4417c426"
+  },
+  {
+   "path": "read-survey-endfb81.toml",
+   "md5": "48090184d2bf88ae6537112a15869f96"
+  },
+  {
+   "path": "endfb81/chain.msgpack",
+   "md5": "4b08493286f1d7840d777ac2cbfa9877"
+  }
+ ]
+}
