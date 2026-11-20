@@ -861,7 +861,7 @@ fn excess_warnings(tape: &Tape, settings: &Settings) -> Vec<(u64, f64)> {
     }
     let seen = Seen::default();
     let subscriber = Registry::default().with(Record(seen.clone()));
-    let tables = crate::pointwise::ColdParts::read(tape, 1, settings.tolerance)
+    let tables = crate::pointwise::ColdParts::read(tape, 1, settings.tolerance, &[])
         .unwrap()
         .at(293.6);
     tracing::subscriber::with_default(subscriber, || {

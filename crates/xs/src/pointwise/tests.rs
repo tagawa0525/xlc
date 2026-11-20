@@ -195,37 +195,195 @@ fn nonzero_values_below_q_are_an_error() {
     assert!(adjusted("9.0", "-1.0+3", "2", &points).is_err());
 }
 
+/// MF3 の1反応（Q = 0、lin-lin、点は `points`）
+fn mf3_points(mt: u32, points: &[(&str, &str)]) -> String {
+    use crate::endf::rec;
+    let np = points.len().to_string();
+    let mut lines = vec![
+        rec(["1.001000+3", "1.0", "0", "0", "0", "0"], 1, 3, mt),
+        rec(["0.0", "0.0", "0", "0", "1", &np], 1, 3, mt),
+        rec([&np, "2", "", "", "", ""], 1, 3, mt),
+    ];
+    for chunk in points.chunks(3) {
+        let mut fields = ["", "", "", "", "", ""];
+        for (k, (x, y)) in chunk.iter().enumerate() {
+            fields[2 * k] = x;
+            fields[2 * k + 1] = y;
+        }
+        lines.push(rec(fields, 1, 3, mt));
+    }
+    lines.push(rec(["", "", "", "", "", ""], 1, 3, 0));
+    lines.concat()
+}
+
+/// 弾性散乱が一定の 10 b で、捕獲が `capture` の点を持つテープ
+fn capture_tape(capture: &[(&str, &str)]) -> Tape {
+    let text = [
+        mf3_section(2, ["1.0-5", "2.0+7"], ["10.0", "10.0"]),
+        mf3_points(102, capture),
+    ]
+    .concat();
+    Tape::parse(&text).unwrap()
+}
+
+/// 1 eV と 2 eV の 2 点が負の捕獲（零点は 0.5 eV と 2 + 2/3 eV）
+const NEGATIVE_CAPTURE: [(&str, &str); 5] = [
+    ("1.0-5", "1.0"),
+    ("1.0", "-1.0"),
+    ("2.0", "-2.0"),
+    ("3.0", "1.0"),
+    ("2.0+7", "1.0"),
+];
+
+fn declared(mt: u32, from: f64, to: f64, take_from: Option<u32>) -> NegativeToZero {
+    NegativeToZero {
+        mt,
+        from,
+        to,
+        take_from,
+    }
+}
+
+/// `ColdParts::read` を呼んだスレッドの warn の数
+fn read_with_warnings(
+    tape: &Tape,
+    negatives: &[NegativeToZero],
+) -> (Result<ColdParts, Error>, usize) {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use tracing_subscriber::Registry;
+    use tracing_subscriber::layer::{Context, Layer, SubscriberExt};
+
+    struct Count(Arc<AtomicUsize>);
+    impl<S: tracing::Subscriber> Layer<S> for Count {
+        fn on_event(&self, event: &tracing::Event<'_>, _: Context<'_, S>) {
+            if *event.metadata().level() == tracing::Level::WARN {
+                self.0.fetch_add(1, Ordering::Relaxed);
+            }
+        }
+    }
+    let count = Arc::new(AtomicUsize::new(0));
+    let subscriber = Registry::default().with(Count(count.clone()));
+    let result = tracing::subscriber::with_default(subscriber, || {
+        ColdParts::read(tape, 1, 1.0e-3, negatives)
+    });
+    (result, count.load(Ordering::Relaxed))
+}
+
 #[test]
-fn negative_broadened_cross_sections_are_an_error() {
+fn negative_cross_sections_are_an_error_at_any_energy() {
     // ドップラー拡がりの格子の判定は正の値を前提にし、負の区間を際限なく分ける。広げる上限（分離共鳴の無い核種では 6.5 MeV）より
-    // 下の負の値は、表の点の値でも、上限の点をまたぐ区間の補間の値でも、0 K の再構成で止める。上限より上の値は広げないので、
-    // ここでは止めない（#0309）
-    let tape = |capture: ([&str; 2], [&str; 2])| {
-        let text = [
-            mf3_section(2, ["1.0-5", "2.0+7"], ["10.0", "10.0"]),
-            mf3_section(102, capture.0, capture.1),
-        ]
-        .concat();
-        Tape::parse(&text).unwrap()
-    };
-    let below = tape((["1.0-5", "2.0+7"], ["-1.0", "1.0"]));
-    let error = ColdParts::read(&below, 1, 1.0e-3).unwrap_err();
-    assert!(error.message.contains("MT102"), "{error}");
-    // 0 になる 5.25 MeV から上限の 6.5 MeV までは、表の点の間の補間の値が負（上限より下の表の点はどれも正）
-    let across = tape((["1.0-5", "7.0+6"], ["3.0", "-1.0"]));
-    let error = ColdParts::read(&across, 1, 1.0e-3).unwrap_err();
-    assert!(error.message.contains("MT102"), "{error}");
-    // 0 になる 10 MeV が上限より上なら、広げる値はどれも正で、拡がりの格子は止まる
-    let above = tape((["1.0-5", "2.0+7"], ["1.0", "-1.0"]));
-    let hot = ColdParts::read(&above, 1, 1.0e-3).unwrap().at(565.0);
-    let capture = &hot[&102];
+    // 上の値も、拡がりの積分の窓と群の平均に入るので、エネルギーによらず 0 K の再構成で止める（ADR-0267）
+    for capture in [
+        [("1.0-5", "-1.0"), ("2.0+7", "1.0")],
+        [("1.0-5", "3.0"), ("7.0+6", "-1.0")],
+        [("1.0-5", "1.0"), ("2.0+7", "-1.0")],
+    ] {
+        let error = ColdParts::read(&capture_tape(&capture), 1, 1.0e-3, &[]).unwrap_err();
+        assert!(error.message.contains("MT102"), "{error}");
+        assert!(error.message.contains("negative-to-zero"), "{error}");
+    }
+    // 負の反応がいくつあっても、1 つの文にまとめて示す
+    let text = [
+        mf3_section(2, ["1.0-5", "2.0+7"], ["-10.0", "10.0"]),
+        mf3_points(102, &NEGATIVE_CAPTURE),
+    ]
+    .concat();
+    let error = ColdParts::read(&Tape::parse(&text).unwrap(), 1, 1.0e-3, &[]).unwrap_err();
     assert!(
-        capture
-            .x
-            .iter()
-            .zip(&capture.y)
-            .all(|(e, v)| *e >= crate::doppler::MAX_LIMIT || *v >= 0.0)
+        error.message.contains("MT2 ") && error.message.contains("MT102 "),
+        "{error}"
     );
+}
+
+#[test]
+fn declared_negative_values_are_raised_to_zero_with_a_warning() {
+    // 宣言した範囲の負の点を 0 にし、符号の変わる区間に零点を足す（元の lin-lin の表を 0 で切った関数）。範囲の外の点はそのまま
+    let tape = capture_tape(&NEGATIVE_CAPTURE);
+    let (cold, warnings) = read_with_warnings(&tape, &[declared(102, 1.0e-5, 10.0, None)]);
+    let tables = cold.unwrap().at(0.0);
+    assert_eq!(warnings, 1);
+    let capture = &tables[&102];
+    assert!(capture.y.iter().all(|&v| v >= 0.0));
+    let original = linear(
+        &[1.0e-5, 1.0, 2.0, 3.0, 2.0e7],
+        &[1.0, -1.0, -2.0, 1.0, 1.0],
+    );
+    let midpoints: Vec<f64> = capture.x.windows(2).map(|w| 0.5 * (w[0] + w[1])).collect();
+    for &e in capture.x.iter().chain(&midpoints) {
+        let expected = original.eval(e).unwrap().max(0.0);
+        let actual = capture.eval(e).unwrap();
+        assert!(
+            (actual - expected).abs() <= 1.0e-12,
+            "at {e} eV: {actual} vs {expected}"
+        );
+    }
+    assert_eq!(capture.eval(3.0), Some(1.0));
+    // 全断面積は 0 にした捕獲との和
+    assert_eq!(tables[&1].eval(2.0), Some(10.0));
+    // 宣言しない反応は変えない
+    assert_eq!(tables[&2], linear(&[1.0e-5, 2.0e7], &[10.0, 10.0]));
+}
+
+#[test]
+fn declarations_that_do_not_match_the_tables_are_an_error() {
+    let tape = capture_tape(&NEGATIVE_CAPTURE);
+    let error = |negatives: &[NegativeToZero]| {
+        ColdParts::read(&tape, 1, 1.0e-3, negatives)
+            .map(drop)
+            .unwrap_err()
+            .message
+    };
+    // 範囲に負の値が無い宣言は止める（評価が替わって宣言が古くなったことに気付けるように）
+    let message = error(&[
+        declared(102, 1.0e-5, 10.0, None),
+        declared(102, 5.0, 10.0, None),
+    ]);
+    assert!(message.contains("MT102"), "{message}");
+    // 宣言の範囲の外に残る負の値は、宣言しないときと同じく止める
+    let message = error(&[declared(102, 1.5, 10.0, None)]);
+    assert!(message.contains("negative-to-zero"), "{message}");
+    // 表の無い反応、範囲の逆転、引く先の反応が無いか同じ反応の宣言も止める
+    for negatives in [
+        declared(103, 1.0e-5, 10.0, None),
+        declared(102, 10.0, 1.0e-5, None),
+        declared(102, f64::NAN, 10.0, None),
+        declared(102, 1.0e-5, 10.0, Some(4)),
+        declared(102, 1.0e-5, 10.0, Some(102)),
+    ] {
+        let message = error(&[negatives.clone()]);
+        assert!(
+            message.contains("MT102") || message.contains("MT103"),
+            "{negatives:?}: {message}"
+        );
+    }
+}
+
+#[test]
+fn the_raised_amount_is_taken_from_the_declared_reaction() {
+    // `take-from` の反応から、0 にするために足した分を引くので、全断面積（部分反応の和）は宣言の前と同じ。ENDF/B-VII.1 の Y-89 は、
+    // VII.0 の負の MT91 を 0 にし、全断面積を変えずに弾性散乱を減らした
+    let tape = capture_tape(&NEGATIVE_CAPTURE);
+    let tables = ColdParts::read(&tape, 1, 1.0e-3, &[declared(102, 1.0e-5, 10.0, Some(2))])
+        .unwrap()
+        .at(0.0);
+    let original_total = linear(
+        &[1.0e-5, 1.0, 2.0, 3.0, 2.0e7],
+        &[11.0, 9.0, 8.0, 11.0, 11.0],
+    );
+    let total = &tables[&1];
+    for e in total.x.iter().copied().chain([0.25, 1.5, 2.5]) {
+        let (actual, expected) = (total.eval(e).unwrap(), original_total.eval(e).unwrap());
+        assert!(
+            (actual - expected).abs() <= 1.0e-12,
+            "at {e} eV: {actual} vs {expected}"
+        );
+    }
+    assert_eq!(tables[&2].eval(2.0), Some(8.0));
+    assert!(tables[&102].y.iter().all(|&v| v >= 0.0));
+    // 範囲の外の弾性散乱は変えない
+    assert_eq!(tables[&2].eval(100.0), Some(10.0));
+    assert_eq!(tables[&2].y.last(), Some(&10.0));
 }
 
 #[test]
