@@ -72,6 +72,10 @@ def declare(entries: dict[str, dict], declarations: dict[str, dict]) -> dict[str
             raise SystemExit(f'{name}: a declaration would replace {replaced}')
         out[name] = {**entry, **items}
     return out
+DECLARATION_KEYS = ('corrections', 'negative-to-zero', 'unresolved-negative-background')
+
+def declared_items(entry: dict) -> list[str]:
+    return [k for k in DECLARATION_KEYS if k in entry]
 
 def value(v) -> str:
     if isinstance(v, str):
@@ -180,7 +184,7 @@ def summarize(versions: list, causes) -> dict:
         chain_names = set(names.values())
         inside = {'evaluations': 0, 'passed': 0, 'stopped': 0, 'stopped_reading': 0}
         outside = {'evaluations': 0, 'processed': 0, 'passed': 0, 'stopped': 0, 'left_out': 0}
-        stopped = []
+        stopped, declared = ([], [])
         for s in survey['evaluation']:
             file = Path(s['endf']).name
             key = nuclide_key(file)
@@ -196,8 +200,10 @@ def summarize(versions: list, causes) -> dict:
             counts['evaluations'] += 1
             if not in_chain:
                 outside['processed'] += 1
+            if run.get('declarations'):
+                declared.append({'nuclide': run['nuclide'], 'items': run['declarations']})
             if 'error' not in run:
-                if 'error' in s:
+                if 'error' in s and (not run.get('declarations')):
                     raise SystemExit(f'{label}: {file} stops in the survey but passes xs nuclide')
                 counts['passed'] += 1
                 passed_by.setdefault(run['nuclide'], {})[label] = run
@@ -215,7 +221,7 @@ def summarize(versions: list, causes) -> dict:
                 by[label] = by.get(label, 0) + 1
         if runs:
             raise SystemExit(f'{label}: {sorted(runs)} are not in the survey')
-        summary['versions'][label] = {'in_chain': inside, 'outside_chain': outside, 'stopped': stopped, 'slowest': top(report['evaluations'], 'seconds'), 'largest': top(report['evaluations'], 'max_rss_kb')}
+        summary['versions'][label] = {'in_chain': inside, 'outside_chain': outside, 'stopped': stopped, 'declared': declared, 'slowest': top(report['evaluations'], 'seconds'), 'largest': top(report['evaluations'], 'max_rss_kb')}
     across = []
     for name, by in passed_by.items():
         if len(by) < 2:
@@ -247,6 +253,10 @@ def report_text(summary: dict) -> list[str]:
     for label, v in summary['versions'].items():
         for s in v['stopped']:
             lines.append(f"- {label} {s['nuclide']}（{s['file']}、{('チェーン' if s['chain'] else 'チェーンの外')}、{STAGES[s['stage']]}）: {s['reason']} — {s['cause'] or '–'}、{s['where'] or '–'}、{s['issue'] or '–'}")
+    lines.append('')
+    lines.append('## 宣言で読み替えた評価')
+    for label, v in summary['versions'].items():
+        lines.append(f'- {label}: ' + ('、'.join((f"{d['nuclide']}（{'、'.join(d['items'])}）" for d in v.get('declared', []))) or 'なし'))
     lines.append('')
     lines.append('## 警告の種類（版ごとの評価の数）')
     labels = list(summary['versions'])
@@ -345,6 +355,8 @@ def write_report(args: list[str]) -> None:
             e = {**runs[name], 'endf': entry['endf'], 'source': 'reused'}
         else:
             raise SystemExit(f'{name} has no log')
+        if declared_items(entry):
+            e['declarations'] = declared_items(entry)
         evaluations.append(e)
     report = {'format': 'xlc-process-survey-report', 'evaluations': evaluations}
     if reuse is not None:

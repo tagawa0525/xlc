@@ -19,6 +19,7 @@
   無い核種は `--reuse` の置き場のログ（範囲が同じときだけ）から、評価ごとの成否、止まった文、時間、最大の常駐、警告の種類の数を
   `report.json` に書く
 - `summary`: 版ごとに、チェーンの中と外の成否、止まった評価の段（走査でも止まれば reading、ほかは processing）と原因（`CAUSES`）、
+  宣言（`DECLARATION_KEYS`）で読み替えた評価（走査で止まっても、宣言した `xs nuclide` が通れば通ったと数える）、
   警告の種類ごとの評価の数、時間と常駐の大きい核種、版の間で時間か常駐が 10 倍以上違う核種を JSON に書き、文章を標準出力に書く
 - `--report`: 要約の JSON を文章で描く
 """
@@ -168,6 +169,15 @@ def declare(entries: dict[str, dict], declarations: dict[str, dict]) -> dict[str
             raise SystemExit(f"{name}: a declaration would replace {replaced}")
         out[name] = {**entry, **items}
     return out
+
+
+# 評価の欠陥を読み替える宣言の項目（ADR-0272、ADR-0267、ADR-0274）。報告と要約はこの順に並べる
+DECLARATION_KEYS = ("corrections", "negative-to-zero", "unresolved-negative-background")
+
+
+def declared_items(entry: dict) -> list[str]:
+    """xs の核種の項目 `entry` の宣言の項目"""
+    return [k for k in DECLARATION_KEYS if k in entry]
 
 
 def value(v) -> str:
@@ -332,7 +342,7 @@ def summarize(versions: list, causes) -> dict:
             "stopped": 0,
             "left_out": 0,
         }
-        stopped = []
+        stopped, declared = [], []
         for s in survey["evaluation"]:
             file = Path(s["endf"]).name
             key = nuclide_key(file)
@@ -349,8 +359,13 @@ def summarize(versions: list, causes) -> dict:
             counts["evaluations"] += 1
             if not in_chain:
                 outside["processed"] += 1
+            if run.get("declarations"):
+                declared.append(
+                    {"nuclide": run["nuclide"], "items": run["declarations"]}
+                )
             if "error" not in run:
-                if "error" in s:
+                # 読み込みの走査は宣言を持たないので、宣言で読める評価は走査で止まっても通る
+                if "error" in s and not run.get("declarations"):
                     raise SystemExit(
                         f"{label}: {file} stops in the survey but passes xs nuclide"
                     )
@@ -391,6 +406,7 @@ def summarize(versions: list, causes) -> dict:
             "in_chain": inside,
             "outside_chain": outside,
             "stopped": stopped,
+            "declared": declared,
             "slowest": top(report["evaluations"], "seconds"),
             "largest": top(report["evaluations"], "max_rss_kb"),
         }
@@ -439,6 +455,19 @@ def report_text(summary: dict) -> list[str]:
                 f"- {label} {s['nuclide']}（{s['file']}、{'チェーン' if s['chain'] else 'チェーンの外'}、{STAGES[s['stage']]}）: "
                 f"{s['reason']} — {s['cause'] or '–'}、{s['where'] or '–'}、{s['issue'] or '–'}"
             )
+    lines.append("")
+    lines.append("## 宣言で読み替えた評価")
+    for label, v in summary["versions"].items():
+        lines.append(
+            f"- {label}: "
+            + (
+                "、".join(
+                    f"{d['nuclide']}（{'、'.join(d['items'])}）"
+                    for d in v.get("declared", [])
+                )
+                or "なし"
+            )
+        )
     lines.append("")
     lines.append("## 警告の種類（版ごとの評価の数）")
     labels = list(summary["versions"])
@@ -588,6 +617,8 @@ def write_report(args: list[str]) -> None:
             e = {**runs[name], "endf": entry["endf"], "source": "reused"}
         else:
             raise SystemExit(f"{name} has no log")
+        if declared_items(entry):
+            e["declarations"] = declared_items(entry)
         evaluations.append(e)
     report = {"format": "xlc-process-survey-report", "evaluations": evaluations}
     if reuse is not None:
