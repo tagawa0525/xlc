@@ -4775,6 +4775,14 @@ def chain_versions(sources: list[dict]) -> str:
     return markdown_table(header, rows)
 
 
+def read_survey(sources: list[dict]) -> str:
+    return ""
+
+
+def read_survey_reasons(sources: list[dict]) -> str:
+    return ""
+
+
 # 表の名前 → (JSON（リポジトリの直下から）, 描く関数)。JSON は dvc.yaml のステージの outs で、同じ場所の dvc.lock が md5 を持つ
 TABLES = {
     "p3-reference-results": (

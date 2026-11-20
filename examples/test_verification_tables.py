@@ -801,6 +801,72 @@ class DrawChainVersions(unittest.TestCase):
             )
 
 
+def read_survey() -> dict:
+    """read_survey.py の要約（版は 2 つ）"""
+
+    def version(stopped_in, stopped_out):
+        return {
+            "in_chain": {
+                "evaluations": 10,
+                "readable": 10 - stopped_in,
+                "stopped": stopped_in,
+            },
+            "outside_chain": {
+                "evaluations": 2,
+                "readable": 2 - stopped_out,
+                "stopped": stopped_out,
+            },
+            "chain_nuclides": 30,
+            "chain_without_file": 20,
+            "stopped": [],
+        }
+
+    return {
+        "format": "xlc-read-survey",
+        "versions": {"VII.0": version(2, 1), "VIII.0": version(1, 0)},
+        "reasons": {
+            "LF=11 is not supported": {"VII.0": ["U-233"]},
+            "neutron LAW=6 is not supported": {"VII.0": ["H-2"], "VIII.0": ["H-2"]},
+            "NIS=2 isotopes are not supported": {"VII.0": ["n-023_V_000.endf"]},
+        },
+        "watched": [],
+        "inputs": [],
+    }
+
+
+class DrawReadSurvey(unittest.TestCase):
+    def rows(self, table):
+        return [
+            [c.strip() for c in line.strip("|").split("|")]
+            for line in table.split("\n")[2:]
+        ]
+
+    def test_rows_count_the_evaluations_of_each_version_by_the_chain(self):
+        self.assertEqual(
+            self.rows(vt.read_survey([read_survey()])),
+            [
+                ["VII.0", "10", "8", "2", "2", "1", "1", "20 / 30"],
+                ["VIII.0", "10", "9", "1", "2", "2", "0", "20 / 30"],
+            ],
+        )
+
+    def test_reasons_list_the_evaluations_of_each_version(self):
+        self.assertEqual(
+            self.rows(vt.read_survey_reasons([read_survey()])),
+            [
+                ["LF=11 is not supported", "U-233", "–"],
+                ["neutron LAW=6 is not supported", "H-2", "H-2"],
+                ["NIS=2 isotopes are not supported", "n-023_V_000.endf", "–"],
+            ],
+        )
+
+    def test_another_summary_is_an_error(self):
+        with self.assertRaises(vt.TableError):
+            vt.read_survey([{"format": "xlc-compare-depletion"}])
+        with self.assertRaises(vt.TableError):
+            vt.read_survey_reasons([{"format": "xlc-compare-depletion"}])
+
+
 class DrawDepletion(unittest.TestCase):
     def test_k_rows_list_each_case_by_burnup(self):
         table = vt.depletion_k(
