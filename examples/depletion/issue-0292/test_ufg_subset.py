@@ -111,5 +111,40 @@ class Compare(unittest.TestCase):
             self.assertIn("issue-0292/ufg-subset/u/out-timed/s4.log", paths)
 
 
+class Report(unittest.TestCase):
+    def summary(self):
+        def case(name, pcm, seconds):
+            return {
+                "case": name,
+                "pcm": pcm,
+                "seconds": seconds,
+                "ratio": [s / a for s, a in zip(seconds, [4.0, 8.0])],
+            }
+
+        return {
+            "fuel": "u",
+            "burnup": [0.0, 10.0],
+            "cases": [case("all", [0.0, 0.0], [4.0, 8.0]),
+                      case("s4", [0.04, -12.345], [2.0, 6.0])],
+        }  # fmt: skip
+
+    def test_the_k_table_has_a_row_per_fuel_and_subset_but_all(self):
+        text = ufg_subset.k_table([self.summary()])
+        self.assertIn("| 0 ", text.splitlines()[0] + " ")
+        rows = [line for line in text.splitlines()[2:]]
+        self.assertEqual(len(rows), 1)
+        self.assertIn("U s4", rows[0])
+        self.assertIn("| 0.0 ", rows[0])
+        self.assertIn("−12.3", rows[0])
+
+    def test_the_time_table_gives_seconds_and_the_ratio_to_all(self):
+        text = ufg_subset.time_table([self.summary()])
+        rows = text.splitlines()[2:]
+        self.assertEqual(len(rows), 2)
+        self.assertIn("U all", rows[0])
+        self.assertIn("2.00（0.50）", rows[1])
+        self.assertIn("6.00（0.75）", rows[1])
+
+
 if __name__ == "__main__":
     unittest.main()
