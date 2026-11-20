@@ -491,6 +491,23 @@ class SummarizeTest(unittest.TestCase):
             version["declared"], [{"nuclide": "Rb-87", "items": ["corrections"]}]
         )
 
+    def test_a_survey_stop_passes_only_with_a_correction_of_the_tape(self):
+        # 読み込みの走査で止まる評価を通せるのは、読む前にテープを直す `corrections` だけ（ほかの宣言は読んだ後に当てる）
+        report = {
+            **REPORT,
+            "evaluations": [
+                {
+                    **run("Rb-87", "n-037_Rb_087.endf"),
+                    "declarations": ["unresolved-negative-background"],
+                }
+                if e["nuclide"] == "Rb-87"
+                else e
+                for e in REPORT["evaluations"]
+            ],
+        }
+        with self.assertRaises(SystemExit):
+            process_survey.summarize([("VII.0", report, SURVEY, CHAIN)], CAUSES)
+
     def test_an_evaluation_missing_from_the_report_is_an_error(self):
         report = {**REPORT, "evaluations": REPORT["evaluations"][1:]}
         with self.assertRaises(SystemExit):

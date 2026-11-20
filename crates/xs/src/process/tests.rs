@@ -401,6 +401,52 @@ fn a_negative_capture_or_fission_background_is_an_error_without_the_declaration(
 }
 
 #[test]
+fn the_background_is_judged_at_the_sampled_grid_energies() {
+    // ラダーに足すのは非分離共鳴の格子点のバックグラウンドなので、格子点の間（1.1 keV）だけの負の点では止まらず、宣言は要らない
+    let between = table(&[
+        ("1.0-5", "0.0"),
+        ("1.0+3", "0.0"),
+        ("1.0+3", "1.0-3"),
+        ("1.1+3", "-1.0-3"),
+        ("1.2+3", "1.0-3"),
+        ("1.0+5", "1.0-3"),
+        ("1.0+5", "0.0"),
+        ("2.0+7", "0.0"),
+    ]);
+    let total = table(&[("1.0-5", "10.0"), ("2.0+7", "10.0")]);
+    let tape = unresolved_tape_with(
+        "0",
+        &[
+            (1, total),
+            (2, table(&[("1.0-5", "10.0"), ("2.0+7", "10.0")])),
+            (102, between),
+        ],
+    );
+    let sigma0 = [1.0e10, 1.0];
+    assert!(unresolved_shielding(&tape, 1, &[300.0], &sigma0, UnresolvedMethod::Additive).is_ok());
+    assert!(matches!(
+        unresolved_shielding(&tape, 1, &[300.0], &sigma0, UnresolvedMethod::ScaleNegative),
+        Err(ProcessError::UnneededUnresolvedScaling)
+    ));
+}
+
+#[test]
+fn temperatures_are_checked_before_the_background() {
+    // 温度の無い呼び出しは何も求めず、正でない温度は、評価のバックグラウンドによらず先に返る
+    let tape = background_tape(102, -1.0e-3);
+    assert_eq!(
+        unresolved_shielding(&tape, 1, &[], &[1.0e10], UnresolvedMethod::Additive).unwrap(),
+        Some(Vec::new())
+    );
+    let error =
+        unresolved_shielding(&tape, 1, &[0.0], &[1.0e10], UnresolvedMethod::Additive).unwrap_err();
+    assert!(
+        matches!(error, ProcessError::Unresolved(UrrError::Temperature(t)) if t == 0.0),
+        "{error}"
+    );
+}
+
+#[test]
 fn a_negative_elastic_background_keeps_the_additive_shielding() {
     // 弾性散乱の負は 1 μb にする今の扱い（ADR-0177）のままで、宣言は要らない
     let tape = unresolved_tape_with(
