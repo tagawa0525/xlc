@@ -1,6 +1,6 @@
 ---
 type: ADR
-status: proposed
+status: accepted
 date: 2026-11-20
 requires: [ADR-0138, ADR-0268]
 supersedes: []
@@ -87,7 +87,22 @@ xs の処理:
 - 既定は変わらない。持たせない核種のあるライブラリは、その核種を `ufg-nuclides` に挙げる入力では使えない。全核種のライブラリを
   この形で作るかは #0292 で決める
 - 持たせない核種の組を変えると、その核種の xs のステージだけを作り直す
+- 既存のライブラリと履歴はそのまま読める（run-checks.sh の上流の出力を読む検査が 2145 ファイルを読んで通った。2026-11-20）
 
 ### 確認
 
-（実装と確認の計算の後に書く）
+テスト（2026-11-20、すべて通る）:
+
+- 形式: nil の核種が読み書きで変わらない、一部の温度だけ nil の核種と、nil で S(α, β) の移行を持つ核種はエラー、S(α, β) の温度の
+  内挿は nil を保つ（crates/format/src/library/tests.rs の `nuclides_may_leave_out_the_pointwise_data`、
+  `pointwise_data_are_left_out_at_every_temperature_or_none`、`nuclides_without_pointwise_data_take_no_sab_transfer`、
+  `interpolation_keeps_the_pointwise_data_left_out`）
+- xs: 項目を読み、`thermal` と `activation` と組めばエラー、結果から外し、組み立てが結果と項目の食い違いを止める
+  （crates/xs/src/main/tests.rs の `reads_nuclides_without_pointwise_data`、`results_leave_out_the_pointwise_data_the_input_leaves_out`）
+- lattice: 持たない核種は挙げない経路で持つときと同じに解け、挙げた入力と一覧を省いた入力はエラー（crates/lattice/src/shielding/tests.rs の
+  `nuclides_without_pointwise_data_are_solved_only_unlisted`）
+- 項目を省くと、核種のファイルは今とバイトで同じ（Cs-137 と Nd-144 の `xs nuclide` の出力が、追跡する試行の xs のファイルと同じ。手元）
+
+計算（examples/depletion/verification.md の「UFG で解かない核種のポイントワイズの断面積を持たせないライブラリ（試行）」。Slurm 998、
+2026-11-20）: 試行のライブラリの 48 核種を `pointwise = false` で作り直すと、ライブラリは 13.8% 小さくなり、U の `s17` の k∞ は 4 つの
+燃焼度で同じ、出力のテーブルは、試行の後に入った xs の修正による I-127 のチェーンの反応のほかはビットで同じ。格子計算の最大の常駐は 10.1% 減った。
