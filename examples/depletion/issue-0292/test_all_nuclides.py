@@ -135,7 +135,26 @@ class Library(unittest.TestCase):
                 }
             )
 
-    def test_a_base_nuclide_without_a_chain_evaluation_is_left_out(self):
+    def test_a_base_nuclide_without_a_chain_evaluation_stops_in_its_own_version(self):
+        # 試行の入力と同じ版（VIII.0）では、試行の核種はどれもチェーンの評価のはず
+        base = tomllib.loads(BASE)["nuclide"]
+        base["C-0"] = {"endf": "n-006_C_000.endf", "temperatures": [565]}
+        with self.assertRaises(SystemExit):
+            all_nuclides.library_entries(
+                base, survey({"n-090_Th_232.endf": "line 9: x"}), CHAIN, EXCLUDED
+            )
+
+    def test_a_base_nuclide_of_another_file_stops_in_its_own_version(self):
+        base = tomllib.loads(BASE)["nuclide"]
+        base["U-235"] = {**base["U-235"], "endf": "n-092_U_235b.endf"}
+        with self.assertRaises(SystemExit):
+            all_nuclides.library_entries(
+                base, survey({"n-090_Th_232.endf": "line 9: x"}), CHAIN, EXCLUDED
+            )
+
+    def test_a_base_nuclide_without_a_chain_evaluation_is_left_out_of_another_version(
+        self,
+    ):
         # 試行の入力（VIII.0）の核種の評価が無い版がある。核種の組は版のチェーンと評価で決める
         base = tomllib.loads(BASE)["nuclide"]
         base["C-0"] = {"endf": "n-006_C_000.endf", "temperatures": [565]}
@@ -144,6 +163,7 @@ class Library(unittest.TestCase):
             survey({"n-090_Th_232.endf": "line 9: x"}),
             CHAIN,
             EXCLUDED,
+            trial_version=False,
         )
         self.assertNotIn("C-0", e)
         self.assertEqual(all_nuclides.missing_from_version(base, e), ["C-0"])
@@ -331,6 +351,7 @@ def version_entries(**kwargs):
         NATURAL_CHAIN,
         {},
         natural=["C-12", "C-13"],
+        trial_version=False,
         **kwargs,
     )
 
@@ -347,6 +368,13 @@ class Versions(unittest.TestCase):
     def test_a_natural_evaluation_without_a_listed_isotope_stops(self):
         with self.assertRaises(SystemExit):
             all_nuclides.chain_evaluations(other_version(), NATURAL_CHAIN, [])
+
+    def test_a_listed_isotope_without_a_natural_evaluation_stops(self):
+        # ADR-0262: 天然の元素の評価の無い元素の核種を挙げたらエラー（黙って核種を落とさない）
+        s = other_version()
+        s["evaluation"] = [e for e in s["evaluation"] if "_C_000" not in e["endf"]]
+        with self.assertRaises(SystemExit):
+            all_nuclides.chain_evaluations(s, NATURAL_CHAIN, ["C-12", "C-13"])
 
     def test_the_version_decides_the_nuclides_and_their_files(self):
         e = version_entries()
@@ -424,6 +452,18 @@ class VersionFiles(unittest.TestCase):
                 self.assertTrue(
                     version["chain"].parent == version["chain_input"].parent
                 )
+
+    def test_only_viii0_is_the_version_of_the_trial_input(self):
+        for key, version in all_nuclides.VERSIONS.items():
+            self.assertEqual(version["key"], key)
+            self.assertEqual(version["trial_version"], key == "endfb80")
+
+    def test_the_head_counts_the_thermal_points_of_the_entries(self):
+        entries = {"H-1": {"thermal": "t", "temperatures": [550, 573.6, 600]}}
+        head = all_nuclides.library_head(
+            all_nuclides.VERSIONS["endfb81"], ["なし"], [], entries
+        )
+        self.assertIn("3 点", head[2])
 
     def test_the_vii_versions_drop_the_thermal_temperatures_they_lack(self):
         # tsl-HinH2O.endf に 573.6 K と 623.6 K が無い（docs/environment.md）

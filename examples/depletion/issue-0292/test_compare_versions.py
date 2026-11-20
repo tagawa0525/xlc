@@ -4,6 +4,7 @@
 """
 
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -147,6 +148,42 @@ class Split(unittest.TestCase):
         self.assertEqual(p["burnup"], 0.0)
         u = p["nuclides"]["U-235"]
         self.assertAlmostEqual(u["pcm"], 1e5 * 1e-3 * 0.5 * (10.0 - 20.0) / 2.0)
+
+
+class Guards(unittest.TestCase):
+    def test_a_lattice_volume_that_makes_the_fuel_absorb_more_than_the_lattice_stops(
+        self,
+    ):
+        h, t, _ = versions()["A"]
+        with self.assertRaises(SystemExit):
+            compare_versions.absorptions(h, t, 1e-6)
+
+    def test_a_history_with_two_points_at_a_table_burnup_stops(self):
+        h, t, volume = versions()["A"]
+        h["points"].append({**h["points"][-1]})
+        with self.assertRaises(SystemExit):
+            compare_versions.absorptions(h, t, volume)
+
+    def test_the_table_input_must_solve_the_given_history_into_the_given_table(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / "h").mkdir()
+            (root / "ufg" / "out").mkdir(parents=True)
+            text = (
+                'few-group = { output = "out/all.msgpack" }\n'
+                '[history]\nfile = "../h/nominal.msgpack"\n'
+            )
+            (root / "ufg" / "all.toml").write_text(text)
+            history = root / "h" / "nominal.msgpack"
+            table = root / "ufg" / "out" / "all.msgpack"
+            table_input = root / "ufg" / "all.toml"
+            compare_versions.check_inputs(history, table, table_input)
+            with self.assertRaises(SystemExit):
+                compare_versions.check_inputs(
+                    root / "other.msgpack", table, table_input
+                )
+            with self.assertRaises(SystemExit):
+                compare_versions.check_inputs(history, root / "x.msgpack", table_input)
 
 
 class Shares(unittest.TestCase):
