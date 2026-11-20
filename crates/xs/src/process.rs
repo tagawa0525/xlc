@@ -1045,7 +1045,8 @@ pub fn fission_parts(
 ///
 /// MF6 MT18 の JPN（JP の 1 の位。ENDF-102 の JPX=JPN）が 0 でなければ、MF6 は多重度の確率 P(ν, E) で、平均の分布は MF5 MT18 にある
 /// （ENDF/B-VIII.0 の U-235 は JP=11）。MF5 MT18 があるとき、JPN=0 の MF6 MT18 は中性子の分布（LAW > 0）を持つかだけを見る
-/// （分布は読まないので、MF5 MT18 で処理できる評価を MF6 の読めない形で止めない）
+/// （分布の中身は読まないので、`Mf6::parse` が扱わない中性子の LAW=0 や離散線では止めない。記録の並びが崩れた節と、ENDF-102 に無い
+/// LAW は止める）
 pub fn prompt_fission_spectrum(
     tape: &Tape,
     mat: i32,
@@ -1065,6 +1066,12 @@ pub fn prompt_fission_spectrum(
     }
     if jpn != 0 {
         return Err(ProcessError::NoAveragePromptFissionSpectrum { jpn });
+    }
+    if !neutron_laws(&mf6)?.iter().any(|&law| law > 0) {
+        return Err(ProcessError::PromptFissionNeutrons {
+            continuum: 0,
+            two_body: false,
+        });
     }
     let Mf6 {
         awr,
