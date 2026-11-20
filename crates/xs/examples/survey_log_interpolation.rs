@@ -249,8 +249,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // (MF, 種類, ln をとる区間があるか) → 見つけたレコードの数（当たりの分母）
     let mut found: BTreeMap<(u32, &'static str, bool), usize> = BTreeMap::new();
     for path in &paths {
+        // 親のディレクトリ（版）とファイルの名前
         let name: Vec<&str> = path.rsplit('/').take(2).collect();
-        let name = format!("{}/{}", name[1], name[0]);
+        let name = name.into_iter().rev().collect::<Vec<_>>().join("/");
         let text = match std::fs::read_to_string(path) {
             Ok(text) => text,
             Err(error) => {
