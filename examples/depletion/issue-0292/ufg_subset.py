@@ -8,14 +8,16 @@
 全核種の系列（`--series all`）は、データのある全核種を輸送するライブラリ（all/library）で燃焼させた履歴（all/<燃料>/nominal.msgpack）の
 組成から、同じ燃焼点を解く。足した核種は p2 のライブラリが輸送しない核種（all/added-to-p2.txt）で、組は `all`、`none`、上の `s17` と、
 足した核種の自己遮蔽の目安（dilution_shielding.py の all/dilution-<燃料>.json。燃焼度を通じた最大）が閾値 `THRESHOLDS_PCM` を
-どれかの燃料で超える核種の組（`t1` など。閾値が小さいほど核種が増え、前の組を含む）。対照（control.toml）は、試行のライブラリと
+どれかの燃料で超える核種の組（`t1` など。閾値が小さいほど核種が増え、前の組を含む）と、同じ閾値で全核種の燃焼の組成から出した目安
+（all/dilution-all-<燃料>.json。added_effect.py の吸収の割合から）の組（`a1` など）。対照（control.toml）は、試行のライブラリと
 同じ核種だけを輸送する対照のライブラリ（all/control。範囲と xs のビルドは全核種のライブラリと同じ）で、試行の履歴の組成を
 すべて UFG で解き、上の試行の系列の `all` との差（ライブラリの範囲と xs の版の分）を出す。
 
 - `python3 ufg_subset.py [--series all] inputs` は <置き場>/<燃料>/<組>.toml を書く（置き場は `SERIES`、出力は <置き場>/<燃料>/out/<組>.msgpack）
 - `python3 ufg_subset.py [--series all] compare --json <出力> <燃料>` は、組ごとの k∞（out/<組>.msgpack）と、自己遮蔽の区間の時間を
   `all` と比べる。差は 1/k(all) − 1/k(組)（pcm）。時間は、同じ入力を排他のジョブ（区分 timed）で解いたログ（out-timed/<組>.log）から
-  読む（記録に書く時間は排他のジョブのものだけ。スキル verification-record）。全核種の系列は、対照の差 1/k(試行の all) − 1/k(対照)
+  読む（記録に書く時間は排他のジョブのものだけ。スキル verification-record）。`--untimed <組>...` に挙げた組は、まだ排他のジョブで
+  解いていないものとして時間を書かない全核種の系列は、対照の差 1/k(試行の all) − 1/k(対照)
   （`library_change_pcm`）も書く
 - `python3 ufg_subset.py --report <JSON>...` は表を出す
 """
@@ -151,9 +153,11 @@ def control_input(fuel: str) -> str:
     )
 
 
-def threshold_sets(summaries: list[dict], thresholds) -> dict[str, list[str]]:
-    """閾値ごとの組: 自己遮蔽の目安（燃焼度を通じた最大）の絶対値が、どれかの燃料で閾値を超える核種を、燃料を通じた最大の
-    絶対値の大きい順に"""
+def threshold_sets(
+    summaries: list[dict], thresholds, prefix: str = "t"
+) -> dict[str, list[str]]:
+    """閾値ごとの組（名前は `prefix` と閾値）: 自己遮蔽の目安（燃焼度を通じた最大）の絶対値が、どれかの燃料で閾値を超える核種を、
+    燃料を通じた最大の絶対値の大きい順に"""
     largest = {}
     for d in summaries:
         for r in d["nuclides"]:
@@ -161,27 +165,37 @@ def threshold_sets(summaries: list[dict], thresholds) -> dict[str, list[str]]:
                 largest.get(r["nuclide"], 0.0), abs(r["max_pcm"])
             )
     ranked = sorted(largest, key=lambda n: -largest[n])
-    return {f"t{t:g}": [n for n in ranked if largest[n] > t] for t in thresholds}
+    return {f"{prefix}{t:g}": [n for n in ranked if largest[n] > t] for t in thresholds}
+
+
+# 自己遮蔽の目安の順位ごとの JSON の名前と組の名前の頭（`t` は p2 の 89 核種の燃焼の組成から、`a` は全核種の燃焼の組成から。
+# 89 核種の燃焼では足した核種が捕獲しないので、その捕獲の先の核種（Pm-148、Dy-160〜164 など）がほとんど無い）
+RANKINGS = {"t": "dilution-{fuel}.json", "a": "dilution-all-{fuel}.json"}
 
 
 def set_sources(series: str, root: Path) -> list[Path]:
-    """系列の組を決めるファイル（自己遮蔽の目安の JSON）"""
+    """系列の組を決めるファイル（自己遮蔽の目安の JSON。順位ごとに燃料の順）"""
     if SERIES[series]["sets"] == "fixed":
         return []
-    return [root / "all" / f"dilution-{fuel}.json" for fuel in FUELS]
+    return [
+        root / "all" / name.format(fuel=fuel)
+        for name in RANKINGS.values()
+        for fuel in FUELS
+    ]
 
 
 def sets(series: str, root: Path) -> dict:
     """系列の組: 名前 → UFG で解く足した核種（None はすべて）"""
     if SERIES[series]["sets"] == "fixed":
         return SETS
-    summaries = [json.loads(p.read_text()) for p in set_sources(series, root)]
-    return {
-        "all": None,
-        "none": [],
-        "s17": SHIELDED_17,
-        **threshold_sets(summaries, THRESHOLDS_PCM),
-    }
+    out = {"all": None, "none": [], "s17": SHIELDED_17}
+    for prefix, name in RANKINGS.items():
+        summaries = [
+            json.loads((root / "all" / name.format(fuel=fuel)).read_text())
+            for fuel in FUELS
+        ]
+        out.update(threshold_sets(summaries, THRESHOLDS_PCM, prefix))
+    return out
 
 
 def history_file(root: Path, config: dict, fuel: str) -> Path:
@@ -266,8 +280,13 @@ def kept_count(path: Path, added: set[str]) -> int | None:
     return None if names is None else sum(n in added for n in names)
 
 
-def compare(fuel: str, root: Path, series: str, cases_of=None) -> dict:
-    """`cases_of` は系列の組の名前（省けば `sets`。組の核種の数は、組の名前の入力から数える）"""
+def compare(
+    fuel: str, root: Path, series: str, cases_of=None, untimed=frozenset()
+) -> dict:
+    """`cases_of` は系列の組の名前（省けば `sets`。組の核種の数は、組の名前の入力から数える）。`untimed` は排他のジョブで
+    まだ解いていない組で、時間を書かない（基準の `all` は時間の比の分母なので挙げられない）"""
+    if "all" in untimed:
+        raise SystemExit("the reference set all must be timed")
     config = SERIES[series]
     inputs = []
     if cases_of is None:
@@ -283,18 +302,23 @@ def compare(fuel: str, root: Path, series: str, cases_of=None) -> dict:
         table_path = directory / "out" / f"{case}.msgpack"
         log_path = directory / "out-timed" / f"{case}.log"
         k = k_by_burnup(read(table_path))
-        seconds = shielding_seconds(log_path.read_text())
-        if len(seconds) != len(k):
-            raise SystemExit(
-                f"{log_path}: {len(seconds)} shieldings for {len(k)} states"
-            )
         input_path = directory / f"{case}.toml"
+        paths = [input_path, table_path]
+        if case in untimed:
+            seconds = None
+        else:
+            seconds = shielding_seconds(log_path.read_text())
+            if len(seconds) != len(k):
+                raise SystemExit(
+                    f"{log_path}: {len(seconds)} shieldings for {len(k)} states"
+                )
+            paths.append(log_path)
         cases[case] = {
             "k": k,
             "seconds": seconds,
             "kept": kept_count(input_path, added),
         }
-        for path in (input_path, table_path, log_path):
+        for path in paths:
             inputs.append(
                 {"path": str(path.relative_to(root.parent)), "md5": md5(path)}
             )
@@ -313,7 +337,9 @@ def compare(fuel: str, root: Path, series: str, cases_of=None) -> dict:
                     1e5 * (1.0 / reference["k"][b] - 1.0 / c["k"][b]) for b in burnup
                 ],
                 "seconds": c["seconds"],
-                "ratio": [s / r for s, r in zip(c["seconds"], reference["seconds"])],
+                "ratio": None
+                if c["seconds"] is None
+                else [s / r for s, r in zip(c["seconds"], reference["seconds"])],
             }
         )
     out = {
@@ -373,15 +399,18 @@ def k_table(summaries: list[dict]) -> str:
 
 
 def time_table(summaries: list[dict]) -> str:
-    """自己遮蔽の時間 (s) と、括弧の中に `all` に対する比の表"""
-    rows = [
-        [
-            f"{FUEL_NAMES[d['fuel']]} {c['case']}",
-            *(f"{s:.2f}（{r:.2f}）" for s, r in zip(c["seconds"], c["ratio"])),
-        ]
-        for d in summaries
-        for c in d["cases"]
-    ]
+    """自己遮蔽の時間 (s) と、括弧の中に `all` に対する比の表（排他のジョブで解いていない組は —）"""
+    rows = []
+    for d in summaries:
+        width = len(d["burnup"])
+        for c in d["cases"]:
+            if c["seconds"] is None:
+                cells = ["—"] * width
+            else:
+                cells = [
+                    f"{s:.2f}（{r:.2f}）" for s, r in zip(c["seconds"], c["ratio"])
+                ]
+            rows.append([f"{FUEL_NAMES[d['fuel']]} {c['case']}", *cells])
     return markdown_table(["燃料と組", *burnup_header(summaries)], rows)
 
 
@@ -414,13 +443,19 @@ def main() -> None:
     c = sub.add_parser("compare")
     c.add_argument("--json", type=Path, required=True)
     c.add_argument("fuel", choices=FUELS)
+    c.add_argument(
+        "--untimed",
+        nargs="+",
+        default=[],
+        help="排他のジョブでまだ解いていない組（時間を書かない）",
+    )
     args = parser.parse_args()
     if args.report:
         report(args.report)
     elif args.command == "inputs":
         write_inputs(args.series)
     elif args.command == "compare":
-        summary = compare(args.fuel, HERE, args.series)
+        summary = compare(args.fuel, HERE, args.series, untimed=frozenset(args.untimed))
         args.json.write_text(json.dumps(summary, indent=1) + "\n")
     else:
         parser.error("give inputs, compare or --report")
