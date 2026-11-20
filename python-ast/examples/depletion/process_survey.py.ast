@@ -18,6 +18,7 @@ CAUSES: list[tuple[str, str, str, str]] = [('neutron LAW=[67] is not supported',
 STAGES = {'reading': '走査でも止まる', 'processing': '処理で初めて止まる'}
 FILE_NAME = re.compile('n-\\d{3}_([A-Za-z]+)_(\\d{3})(?:m(\\d+))?\\.endf')
 LINE = re.compile('^line \\d+: ')
+TEMPERATURE_PREFIX = re.compile('^[\\d.]+ K: ')
 TIME = re.compile('(?:(?P<name>\\S+) )?(?P<e>[\\d.]+) s (?P<u>[\\d.]+) user (?P<m>\\d+) kB(?: exit (?P<x>\\d+))?')
 SIGNAL = re.compile('Command terminated by signal (\\d+)')
 LOG = re.compile('\\S+\\s+(?P<level>[A-Z]+) (?:nuclide\\{name=(?P<name>[^}]+)\\}\\S*: )?(?P<target>\\S+): (?P<message>.*)')
@@ -159,21 +160,25 @@ def summarize(versions: list, causes) -> dict:
             raise SystemExit(f'{label}: not an xlc chain')
         names = {(n['z'], n['a'], n['state']): n['name'] for n in chain['nuclides']}
         runs = {e['endf']: e for e in report['evaluations']}
+        if len(runs) != len(report['evaluations']):
+            raise SystemExit(f'{label}: the report lists a file twice')
+        chain_names = set(names.values())
         inside = {'evaluations': 0, 'passed': 0, 'stopped': 0, 'stopped_reading': 0}
         outside = {'evaluations': 0, 'processed': 0, 'passed': 0, 'stopped': 0, 'left_out': 0}
         stopped = []
         for s in survey['evaluation']:
             file = Path(s['endf']).name
             key = nuclide_key(file)
-            in_chain = key in names
-            counts = inside if in_chain else outside
-            counts['evaluations'] += 1
             run = runs.pop(file, None)
             if run is None:
                 if key[0] != 0:
                     raise SystemExit(f'{label}: {file} is not in the report')
+                outside['evaluations'] += 1
                 outside['left_out'] += 1
                 continue
+            in_chain = key in names or (key[1] == 0 and run['nuclide'] in chain_names)
+            counts = inside if in_chain else outside
+            counts['evaluations'] += 1
             if not in_chain:
                 outside['processed'] += 1
             if 'error' not in run:
@@ -184,6 +189,8 @@ def summarize(versions: list, causes) -> dict:
             else:
                 counts['stopped'] += 1
                 stage = 'reading' if 'error' in s else 'processing'
+                if 'error' in s and TEMPERATURE_PREFIX.sub('', run['error']) != LINE.sub('', s['error'], count=1):
+                    raise SystemExit(f"{label}: {file} stops in the survey with another reason ({s['error']})")
                 if in_chain and stage == 'reading':
                     inside['stopped_reading'] += 1
                 cause, where, issue = cause_of(run['error'], causes)

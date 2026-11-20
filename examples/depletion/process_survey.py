@@ -107,6 +107,7 @@ STAGES = {"reading": "走査でも止まる", "processing": "処理で初めて�
 
 FILE_NAME = re.compile(r"n-\d{3}_([A-Za-z]+)_(\d{3})(?:m(\d+))?\.endf")
 LINE = re.compile(r"^line \d+: ")
+TEMPERATURE_PREFIX = re.compile(r"^[\d.]+ K: ")
 # GNU time の行。混ざったログでは先頭に核種の名前がある。`exit` は核種ごとの時間のファイルだけ
 TIME = re.compile(
     r"(?:(?P<name>\S+) )?(?P<e>[\d.]+) s (?P<u>[\d.]+) user (?P<m>\d+) kB(?: exit (?P<x>\d+))?"
@@ -314,6 +315,9 @@ def summarize(versions: list, causes) -> dict:
             raise SystemExit(f"{label}: not an xlc chain")
         names = {(n["z"], n["a"], n["state"]): n["name"] for n in chain["nuclides"]}
         runs = {e["endf"]: e for e in report["evaluations"]}
+        if len(runs) != len(report["evaluations"]):
+            raise SystemExit(f"{label}: the report lists a file twice")
+        chain_names = set(names.values())
         inside = {"evaluations": 0, "passed": 0, "stopped": 0, "stopped_reading": 0}
         outside = {
             "evaluations": 0,
@@ -326,15 +330,17 @@ def summarize(versions: list, causes) -> dict:
         for s in survey["evaluation"]:
             file = Path(s["endf"]).name
             key = nuclide_key(file)
-            in_chain = key in names
-            counts = inside if in_chain else outside
-            counts["evaluations"] += 1
             run = runs.pop(file, None)
             if run is None:
                 if key[0] != 0:
                     raise SystemExit(f"{label}: {file} is not in the report")
+                outside["evaluations"] += 1
                 outside["left_out"] += 1
                 continue
+            # 天然の元素の評価は、それを使うチェーンの核種（ADR-0262）の名前で通したので、チェーンの評価に数える
+            in_chain = key in names or (key[1] == 0 and run["nuclide"] in chain_names)
+            counts = inside if in_chain else outside
+            counts["evaluations"] += 1
             if not in_chain:
                 outside["processed"] += 1
             if "error" not in run:
@@ -347,6 +353,13 @@ def summarize(versions: list, causes) -> dict:
             else:
                 counts["stopped"] += 1
                 stage = "reading" if "error" in s else "processing"
+                # 走査でも止まる評価は、同じ文で止まること（温度ごとの段の文は `<温度> K: ` が前に付く）
+                if "error" in s and TEMPERATURE_PREFIX.sub(
+                    "", run["error"]
+                ) != LINE.sub("", s["error"], count=1):
+                    raise SystemExit(
+                        f"{label}: {file} stops in the survey with another reason ({s['error']})"
+                    )
                 if in_chain and stage == "reading":
                     inside["stopped_reading"] += 1
                 cause, where, issue = cause_of(run["error"], causes)
