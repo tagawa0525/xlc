@@ -95,20 +95,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
 
-    // 即発の分布が読めない評価でも、散乱行列の比較は続ける
-    let prompt = match prompt_fission_spectrum(&tape, mat) {
-        Ok(spectrum) => spectrum,
-        Err(e) => {
-            println!("chi  : skipped ({e})");
-            None
-        }
-    };
-    if let (Some(fission), Some(nu), Some(spectrum), Some(gendf)) = (
-        tables.get(&18),
-        &nubar,
-        prompt,
-        reference.section(mat, 6, 18),
-    ) {
+    if let (Some(fission), Some(nu), Some(gendf)) =
+        (tables.get(&18), &nubar, reference.section(mat, 6, 18))
+        && let Some(spectrum) = prompt_fission_spectrum(&tape, mat)?
+    {
         // GROUPR の MF6 MT18 は即発の分布（MF5 か MF6 の MT18）だけを使うので、遅発中性子の分布（MF5 MT455）は混ぜない。
         // 入射エネルギーの重みも GROUPR と同じ ν_p（MF1 MT456。`getff` の `getyld`。MT456 がなければ GROUPR の `conver` が
         // MT452 をコピーする）にする。分布が入射エネルギーで変わる評価では、ν の全数の重みとの差が χ に出る
