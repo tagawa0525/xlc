@@ -2,6 +2,7 @@
 
 使い方: python3 dilution_shielding.py --json <出力> <履歴（msgpack）> <テーブル（msgpack）> <吸収の割合の JSON>
           <輸送する核種の xs のファイルの置き場> <足す核種の xs のファイルの置き場> <足した核種の一覧> [--temperature 565]
+          [--unranked <順位を付けない核種の一覧>]
         python3 dilution_shielding.py --report <出力の JSON>
 
 核種ごとの xs のファイル（`xs nuclide` の出力。ADR-0138）の Bondarenko の表（`shielded`。σ0 ごとの群の捕獲と核分裂）を、燃焼の領域の
@@ -135,6 +136,23 @@ def ratio(added, background, density, sigma0, w, temperature):
     return sum(a * x for a, x in zip(shielded, w)) / one, one / sum(w)
 
 
+def ranked_names(names, cooled, unranked):
+    """足した核種 `names` のうち順位を付けるもの。履歴のライブラリに無く、冷却計算の断面積（`cooled` はテーブルの冷却計算の
+    核種）と吸収の割合の無い核種は `unranked` に挙げ、順位を付けない。挙げ忘れ、足していない核種、順位を付けられる核種を挙げた
+    ものはエラー"""
+    cooled, unranked = set(cooled), list(unranked)
+    stray = sorted(set(unranked) - set(names))
+    if stray:
+        raise SystemExit(f"the unranked {stray} are not added nuclides")
+    rankable = sorted(set(unranked) & cooled)
+    if rankable:
+        raise SystemExit(f"{rankable} have cooling cross sections and can be ranked")
+    missing = [n for n in names if n not in cooled and n not in unranked]
+    if missing:
+        raise SystemExit(f"{missing} have no cooling cross sections of the history")
+    return [n for n in names if n not in unranked]
+
+
 def summarize(history, table, shares, transported_dir, added_dir, names, temperature):
     index = {n: i for i, n in enumerate(history["nuclides"])}
     volume = sum(r["volume"] for r in history["regions"])
@@ -231,6 +249,10 @@ def main():
     parser.add_argument("--json")
     parser.add_argument("--report")
     parser.add_argument("--temperature", type=float, default=565.0)
+    parser.add_argument(
+        "--unranked",
+        help="順位を付けない足した核種の一覧（履歴のライブラリに無い核種）",
+    )
     parser.add_argument("files", nargs="*")
     args = parser.parse_args()
     if args.report:
@@ -241,13 +263,18 @@ def main():
     history_path, table_path, shares_path, transported_dir, added_dir, list_path = (
         args.files
     )
-    names = Path(list_path).read_text().split()
+    added = Path(list_path).read_text().split()
+    unranked = Path(args.unranked).read_text().split() if args.unranked else []
+    table = read(table_path)
+    names = ranked_names(added, table["cooling"]["nuclides"], unranked)
     summary = {
         "format": "xlc-dilution-shielding",
         "inputs": [
             {"path": f, "md5": hashlib.md5(Path(f).read_bytes()).hexdigest()}
             for f in (history_path, table_path, shares_path, list_path)
+            + ((args.unranked,) if args.unranked else ())
         ],
+        "unranked": unranked,
         # 比を決める xs のファイルの置き場ごとの md5（足す核種と、履歴の輸送する核種）
         "xs_files": {
             "added": directory_md5(added_dir, names),
@@ -258,7 +285,7 @@ def main():
         "temperature": args.temperature,
         "nuclides": summarize(
             read(history_path),
-            read(table_path),
+            table,
             json.loads(Path(shares_path).read_text()),
             transported_dir,
             added_dir,
