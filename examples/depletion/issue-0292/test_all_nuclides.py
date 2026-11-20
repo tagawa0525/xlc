@@ -83,6 +83,7 @@ def entries(errors=None, excluded=EXCLUDED):
         survey(stopped if errors is None else errors),
         CHAIN,
         excluded,
+        trial_version=True,
     )
 
 
@@ -141,7 +142,11 @@ class Library(unittest.TestCase):
         base["C-0"] = {"endf": "n-006_C_000.endf", "temperatures": [565]}
         with self.assertRaises(SystemExit):
             all_nuclides.library_entries(
-                base, survey({"n-090_Th_232.endf": "line 9: x"}), CHAIN, EXCLUDED
+                base,
+                survey({"n-090_Th_232.endf": "line 9: x"}),
+                CHAIN,
+                EXCLUDED,
+                trial_version=True,
             )
 
     def test_a_base_nuclide_of_another_file_stops_in_its_own_version(self):
@@ -149,7 +154,11 @@ class Library(unittest.TestCase):
         base["U-235"] = {**base["U-235"], "endf": "n-092_U_235b.endf"}
         with self.assertRaises(SystemExit):
             all_nuclides.library_entries(
-                base, survey({"n-090_Th_232.endf": "line 9: x"}), CHAIN, EXCLUDED
+                base,
+                survey({"n-090_Th_232.endf": "line 9: x"}),
+                CHAIN,
+                EXCLUDED,
+                trial_version=True,
             )
 
     def test_a_base_nuclide_without_a_chain_evaluation_is_left_out_of_another_version(
@@ -369,6 +378,19 @@ class Versions(unittest.TestCase):
         with self.assertRaises(SystemExit):
             all_nuclides.chain_evaluations(other_version(), NATURAL_CHAIN, [])
 
+    def test_the_version_of_the_trial_input_must_be_given(self):
+        # 試行の入力と同じ版かで、試行の核種の食い違いを止めるか入れないかが変わるので、既定を置かない
+        with self.assertRaises(TypeError):
+            all_nuclides.library_entries(
+                tomllib.loads(BASE)["nuclide"], other_version(), NATURAL_CHAIN, {}
+            )
+
+    def test_a_listed_isotope_outside_the_chain_stops_as_such(self):
+        with self.assertRaisesRegex(SystemExit, "not in the chain"):
+            all_nuclides.chain_evaluations(
+                other_version(), NATURAL_CHAIN, ["C-12", "C-13", "C-14"]
+            )
+
     def test_a_listed_isotope_without_a_natural_evaluation_stops(self):
         # ADR-0262: 天然の元素の評価の無い元素の核種を挙げたらエラー（黙って核種を落とさない）
         s = other_version()
@@ -457,6 +479,19 @@ class VersionFiles(unittest.TestCase):
         for key, version in all_nuclides.VERSIONS.items():
             self.assertEqual(version["key"], key)
             self.assertEqual(version["trial_version"], key == "endfb80")
+
+    def test_the_head_needs_one_thermal_scatterer(self):
+        for entries in (
+            {},
+            {
+                "H-1": {"thermal": "t", "temperatures": [550]},
+                "H-2": {"thermal": "t", "temperatures": [550]},
+            },
+        ):
+            with self.assertRaises(SystemExit):
+                all_nuclides.library_head(
+                    all_nuclides.VERSIONS["endfb81"], ["なし"], [], entries
+                )
 
     def test_the_head_counts_the_thermal_points_of_the_entries(self):
         entries = {"H-1": {"thermal": "t", "temperatures": [550, 573.6, 600]}}

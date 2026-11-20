@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import compare_versions
@@ -164,19 +165,61 @@ class Guards(unittest.TestCase):
         with self.assertRaises(SystemExit):
             compare_versions.absorptions(h, t, volume)
 
+    def places(
+        self, root, library="../v/library/depletion.msgpack", chain="../c.msgpack"
+    ):
+        """版の置き場 v（library と燃焼の履歴 u）と、テーブルの入力 ufg/all.toml"""
+        (root / "v" / "u").mkdir(parents=True)
+        (root / "ufg" / "out").mkdir(parents=True)
+        (root / "v" / "u" / "nominal.toml").write_text(
+            '[depletion]\nchain = "../../c.msgpack"\n'
+        )
+        (root / "ufg" / "all.toml").write_text(
+            'few-group = { output = "out/all.msgpack" }\n'
+            f'library = "{library}"\n'
+            f'[history]\nfile = "../v/u/nominal.msgpack"\nchain = "{chain}"\n'
+        )
+        return (
+            root / "v" / "u" / "nominal.msgpack",
+            root / "ufg" / "out" / "all.msgpack",
+            root / "ufg" / "all.toml",
+        )
+
+    def test_the_table_input_must_use_the_library_and_chain_of_the_history(self):
+        for library, chain in [
+            ("../w/library/depletion.msgpack", "../c.msgpack"),
+            ("../v/library/depletion.msgpack", "../d.msgpack"),
+        ]:
+            with (
+                self.subTest(library=library, chain=chain),
+                tempfile.TemporaryDirectory() as d,
+            ):
+                files = self.places(Path(d), library, chain)
+                with self.assertRaises(SystemExit):
+                    compare_versions.check_inputs(*files)
+
+    def test_the_shares_check_the_inputs_too(self):
+        with tempfile.TemporaryDirectory() as d:
+            _, table, table_input = self.places(Path(d))
+            names = Path(d) / "names.txt"
+            names.write_text("Co-58\n")
+            argv = [
+                "compare_versions.py",
+                "shares",
+                "--json",
+                str(Path(d) / "o.json"),
+                str(Path(d) / "other.msgpack"),
+                str(table),
+                str(table_input),
+                str(names),
+            ]
+            with mock.patch.object(sys, "argv", argv), self.assertRaises(SystemExit):
+                compare_versions.main()
+
     def test_the_table_input_must_solve_the_given_history_into_the_given_table(self):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
-            (root / "h").mkdir()
-            (root / "ufg" / "out").mkdir(parents=True)
-            text = (
-                'few-group = { output = "out/all.msgpack" }\n'
-                '[history]\nfile = "../h/nominal.msgpack"\n'
-            )
-            (root / "ufg" / "all.toml").write_text(text)
-            history = root / "h" / "nominal.msgpack"
-            table = root / "ufg" / "out" / "all.msgpack"
-            table_input = root / "ufg" / "all.toml"
+            history, table, table_input = self.places(root)
             compare_versions.check_inputs(history, table, table_input)
             with self.assertRaises(SystemExit):
                 compare_versions.check_inputs(
