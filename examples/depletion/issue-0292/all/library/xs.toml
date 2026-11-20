@@ -2,9 +2,7 @@
 # all_nuclides.py が ../../trial/library/xs.toml と ../../../read-survey-endfb80.toml から書く。手で直さない。
 # 温度は試行のセルの 565 K の 1 点（H-1 は S(α, β) の内挿に使う 4 点）。理由は all_nuclides.py の TEMPERATURE。
 # xs が止まる評価は外す（外した核種と issue）:
-#   Th-232: 核分裂の中性子の分布が MF6 MT18 で、輸送する核種として処理できない（#0312）。放射化の核種として残す
-#   Pa-231: 核分裂の中性子の分布が MF6 MT18 で、輸送する核種として処理できない（#0312）。放射化の核種として残す
-#   Pa-233: 核分裂の中性子の分布が MF6 MT18 で、輸送する核種として処理できない（#0312）。放射化の核種として残す
+#   なし
 output = "depletion.msgpack"
 endf-directory = "../../../../../references/endf/ENDF-B-VIII.0_neutrons"
 thermal-directory = "../../../../../references/endf/ENDF-B-VIII.0_thermal_scatt"
@@ -495,14 +493,14 @@ Th-228 = { endf = "n-090_Th_228.endf", temperatures = [565] }
 Th-229 = { endf = "n-090_Th_229.endf", temperatures = [565] }
 Th-230 = { endf = "n-090_Th_230.endf", temperatures = [565] }
 Th-231 = { endf = "n-090_Th_231.endf", temperatures = [565] }
-Th-232 = { endf = "n-090_Th_232.endf", temperatures = [565], activation = true }
+Th-232 = { endf = "n-090_Th_232.endf", temperatures = [565] }
 Th-233 = { endf = "n-090_Th_233.endf", temperatures = [565] }
 Th-234 = { endf = "n-090_Th_234.endf", temperatures = [565] }
 Pa-229 = { endf = "n-091_Pa_229.endf", temperatures = [565] }
 Pa-230 = { endf = "n-091_Pa_230.endf", temperatures = [565] }
-Pa-231 = { endf = "n-091_Pa_231.endf", temperatures = [565], activation = true }
+Pa-231 = { endf = "n-091_Pa_231.endf", temperatures = [565] }
 Pa-232 = { endf = "n-091_Pa_232.endf", temperatures = [565] }
-Pa-233 = { endf = "n-091_Pa_233.endf", temperatures = [565], activation = true }
+Pa-233 = { endf = "n-091_Pa_233.endf", temperatures = [565] }
 U-230 = { endf = "n-092_U_230.endf", temperatures = [565] }
 U-231 = { endf = "n-092_U_231.endf", temperatures = [565] }
 U-232 = { endf = "n-092_U_232.endf", temperatures = [565] }

@@ -15,15 +15,17 @@
   },
   {
    "path": "issue-0292/all/added-to-p2.txt",
-   "md5": "3e799f3dbc90e9263e7b2386d8bb7871"
+   "md5": "48d185c058dc495739c214cc4f1caf42"
   },
   {
    "path": "issue-0292/all/unranked.txt",
-   "md5": "16a1c5b6f2be18ec89656284db4136e6"
+   "md5": "03f21aab6cd07449afda546694c8a8c3"
   }
  ],
  "unranked": [
   "He-4",
+  "Cl-35",
+  "Ca-40",
   "Tm-169",
   "W-182",
   "W-183",
@@ -38,8 +40,8 @@
   "Be-7"
  ],
  "xs_files": {
-  "added": "c19c14c650b7e98dcdab864c009bc5d4",
-  "transported": "2e43d7ef20000e6dceb1052231a196cd"
+  "added": "5cc758165d337730d538f6fc5ee98e89",
+  "transported": "1b13ec0ded827ccaa2a71d3632d51523"
  },
  "temperature": 565.0,
  "nuclides": [
@@ -2610,136 +2612,136 @@
   },
   {
    "nuclide": "Eu-154",
-   "max_pcm": 0.7406332635152074,
+   "max_pcm": 0.74063285690603,
    "burnup": 60.0,
    "points": [
     {
      "burnup": 0.1,
      "density": 2.4923881827154393e-12,
      "ratio": 1.0,
-     "infinite_one_group": 305.63109495067204,
-     "weight_check": 1.3095601652007693,
+     "infinite_one_group": 305.6310949506725,
+     "weight_check": 1.3095601652007713,
      "shielding_pcm": 0.0
     },
     {
      "burnup": 0.5,
      "density": 1.683478004312017e-10,
-     "ratio": 0.9999787904763316,
-     "infinite_one_group": 302.9848351791536,
-     "weight_check": 1.3134434113984264,
-     "shielding_pcm": 1.0133394718201615e-06
+     "ratio": 0.9999787904875823,
+     "infinite_one_group": 302.9848351791541,
+     "weight_check": 1.3134434113984286,
+     "shielding_pcm": 1.013338934290644e-06
     },
     {
      "burnup": 1.0,
      "density": 8.413105875122381e-10,
-     "ratio": 0.9999255111872013,
-     "infinite_one_group": 300.0722934609577,
-     "weight_check": 1.317603085291799,
-     "shielding_pcm": 1.7139912716802117e-05
+     "ratio": 0.999925511223527,
+     "infinite_one_group": 300.0722934609583,
+     "weight_check": 1.3176030852918017,
+     "shielding_pcm": 1.7139904358235908e-05
     },
     {
      "burnup": 2.0,
      "density": 3.936068057523155e-09,
-     "ratio": 0.9998479035525458,
-     "infinite_one_group": 295.2308803904775,
-     "weight_check": 1.324435846478517,
-     "shielding_pcm": 0.00015236262485024152
+     "ratio": 0.999847903615171,
+     "infinite_one_group": 295.2308803904781,
+     "weight_check": 1.3244358464785195,
+     "shielding_pcm": 0.0001523625621155167
     },
     {
      "burnup": 4.0,
      "density": 1.857951885868358e-08,
-     "ratio": 0.9997647956914258,
-     "infinite_one_group": 287.4430330868203,
-     "weight_check": 1.3356784985040988,
-     "shielding_pcm": 0.0009875766491577336
+     "ratio": 0.9997647957826603,
+     "infinite_one_group": 287.4430330868209,
+     "weight_check": 1.3356784985041015,
+     "shielding_pcm": 0.0009875762660821546
     },
     {
      "burnup": 6.0,
      "density": 4.7558984616918134e-08,
-     "ratio": 0.9997109760225031,
-     "infinite_one_group": 281.55185941029794,
-     "weight_check": 1.3445279342450909,
-     "shielding_pcm": 0.002809980205165567
+     "ratio": 0.9997109761325186,
+     "infinite_one_group": 281.5518594102985,
+     "weight_check": 1.3445279342450935,
+     "shielding_pcm": 0.0028099791355615336
     },
     {
      "burnup": 8.0,
      "density": 9.459060399396761e-08,
-     "ratio": 0.9996699196913128,
-     "infinite_one_group": 277.06327865480483,
-     "weight_check": 1.3515333144765027,
-     "shielding_pcm": 0.005865761342225768
+     "ratio": 0.9996699198157563,
+     "infinite_one_group": 277.06327865480534,
+     "weight_check": 1.3515333144765052,
+     "shielding_pcm": 0.005865759130777247
     },
     {
      "burnup": 10.0,
      "density": 1.631580636638626e-07,
-     "ratio": 0.999636556107663,
-     "infinite_one_group": 273.6181428426014,
-     "weight_check": 1.3570800319670762,
-     "shielding_pcm": 0.010338430033134583
+     "ratio": 0.9996365562438724,
+     "infinite_one_group": 273.61814284260197,
+     "weight_check": 1.3570800319670788,
+     "shielding_pcm": 0.010338426158558218
     },
     {
      "burnup": 14.0,
      "density": 3.7706261554590847e-07,
-     "ratio": 0.9995845710388624,
-     "infinite_one_group": 268.9262406122597,
-     "weight_check": 1.3648410483163844,
-     "shielding_pcm": 0.023955784108706597
+     "ratio": 0.9995845711934307,
+     "infinite_one_group": 268.9262406122602,
+     "weight_check": 1.364841048316387,
+     "shielding_pcm": 0.023955775195501443
     },
     {
      "burnup": 20.0,
      "density": 9.254046522540756e-07,
-     "ratio": 0.9995292976612177,
-     "infinite_one_group": 265.2493571800009,
-     "weight_check": 1.370869289477666,
-     "shielding_pcm": 0.0560761371977004
+     "ratio": 0.9995292978352658,
+     "infinite_one_group": 265.2493571800015,
+     "weight_check": 1.3708692894776688,
+     "shielding_pcm": 0.05607611646284347
     },
     {
      "burnup": 26.0,
      "density": 1.784225903707554e-06,
-     "ratio": 0.9994903717978174,
-     "infinite_one_group": 263.7783482791032,
-     "weight_check": 1.3728736811664224,
-     "shielding_pcm": 0.1005499788343128
+     "ratio": 0.9994903719855043,
+     "infinite_one_group": 263.77834827910374,
+     "weight_check": 1.372873681166425,
+     "shielding_pcm": 0.10054994180357091
     },
     {
      "burnup": 32.0,
      "density": 2.9715009827940237e-06,
-     "ratio": 0.9994614977859979,
-     "infinite_one_group": 263.4060345038796,
-     "weight_check": 1.3728133240026406,
-     "shielding_pcm": 0.15364139553198877
+     "ratio": 0.9994614979837384,
+     "infinite_one_group": 263.4060345038801,
+     "weight_check": 1.3728133240026432,
+     "shielding_pcm": 0.15364133911416142
     },
     {
      "burnup": 40.0,
      "density": 5.053968943936882e-06,
-     "ratio": 0.9994122480992104,
-     "infinite_one_group": 263.62394974118973,
-     "weight_check": 1.371521512527572,
-     "shielding_pcm": 0.23862066122926157
+     "ratio": 0.9994122483147984,
+     "infinite_one_group": 263.6239497411903,
+     "weight_check": 1.3715215125275748,
+     "shielding_pcm": 0.23862057370296158
     },
     {
      "burnup": 48.0,
      "density": 7.64673931801393e-06,
-     "ratio": 0.999200525187715,
-     "infinite_one_group": 263.93939606082824,
-     "weight_check": 1.3703123347914985,
-     "shielding_pcm": 0.41303415755702255
+     "ratio": 0.9992005255460371,
+     "infinite_one_group": 263.9393960608288,
+     "weight_check": 1.3703123347915014,
+     "shielding_pcm": 0.4130339724363847
     },
     {
      "burnup": 56.0,
      "density": 1.0651543442509279e-05,
-     "ratio": 0.9989703463966306,
-     "infinite_one_group": 263.9767335134445,
-     "weight_check": 1.3698814432948163,
-     "shielding_pcm": 0.6316891636102459
+     "ratio": 0.9989703469366712,
+     "infinite_one_group": 263.9767335134451,
+     "weight_check": 1.3698814432948192,
+     "shielding_pcm": 0.6316888322970998
     },
     {
      "burnup": 60.0,
      "density": 1.227361024100553e-05,
-     "ratio": 0.9988701227575977,
-     "infinite_one_group": 263.84532900397426,
-     "weight_check": 1.3700452851059313,
-     "shielding_pcm": 0.7406332635152074
+     "ratio": 0.9988701233779026,
+     "infinite_one_group": 263.8453290039748,
+     "weight_check": 1.3700452851059342,
+     "shielding_pcm": 0.74063285690603
     }
    ]
   },
@@ -16244,6 +16246,141 @@
    ]
   },
   {
+   "nuclide": "H-2",
+   "max_pcm": 0.0,
+   "burnup": 0.1,
+   "points": [
+    {
+     "burnup": 0.1,
+     "density": 0.0,
+     "ratio": 1.0,
+     "infinite_one_group": 5.585768448088892e-05,
+     "weight_check": 1.3750238944165574,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 0.5,
+     "density": 0.0,
+     "ratio": 1.0,
+     "infinite_one_group": 5.537536798440243e-05,
+     "weight_check": 1.3769041292823645,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 1.0,
+     "density": 0.0,
+     "ratio": 1.0,
+     "infinite_one_group": 5.484451801551033e-05,
+     "weight_check": 1.3783852498314944,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 2.0,
+     "density": 0.0,
+     "ratio": 1.0,
+     "infinite_one_group": 5.396210525493012e-05,
+     "weight_check": 1.3803437895780455,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 4.0,
+     "density": 0.0,
+     "ratio": 1.0,
+     "infinite_one_group": 5.254266515796775e-05,
+     "weight_check": 1.383313177308057,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 6.0,
+     "density": 0.0,
+     "ratio": 1.0,
+     "infinite_one_group": 5.146891938348418e-05,
+     "weight_check": 1.3853125607820407,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 8.0,
+     "density": 0.0,
+     "ratio": 1.0,
+     "infinite_one_group": 5.065081506602939e-05,
+     "weight_check": 1.3865176496375125,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 10.0,
+     "density": 0.0,
+     "ratio": 1.0,
+     "infinite_one_group": 5.0022892647850226e-05,
+     "weight_check": 1.3870808738463623,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 14.0,
+     "density": 0.0,
+     "ratio": 1.0,
+     "infinite_one_group": 4.916773025224872e-05,
+     "weight_check": 1.3867396173851239,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 20.0,
+     "density": 0.0,
+     "ratio": 1.0,
+     "infinite_one_group": 4.849756870797271e-05,
+     "weight_check": 1.3838953766152124,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 26.0,
+     "density": 0.0,
+     "ratio": 1.0,
+     "infinite_one_group": 4.8229457516842617e-05,
+     "weight_check": 1.3796391614964665,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 32.0,
+     "density": 0.0,
+     "ratio": 1.0,
+     "infinite_one_group": 4.816159831511487e-05,
+     "weight_check": 1.375016756732442,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 40.0,
+     "density": 0.0,
+     "ratio": 1.0,
+     "infinite_one_group": 4.820131630309234e-05,
+     "weight_check": 1.3693552696020808,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 48.0,
+     "density": 0.0,
+     "ratio": 1.0,
+     "infinite_one_group": 4.825881064486299e-05,
+     "weight_check": 1.3650481215107784,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 56.0,
+     "density": 0.0,
+     "ratio": 1.0,
+     "infinite_one_group": 4.826561589865079e-05,
+     "weight_check": 1.3623337108112368,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 60.0,
+     "density": 0.0,
+     "ratio": 1.0,
+     "infinite_one_group": 4.824166565638343e-05,
+     "weight_check": 1.3615570868512146,
+     "shielding_pcm": 0.0
+    }
+   ]
+  },
+  {
    "nuclide": "He-3",
    "max_pcm": 0.0,
    "burnup": 0.1,
@@ -16644,6 +16781,141 @@
      "ratio": 1.0,
      "infinite_one_group": 0.004186173109219483,
      "weight_check": 1.4383724624255247,
+     "shielding_pcm": 0.0
+    }
+   ]
+  },
+  {
+   "nuclide": "Be-9",
+   "max_pcm": 0.0,
+   "burnup": 0.1,
+   "points": [
+    {
+     "burnup": 0.1,
+     "density": 0.0,
+     "ratio": 1.0,
+     "infinite_one_group": 0.0010775187802802733,
+     "weight_check": 1.4369503817498428,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 0.5,
+     "density": 0.0,
+     "ratio": 1.0,
+     "infinite_one_group": 0.0010678885965893256,
+     "weight_check": 1.439831668882699,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 1.0,
+     "density": 3.6871815280073655e-29,
+     "ratio": 1.0,
+     "infinite_one_group": 0.0010572893681780953,
+     "weight_check": 1.4423830544862477,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 2.0,
+     "density": 8.636306840887363e-29,
+     "ratio": 1.0,
+     "infinite_one_group": 0.0010396706530034598,
+     "weight_check": 1.446129759415908,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 4.0,
+     "density": 2.372398695788593e-28,
+     "ratio": 1.0,
+     "infinite_one_group": 0.001011329368864059,
+     "weight_check": 1.4521234793411988,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 6.0,
+     "density": 2.9287297761145277e-28,
+     "ratio": 1.0,
+     "infinite_one_group": 0.0009898903985593285,
+     "weight_check": 1.4565299335694202,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 8.0,
+     "density": 5.734645541618676e-28,
+     "ratio": 1.0,
+     "infinite_one_group": 0.000973555699429527,
+     "weight_check": 1.459623580532963,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 10.0,
+     "density": 1.0283049189345753e-27,
+     "ratio": 1.0,
+     "infinite_one_group": 0.000961018271672484,
+     "weight_check": 1.461650642158527,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 14.0,
+     "density": 2.4941192538925826e-27,
+     "ratio": 1.0,
+     "infinite_one_group": 0.0009439436515522413,
+     "weight_check": 1.4632557881998047,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 20.0,
+     "density": 6.141278110656639e-27,
+     "ratio": 1.0,
+     "infinite_one_group": 0.0009305628552887906,
+     "weight_check": 1.4617091896387362,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 26.0,
+     "density": 1.099140781530231e-26,
+     "ratio": 1.0,
+     "infinite_one_group": 0.0009252096068741287,
+     "weight_check": 1.4576439347427563,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 32.0,
+     "density": 1.6426006221490857e-26,
+     "ratio": 1.0,
+     "infinite_one_group": 0.0009238546945240022,
+     "weight_check": 1.4526972432115433,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 40.0,
+     "density": 2.2964594157513933e-26,
+     "ratio": 1.0,
+     "infinite_one_group": 0.0009246477246667494,
+     "weight_check": 1.4463716201783596,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 48.0,
+     "density": 3.053076576314447e-26,
+     "ratio": 1.0,
+     "infinite_one_group": 0.0009257956867963363,
+     "weight_check": 1.4415428119294136,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 56.0,
+     "density": 3.992104999999296e-26,
+     "ratio": 1.0,
+     "infinite_one_group": 0.0009259315640564288,
+     "weight_check": 1.4386338442816362,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 60.0,
+     "density": 4.534215479918826e-26,
+     "ratio": 1.0,
+     "infinite_one_group": 0.0009254533609799062,
+     "weight_check": 1.4378974590376679,
      "shielding_pcm": 0.0
     }
    ]
@@ -17602,128 +17874,128 @@
      "burnup": 0.1,
      "density": 0.0,
      "ratio": 1.0,
-     "infinite_one_group": 27.88475466951661,
-     "weight_check": 1.4485360577182298,
+     "infinite_one_group": 27.884754669519747,
+     "weight_check": 1.4485360577183928,
      "shielding_pcm": 0.0
     },
     {
      "burnup": 0.5,
      "density": 0.0,
      "ratio": 1.0,
-     "infinite_one_group": 27.64368693079399,
-     "weight_check": 1.4515081835395958,
+     "infinite_one_group": 27.643686930797134,
+     "weight_check": 1.451508183539761,
      "shielding_pcm": 0.0
     },
     {
      "burnup": 1.0,
      "density": 0.0,
      "ratio": 1.0,
-     "infinite_one_group": 27.378361563459436,
-     "weight_check": 1.4541708189022096,
+     "infinite_one_group": 27.37836156346259,
+     "weight_check": 1.4541708189023772,
      "shielding_pcm": 0.0
     },
     {
      "burnup": 2.0,
      "density": 0.0,
      "ratio": 1.0,
-     "infinite_one_group": 26.937320773101536,
-     "weight_check": 1.458110009890788,
+     "infinite_one_group": 26.937320773104698,
+     "weight_check": 1.4581100098909592,
      "shielding_pcm": 0.0
     },
     {
      "burnup": 4.0,
      "density": 0.0,
      "ratio": 1.0,
-     "infinite_one_group": 26.227867090883308,
-     "weight_check": 1.464415847105646,
+     "infinite_one_group": 26.227867090886484,
+     "weight_check": 1.4644158471058235,
      "shielding_pcm": 0.0
     },
     {
      "burnup": 6.0,
      "density": 0.0,
      "ratio": 1.0,
-     "infinite_one_group": 25.69119569833646,
-     "weight_check": 1.469061237810301,
+     "infinite_one_group": 25.691195698339655,
+     "weight_check": 1.4690612378104837,
      "shielding_pcm": 0.0
     },
     {
      "burnup": 8.0,
      "density": 0.0,
      "ratio": 1.0,
-     "infinite_one_group": 25.282297061684577,
-     "weight_check": 1.4723399881778263,
+     "infinite_one_group": 25.28229706168778,
+     "weight_check": 1.4723399881780126,
      "shielding_pcm": 0.0
     },
     {
      "burnup": 10.0,
      "density": 0.0,
      "ratio": 1.0,
-     "infinite_one_group": 24.968453685921183,
-     "weight_check": 1.4745121518175908,
+     "infinite_one_group": 24.968453685924395,
+     "weight_check": 1.4745121518177804,
      "shielding_pcm": 0.0
     },
     {
      "burnup": 14.0,
      "density": 0.0,
      "ratio": 1.0,
-     "infinite_one_group": 24.54103296436175,
-     "weight_check": 1.4763238304489459,
+     "infinite_one_group": 24.54103296436497,
+     "weight_check": 1.4763238304491395,
      "shielding_pcm": 0.0
     },
     {
      "burnup": 20.0,
      "density": 0.0,
      "ratio": 1.0,
-     "infinite_one_group": 24.2060779519698,
-     "weight_check": 1.4749606286653485,
+     "infinite_one_group": 24.206077951973022,
+     "weight_check": 1.4749606286655448,
      "shielding_pcm": 0.0
     },
     {
      "burnup": 26.0,
      "density": 0.0,
      "ratio": 1.0,
-     "infinite_one_group": 24.072072669042942,
-     "weight_check": 1.470998248178902,
+     "infinite_one_group": 24.072072669046175,
+     "weight_check": 1.4709982481790995,
      "shielding_pcm": 0.0
     },
     {
      "burnup": 32.0,
      "density": 0.0,
      "ratio": 1.0,
-     "infinite_one_group": 24.038155802356442,
-     "weight_check": 1.466115802349171,
+     "infinite_one_group": 24.038155802359675,
+     "weight_check": 1.4661158023493681,
      "shielding_pcm": 0.0
     },
     {
      "burnup": 40.0,
      "density": 0.0,
      "ratio": 1.0,
-     "infinite_one_group": 24.05800734303169,
-     "weight_check": 1.4598510754899585,
+     "infinite_one_group": 24.05800734303492,
+     "weight_check": 1.4598510754901544,
      "shielding_pcm": 0.0
     },
     {
      "burnup": 48.0,
      "density": 0.0,
      "ratio": 1.0,
-     "infinite_one_group": 24.08674372476643,
-     "weight_check": 1.4550785248566978,
+     "infinite_one_group": 24.086743724769654,
+     "weight_check": 1.4550785248568927,
      "shielding_pcm": 0.0
     },
     {
      "burnup": 56.0,
      "density": 0.0,
      "ratio": 1.0,
-     "infinite_one_group": 24.090145074614526,
-     "weight_check": 1.4522334434220758,
+     "infinite_one_group": 24.090145074617748,
+     "weight_check": 1.4522334434222701,
      "shielding_pcm": 0.0
     },
     {
      "burnup": 60.0,
      "density": 0.0,
      "ratio": 1.0,
-     "infinite_one_group": 24.078174447884333,
-     "weight_check": 1.451533147181783,
+     "infinite_one_group": 24.078174447887562,
+     "weight_check": 1.4515331471819777,
      "shielding_pcm": 0.0
     }
    ]
@@ -19627,128 +19899,128 @@
      "burnup": 0.1,
      "density": 0.0,
      "ratio": 1.0,
-     "infinite_one_group": 0.5453713100757934,
-     "weight_check": 1.436250480034623,
+     "infinite_one_group": 0.5453713100758038,
+     "weight_check": 1.43625048003465,
      "shielding_pcm": 0.0
     },
     {
      "burnup": 0.5,
      "density": 0.0,
      "ratio": 1.0,
-     "infinite_one_group": 0.5404882731444705,
-     "weight_check": 1.43907412531354,
+     "infinite_one_group": 0.5404882731444809,
+     "weight_check": 1.4390741253135677,
      "shielding_pcm": 0.0
     },
     {
      "burnup": 1.0,
      "density": 0.0,
      "ratio": 1.0,
-     "infinite_one_group": 0.5351138768259229,
-     "weight_check": 1.4415598057030168,
+     "infinite_one_group": 0.5351138768259333,
+     "weight_check": 1.4415598057030445,
      "shielding_pcm": 0.0
     },
     {
      "burnup": 2.0,
      "density": 0.0,
      "ratio": 1.0,
-     "infinite_one_group": 0.5261802116289575,
-     "weight_check": 1.4451896738523695,
+     "infinite_one_group": 0.5261802116289678,
+     "weight_check": 1.445189673852398,
      "shielding_pcm": 0.0
     },
     {
      "burnup": 4.0,
      "density": 0.0,
      "ratio": 1.0,
-     "infinite_one_group": 0.5118096096160487,
-     "weight_check": 1.4509769511056891,
+     "infinite_one_group": 0.5118096096160591,
+     "weight_check": 1.450976951105719,
      "shielding_pcm": 0.0
     },
     {
      "burnup": 6.0,
      "density": 0.0,
      "ratio": 1.0,
-     "infinite_one_group": 0.5009388633118074,
-     "weight_check": 1.4552100968697086,
+     "infinite_one_group": 0.5009388633118179,
+     "weight_check": 1.4552100968697392,
      "shielding_pcm": 0.0
     },
     {
      "burnup": 8.0,
      "density": 0.0,
      "ratio": 1.0,
-     "infinite_one_group": 0.49265626542243923,
-     "weight_check": 1.4581594592525151,
+     "infinite_one_group": 0.4926562654224497,
+     "weight_check": 1.4581594592525462,
      "shielding_pcm": 0.0
     },
     {
      "burnup": 10.0,
      "density": 0.0,
      "ratio": 1.0,
-     "infinite_one_group": 0.4862990946013903,
-     "weight_check": 1.4600664316189353,
+     "infinite_one_group": 0.48629909460140086,
+     "weight_check": 1.460066431618967,
      "shielding_pcm": 0.0
     },
     {
      "burnup": 14.0,
      "density": 0.0,
      "ratio": 1.0,
-     "infinite_one_group": 0.4776413157561302,
-     "weight_check": 1.4614880165135895,
+     "infinite_one_group": 0.47764131575614077,
+     "weight_check": 1.461488016513622,
      "shielding_pcm": 0.0
     },
     {
      "burnup": 20.0,
      "density": 0.0,
      "ratio": 1.0,
-     "infinite_one_group": 0.47085651035450987,
-     "weight_check": 1.4597622363025387,
+     "infinite_one_group": 0.4708565103545205,
+     "weight_check": 1.4597622363025715,
      "shielding_pcm": 0.0
     },
     {
      "burnup": 26.0,
      "density": 0.0,
      "ratio": 1.0,
-     "infinite_one_group": 0.4681421166783113,
-     "weight_check": 1.4555884219359554,
+     "infinite_one_group": 0.46814211667832184,
+     "weight_check": 1.4555884219359883,
      "shielding_pcm": 0.0
     },
     {
      "burnup": 32.0,
      "density": 0.0,
      "ratio": 1.0,
-     "infinite_one_group": 0.46745510101415594,
-     "weight_check": 1.4505736112215772,
+     "infinite_one_group": 0.46745510101416654,
+     "weight_check": 1.45057361122161,
      "shielding_pcm": 0.0
     },
     {
      "burnup": 40.0,
      "density": 0.0,
      "ratio": 1.0,
-     "infinite_one_group": 0.46785721125410146,
-     "weight_check": 1.4441915233869034,
+     "infinite_one_group": 0.46785721125411206,
+     "weight_check": 1.444191523386936,
      "shielding_pcm": 0.0
     },
     {
      "burnup": 48.0,
      "density": 0.0,
      "ratio": 1.0,
-     "infinite_one_group": 0.46843929168521536,
-     "weight_check": 1.4393245460528694,
+     "infinite_one_group": 0.4684392916852259,
+     "weight_check": 1.4393245460529018,
      "shielding_pcm": 0.0
     },
     {
      "burnup": 56.0,
      "density": 0.0,
      "ratio": 1.0,
-     "infinite_one_group": 0.46850818898774377,
-     "weight_check": 1.4363830371308846,
+     "infinite_one_group": 0.4685081889877543,
+     "weight_check": 1.436383037130917,
      "shielding_pcm": 0.0
     },
     {
      "burnup": 60.0,
      "density": 0.0,
      "ratio": 1.0,
-     "infinite_one_group": 0.46826571352120344,
-     "weight_check": 1.435630506203208,
+     "infinite_one_group": 0.468265713521214,
+     "weight_check": 1.4356305062032402,
      "shielding_pcm": 0.0
     }
    ]
@@ -53909,6 +54181,141 @@
    ]
   },
   {
+   "nuclide": "Th-232",
+   "max_pcm": 0.0,
+   "burnup": 0.1,
+   "points": [
+    {
+     "burnup": 0.1,
+     "density": 1.1878241573002914e-12,
+     "ratio": 1.0,
+     "infinite_one_group": 5.021868198946961,
+     "weight_check": 1.7390915277510979,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 0.5,
+     "density": 5.890606060610475e-12,
+     "ratio": 1.0,
+     "infinite_one_group": 5.022645679175455,
+     "weight_check": 1.7402044765303852,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 1.0,
+     "density": 1.1634219173383682e-11,
+     "ratio": 1.0,
+     "infinite_one_group": 5.023501393956345,
+     "weight_check": 1.7413250564056482,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 2.0,
+     "density": 2.2700507384675e-11,
+     "ratio": 1.0000000000085534,
+     "infinite_one_group": 5.0249238177791264,
+     "weight_check": 1.742778519899623,
+     "shielding_pcm": -0.0
+    },
+    {
+     "burnup": 4.0,
+     "density": 4.338093293646084e-11,
+     "ratio": 1.000000000055676,
+     "infinite_one_group": 5.027211914120347,
+     "weight_check": 1.7442736501274874,
+     "shielding_pcm": -0.0
+    },
+    {
+     "burnup": 6.0,
+     "density": 6.24256587776295e-11,
+     "ratio": 0.9999999868554421,
+     "infinite_one_group": 5.028942761222141,
+     "weight_check": 1.7446515092613724,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 8.0,
+     "density": 8.00777602502076e-11,
+     "ratio": 0.9999987423136715,
+     "infinite_one_group": 5.030261521696437,
+     "weight_check": 1.744367695750886,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 10.0,
+     "density": 9.650520909535344e-11,
+     "ratio": 0.9999976257441503,
+     "infinite_one_group": 5.031273714455174,
+     "weight_check": 1.7436617750141652,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 14.0,
+     "density": 1.2615783092844216e-10,
+     "ratio": 0.9999952616875302,
+     "infinite_one_group": 5.032652211478551,
+     "weight_check": 1.7414998001112407,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 20.0,
+     "density": 1.638370504571498e-10,
+     "ratio": 0.9999690122053254,
+     "infinite_one_group": 5.033732492485665,
+     "weight_check": 1.7374056406757972,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 26.0,
+     "density": 1.9467961533922942e-10,
+     "ratio": 0.9998963713385249,
+     "infinite_one_group": 5.034164679963515,
+     "weight_check": 1.7331621569807887,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 32.0,
+     "density": 2.197501355423029e-10,
+     "ratio": 0.9998447498309153,
+     "infinite_one_group": 5.034274067032067,
+     "weight_check": 1.729305621705887,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 40.0,
+     "density": 2.456520171865516e-10,
+     "ratio": 0.9997965108831547,
+     "infinite_one_group": 5.034210042785347,
+     "weight_check": 1.7252550836061398,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 48.0,
+     "density": 2.6456396156865076e-10,
+     "ratio": 0.9997635360891594,
+     "infinite_one_group": 5.034117363570966,
+     "weight_check": 1.722671280599369,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 56.0,
+     "density": 2.7810422615397036e-10,
+     "ratio": 0.9997404159022246,
+     "infinite_one_group": 5.034106393698885,
+     "weight_check": 1.7214202647524557,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 60.0,
+     "density": 2.833130818312998e-10,
+     "ratio": 0.9997314315041423,
+     "infinite_one_group": 5.034145000796021,
+     "weight_check": 1.721225407455525,
+     "shielding_pcm": 0.0
+    }
+   ]
+  },
+  {
    "nuclide": "Th-233",
    "max_pcm": 0.0,
    "burnup": 0.1,
@@ -54449,6 +54856,141 @@
    ]
   },
   {
+   "nuclide": "Pa-231",
+   "max_pcm": 0.0,
+   "burnup": 0.1,
+   "points": [
+    {
+     "burnup": 0.1,
+     "density": 2.6111129201960684e-15,
+     "ratio": 1.0,
+     "infinite_one_group": 45.31035756597083,
+     "weight_check": 0.8246468339124132,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 0.5,
+     "density": 2.2037364833111494e-14,
+     "ratio": 1.0,
+     "infinite_one_group": 45.114173051994314,
+     "weight_check": 0.8262606471517125,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 1.0,
+     "density": 4.6554137606673556e-14,
+     "ratio": 1.0,
+     "infinite_one_group": 44.89824731878758,
+     "weight_check": 0.8288713470693474,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 2.0,
+     "density": 9.414672984946e-14,
+     "ratio": 1.0,
+     "infinite_one_group": 44.53932175886542,
+     "weight_check": 0.8342610173579031,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 4.0,
+     "density": 1.8386519031139122e-13,
+     "ratio": 1.0,
+     "infinite_one_group": 43.961957792320796,
+     "weight_check": 0.8444077270073839,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 6.0,
+     "density": 2.66792103496123e-13,
+     "ratio": 1.0,
+     "infinite_one_group": 43.525206624911156,
+     "weight_check": 0.8533096570789073,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 8.0,
+     "density": 3.434402277411136e-13,
+     "ratio": 1.0,
+     "infinite_one_group": 43.192438828099014,
+     "weight_check": 0.8609492724968307,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 10.0,
+     "density": 4.142569435000792e-13,
+     "ratio": 1.0,
+     "infinite_one_group": 42.9370284174603,
+     "weight_check": 0.8674902065386865,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 14.0,
+     "density": 5.399611939555618e-13,
+     "ratio": 1.0,
+     "infinite_one_group": 42.58918707225601,
+     "weight_check": 0.8779615696516906,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 20.0,
+     "density": 6.937507414818005e-13,
+     "ratio": 1.0,
+     "infinite_one_group": 42.31659569749007,
+     "weight_check": 0.8892561953225545,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 26.0,
+     "density": 8.127766830082819e-13,
+     "ratio": 1.0,
+     "infinite_one_group": 42.20754020362517,
+     "weight_check": 0.8973146488723303,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 32.0,
+     "density": 9.037057088325332e-13,
+     "ratio": 1.0,
+     "infinite_one_group": 42.17993815267569,
+     "weight_check": 0.9034632045381765,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 40.0,
+     "density": 9.909273539668001e-13,
+     "ratio": 1.0,
+     "infinite_one_group": 42.19609363196003,
+     "weight_check": 0.9098219417466,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 48.0,
+     "density": 1.0493173332100369e-12,
+     "ratio": 1.0,
+     "infinite_one_group": 42.21947972714617,
+     "weight_check": 0.9148537421691252,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 56.0,
+     "density": 1.0876150199635726e-12,
+     "ratio": 1.0,
+     "infinite_one_group": 42.222247796280385,
+     "weight_check": 0.9191274425639789,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 60.0,
+     "density": 1.1013401292212068e-12,
+     "ratio": 1.0,
+     "infinite_one_group": 42.21250592206901,
+     "weight_check": 0.921064445006574,
+     "shielding_pcm": 0.0
+    }
+   ]
+  },
+  {
    "nuclide": "Pa-232",
    "max_pcm": 0.0,
    "burnup": 0.1,
@@ -54579,6 +55121,141 @@
      "ratio": 1.0,
      "infinite_one_group": 213.66336370184723,
      "weight_check": 1.328291198349634,
+     "shielding_pcm": 0.0
+    }
+   ]
+  },
+  {
+   "nuclide": "Pa-233",
+   "max_pcm": 0.0,
+   "burnup": 0.1,
+   "points": [
+    {
+     "burnup": 0.1,
+     "density": 9.411499052097348e-19,
+     "ratio": 1.0,
+     "infinite_one_group": 46.965280383845545,
+     "weight_check": 1.9015175026746223,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 0.5,
+     "density": 9.008455907207681e-17,
+     "ratio": 1.0,
+     "infinite_one_group": 47.005264943806786,
+     "weight_check": 1.9033163738240448,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 1.0,
+     "density": 5.403258560254376e-16,
+     "ratio": 1.0,
+     "infinite_one_group": 47.0492729811976,
+     "weight_check": 1.9052454226481725,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 2.0,
+     "density": 2.723147122890093e-15,
+     "ratio": 1.0,
+     "infinite_one_group": 47.12242595480104,
+     "weight_check": 1.908706247285754,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 4.0,
+     "density": 1.1405994370856814e-14,
+     "ratio": 1.0,
+     "infinite_one_group": 47.24009907625099,
+     "weight_check": 1.9149431427654118,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 6.0,
+     "density": 2.4521422336522012e-14,
+     "ratio": 1.0,
+     "infinite_one_group": 47.32911376394198,
+     "weight_check": 1.9204498395181497,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 8.0,
+     "density": 4.109388616455555e-14,
+     "ratio": 1.0,
+     "infinite_one_group": 47.3969354979571,
+     "weight_check": 1.9254050377485155,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 10.0,
+     "density": 6.046842303430186e-14,
+     "ratio": 1.0,
+     "infinite_one_group": 47.448990946534096,
+     "weight_check": 1.9299542367544924,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 14.0,
+     "density": 1.0564211549577124e-13,
+     "ratio": 1.0,
+     "infinite_one_group": 47.519884835365616,
+     "weight_check": 1.938242501718653,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 20.0,
+     "density": 1.83738112177797e-13,
+     "ratio": 1.0,
+     "infinite_one_group": 47.575441953245715,
+     "weight_check": 1.949787424879193,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 26.0,
+     "density": 2.6723221852417765e-13,
+     "ratio": 1.0,
+     "infinite_one_group": 47.597668661384695,
+     "weight_check": 1.9612488857429078,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 32.0,
+     "density": 3.503085219739282e-13,
+     "ratio": 1.0,
+     "infinite_one_group": 47.603294262706996,
+     "weight_check": 1.973207612160275,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 40.0,
+     "density": 4.533106546824241e-13,
+     "ratio": 1.0,
+     "infinite_one_group": 47.60000159848466,
+     "weight_check": 1.9895196982290935,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 48.0,
+     "density": 5.415966557411466e-13,
+     "ratio": 1.0,
+     "infinite_one_group": 47.59523525527909,
+     "weight_check": 2.0056193628280727,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 56.0,
+     "density": 6.117615851957415e-13,
+     "ratio": 1.0,
+     "infinite_one_group": 47.59467109236924,
+     "weight_check": 2.0215756966459155,
+     "shielding_pcm": 0.0
+    },
+    {
+     "burnup": 60.0,
+     "density": 6.398235697949589e-13,
+     "ratio": 1.0,
+     "infinite_one_group": 47.59665659339398,
+     "weight_check": 2.029393513502499,
      "shielding_pcm": 0.0
     }
    ]

@@ -10,7 +10,8 @@
 - `python3 all_nuclides.py library` は all/library/xs.toml（全核種）、all/control/xs.toml（同じ核種の項目で、試行のライブラリが
   輸送する核種だけを輸送し、ほかを放射化の核種にした対照）、核種の一覧（all/added-to-p2.txt、all/added-to-trial.txt、
   all/unranked.txt）と、ジョブが `xs nuclide` で処理する核種の一覧（all/<library か control>/nuclides.txt）を書く
-- `python3 all_nuclides.py depletion` は all/<燃料>/nominal.toml（trial/<燃料>/nominal.toml のライブラリを all/library に替えたもの）を書く
+- `python3 all_nuclides.py depletion` は all/<燃料>/nominal.toml（trial/<燃料>/nominal.toml のライブラリを all/library に替えたもの）と、
+  確認のセル（inputs.py の `CHECK_FUELS`）の all/<セル>/nominal.toml（`check_depletion_input`）を書く
 """
 
 import argparse
@@ -22,27 +23,15 @@ import tomllib
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
+import inputs
 from read_survey import nuclide_key
 
 FUELS = ("u", "mox", "gd")
 # 試行のセル（inputs.py）の燃料、被覆管、減速材の温度 (K)。lattice は S(α, β) の核種のほかは表の温度と一致する温度だけを
 # 引く（crates/format/src/library.rs の `lookup`）ので、この 1 点で試行のセルの計算は 13 温度のライブラリと同じになる
 TEMPERATURE = 565
-# 走査（../read-survey-endfb80.toml）で xs が止まる、チェーンの評価
-EXCLUDED = {
-    "Th-232": (
-        "#0312",
-        "核分裂の中性子の分布が MF6 MT18 で、輸送する核種として処理できない",
-    ),
-    "Pa-231": (
-        "#0312",
-        "核分裂の中性子の分布が MF6 MT18 で、輸送する核種として処理できない",
-    ),
-    "Pa-233": (
-        "#0312",
-        "核分裂の中性子の分布が MF6 MT18 で、輸送する核種として処理できない",
-    ),
-}
+# 走査（../read-survey-endfb80.toml）で xs が止まる、チェーンの評価（核種 → (issue, 理由)）
+EXCLUDED: dict[str, tuple[str, str]] = {}
 SURVEY = HERE.parent / "read-survey-endfb80.toml"
 CHAIN = HERE.parent / "chain.msgpack"
 TRIAL = HERE / "trial" / "library" / "xs.toml"
@@ -182,7 +171,10 @@ def render(base_text: str, head: list[str], entries: dict) -> str:
 
 
 def exclusion_notes(base: dict, excluded: dict) -> list[str]:
-    """外した核種ごとの注釈（試行の入力 `base` で放射化の核種なら、残すことを書く。`library_entries` と同じ判定）"""
+    """外した核種ごとの注釈（試行の入力 `base` で放射化の核種なら、残すことを書く。`library_entries` と同じ判定）。外した核種が
+    無ければ「なし」"""
+    if not excluded:
+        return ["なし"]
     return [
         f"{n}: {reason}（{issue}）"
         + ("。放射化の核種として残す" if base.get(n, {}).get("activation") else "")
@@ -252,6 +244,22 @@ def depletion_input(text: str) -> str:
     return "\n".join([head, old, *lines[2:]]) + "\n"
 
 
+def check_depletion_input(fuel: str) -> str:
+    """確認のセル（inputs.py の `CHECK_FUELS`。試行の入力を持たない）の燃焼の入力: inputs.py の基準の密度の燃焼の入力を、
+    試行の入力と同じ置き場の形（ライブラリは all/library、チェーンは 3 つ上、出力は同じ置き場）にしたもの"""
+    lines = inputs.depletion_input(fuel, inputs.NOMINAL_DENSITY, "nominal").splitlines()
+    places = {
+        'library = "../../p2/depletion.msgpack"': 'library = "../library/depletion.msgpack"',
+        'chain = "../../chain.msgpack"': 'chain = "../../../chain.msgpack"',
+        'output = "out/nominal.msgpack"': 'output = "nominal.msgpack"',
+    }
+    missing = [old for old in places if old not in lines]
+    if missing:
+        raise SystemExit(f"the depletion input of {fuel} has no {missing}")
+    head = f"# #0292 の確認のセル: {fuel} の燃焼（inputs.py の形状と組成）を全核種を輸送する ../library で。all_nuclides.py が書く。手で直さない"
+    return "\n".join([head, *(places.get(x, x) for x in lines[1:])]) + "\n"
+
+
 def write_depletion() -> None:
     for fuel in FUELS:
         directory = HERE / "all" / fuel
@@ -259,6 +267,10 @@ def write_depletion() -> None:
         (directory / "nominal.toml").write_text(
             depletion_input((HERE / "trial" / fuel / "nominal.toml").read_text())
         )
+    for fuel in inputs.CHECK_FUELS:
+        directory = HERE / "all" / fuel
+        directory.mkdir(parents=True, exist_ok=True)
+        (directory / "nominal.toml").write_text(check_depletion_input(fuel))
 
 
 def main() -> None:
