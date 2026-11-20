@@ -60,6 +60,23 @@ impl Scales {
     };
 }
 
+/// ラダーのサンプルに当てる MF3 のバックグラウンド断面積 `sigma`（定数で足す）と、共鳴の部分の核分裂と捕獲に掛ける倍率 `scales`
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Background {
+    pub sigma: Sigma,
+    pub scales: Scales,
+}
+
+impl Background {
+    /// 定数で足すだけで、共鳴の部分を縮めない
+    pub fn additive(sigma: Sigma) -> Self {
+        Self {
+            sigma,
+            scales: Scales::ONE,
+        }
+    }
+}
+
 /// 弾性散乱（バックグラウンドを含む）が負になる点の弾性散乱 (barn)。NJOY PURR と同じ値
 const ELASTIC_FLOOR: f64 = 1.0e-6;
 
@@ -112,8 +129,8 @@ pub(super) enum LadderError {
 }
 
 /// 系列 `sequences` のラダーで、温度ごとに σ0 ごとの実効断面積を求める。`deltas` は温度ごとの、系列ごとのドップラー幅 Δ (eV)
-/// で、結果はその温度の順に並ぶ。`potential` はポテンシャル散乱 (barn)、`background` は MF3 のバックグラウンド断面積、`scales` は
-/// 共鳴の部分の核分裂と捕獲に掛ける倍率。サンプルの数は
+/// で、結果はその温度の順に並ぶ。`potential` はポテンシャル散乱 (barn)、`background` は MF3 のバックグラウンド断面積と、共鳴の部分の
+/// 核分裂と捕獲に掛ける倍率。サンプルの数は
 /// `sampling`、乱数は種 `seed` から決まる。弾性散乱（バックグラウンドを含む）が負の点は弾性散乱を 1 μb にし（数を `floored` に
 /// 数える）、それでも全断面積が 0 以下になる点があれば、その温度を止める。
 ///
@@ -124,8 +141,7 @@ pub(super) fn bondarenko(
     sequences: &[LadderSequence],
     deltas: &[Vec<f64>],
     potential: f64,
-    background: Sigma,
-    scales: Scales,
+    background: Background,
     sigma0: &[f64],
     sampling: Sampling,
     seed: u64,
@@ -142,7 +158,8 @@ pub(super) fn bondarenko(
         .fold(0.0, f64::max);
     let half = 0.5 * SAMPLE_SPACINGS * d_max;
     // 弾性散乱、核分裂、捕獲の外の反応のバックグラウンド（MF3 の全断面積との差）
-    let other = background.total - background.elastic - background.fission - background.capture;
+    let b = background.sigma;
+    let other = b.total - b.elastic - b.fission - b.capture;
     let mut energies = vec![0.0; sampling.samples];
     let mut temperatures: Vec<Accumulator> = deltas
         .iter()
@@ -184,7 +201,7 @@ pub(super) fn bondarenko(
         }
         for t in temperatures.iter_mut().filter(|t| t.error.is_none()) {
             t.error = t
-                .add_samples(&energies, potential, background, scales, other, sigma0)
+                .add_samples(&energies, potential, background, other, sigma0)
                 .err();
         }
     }
@@ -221,13 +238,13 @@ impl Accumulator {
         &mut self,
         energies: &[f64],
         potential: f64,
-        background: Sigma,
-        scales: Scales,
+        background: Background,
         other: f64,
         sigma0: &[f64],
     ) -> Result<(), LadderError> {
         for (j, &x) in energies.iter().enumerate() {
-            let mut elastic = background.elastic + potential + self.parts.elastic[j];
+            let (b, scales) = (background.sigma, background.scales);
+            let mut elastic = b.elastic + potential + self.parts.elastic[j];
             // MF3 の負のバックグラウンドを足したとき、遠い極を漸近形で求めた |1 − U|² の誤差、窓の外の共鳴を落とした分で負になりうる。
             // NJOY PURR（purr.f90 の unrest）と同じく 1 μb にして、参照解の確率テーブルと扱いを揃える（ADR-0177）
             let floor = elastic < 0.0;
@@ -235,8 +252,8 @@ impl Accumulator {
                 elastic = ELASTIC_FLOOR;
                 self.floored += 1;
             }
-            let fission = background.fission + scales.fission * self.parts.fission[j];
-            let capture = background.capture + scales.capture * self.parts.capture[j];
+            let fission = b.fission + scales.fission * self.parts.fission[j];
+            let capture = b.capture + scales.capture * self.parts.capture[j];
             let total = elastic + fission + capture + other;
             if total.is_nan() || total <= 0.0 {
                 return Err(LadderError::NonPositiveTotal {

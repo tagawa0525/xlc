@@ -21,7 +21,7 @@ use crate::pointwise::{
     right_limit,
 };
 use crate::resonance::{
-    Bondarenko, Sampling, Scales, Sigma, UnresolvedXs, UrrError, unresolved_grid,
+    Background, Bondarenko, Sampling, Scales, Sigma, UnresolvedXs, UrrError, unresolved_grid,
     unresolved_interpolation,
 };
 use xlc_format::group::GroupStructure;
@@ -392,7 +392,10 @@ pub fn unresolved_shielding(
                     }
                 }
             }
-            Ok((background, scales))
+            Ok(Background {
+                sigma: background,
+                scales,
+            })
         })
         .collect::<Result<Vec<_>, ProcessError>>()?;
     if temperatures.is_empty() {
@@ -402,13 +405,11 @@ pub fn unresolved_shielding(
     // 格子点ごとに独立なので並列に求める。種は格子点の番号（温度と σ0 によらず同じラダーを使い、温度の間の相関を保つ。
     // スレッドの数によらない。ADR-0177）。エラーでも止めず、下で温度ごとに作ったときと同じエラーを選ぶ
     let sampled = in_parallel(grid.len(), |i| {
-        let (background, scales) = backgrounds[i];
         Ok::<_, Infallible>(xs.shielded(
             grid[i],
             temperatures,
             sigma0,
-            background,
-            scales,
+            backgrounds[i],
             Sampling::LIBRARY,
             i as u64,
         ))

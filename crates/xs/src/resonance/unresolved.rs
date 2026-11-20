@@ -8,7 +8,7 @@ use std::f64::consts::PI;
 use super::Sigma;
 use super::factors::{channel_radius, penetrability, phase_shift};
 use super::fluctuation::{expectation, width_ratios};
-use super::ladder::{Bondarenko, LadderError, LadderSequence, Sampling, Scales, bondarenko};
+use super::ladder::{Background, Bondarenko, LadderError, LadderSequence, Sampling, bondarenko};
 use crate::endf::{Interpolation, Unresolved, UrrJValue, UrrPoint, WidthDof, scattering_radius_at};
 use crate::numeric::NumericError;
 use crate::physics::{BK, wave_number_factor};
@@ -109,7 +109,7 @@ pub struct ShieldedSigma {
 impl UnresolvedXs<'_> {
     /// エネルギー e (eV)、温度 `temperatures` (K) での、バックグラウンド断面積 `sigma0` ごとの実効断面積を、ラダーのサンプリングの
     /// Bondarenko の平均で求める（ADR-0177。`ladder`）。`background` は MF3 のバックグラウンド断面積（LSSF=1 では MF3 が平均断面積そのもの
-    /// なので 0 を渡す）、`scales` は共鳴の部分の核分裂と捕獲に掛ける倍率（ADR-0274。ふつうは `Scales::ONE`）。サンプルの数は `sampling`。乱数は種 `seed` から決まり、どの温度にも同じラダーとエネルギーを使う（温度の間の
+    /// なので 0 を渡す）と、共鳴の部分の核分裂と捕獲に掛ける倍率（ADR-0274。ふつうは `Background::additive`）。サンプルの数は `sampling`。乱数は種 `seed` から決まり、どの温度にも同じラダーとエネルギーを使う（温度の間の
     /// 相関を保つ）。ラダーは温度の間で 1 度だけ作り、温度ごとの結果は、その温度だけを求めたときとビットまで同じ（#0155）。
     ///
     /// 外の `Err` は温度によらないエラーと正でない温度、内の `Err` はその温度のエラーで、結果は `temperatures` の順に並ぶ。
@@ -118,8 +118,7 @@ impl UnresolvedXs<'_> {
         e: f64,
         temperatures: &[f64],
         sigma0: &[f64],
-        background: Sigma,
-        scales: Scales,
+        background: Background,
         sampling: Sampling,
         seed: u64,
     ) -> Result<Vec<Result<Bondarenko, UrrError>>, UrrError> {
@@ -167,7 +166,7 @@ impl UnresolvedXs<'_> {
             }
         }
         Ok(bondarenko(
-            &sequences, &deltas, potential, background, scales, sigma0, sampling, seed,
+            &sequences, &deltas, potential, background, sigma0, sampling, seed,
         )
         .into_iter()
         .map(|result| {
