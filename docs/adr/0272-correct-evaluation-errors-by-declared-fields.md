@@ -1,6 +1,6 @@
 ---
 type: ADR
-status: proposed
+status: accepted
 date: 2026-11-20
 requires: [ADR-0266]
 supersedes: []
@@ -93,8 +93,13 @@ corrections = [{ line = 1194, mf = 5, mt = 17, field = 1, from = 1, to = 3 }]
 
 ### 確認
 
-- 合成のテープのテスト: 宣言しなければ、最後の区切りが点の数より短い TAB1 は「last NBT must equal NP」で止まる。宣言すると欄を
-  書き換えて読め、`warn` を 1 つ出す。行が無い、MF か MT が違う、欄が 1〜6 の外、元の値が違う宣言は止まる
+- 合成のテープのテスト（crates/xs/src/endf/tape/tests.rs）: 宣言しなければ、最後の区切りが点の数より短い TAB1 は
+  「last NBT must equal NP」で止まる（`a_tab1_whose_last_break_falls_short_of_the_points_is_an_error`）。宣言すると欄を書き換えて
+  読める（`a_declared_correction_rewrites_the_integer_field_before_reading`）。行が無い、MF か MT が違う、欄が 1〜6 の外、欄が整数で
+  ない、元の値が違う、11 桁に収まらない宣言は止まり、テープを変えない（`a_correction_that_does_not_match_the_tape_is_an_error`）
+- 入力のテスト（crates/xs/src/main/tests.rs）: `corrections` を読み、項目の欠けと余りを止める
+  （`reads_declared_corrections_of_the_evaluation`）。宣言が無ければ warn を出さずに TAB1 で止まり、宣言 1 つで warn を 1 つ出して
+  読める（`a_short_break_stops_the_reading_unless_a_correction_is_declared`）
 - VII.0 の Rb-87 の 600 K の `xs nuclide`（宣言した入力 examples/depletion/read-survey/sample-VII.0.toml）が終了コード 0 で
-  終わる（examples/depletion/verification.md の「走査が見逃す種類」）
-- 宣言しない核種の出力は変わらない（VIII.0 の 600 K の `xs nuclide` の出力のバイトを main のビルドと比べた。同じ節）
+  終わる。宣言しない核種の出力は変わらない（VIII.0 の Li-7、N-14、Ni-58 の出力のバイトが main のビルドと同じ）。数値の出どころは
+  examples/depletion/verification.md の「走査が見逃す種類」
