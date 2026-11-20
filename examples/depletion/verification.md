@@ -914,8 +914,8 @@ cargo run --release -p xlc-xs --example compare_njoy_gendf -- \
 
 ### 計算
 
-xlc 13282581（分岐点 8e2b6c91、2026-11-20。xs のコードは 9568e9a0 から、`compare_njoy_gendf` は 26976aad から変わっていない）。手元で
-`compare_njoy_gendf` を実行した。`xs nuclide` は 9568e9a0 の `cargo build --release` の bin（4 スレッド）で、`issue-0312/fission-<版>.toml`
+xlc 8520eccd（分岐点 8e2b6c91、2026-11-20。xs のコードは 2b00c47b から、`compare_njoy_gendf` は 1934902f から変わっていない）。手元で
+`compare_njoy_gendf` を実行した。`xs nuclide` は 2b00c47b の `cargo build --release` の bin（4 スレッド）で、`issue-0312/fission-<版>.toml`
 （σ0 と散乱の次数は `read-survey/sample-<版>.toml` と同じ、温度 1 点の 600 K）に `examples/depletion/xs-range.toml` を与えて実行した。
 
 ### 結果
