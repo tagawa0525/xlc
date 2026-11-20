@@ -255,6 +255,36 @@ class CombinedLogTest(unittest.TestCase):
             process_survey.combined_runs(COMBINED + "U-238 2.00 s 3.00 user 1000 kB\n")
 
 
+class ReusableTest(unittest.TestCase):
+    def test_reuses_only_the_runs_of_the_same_entry(self):
+        o16 = {"endf": "n-008_O_016.endf", "temperatures": [565]}
+        u234 = {"endf": "n-092_U_234.endf", "temperatures": [565]}
+        entries = {"O-16": o16, "U-234": u234, "H-1": H1}
+        earlier = {
+            "O-16": o16,
+            # 前の入力で放射化の核種だったもの、温度の違うものは、同じ処理でないので再実行する
+            "U-234": {**u234, "activation": True},
+            "H-1": {**H1, "temperatures": [550, 573.6, 600]},
+        }
+        self.assertEqual(
+            process_survey.reusable(entries, earlier, {"O-16", "U-234", "H-1"}),
+            {"O-16"},
+        )
+
+    def test_a_reused_run_outside_the_input_is_an_error(self):
+        with self.assertRaises(SystemExit):
+            process_survey.reusable({}, {"O-16": {}}, {"O-16"})
+
+
+class RangeEntriesTest(unittest.TestCase):
+    def test_leaves_out_the_evaluations_the_survey_stops(self):
+        entries, _ = process_survey.input_entries(SURVEY, CHAIN, ["C-12", "C-13"], BASE)
+        self.assertEqual(
+            list(process_survey.range_entries(entries, SURVEY)),
+            ["H-1", "C-12", "U-235", "Am-242m", "Es-254"],
+        )
+
+
 def run(name, file, error=None, seconds=1.0, rss=1000, warnings=None):
     e = {
         "nuclide": name,
