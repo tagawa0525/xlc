@@ -29,6 +29,8 @@ import json
 import sys
 from pathlib import Path
 
+import tomllib
+
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent))
@@ -37,6 +39,7 @@ from compare_depletion_versions import close, initial, labelled
 from ufg_subset import threshold_sets
 from untransported_absorption import (
     absorption,
+    history_point,
     nominal_states,
     read,
     region_sum,
@@ -102,11 +105,17 @@ def absorptions(history: dict, table: dict, volume: float) -> list[dict]:
         state = table["states"][s]
         flux = two_group_flux(state)
         production = sum(v * f for v, f in zip(state["nu_fission"], flux))
-        point = next(p for p in history["points"] if close(p["burnup"], burnup))
+        lattice_absorption = sum(a * f for a, f in zip(state["absorption"], flux))
+        point = history_point(history, burnup)
         terms = {}
         for name, sigma in zip(cooling["nuclides"], cooling["points"][k]):
             n = region_sum(history, point, index[name]) / volume
             terms[name] = n * absorption(sigma) * sum(flux) / production
+        # 格子の体積を誤ると項がそろって伸び縮みし、残りに黙って入る（added_effect.py の `contributions` と同じ検査）
+        if sum(terms.values()) * production > lattice_absorption:
+            raise SystemExit(
+                f"at {burnup} MWd/kg the fuel absorbs more than the lattice: check the lattice volume"
+            )
         out.append({"burnup": burnup, "k_inf": state["k_inf"], "terms": terms})
     return out
 
@@ -213,6 +222,21 @@ def report(summary: dict) -> list[str]:
     return lines
 
 
+def check_inputs(history: Path, table: Path, table_input: Path) -> None:
+    """テーブルの入力が、与えた履歴の組成を解いて、与えたテーブルを書くものであること（版の取り違えで、ある版の数密度とほかの版の
+    断面積を組み合わせないため）"""
+    data = tomllib.loads(table_input.read_text())
+    place = table_input.parent
+    if (place / data["history"]["file"]).resolve() != history.resolve():
+        raise SystemExit(
+            f"{table_input} solves {data['history']['file']}, not {history}"
+        )
+    if (place / data["few-group"]["output"]).resolve() != table.resolve():
+        raise SystemExit(
+            f"{table_input} writes {data['few-group']['output']}, not {table}"
+        )
+
+
 def md5(path: Path) -> str:
     return hashlib.md5(path.read_bytes()).hexdigest()
 
@@ -227,6 +251,7 @@ def compare_command(args: list[str]) -> None:
         if len(files) != 3:
             raise SystemExit(f"{label}: expected <history>,<table>,<table input>")
         history, table, table_input = files
+        check_inputs(history, table, table_input)
         versions[label] = (
             read(history),
             read(table),
