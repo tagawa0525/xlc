@@ -4830,6 +4830,99 @@ def read_survey_reasons(sources: list[dict]) -> str:
     return markdown_table(["止まった理由", *versions], rows)
 
 
+def process_survey_summary(sources: list[dict]) -> dict:
+    """process_survey.py の要約（1 つ）"""
+    if len(sources) != 1 or sources[0].get("format") != "xlc-process-survey":
+        raise TableError("not one xlc-process-survey summary")
+    return sources[0]
+
+
+# 止まった段（process_survey.py の STAGES と同じ表示）
+PROCESS_SURVEY_STAGES = {
+    "reading": "走査でも止まる",
+    "processing": "処理で初めて止まる",
+}
+
+
+def process_survey(sources: list[dict]) -> str:
+    """中性子の評価のすべての `xs nuclide`（#0292）: 版ごとの、チェーンの中と外の評価、通った数、止まった数"""
+    summary = process_survey_summary(sources)
+    rows = []
+    try:
+        for label, v in summary["versions"].items():
+            i, o = v["in_chain"], v["outside_chain"]
+            rows.append(
+                [
+                    label,
+                    *(
+                        str(i[k])
+                        for k in ("evaluations", "passed", "stopped", "stopped_reading")
+                    ),
+                    *(
+                        str(o[k])
+                        for k in (
+                            "evaluations",
+                            "processed",
+                            "passed",
+                            "stopped",
+                            "left_out",
+                        )
+                    ),
+                ]
+            )
+    except KeyError as e:
+        raise TableError(f"the summary has no {e}; rerun the stage") from None
+    header = [
+        "版",
+        "チェーンの評価",
+        "通った",
+        "止まった",
+        "うち走査でも止まる",
+        "チェーンの外の評価",
+        "通した",
+        "通った",
+        "止まった",
+        "入れない",
+    ]
+    return markdown_table(header, rows)
+
+
+def process_survey_stopped(sources: list[dict]) -> str:
+    """中性子の評価のすべての `xs nuclide`（#0292）: 止まった評価ごとの段、止まった文、原因、場所、issue"""
+    summary = process_survey_summary(sources)
+    try:
+        rows = [
+            [
+                label,
+                s["nuclide"] if s["chain"] else f"{s['nuclide']}（{s['file']}）",
+                PROCESS_SURVEY_STAGES[s["stage"]],
+                s["reason"],
+                *(s[k] or "–" for k in ("cause", "where", "issue")),
+            ]
+            for label, v in summary["versions"].items()
+            for s in v["stopped"]
+        ]
+    except KeyError as e:
+        raise TableError(f"the summary has no {e}; rerun the stage") from None
+    return markdown_table(
+        ["版", "評価", "段", "止まった文", "原因", "場所", "issue"], rows
+    )
+
+
+def process_survey_warnings(sources: list[dict]) -> str:
+    """中性子の評価のすべての `xs nuclide`（#0292）: 警告の種類ごとの、版ごとの評価の数"""
+    summary = process_survey_summary(sources)
+    try:
+        versions = list(summary["versions"])
+        rows = [
+            [kind, *(str(by.get(label, 0)) for label in versions)]
+            for kind, by in summary["warnings"].items()
+        ]
+    except KeyError as e:
+        raise TableError(f"the summary has no {e}; rerun the stage") from None
+    return markdown_table(["警告の種類", *versions], rows)
+
+
 def depletion_versions_summary(sources: list[dict]) -> dict:
     (s,) = sources
     if s.get("format") != "xlc-compare-depletion-versions":
@@ -4962,6 +5055,15 @@ TABLES = {
     "read-survey-reasons": (
         ["examples/depletion/read-survey.json"],
         read_survey_reasons,
+    ),
+    "process-survey": (["examples/depletion/process-survey.json"], process_survey),
+    "process-survey-stopped": (
+        ["examples/depletion/process-survey.json"],
+        process_survey_stopped,
+    ),
+    "process-survey-warnings": (
+        ["examples/depletion/process-survey.json"],
+        process_survey_warnings,
     ),
     "depletion-versions-k": (
         ["examples/depletion/compare-depletion-versions.json"],
