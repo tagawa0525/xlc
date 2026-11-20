@@ -1,0 +1,41 @@
+# 版ごとのピンセルの燃焼の比較（#0303、ADR-0264 の「確認」）の ENDF/B-VII.0 のステージ。多群ライブラリ（xs.toml）は ../dvc.yaml の
+# xs-range、xs-nuclide、xs と同じ形（ADR-0138）で、出力は depletion.msgpack。燃焼チェーン（chain-version）、天然の元素の評価の検査
+# （natural-isotopes）、ピンセルの燃焼（lattice-1C-version）、版の比較（compare-depletion-versions）は ../dvc.yaml にある。
+# 実行するのは default の devShell の `dvc repro`（ADR-0159）
+vars:
+  - xs.toml
+stages:
+  xs-range:
+    cmd: ../../../bin/xs range xs.toml xs-range.toml
+    deps:
+      - ../../../toml-values/examples/depletion/endfb70/xs.toml.json
+      - ../../../references/endf/ENDF-B-VII.0_neutrons
+      - ../../../binary-forms/xs.md5
+    outs:
+      - xs-range.toml:
+          cache: false
+  xs-nuclide:
+    foreach: ${nuclide}
+    do:
+      cmd: ../../../bin/xs nuclide xs.toml xs-range.toml ${key} xs-nuclides/${key}.msgpack
+      deps:
+        - xs-range.toml
+        - ${endf-directory}/${item.endf}
+        - ${thermal-directory}
+        - ../../../binary-forms/xs.md5
+      params:
+        - xs.toml:
+            - sigma0
+            - scattering-order
+            - nuclide.${key}
+      outs:
+        - xs-nuclides/${key}.msgpack
+  xs:
+    cmd: ../../../bin/xs assemble xs.toml xs-range.toml xs-nuclides
+    deps:
+      - ../../../toml-values/examples/depletion/endfb70/xs.toml.json
+      - xs-range.toml
+      - xs-nuclides
+      - ../../../binary-forms/xs.md5
+    outs:
+      - depletion.msgpack

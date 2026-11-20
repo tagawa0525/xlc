@@ -1,0 +1,9 @@
+inputs: endfb70/lattice-1C-60.msgpack 67680b20, endfb71/lattice-1C-60.msgpack f93e4331, endfb80/lattice-1C-60.msgpack 7d10f4a4, endfb81/lattice-1C-60.msgpack 65de0d8f
+基準 VII.1。反応度の差は (1/k_VII.1 − 1/k) × 1e5 pcm
+17 MWd/kg: k∞ VII.0 0.99596, VII.1 0.99622, VIII.0 0.99346, VIII.1 0.99441; 反応度の差 VII.0 − VII.1 -27 pcm, VIII.0 − VII.1 -279 pcm, VIII.1 − VII.1 -183 pcm
+17 MWd/kg の数密度の相対差: VII.0 − VII.1 U-235 +0.00%, U-238 +0.00%, Pu-239 +0.15%, Pu-240 -0.63%, Pu-241 -0.55%, Xe-135 +0.07%, Sm-149 -0.03%; VIII.0 − VII.1 U-235 -0.88%, U-238 +0.01%, Pu-239 -0.27%, Pu-240 -0.34%, Pu-241 -1.39%, Xe-135 +0.06%, Sm-149 +0.30%; VIII.1 − VII.1 U-235 -0.32%, U-238 +0.01%, Pu-239 -0.09%, Pu-240 -2.25%, Pu-241 -1.80%, Xe-135 +0.49%, Sm-149 +0.84%
+60 MWd/kg: k∞ VII.0 0.83113, VII.1 0.83241, VIII.0 0.82755, VIII.1 0.83010; 反応度の差 VII.0 − VII.1 -185 pcm, VIII.0 − VII.1 -706 pcm, VIII.1 − VII.1 -334 pcm
+60 MWd/kg の数密度の相対差: VII.0 − VII.1 U-235 +0.31%, U-238 +0.00%, Pu-239 +0.86%, Pu-240 -0.11%, Pu-241 +0.10%, Xe-135 +0.65%, Sm-149 +0.64%; VIII.0 − VII.1 U-235 -5.91%, U-238 +0.02%, Pu-239 -1.03%, Pu-240 +1.07%, Pu-241 -1.14%, Xe-135 -1.32%, Sm-149 -1.45%; VIII.1 − VII.1 U-235 -2.87%, U-238 +0.03%, Pu-239 -0.31%, Pu-240 -0.95%, Pu-241 -2.92%, Xe-135 -0.33%, Sm-149 -0.29%
+VII.0 − VII.1 の反応度の差の絶対値の最大: 17 MWd/kg までで +60 pcm（2 MWd/kg）、全体で -185 pcm（56 MWd/kg）
+VIII.0 − VII.1 の反応度の差の絶対値の最大: 17 MWd/kg までで -279 pcm（17 MWd/kg）、全体で -706 pcm（60 MWd/kg）
+VIII.1 − VII.1 の反応度の差の絶対値の最大: 17 MWd/kg までで -183 pcm（17 MWd/kg）、全体で -334 pcm（60 MWd/kg）

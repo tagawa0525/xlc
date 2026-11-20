@@ -1,0 +1,73 @@
+import itertools
+import sys
+from pathlib import Path
+import msgpack
+import tomllib
+
+def endf_number(field: str) -> float:
+    s = field.strip()
+    for i in range(1, len(s)):
+        if s[i] in '+-' and s[i - 1] not in 'eE':
+            return float(s[:i] + 'e' + s[i:])
+    return float(s)
+
+def endf_identity(path: Path) -> tuple[int, int, int]:
+    with path.open() as f:
+        records = list(itertools.islice((line for line in f if line[70:72].strip() == '1' and line[72:75].strip() == '451'), 2))
+    if len(records) < 2:
+        raise SystemExit(f'{path}: no MF1/MT451 HEAD and CONT records')
+    za = round(endf_number(records[0][0:11]))
+    try:
+        liso = int(records[1][33:44])
+    except ValueError:
+        raise SystemExit(f'{path}: no LISO in the second MF1/MT451 record') from None
+    return (za // 1000, za % 1000, liso)
+
+def check(chain_input: dict, chain_dir: Path, chain: dict, xs_input: dict, xs_dir: Path) -> dict:
+    errors = []
+    neutrons = (chain_dir / chain_input['neutron-directory']).resolve()
+    endf = (xs_dir / xs_input['endf-directory']).resolve()
+    if neutrons != endf:
+        errors.append(f'the chain reads {neutrons}, the library {endf}')
+    listed = list(chain_input.get('natural-isotopes', []))
+    nuclides = {n['name']: (n['z'], n['a'], n['state']) for n in chain['nuclides']}
+    natural = []
+    for name, entry in xs_input['nuclide'].items():
+        if name not in nuclides:
+            errors.append(f'{name} is not in the chain')
+            continue
+        z, a, liso = endf_identity(endf / entry['endf'])
+        if a == 0:
+            if z != nuclides[name][0]:
+                errors.append(f"{name}: {entry['endf']} is the natural evaluation of Z = {z}")
+            elif name not in listed:
+                errors.append(f"{name}: the library takes the natural evaluation {entry['endf']}, but natural-isotopes of the chain does not list it")
+            else:
+                natural.append([name, entry['endf']])
+        elif (z, a, liso) != nuclides[name]:
+            errors.append(f"{name}: {entry['endf']} is the evaluation of ZA {z}{a:03d} LISO {liso}")
+        elif name in listed:
+            errors.append(f"{name}: natural-isotopes of the chain lists it, but the library takes its own evaluation {entry['endf']}")
+    in_library = set(xs_input['nuclide'])
+    return {'natural': natural, 'chain_only': [n for n in listed if n not in in_library], 'errors': errors}
+
+def main() -> None:
+    args = sys.argv[1:]
+    if len(args) < 3:
+        raise SystemExit(__doc__)
+    chain_path, chain_msgpack, *xs_paths = map(Path, args)
+    chain_input = tomllib.loads(chain_path.read_text())
+    chain = msgpack.unpackb(chain_msgpack.read_bytes())
+    failed = False
+    for xs_path in xs_paths:
+        result = check(chain_input, chain_path.parent, chain, tomllib.loads(xs_path.read_text()), xs_path.parent)
+        natural = ', '.join((f'{n} ← {f}' for n, f in result['natural'])) or 'なし'
+        print(f'{xs_path}: 天然の元素の評価を当てた核種: {natural}')
+        print(f'{xs_path}: natural-isotopes のうちライブラリに無い核種: ' + (', '.join(result['chain_only']) or 'なし'))
+        for e in result['errors']:
+            print(f'{xs_path}: {e}', file=sys.stderr)
+            failed = True
+    if failed:
+        raise SystemExit(1)
+if __name__ == '__main__':
+    main()

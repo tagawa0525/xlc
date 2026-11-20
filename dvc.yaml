@@ -50,11 +50,13 @@ stages:
       - examples/colorset/without_df.py
       - examples/core/compare_rods.py
       - examples/core/rods_cases.py
+      - examples/depletion/check_natural_isotopes.py
       - examples/depletion/compare_branch_cross_terms.py
       - examples/depletion/compare_burnup_interpolation.py
       - examples/depletion/compare_chain_versions.py
       - examples/depletion/compare_depletion.py
       - examples/depletion/compare_depletion_assembly.py
+      - examples/depletion/compare_depletion_versions.py
       - examples/depletion/compare_grid_interpolation.py
       - examples/depletion/openmc_chain.py
       - examples/depletion/openmc_depletion.py
@@ -181,8 +183,15 @@ stages:
       - examples/core/xs.toml
       - examples/depletion/chain.toml
       - examples/depletion/endfb70/chain.toml
+      - examples/depletion/endfb70/lattice-1C-60.toml
+      - examples/depletion/endfb70/xs.toml
       - examples/depletion/endfb71/chain.toml
+      - examples/depletion/endfb71/lattice-1C-60.toml
+      - examples/depletion/endfb71/xs.toml
+      - examples/depletion/endfb80/lattice-1C-60.toml
       - examples/depletion/endfb81/chain.toml
+      - examples/depletion/endfb81/lattice-1C-60.toml
+      - examples/depletion/endfb81/xs.toml
       - examples/depletion/lattice-1C-rings1.toml
       - examples/depletion/lattice-1C-rings4.toml
       - examples/depletion/lattice-2A.toml

@@ -867,6 +867,119 @@ class DrawReadSurvey(unittest.TestCase):
             vt.read_survey_reasons([{"format": "xlc-compare-depletion"}])
 
 
+def depletion_versions() -> dict:
+    """compare_depletion_versions.py の要約（燃焼点 3 つ、基準 VII.1）"""
+
+    def version(k, reactivity=None, densities=None):
+        v = {"k_inf": k}
+        if reactivity is not None:
+            v["k_pcm"] = [0.0] * len(k)
+            v["reactivity_pcm"] = reactivity
+            v["densities"] = densities
+        return v
+
+    nuclides = ["U-235", "Xe-135"]
+    return {
+        "format": "xlc-compare-depletion-versions",
+        "inputs": [{"path": "endfb70/lattice-1C-60.msgpack", "md5": "0" * 32}],
+        "base": "VII.1",
+        "nuclides": nuclides,
+        "burnup": [0.0, 17.0, 60.0],
+        "versions": {
+            "VII.0": version(
+                [1.2, 1.1, 0.9],
+                [12.4, -3.6, 101.0],
+                {"U-235": [0.0, 0.001, -0.0123], "Xe-135": [None, 0.02, 0.0]},
+            ),
+            "VII.1": version([1.2, 1.1, 0.9]),
+            "VIII.0": version(
+                [1.19, 1.09, 0.89],
+                [-700.0, -650.4, -820.6],
+                {"U-235": [0.0, 0.0, 0.0], "Xe-135": [None, 0.0, 0.0]},
+            ),
+            "VIII.1": version(
+                [1.2, 1.1, 0.9],
+                [-300.0, 0.0, -10.0],
+                {"U-235": [0.0, 0.0, 0.0], "Xe-135": [None, 0.0, 0.0]},
+            ),
+        },
+        "marks": [{"burnup": 17.0, "index": 1}, {"burnup": 60.0, "index": 2}],
+    }
+
+
+class DrawDepletionVersions(unittest.TestCase):
+    @staticmethod
+    def rows(table: str) -> list[list[str]]:
+        return [
+            [c.strip() for c in line.strip("|").split("|")]
+            for line in table.split("\n")
+        ]
+
+    def test_k_rows_put_each_version_and_the_differences_from_the_base(self):
+        rows = self.rows(vt.depletion_versions_k([depletion_versions()]))
+        self.assertEqual(
+            rows[0],
+            [
+                "燃焼度 (MWd/kg)",
+                "VII.0 の k∞",
+                "VII.1 の k∞",
+                "VIII.0 の k∞",
+                "VIII.1 の k∞",
+                "Δρ VII.0 − VII.1 (pcm)",
+                "Δρ VIII.0 − VII.1 (pcm)",
+                "Δρ VIII.1 − VII.1 (pcm)",
+            ],
+        )
+        self.assertEqual(
+            rows[3],
+            ["17", "1.10000", "1.10000", "1.09000", "1.10000", "−4", "−650", "0"],
+        )
+        self.assertEqual(len(rows), 2 + 3)
+
+    def test_density_rows_are_the_marked_points_of_each_other_version(self):
+        rows = self.rows(vt.depletion_versions_densities([depletion_versions()]))
+        self.assertEqual(rows[0], ["燃焼度 (MWd/kg)", "版", "U-235", "Xe-135"])
+        self.assertEqual(
+            rows[2:],
+            [
+                ["17", "VII.0 − VII.1", "+0.10", "+2.00"],
+                ["17", "VIII.0 − VII.1", "0.00", "0.00"],
+                ["17", "VIII.1 − VII.1", "0.00", "0.00"],
+                ["60", "VII.0 − VII.1", "−1.23", "0.00"],
+                ["60", "VIII.0 − VII.1", "0.00", "0.00"],
+                ["60", "VIII.1 − VII.1", "0.00", "0.00"],
+            ],
+        )
+
+    def test_another_summary_is_an_error(self):
+        with self.assertRaises(vt.TableError):
+            vt.depletion_versions_k([{"format": "xlc-compare-depletion"}])
+
+    def test_a_summary_without_the_base_version_is_an_error(self):
+        s = depletion_versions()
+        del s["versions"]["VII.1"]
+        with self.assertRaises(vt.TableError):
+            vt.depletion_versions_k([s])
+
+    def test_a_summary_without_a_field_is_an_error(self):
+        s = depletion_versions()
+        del s["versions"]["VII.0"]["reactivity_pcm"]
+        with self.assertRaises(vt.TableError):
+            vt.depletion_versions_k([s])
+        with self.assertRaises(vt.TableError):
+            vt.depletion_versions_densities([{**depletion_versions(), "marks": [{}]}])
+
+    def test_the_tables_draw_the_stage_output(self):
+        source = ["examples/depletion/compare-depletion-versions.json"]
+        self.assertEqual(
+            vt.TABLES["depletion-versions-k"], (source, vt.depletion_versions_k)
+        )
+        self.assertEqual(
+            vt.TABLES["depletion-versions-densities"],
+            (source, vt.depletion_versions_densities),
+        )
+
+
 class DrawDepletion(unittest.TestCase):
     def test_k_rows_list_each_case_by_burnup(self):
         table = vt.depletion_k(

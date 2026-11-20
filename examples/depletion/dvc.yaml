@@ -103,6 +103,95 @@ stages:
           cache: false
       - read-survey.txt:
           cache: false
+  natural-isotopes:
+    # 版ごとのチェーンとライブラリ（VIII.0 は本番の chain.toml と xs.toml、ほかは版のディレクトリの xs.toml。ADR-0138 の形のステージは
+    # 版のディレクトリの dvc.yaml）が、天然の元素の評価を当てる核種で揃っていること（ADR-0262 の帰結）。版の比較の deps にする
+    foreach:
+      endfb70:
+        chain: endfb70/chain
+        xs: endfb70/xs.toml
+        neutrons: ENDF-B-VII.0
+      endfb71:
+        chain: endfb71/chain
+        xs: endfb71/xs.toml
+        neutrons: ENDF-B-VII.1
+      endfb80:
+        chain: chain
+        xs: xs.toml
+        neutrons: ENDF-B-VIII.0
+      endfb81:
+        chain: endfb81/chain
+        xs: endfb81/xs.toml
+        neutrons: ENDF-B-VIII.1
+    do:
+      cmd: python3 check_natural_isotopes.py ${item.chain}.toml ${item.chain}.msgpack ${item.xs} > ${key}/natural-isotopes.txt
+      deps:
+        - ../../python-ast/examples/depletion/check_natural_isotopes.py.ast
+        - ../../toml-values/examples/depletion/${item.chain}.toml.json
+        - ../../toml-values/examples/depletion/${item.xs}.json
+        - ${item.chain}.msgpack
+        - ../../references/endf/${item.neutrons}_neutrons
+      outs:
+        - ${key}/natural-isotopes.txt:
+            cache: false
+  natural-isotopes-vera:
+    # VII.0 の VERA の検証用ライブラリ（ADR-0175。天然の C を C-12 と C-13 に当てる）と VII.0 のチェーン（ADR-0262 の帰結）
+    cmd: python3 check_natural_isotopes.py endfb70/chain.toml endfb70/chain.msgpack ../vera/endfb70/xs.toml > endfb70/natural-isotopes-vera.txt
+    deps:
+      - ../../python-ast/examples/depletion/check_natural_isotopes.py.ast
+      - ../../toml-values/examples/depletion/endfb70/chain.toml.json
+      - ../../toml-values/examples/vera/endfb70/xs.toml.json
+      - endfb70/chain.msgpack
+      - ../../references/endf/ENDF-B-VII.0_neutrons
+    outs:
+      - endfb70/natural-isotopes-vera.txt:
+          cache: false
+  lattice-1C-version:
+    # 版ごとのピンセルの燃焼（60 MWd/kg まで。入力は版のディレクトリの lattice-1C-60.toml）。VIII.0 は本番のライブラリとチェーン。
+    # 燃焼点ごとの k∞ は標準出力に出るので、ファイルに受ける。燃焼の時間の内訳はログ（標準エラー）
+    foreach:
+      endfb70:
+        library: endfb70/depletion.msgpack
+        chain: endfb70/chain.msgpack
+      endfb71:
+        library: endfb71/depletion.msgpack
+        chain: endfb71/chain.msgpack
+      endfb80:
+        library: depletion.msgpack
+        chain: chain.msgpack
+      endfb81:
+        library: endfb81/depletion.msgpack
+        chain: endfb81/chain.msgpack
+    do:
+      cmd: ../../bin/lattice ${key}/lattice-1C-60.toml > ${key}/lattice-1C-60.out 2> ${key}/lattice-1C-60.log
+      deps:
+        - ../../toml-values/examples/depletion/${key}/lattice-1C-60.toml.json
+        - ${item.library}
+        - ${item.chain}
+        - ../../binary-forms/lattice.md5
+      outs:
+        - ${key}/lattice-1C-60.out
+        - ${key}/lattice-1C-60.msgpack
+        - ${key}/lattice-1C-60.log
+  compare-depletion-versions:
+    # 4 つの版の核データで解いたピンセルの燃焼（lattice-1C-version）を、VII.1 を基準に比べた要約（ADR-0264 の「確認」、#0303。
+    # 記録の表は verification_tables.py がここから描く。ADR-0176）。天然の元素の評価の検査（natural-isotopes）を通った版だけを比べる
+    cmd: python3 compare_depletion_versions.py --json compare-depletion-versions.json --base VII.1 VII.0=endfb70/lattice-1C-60.msgpack VII.1=endfb71/lattice-1C-60.msgpack VIII.0=endfb80/lattice-1C-60.msgpack VIII.1=endfb81/lattice-1C-60.msgpack > compare-depletion-versions.txt
+    deps:
+      - ../../python-ast/examples/depletion/compare_depletion_versions.py.ast
+      - endfb70/lattice-1C-60.msgpack
+      - endfb71/lattice-1C-60.msgpack
+      - endfb80/lattice-1C-60.msgpack
+      - endfb81/lattice-1C-60.msgpack
+      - endfb70/natural-isotopes.txt
+      - endfb71/natural-isotopes.txt
+      - endfb80/natural-isotopes.txt
+      - endfb81/natural-isotopes.txt
+    outs:
+      - compare-depletion-versions.json:
+          cache: false
+      - compare-depletion-versions.txt:
+          cache: false
   openmc-chain:
     cmd: nix develop ../..#references -c python3 openmc_chain.py ../../references/endf openmc-chain.xml
     deps:

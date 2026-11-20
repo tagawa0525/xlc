@@ -4830,6 +4830,57 @@ def read_survey_reasons(sources: list[dict]) -> str:
     return markdown_table(["止まった理由", *versions], rows)
 
 
+def depletion_versions_summary(sources: list[dict]) -> dict:
+    (s,) = sources
+    if s.get("format") != "xlc-compare-depletion-versions":
+        raise TableError("not an xlc-compare-depletion-versions summary")
+    if s.get("base") not in s.get("versions", {}):
+        raise TableError("the summary has no entry of its base version")
+    return s
+
+
+def depletion_versions_k(sources: list[dict]) -> str:
+    """版ごとのピンセルの燃焼: 燃焼点ごとの版ごとの k∞ と、基準の版との反応度の差 (1/k_基準 − 1/k) × 1e5 pcm（#0303）"""
+    s = depletion_versions_summary(sources)
+    base, versions = s["base"], s["versions"]
+    others = [v for v in versions if v != base]
+    try:
+        rows = [
+            [burnup_label(b)]
+            + [f"{versions[v]['k_inf'][i]:.5f}" for v in versions]
+            + [signed(versions[v]["reactivity_pcm"][i], 0) for v in others]
+            for i, b in enumerate(s["burnup"])
+        ]
+    except KeyError as e:
+        raise TableError(f"the summary has no {e}; rerun the stage") from None
+    return markdown_table(
+        ["燃焼度 (MWd/kg)"]
+        + [f"{v} の k∞" for v in versions]
+        + [f"Δρ {v} − {base} (pcm)" for v in others],
+        rows,
+    )
+
+
+def depletion_versions_densities(sources: list[dict]) -> str:
+    """版ごとのピンセルの燃焼: Problem 9 の燃焼度に近い点と最後の点の、燃料のピン全体の数密度の基準の版との相対差（%）"""
+    s = depletion_versions_summary(sources)
+    base, versions = s["base"], s["versions"]
+    try:
+        rows = [
+            [burnup_label(m["burnup"]), f"{v} − {base}"]
+            + [
+                percent_or_dash(versions[v]["densities"][n][m["index"]])
+                for n in s["nuclides"]
+            ]
+            for m in s["marks"]
+            for v in versions
+            if v != base
+        ]
+    except KeyError as e:
+        raise TableError(f"the summary has no {e}; rerun the stage") from None
+    return markdown_table(["燃焼度 (MWd/kg)", "版", *s["nuclides"]], rows)
+
+
 # 表の名前 → (JSON（リポジトリの直下から）, 描く関数)。JSON は dvc.yaml のステージの outs で、同じ場所の dvc.lock が md5 を持つ
 TABLES = {
     "p3-reference-results": (
@@ -4911,6 +4962,14 @@ TABLES = {
     "read-survey-reasons": (
         ["examples/depletion/read-survey.json"],
         read_survey_reasons,
+    ),
+    "depletion-versions-k": (
+        ["examples/depletion/compare-depletion-versions.json"],
+        depletion_versions_k,
+    ),
+    "depletion-versions-densities": (
+        ["examples/depletion/compare-depletion-versions.json"],
+        depletion_versions_densities,
     ),
     "depletion-1c-k": (
         [

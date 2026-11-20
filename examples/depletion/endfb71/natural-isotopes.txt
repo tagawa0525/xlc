@@ -1,0 +1,2 @@
+endfb71/xs.toml: 天然の元素の評価を当てた核種: なし
+endfb71/xs.toml: natural-isotopes のうちライブラリに無い核種: C-12, C-13
