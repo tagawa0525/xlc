@@ -998,7 +998,7 @@ fn phase_space_rows_carry_the_neutrons_above_threshold() {
     let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e-5]).unwrap();
     let (awr, q) = (1.9968, -2.224e6);
     let threshold = -q * (awr + 1.0) / awr;
-    let tables = BTreeMap::from([(16, constant(0.5))]);
+    let tables = BTreeMap::from([(16, Tab1::linear(vec![threshold, 2.0e7], vec![0.5, 0.5]))]);
     let m = scattering_moments(
         &groups,
         &Weight::lwr(),

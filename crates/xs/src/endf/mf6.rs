@@ -53,18 +53,24 @@ impl PhaseSpace {
     /// 入射エネルギー e (eV) での重心系の出射エネルギーの上限 E_max = (A_p − 1)/A_p (A/(A + 1) E + Q)。
     /// `awr` は標的の質量比 A、`q` は反応の Q 値 (eV)。しきい値の下では 0 以下になる。
     pub fn max_energy(&self, e: f64, awr: f64, q: f64) -> f64 {
-        todo!("{e} {awr} {q}")
+        (self.total_mass - 1.0) / self.total_mass * (awr / (awr + 1.0) * e + q)
     }
 
     /// 密度の (1 − E'/E_max) の指数 3n/2 − 4
     pub fn exponent(&self) -> f64 {
-        todo!()
+        1.5 * f64::from(self.particles) - 4.0
     }
 
     /// u = E'/E_max の密度 √u (1 − u)^(3n/2 − 4) を 0〜1 で 1 にする係数 1/B(3/2, 3n/2 − 3)（ENDF-102 の C_n に
     /// E_max^(3n/2 − 2) と、余弦の範囲の幅 2 を掛けたもの）
     pub fn normalization(&self) -> f64 {
-        todo!()
+        use std::f64::consts::PI;
+        // B(3/2, 3/2) = π/8、B(3/2, 3) = 16/105、B(3/2, 9/2) = 7π/256。`parse` が n を 3〜5 に限る
+        match self.particles {
+            3 => 8.0 / PI,
+            4 => 105.0 / 16.0,
+            _ => 256.0 / (7.0 * PI),
+        }
     }
 }
 
@@ -113,6 +119,24 @@ impl Mf6 {
                 1 => neutrons.push(NeutronEmission {
                     multiplicity: product.table,
                     spectrum: NeutronSpectrum::Tabulated(read_law1(&mut r)?),
+                    frame,
+                }),
+                // LAW=6 は LCT によらず重心系（ENDF-102 の 6.2.8）
+                6 => neutrons.push(NeutronEmission {
+                    multiplicity: product.table,
+                    spectrum: NeutronSpectrum::PhaseSpace(read_law6(&mut r)?),
+                    frame: Frame::CenterOfMass,
+                }),
+                // LAW=7 は実験室系の分布なので、重心系の LCT とは食い違う
+                7 if frame != Frame::Laboratory => {
+                    return Err(Error::new(
+                        start,
+                        format!("neutron LAW=7 (laboratory) with LCT={}", head.l2),
+                    ));
+                }
+                7 => neutrons.push(NeutronEmission {
+                    multiplicity: product.table,
+                    spectrum: NeutronSpectrum::Tabulated(read_law7(&mut r)?),
                     frame,
                 }),
                 // LAW=2 は角度分布つき、LAW=3 は等方の2体反応（どちらも角度分布は使わない）
@@ -204,6 +228,180 @@ fn read_law1(r: &mut Reader<'_>) -> Result<OutgoingDistributions, Error> {
         incident,
         spectra,
     })
+}
+
+/// LAW=6 の CONT（APSX、NPSX）を読む。
+fn read_law6(r: &mut Reader<'_>) -> Result<PhaseSpace, Error> {
+    let cont = r.cont()?;
+    let particles = match cont.n2 {
+        3 => 3,
+        4 => 4,
+        5 => 5,
+        n => {
+            return Err(Error::new(
+                r.line(),
+                format!(
+                    "phase space of NPSX={n} particles is not supported (ENDF-102 gives 3 to 5)"
+                ),
+            ));
+        }
+    };
+    if !(cont.c1.is_finite() && cont.c1 > 1.0) {
+        return Err(Error::new(
+            r.line(),
+            format!(
+                "phase-space mass APSX={} must exceed the neutron mass",
+                cont.c1
+            ),
+        ));
+    }
+    Ok(PhaseSpace {
+        total_mass: cont.c1,
+        particles,
+    })
+}
+
+/// LAW=7 の実験室系の f(μ, E') を、入射エネルギーごとに余弦で積分したエネルギー分布 g(E') = ∫ f(μ, E') dμ にする。
+///
+/// 余弦の間は、同じ E' での値を余弦の補間則（lin-lin かヒストグラム）で補間する（ENDF-102 の 6.2.10）。g は余弦の
+/// 重み w_i と f(μ_i, E') の和で、どの表も E' の lin-lin かヒストグラムなので、全部の表の E' の区切りの間で線形になる。
+/// 区切りでは左と右の値を並べた lin-lin の表にする（ヒストグラムの段は同じ E' の2点になる）。
+fn read_law7(r: &mut Reader<'_>) -> Result<OutgoingDistributions, Error> {
+    let tab2 = r.tab2()?;
+    let line = r.line();
+    let mut incident = Vec::new();
+    let mut spectra = Vec::new();
+    for _ in 0..tab2.nz {
+        let start = r.line() + 1;
+        let cosines = r.tab2()?;
+        let mut mu = Vec::with_capacity(cosines.nz);
+        let mut tables = Vec::with_capacity(cosines.nz);
+        for _ in 0..cosines.nz {
+            let record = r.tab1()?;
+            let table = record.table;
+            if let Some(k) = (0..table.x.len().saturating_sub(1)).find(|&k| {
+                !matches!(
+                    table.law_of_interval(k),
+                    Interpolation::LinLin | Interpolation::Histogram
+                )
+            }) {
+                return Err(Error::new(
+                    r.line(),
+                    format!(
+                        "LAW=7 outgoing-energy interpolation {:?} is not supported",
+                        table.law_of_interval(k)
+                    ),
+                ));
+            }
+            mu.push(record.c2);
+            tables.push(table);
+        }
+        let weights = cosine_weights(&mu, &cosines.breaks, &cosines.codes)
+            .map_err(|message| Error::new(start, message))?;
+        let table = integrate_cosines(&weights, &tables);
+        if table.x.len() < 2 {
+            return Err(Error::new(
+                start,
+                "LAW=7 distribution has fewer than 2 outgoing energies",
+            ));
+        }
+        table
+            .check()
+            .map_err(|message| Error::new(start, message))?;
+        incident.push(cosines.c2);
+        spectra.push(table);
+    }
+    let counts: Vec<usize> = spectra.iter().map(|t| t.x.len()).collect();
+    let laws = incident_laws(&tab2.codes, &tab2.breaks, &counts, line)?;
+    check_unit_base(&laws, &tab2.breaks, &spectra, line)?;
+    Ok(OutgoingDistributions {
+        breaks: tab2.breaks,
+        laws,
+        incident,
+        spectra,
+    })
+}
+
+/// 余弦 μ_i の表を余弦の補間則で補間して −1〜1 で積分するときの、各表の重み（lin-lin は台形、ヒストグラムは左の表）。
+fn cosine_weights(mu: &[f64], breaks: &[usize], codes: &[i64]) -> Result<Vec<f64>, String> {
+    if mu
+        .windows(2)
+        .any(|w| w[0].partial_cmp(&w[1]).is_none_or(|o| o.is_ge()))
+    {
+        return Err(format!("LAW=7 cosines {mu:?} must ascend"));
+    }
+    let mut weights = vec![0.0; mu.len()];
+    for k in 0..mu.len().saturating_sub(1) {
+        let width = mu[k + 1] - mu[k];
+        match codes[breaks.partition_point(|&b| b < k + 2)] {
+            1 => weights[k] += width,
+            2 => {
+                weights[k] += 0.5 * width;
+                weights[k + 1] += 0.5 * width;
+            }
+            code => {
+                return Err(format!(
+                    "LAW=7 cosine interpolation INT={code} is not supported"
+                ));
+            }
+        }
+    }
+    Ok(weights)
+}
+
+/// 重み `weights` の表 `tables`（E' の lin-lin かヒストグラム）の和を、lin-lin の表にする。
+fn integrate_cosines(weights: &[f64], tables: &[Tab1]) -> Tab1 {
+    let mut grid: Vec<f64> = tables.iter().flat_map(|t| t.x.iter().copied()).collect();
+    grid.sort_by(f64::total_cmp);
+    grid.dedup();
+    let last = grid.len().saturating_sub(1);
+    let (mut x, mut y) = (Vec::new(), Vec::new());
+    for (k, &e) in grid.iter().enumerate() {
+        let (mut left, mut right) = (0.0, 0.0);
+        for (w, t) in weights.iter().zip(tables) {
+            let (l, r) = limits(t, e);
+            left += w * l;
+            right += w * r;
+        }
+        // 範囲の始めの左と終わりの右は表の外（値 0）なので、点にしない
+        if k > 0 {
+            x.push(e);
+            y.push(left);
+        }
+        if k < last && (k == 0 || right != left) {
+            x.push(e);
+            y.push(right);
+        }
+    }
+    Tab1::linear(x, y)
+}
+
+/// E' の lin-lin かヒストグラムの表 `t` の、e での左と右の極限。表の範囲の外は 0。
+fn limits(t: &Tab1, e: f64) -> (f64, f64) {
+    let n = t.x.len();
+    if n == 0 || e < t.x[0] || e > t.x[n - 1] {
+        return (0.0, 0.0);
+    }
+    // e 以上の最初の点と、e 以下の最後の点
+    let first = t.x.partition_point(|&x| x < e);
+    let last = t.x.partition_point(|&x| x <= e).saturating_sub(1);
+    let value = |k: usize| {
+        let law = t.law_of_interval(k);
+        law.interpolate(e, (t.x[k], t.y[k]), (t.x[k + 1], t.y[k + 1]))
+    };
+    let left = if first == 0 {
+        0.0
+    } else if t.x[first] == e {
+        // 区間 (first − 1, first) の右端。ヒストグラムは左の点の値
+        match t.law_of_interval(first - 1) {
+            Interpolation::Histogram => t.y[first - 1],
+            _ => t.y[first],
+        }
+    } else {
+        value(first - 1)
+    };
+    let right = if last == n - 1 { 0.0 } else { value(last) };
+    (left, right)
 }
 
 /// 中性子以外の生成粒子の分布を、LAW ごとのレコード構成に従って読み飛ばす。
