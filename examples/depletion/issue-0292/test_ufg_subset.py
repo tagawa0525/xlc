@@ -345,6 +345,36 @@ class AllSeries(unittest.TestCase):
             )
 
 
+class VersionSeries(unittest.TestCase):
+    """版ごとの全核種の系列（all_nuclides.py の `VERSIONS`）: 基準の組 `all` だけを、版のライブラリ、履歴、チェーンで解く"""
+
+    def test_each_other_version_has_a_series_of_its_places(self):
+        for key in ("endfb70", "endfb71", "endfb81"):
+            with self.subTest(key):
+                config = ufg_subset.SERIES[f"all-{key}"]
+                self.assertEqual(config["directory"], f"all-ufg-{key}")
+                self.assertEqual(config["library_input"], f"all-{key}/library/xs.toml")
+                self.assertEqual(config["added"], f"all-{key}/added-to-p2.txt")
+
+    def test_a_version_series_solves_only_all(self):
+        self.assertEqual(ufg_subset.sets("all-endfb70", Path("unused")), {"all": None})
+
+    def test_a_version_input_reads_the_library_history_and_chain_of_its_version(self):
+        text = ufg_subset.case_input(
+            "gd", "all", None, 0, ufg_subset.SERIES["all-endfb70"]
+        )
+        self.assertIn('library = "../../all-endfb70/library/depletion.msgpack"', text)
+        self.assertIn('file = "../../all-endfb70/gd/nominal.msgpack"', text)
+        self.assertIn('chain = "../../../endfb70/chain.msgpack"', text)
+        self.assertNotIn('chain = "../../../chain.msgpack"', text)
+        self.assertNotIn("ufg-nuclides", text)
+        self.assertIn("ENDF/B-VII.0", text.splitlines()[0])
+
+    def test_the_viii0_series_keeps_the_production_chain(self):
+        text = ufg_subset.case_input("u", "all", None, 0, ufg_subset.SERIES["all"])
+        self.assertIn('chain = "../../../chain.msgpack"', text)
+
+
 class CheckFuel(unittest.TestCase):
     """確認のセル（gd10）: 3 つの燃料の順位で選んだ組を、選んだ組成と別の履歴で解く。順位に入れず、時間を測らない"""
 
