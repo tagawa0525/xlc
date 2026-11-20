@@ -316,7 +316,8 @@ cd examples/depletion/read-survey && ../../../bin/xs --threads 1 nuclide nine-VI
 MF6 の LAW=6、7 で止まっていた 9 評価（H-2 と Be-9 の 4 つの版、VIII.1 の Li-6）を、温度 1 点（600 K）の入力
 （`issue-0311/light-<版>.toml`。σ0 と散乱の次数は本番の `xs.toml` と同じ）で `xs nuclide` に最後まで通すと、9 つのすべてが終了コード 0 で
 終わった（638301fd、分岐点 6af59212 の `build` の `bin/xs`、手元で 1 スレッド、2026-11-20）。既存の核種の出力が変わらないことは、VIII.0 の
-O-16、Zr-90、U-235 の 600 K の 1 点（`issue-0311/existing-VIII.0.toml`）の出力を、main（6af59212）の `cargo build --release --locked -p xlc-xs` の xs の出力とバイトで比べて
+O-16、Zr-90、U-235 の 600 K の 1 点（`issue-0311/existing-VIII.0.toml`）の出力を、main（6af59212）の `cargo build --release --locked -p xlc-xs` の xs（main の `bin/xs` は #0316 の前のビルドなので作り直した。ブランチの側は `build` の
+ステージの `bin/xs` で、ビルドの経路は違う）の出力とバイトで比べて
 確かめた（md5 は O-16 d915d683、Zr-90 3ab3f9ac、U-235 00ea03f3 で、どれも同じ）。
 
 ```sh
@@ -519,8 +520,11 @@ target/release/examples/compare_njoy_gendf --rows references/njoy-runs/issue-031
 python3 -I examples/depletion/issue-0311/tabulate_phase_space.py references/endf/ENDF-B-VIII.1_neutrons/n-003_Li_006.endf 41 -3.698e6 lab examples/depletion/issue-0311/Li6-VIII.1-lab.endf
 target/release/examples/compare_njoy_gendf examples/depletion/issue-0311/Li6-VIII.1-lab.endf references/njoy-runs/issue-0311/Li6-VIII.1/tape24 325 41
 python3 -I examples/depletion/issue-0311/tabulate_phase_space.py references/endf/ENDF-B-VIII.0_neutrons/n-001_H_002.endf 16 -2.225002e6 lab examples/depletion/issue-0311/H2-VIII.0-lab.endf
+target/release/examples/compare_njoy_gendf examples/depletion/issue-0311/H2-VIII.0-lab.endf references/njoy-runs/issue-0311/H2-VIII.0/tape24 128 16
 python3 -I examples/depletion/issue-0311/unit_base_be9.py references/endf/ENDF-B-VII.1_neutrons/n-004_Be_009.endf examples/depletion/issue-0311/Be9-VII.1-int22.endf
 target/release/examples/compare_njoy_gendf examples/depletion/issue-0311/Be9-VII.1-int22.endf references/njoy-runs/issue-0311/Be9-VII.1/tape24 425 16
+python3 -I examples/depletion/issue-0311/unit_base_be9.py references/endf/ENDF-B-VIII.0_neutrons/n-004_Be_009.endf examples/depletion/issue-0311/Be9-VIII.0-int22.endf
+target/release/examples/compare_njoy_gendf examples/depletion/issue-0311/Be9-VIII.0-int22.endf references/njoy-runs/issue-0311/Be9-VIII.0/tape24 425 16
 # 下の 3（references の devShell の numpy）
 nix develop .#references -c python3 -I examples/depletion/issue-0311/ll2lab_thinning.py references/endf/ENDF-B-VIII.0_neutrons/n-004_Be_009.endf 2.0e6
 ```
