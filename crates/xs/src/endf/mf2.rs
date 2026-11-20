@@ -336,7 +336,7 @@ fn check_resolved_tops(isotopes: &[Isotope]) -> Result<(), String> {
 
 impl Isotope {
     /// 1 つの同位体（isotope の CONT とその範囲）を読む。
-    fn parse(mut r: &mut Reader<'_>) -> Result<Self, Error> {
+    fn parse(r: &mut Reader<'_>) -> Result<Self, Error> {
         let isotope = r.cont()?;
         let abn = isotope.c2;
         // 核分裂幅がエネルギー依存か（非分離共鳴 LRF=1 の形式を決める）
@@ -365,22 +365,22 @@ impl Isotope {
                         range.n2
                     ));
                 }
-                1 if lrf == 3 => RangeKind::ReichMoore(read_reich_moore(&mut r, range.n2)?),
+                1 if lrf == 3 => RangeKind::ReichMoore(read_reich_moore(r, range.n2)?),
                 1 if lrf == 1 => RangeKind::Slbw(read_breit_wigner(
-                    &mut r,
+                    r,
                     Levels::Single,
                     range.n2,
                     nro,
                     (range.c1, range.c2),
                 )?),
                 1 if lrf == 2 => RangeKind::Mlbw(read_breit_wigner(
-                    &mut r,
+                    r,
                     Levels::Multi,
                     range.n2,
                     nro,
                     (range.c1, range.c2),
                 )?),
-                1 if lrf == 7 => RangeKind::RMatrixLimited(read_r_matrix_limited(&mut r)?),
+                1 if lrf == 7 => RangeKind::RMatrixLimited(read_r_matrix_limited(r)?),
                 1 => return unsupported(format!("resolved LRF={lrf} is not supported")),
                 2 if lrf == 1 || lrf == 2 => {
                     let ap_energy = match nro {
@@ -389,15 +389,9 @@ impl Isotope {
                         _ => return unsupported(format!("invalid NRO={nro}")),
                     };
                     let urr = if lrf == 2 {
-                        read_unresolved(&mut r, range.n2, ap_energy)?
+                        read_unresolved(r, range.n2, ap_energy)?
                     } else {
-                        read_unresolved_lrf1(
-                            &mut r,
-                            lfw,
-                            (range.c1, range.c2),
-                            range.n2,
-                            ap_energy,
-                        )?
+                        read_unresolved_lrf1(r, lfw, (range.c1, range.c2), range.n2, ap_energy)?
                     };
                     // ENDF は非分離共鳴の l を 2 までとする。それを超える l も、分離共鳴と同じ
                     // 剛体球の透過因子と位相シフトで扱う（NJOY は l=2 の式で計算してしまう）
