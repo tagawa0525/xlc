@@ -1565,7 +1565,16 @@ fn sab_nuclides_carry_the_ufg_transfer_with_a_pointwise_range() {
     let table = data.temperatures[0].sab_transfer.as_ref().unwrap();
     assert_eq!(table.incident.last(), Some(&10.0));
     // S(α, β) のない核種と、ポイントワイズの範囲のないライブラリは持たない
-    let plain = process_nuclide(&tape, "X", &[TEMPERATURE], None, &[], &settings).unwrap();
+    let plain = process_nuclide(
+        &tape,
+        "X",
+        &[TEMPERATURE],
+        None,
+        &[],
+        UnresolvedMethod::Additive,
+        &settings,
+    )
+    .unwrap();
     assert!(plain.temperatures[0].sab_transfer.is_none());
     let without_range = Settings {
         pointwise_range: None,
@@ -1658,16 +1667,17 @@ fn evaluations_without_the_delayed_spectrum_have_no_families() {
 fn activation_nuclides_have_the_chain_reactions_of_a_processed_nuclide() {
     let tape = reaction_tape(&[(2, "1.0+5", "0.4")]);
     let settings = reaction_settings();
-    let activation = process_activation(
+    let activation = process_activation(&tape, "X", &[293.6, 600.0], &[], &settings).unwrap();
+    let processed = process_nuclide(
         &tape,
         "X",
         &[293.6, 600.0],
+        None,
         &[],
         UnresolvedMethod::Additive,
         &settings,
     )
     .unwrap();
-    let processed = process_nuclide(&tape, "X", &[293.6, 600.0], None, &[], &settings).unwrap();
     assert_eq!(activation.name, "X");
     assert_eq!(
         (activation.za, activation.awr),

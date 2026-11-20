@@ -55,6 +55,17 @@ pub enum SabUpper {
     Energy(f64),
 }
 
+/// 非分離共鳴の範囲の自己遮蔽の求め方。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UnresolvedMethod {
+    /// LSSF=0 は MF3 のバックグラウンドをラダーの各サンプルに足して差 s(σ0) − s(∞) を、LSSF=1 は File 2 だけのラダーの
+    /// 比 s(σ0)/s(∞) を、ポイントワイズの断面積に当てる（ADR-0177）
+    Additive,
+    /// 入力の宣言（`unresolved-shielding = "factors"`）。MF3 の捕獲か核分裂のバックグラウンドが負の LSSF=0 の評価を、
+    /// LSSF=1 と同じく File 2 だけのラダーの比で遮蔽する（ADR-0274）
+    Factors,
+}
+
 /// S(α, β) を持つ核種の熱領域の扱い（ADR-0133）。
 #[derive(Debug, Clone)]
 pub struct ThermalScattering {
@@ -116,6 +127,25 @@ pub enum ProcessError {
     FreeGasUpper { given: f64, sab: f64 },
     #[error("more than one unresolved range")]
     MultipleUnresolved,
+    #[error(
+        "the MF3 background of MT{mt} in the unresolved range [{el}, {eh}] eV is negative (down to {value} b at \
+         {energy} eV): added to every sampled ladder, it makes the {reaction} negative between resonances. \
+         Declare `unresolved-shielding = \"factors\"` for the nuclide to shield with File 2 alone and scale the \
+         dilute cross sections (ADR-0274)"
+    )]
+    NegativeUnresolvedBackground {
+        mt: u32,
+        reaction: &'static str,
+        el: f64,
+        eh: f64,
+        value: f64,
+        energy: f64,
+    },
+    #[error(
+        "`unresolved-shielding = \"factors\"` is declared, but the evaluation has no LSSF=0 unresolved range \
+         with a negative MF3 capture or fission background (ADR-0274)"
+    )]
+    UnneededUnresolvedFactors,
     #[error(
         "the R-matrix limited range has no s-wave elastic channel for the potential scattering"
     )]
@@ -191,6 +221,9 @@ pub fn read_thermal_scattering(tape: &Tape) -> Result<Mf7Incoherent, ProcessErro
 /// 非分離共鳴の自己遮蔽の補正を、温度 `temperatures` (K) ごとに、バックグラウンド断面積 `sigma0` について作る
 /// （NJOY UNRESR に相当）。結果は温度の順に並ぶ。非分離共鳴がなければ `None`。
 ///
+/// 求め方は `method` で選ぶ。LSSF=0 の範囲の MF3 の捕獲か核分裂のバックグラウンドに負の値があれば、`Additive` では止まり、
+/// `Factors`（入力の宣言）では MF3 を入れないラダーの比を当てる。`Factors` を、そうでない評価に与えると止まる（ADR-0274）。
+///
 /// どの温度にも同じラダーを使う（ADR-0177）ので、ラダーと係数は温度の間で 1 度だけ作る。どの温度の補正も、その温度だけを
 /// 作ったときとビットまで同じ（#0155）。サンプリングのエラーは、温度ごとに作ったときに最初にエラーになる温度のものを、その温度の
 /// `ProcessError::Temperature` で包んで返す。温度によらないエラー（MF2 の読み、格子、正でない温度）は包まず、正でない温度は
@@ -201,9 +234,14 @@ pub fn unresolved_shielding(
     mat: i32,
     temperatures: &[f64],
     sigma0: &[f64],
+    method: UnresolvedMethod,
 ) -> Result<Option<Vec<UnresolvedShielding>>, ProcessError> {
+    let unneeded = || match method {
+        UnresolvedMethod::Factors => Err(ProcessError::UnneededUnresolvedFactors),
+        UnresolvedMethod::Additive => Ok(None),
+    };
     let Some(section) = tape.section(mat, 2, 151) else {
-        return Ok(None);
+        return unneeded();
     };
     let mf2 = Mf2::parse(&section)?;
     let mut unresolved = None;
@@ -215,11 +253,8 @@ pub fn unresolved_shielding(
         }
     }
     let Some((range, urr)) = unresolved else {
-        return Ok(None);
+        return unneeded();
     };
-    if temperatures.is_empty() {
-        return Ok(Some(Vec::new()));
-    }
     let xs = UnresolvedXs::new(urr)?;
     let law = unresolved_interpolation(urr)?;
     let grid = unresolved_grid(urr, range.el, range.eh);
@@ -249,16 +284,74 @@ pub fn unresolved_shielding(
             }
         })
     };
+    // 範囲 [el, eh] の中の最も小さい値と、そのエネルギー。線形化した表なので、範囲の中の表の点と両端の値で決まる
+    let minimum = |t: &Option<Tab1>| {
+        t.as_ref().map(|table| {
+            let inside = table
+                .x
+                .iter()
+                .copied()
+                .filter(|&x| range.el < x && x < range.eh);
+            [range.el, range.eh]
+                .into_iter()
+                .chain(inside)
+                .map(|e| (at(t, e), e))
+                .fold(
+                    (f64::INFINITY, range.el),
+                    |a, b| if b.0 < a.0 { b } else { a },
+                )
+        })
+    };
+    // 共鳴の部分の捕獲と核分裂は負にならないので、それらのバックグラウンドが負なら、各サンプルに足すと共鳴の間の点が
+    // 負になりうる。負になるかは温度とラダーに依るので、サンプルでなくバックグラウンドの値で決める（ADR-0274）
+    let negative = [(18, "fission", &fission), (102, "capture", &capture)]
+        .into_iter()
+        .find_map(|(mt, reaction, t)| {
+            minimum(t)
+                .filter(|&(value, _)| value < 0.0)
+                .map(|(value, energy)| (mt, reaction, value, energy))
+        });
+    let background_at = match (method, negative) {
+        (UnresolvedMethod::Additive, Some((mt, reaction, value, energy))) => {
+            return Err(ProcessError::NegativeUnresolvedBackground {
+                mt,
+                reaction,
+                el: range.el,
+                eh: range.eh,
+                value,
+                energy,
+            });
+        }
+        (UnresolvedMethod::Additive, None) => true,
+        (UnresolvedMethod::Factors, Some((mt, _, value, energy))) => {
+            xlc_log::warn!(
+                "the MF3 background of MT{mt} in the unresolved range is negative (down to {value} b at {energy} eV); \
+                 the self-shielding is from File 2 alone and scales the dilute cross sections, as the input \
+                 declares (ADR-0274)"
+            );
+            false
+        }
+        (UnresolvedMethod::Factors, None) => return Err(ProcessError::UnneededUnresolvedFactors),
+    };
+    // 宣言した評価は、LSSF=1 と同じく比で当てる
+    let lssf = if background_at { urr.lssf } else { 1 };
+    if temperatures.is_empty() {
+        return Ok(Some(Vec::new()));
+    }
 
     // 格子点ごとに独立なので並列に求める。種は格子点の番号（温度と σ0 によらず同じラダーを使い、温度の間の相関を保つ。
     // スレッドの数によらない。ADR-0177）。エラーでも止めず、下で温度ごとに作ったときと同じエラーを選ぶ
     let sampled = in_parallel(grid.len(), |i| {
         let e = grid[i];
-        let background = Sigma {
-            total: at(&total, e),
-            elastic: at(&elastic, e),
-            fission: at(&fission, e),
-            capture: at(&capture, e),
+        let background = if background_at {
+            Sigma {
+                total: at(&total, e),
+                elastic: at(&elastic, e),
+                fission: at(&fission, e),
+                capture: at(&capture, e),
+            }
+        } else {
+            Sigma::default()
         };
         Ok::<_, Infallible>(xs.shielded(
             e,
@@ -331,7 +424,7 @@ pub fn unresolved_shielding(
             UnresolvedShielding::new(
                 range.el,
                 range.eh,
-                urr.lssf,
+                lssf,
                 grid.clone(),
                 law,
                 shielded,
@@ -528,6 +621,7 @@ pub fn process_nuclide(
     temperatures: &[f64],
     thermal: Option<&ThermalScattering>,
     negatives: &[NegativeToZero],
+    unresolved: UnresolvedMethod,
     settings: &Settings,
 ) -> Result<NuclideData, ProcessError> {
     if let Some(thermal) = thermal {
@@ -548,7 +642,13 @@ pub fn process_nuclide(
         settings,
     };
     // 非分離共鳴の補正は、温度の間で同じラダーを 1 度だけ作る（#0155）ので、温度のループの前に全温度を求める
-    let shielding = unresolved_shielding(tape, evaluation.mat, temperatures, &settings.sigma0)?;
+    let shielding = unresolved_shielding(
+        tape,
+        evaluation.mat,
+        temperatures,
+        &settings.sigma0,
+        unresolved,
+    )?;
     // 温度ごとに独立なので並列に求める。結果は温度の順で、エラーは最初の温度のもの。非分離共鳴の補正のエラーは、上で
     // ほかの処理のエラーより先に返る
     let temperatures = in_parallel(temperatures.len(), |k| {
