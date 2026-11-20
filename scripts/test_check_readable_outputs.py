@@ -541,6 +541,35 @@ class CheckReadableOutputs(unittest.TestCase):
         self.assertIn("examples/a/xs-range.toml", result.stdout)
         self.assertNotIn("Traceback", result.stderr)
 
+    def test_a_conflicted_git_tracked_output_stops_without_a_traceback(self):
+        data = b"ok range"
+        self.commit_range(data, hashlib.md5(data).hexdigest())
+        oid = git(self.root, "rev-parse", f"HEAD:{OUTPUTS['range']}").strip()
+        # 解いていないマージの index（stage 1〜3 の項）
+        info = "".join(f"100644 {oid} {n}\t{OUTPUTS['range']}\n" for n in (1, 2, 3))
+        subprocess.run(
+            ["git", "-C", str(self.root), "update-index", "--index-info"],
+            input=f"0 {'0' * 40}\t{OUTPUTS['range']}\n" + info,
+            text=True,
+            check=True,
+            env=ENV,
+        )
+        result = self.run_check("--all")
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("STOP:", result.stdout)
+        self.assertIn("examples/a/xs-range.toml", result.stdout)
+        self.assertNotIn("Traceback", result.stderr)
+
+    def test_files_below_a_directory_of_the_output_path_are_not_the_output(self):
+        self.cache_path(MD5["range"]).unlink()
+        (self.root / OUTPUTS["range"]).mkdir()
+        (self.root / OUTPUTS["range"] / "x").write_bytes(b"ok")
+        git(self.root, "add", ".")
+        result = self.run_check("--all")
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("MISSING: examples/a/xs-range.toml", result.stdout)
+        self.assertNotIn("MISMATCH:", result.stdout)
+
     def test_an_unreadable_git_tracked_output_names_its_path(self):
         data = b"bad range"
         self.commit_range(data, hashlib.md5(data).hexdigest())
@@ -552,7 +581,7 @@ class CheckReadableOutputs(unittest.TestCase):
             result.stdout,
         )
 
-    def test_a_git_tracked_output_whose_head_differs_from_the_lock_stops(self):
+    def test_a_git_tracked_output_whose_index_blob_differs_from_the_lock_stops(self):
         self.commit_range(b"ok range", MD5["range"])
         result = self.run_check("--all")
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
