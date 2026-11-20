@@ -284,7 +284,6 @@ endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-028_Ni_064.endf"
 
 [[evaluation]]
 endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-029_Cu_063.endf"
-error = "line 384: particle pair 2: the shift factor (SHF=1) is not supported"
 
 [[evaluation]]
 endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-029_Cu_064.endf"
@@ -438,7 +437,6 @@ endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-038_Sr_087.endf"
 
 [[evaluation]]
 endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-038_Sr_088.endf"
-error = "line 193: background R-matrix (KBK=1) and given phase shifts (KPS=0) are not supported"
 
 [[evaluation]]
 endf = "../../references/endf/ENDF-B-VIII.1_neutrons/n-038_Sr_089.endf"

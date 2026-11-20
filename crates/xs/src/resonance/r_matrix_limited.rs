@@ -1,23 +1,27 @@
 //! R-matrix limited 形式（LRF=7）の Reich-Moore の断面積（0 K）。
 //!
 //! 捕獲は消去されたチャネルとして共鳴エネルギーの虚部に入れ（E_λ − iΓγ/2）、開いた中性子と核分裂のチャネルの
-//! R 行列から X = (I − iK)⁻¹K（K = P^½ R P^½）を求める。衝突行列は U = e^{−i(φ+φ')} (I + 2iX)。
-//! 中性子の透過因子は剛体球のもので、シフト因子は使わない。核分裂のチャネルは透過因子を 1 とし（ENDF-102 の D.1.7）、
+//! R 行列から X = P^½ (I − R L)⁻¹ R P^½（ENDF-102 の式 D.42、D.47。L = (S − B) + iP）を求める。K = P^½ R P^½ と
+//! Λ = L/P（対角）で書くと X = (I − KΛ)⁻¹K で、シフト因子がなければ Λ = i なので X = (I − iK)⁻¹K。
+//! 衝突行列は U = e^{−i(φ+φ')} (I + 2iX)。R には、チャネルのバックグラウンドの R 行列（SAMMY の対数の形、
+//! ENDF-102 の式 D.77）を対角に足す。
+//! 中性子の透過因子とシフト因子は剛体球のもの（シフト因子は SHF=1 の粒子対だけ）。核分裂のチャネルは透過因子を 1 とし（ENDF-102 の D.1.7）、
 //! 幅は Γ = 2γ² になる（LRF=3 の Reich-Moore の Γfa、Γfb と同じチャネル）。位相シフトは 0 とする（核分裂は入射の
 //! チャネルにならず、断面積は |U_ab|² = 4|X_ab|² だけで位相によらない）。
 //! 閾値より下の非弾性散乱のチャネルは閉じているので除く（NJOY2016 samm と同じ）。
 //!
 //! 捕獲の幅がない共鳴のエネルギーちょうどでは R 行列が発散する（極）が、X は有限の極限を持つ。
-//! M = I − iK とすると X = i(I − M⁻¹) で、極の共鳴の項を K = K' + w wᵀ/d と分けると、d → 0 の極限は
-//! M⁻¹ = M'⁻¹ − (M'⁻¹w)(wᵀM'⁻¹) / (wᵀM'⁻¹w)（Sherman-Morrison の公式）。NJOY はこの点で発散する。
+//! M = I − KΛ とすると X = (M⁻¹ − I)Λ⁻¹ で、極の共鳴の項を K = K' + w wᵀ/d と分けると M = M' − w (Λw)ᵀ/d で、
+//! d → 0 の極限は M⁻¹ = M'⁻¹ − (M'⁻¹w)((Λw)ᵀM'⁻¹) / ((Λw)ᵀM'⁻¹w)（Sherman-Morrison の公式）。Λ = i では
+//! X = i(I − M⁻¹) になる。NJOY はこの点で発散する。
 
 use std::f64::consts::PI;
 
 use num_complex::Complex64;
 
-use super::factors::{penetrability, phase_shift};
+use super::factors::{penetrability, phase_shift, shift};
 use super::linear::{Singular, pole_limit, solve};
-use crate::endf::{OrbitalL, ParticlePair, RMatrixLimited};
+use crate::endf::{LogBackground, OrbitalL, ParticlePair, RMatrixLimited};
 use crate::physics::wave_number_factor;
 
 /// R-matrix limited の断面積の計算のエラー。
@@ -44,6 +48,19 @@ pub enum RmlError {
     Poles { group: usize, energy: f64 },
     #[error("spin group {group}: singular level matrix at {energy} eV")]
     Singular { group: usize, energy: f64 },
+    #[error("spin group {group}: a background R-matrix on the capture channel")]
+    CaptureBackground { group: usize },
+    #[error(
+        "spin group {group}: {energy} eV is outside the background R-matrix range \
+         ({ed}, {eu}) eV of channel {channel}"
+    )]
+    BackgroundRange {
+        group: usize,
+        channel: usize,
+        energy: f64,
+        ed: f64,
+        eu: f64,
+    },
 }
 
 /// 断面積の計算に使う形に前処理した R-matrix limited のパラメータ。
@@ -91,6 +108,11 @@ struct Channel {
     apt: f64,
     /// 位相シフトに使う半径 (10^-12 cm)
     ape: f64,
+    /// シフト因子を計算するときの境界条件 B（SHF=1 の粒子対だけ。なければ S − B = 0）
+    boundary: Option<f64>,
+    background: Option<LogBackground>,
+    /// spin group の中のチャネルの番号（ファイルの順、1 から。エラーの文に使う）
+    index: usize,
 }
 
 impl Channel {
@@ -112,6 +134,31 @@ impl Channel {
         } else {
             0.0
         }
+    }
+
+    /// S − B（シフト因子を計算しないチャネルは `None`）。
+    fn shift_minus_boundary(&self, e: f64) -> Option<f64> {
+        self.boundary
+            .map(|b| shift(self.l, self.wave_number(e) * self.apt) - b)
+    }
+
+    /// バックグラウンドの R 行列（ENDF-102 の式 D.77）。範囲 (ED, EU) の外では対数が定義できないのでエラー。
+    fn background(&self, e: f64, group: usize) -> Result<f64, RmlError> {
+        let Some(b) = &self.background else {
+            return Ok(0.0);
+        };
+        if !(b.ed < e && e < b.eu) {
+            return Err(RmlError::BackgroundRange {
+                group,
+                channel: self.index,
+                energy: e,
+                ed: b.ed,
+                eu: b.eu,
+            });
+        }
+        Ok(b.r0 + (b.r1 + b.r2 * e) * e
+            - b.s1 * (b.eu - b.ed)
+            - (b.s0 + b.s1 * e) * ((b.eu - e) / (e - b.ed)).ln())
     }
 }
 
@@ -163,6 +210,9 @@ impl RMatrixLimitedXs {
                         Role::Capture if capture.is_some() => {
                             return Err(RmlError::CaptureChannels { group: group + 1 });
                         }
+                        Role::Capture if c.background.is_some() => {
+                            return Err(RmlError::CaptureBackground { group: group + 1 });
+                        }
                         Role::Capture => capture = Some(k),
                         role => {
                             let reduced = pair.ma * pair.mb / (pair.ma + pair.mb);
@@ -176,6 +226,9 @@ impl RMatrixLimitedXs {
                                     factor: wave_number_factor() * (reduced * arat).sqrt(),
                                     apt: c.apt,
                                     ape: c.ape,
+                                    boundary: (pair.shf == 1).then_some(c.bnd),
+                                    background: c.background,
+                                    index: k + 1,
                                 },
                             ));
                         }
@@ -221,17 +274,21 @@ impl RMatrixLimitedXs {
             .collect()
     }
 
-    /// 共鳴の半値幅（ピークのまわりの格子点に使う）。
+    /// 共鳴のピークのエネルギーと半値幅（ピークのまわりの格子点に使う）。シフト因子を計算するチャネルがあれば、
+    /// ピークは準位のずれ Δ = −Σ γ²(S − B)（S は共鳴エネルギーで求める）だけ E_λ から動く。
     pub fn peaks(&self) -> impl Iterator<Item = (f64, f64)> + '_ {
         self.groups.iter().flat_map(|g| {
             g.resonances.iter().map(|r| {
-                let neutron: f64 = (r.amplitudes.iter().zip(&g.channels))
-                    .map(|(&a, c)| {
-                        let e = (r.er - c.threshold).abs();
-                        2.0 * a * a * c.penetrability(c.threshold + e)
-                    })
-                    .sum();
-                (r.er, r.half_capture + 0.5 * neutron)
+                let mut neutron = 0.0;
+                let mut level_shift = 0.0;
+                for (&a, c) in r.amplitudes.iter().zip(&g.channels) {
+                    let e = c.threshold + (r.er - c.threshold).abs();
+                    neutron += 2.0 * a * a * c.penetrability(e);
+                    if let Some(d) = c.shift_minus_boundary(e) {
+                        level_shift -= a * a * d;
+                    }
+                }
+                (r.er + level_shift, r.half_capture + 0.5 * neutron)
             })
         })
     }
@@ -284,8 +341,31 @@ impl RMatrixLimitedXs {
                     }
                 }
             }
-            // (I − iK) X = K
-            let mut m: Vec<Complex64> = k.iter().map(|&v| -Complex64::I * v).collect();
+            // バックグラウンドの R 行列は対角だけ: K_aa += P_a R_bkg
+            for (a, c) in open.iter().enumerate() {
+                if c.background.is_some() {
+                    k[a * n + a] += root_p[a] * root_p[a] * c.background(e, group + 1)?;
+                }
+            }
+            // Λ = i + (S − B)/P。シフト因子を計算するチャネルがなければ Λ = i のまま (I − iK) X = K を解く
+            let lambda: Option<Vec<Complex64>> = if open.iter().any(|c| c.boundary.is_some()) {
+                Some(
+                    open.iter()
+                        .zip(&root_p)
+                        .map(|(c, rp)| {
+                            let ratio = c.shift_minus_boundary(e).map_or(0.0, |d| d / (rp * rp));
+                            Complex64::new(ratio, 1.0)
+                        })
+                        .collect(),
+                )
+            } else {
+                None
+            };
+            // (I − KΛ) X = K
+            let mut m: Vec<Complex64> = match &lambda {
+                None => k.iter().map(|&v| -Complex64::I * v).collect(),
+                Some(lambda) => (0..n * n).map(|i| -k[i] * lambda[i % n]).collect(),
+            };
             for a in 0..n {
                 m[a * n + a] += 1.0;
             }
@@ -298,7 +378,11 @@ impl RMatrixLimitedXs {
                     solve(&mut m, &mut k, n).map_err(|Singular| singular())?;
                     k
                 }
-                Some(w) => x_at_pole(m, &w, n).map_err(|Singular| singular())?,
+                Some(w) => match &lambda {
+                    None => x_at_pole(m, &w, n),
+                    Some(lambda) => x_at_shifted_pole(m, &w, lambda, n),
+                }
+                .map_err(|Singular| singular())?,
             };
 
             let kn = entrance.wave_number(e);
@@ -346,9 +430,20 @@ fn role(index: usize, pair: &ParticlePair, levels: &mut Vec<u32>) -> Result<Role
     if pair.za != 0.0 {
         return unsupported(format!("a charged particle (ZA={})", pair.za));
     }
-    if pair.shf != 0 {
-        return unsupported(format!("the shift factor (SHF={})", pair.shf));
+    // SHF=1 は計算し、0 と -1 は計算しない（-1 は ENDF-102 の 2005 年版の「計算しない」。2023 年版は 0 と書く）
+    if !matches!(pair.shf, -1..=1) {
+        return unsupported(format!("the shift factor flag SHF={}", pair.shf));
     }
+    let role = role_of(index, pair, levels)?;
+    // シフト因子は透過因子と同じ剛体球の量なので、透過因子を計算しない捕獲と核分裂には定義がない
+    if pair.shf == 1 && matches!(role, Role::Capture | Role::Fission) {
+        return unsupported(format!("the shift factor (SHF=1) for MT={}", pair.mt));
+    }
+    Ok(role)
+}
+
+fn role_of(index: usize, pair: &ParticlePair, levels: &mut Vec<u32>) -> Result<Role, RmlError> {
+    let unsupported = |what: String| Err(RmlError::Pair { pair: index, what });
     match (pair.ma, pair.mt) {
         // 光子と捕獲。透過因子は計算しない（PNT=0 は MT=102 なら計算しないこと）
         (0.0, 102) if pair.pnt <= 0 => Ok(Role::Capture),
@@ -429,6 +524,43 @@ fn x_at_pole(mut m: Vec<Complex64>, w: &[f64], n: usize) -> Result<Vec<Complex64
                 Complex64::ZERO
             };
             Complex64::I * (identity - inverse[i])
+        })
+        .collect())
+}
+
+/// シフト因子があるときの極での X = (M⁻¹ − I)Λ⁻¹ の極限。`m` は極の共鳴を除いた M' = I − K'Λ、`w` は極の共鳴の
+/// P^½ γ。M' は対称でないので、`pole_limit`（M' が複素対称で左右のベクトルが同じ形）は使えず、
+/// M⁻¹ → M'⁻¹ − (M'⁻¹w)(vᵀM'⁻¹) / (vᵀM'⁻¹w)、v = Λw をここで求める。
+fn x_at_shifted_pole(
+    mut m: Vec<Complex64>,
+    w: &[f64],
+    lambda: &[Complex64],
+    n: usize,
+) -> Result<Vec<Complex64>, Singular> {
+    let identity = |i: usize| {
+        if i.is_multiple_of(n + 1) {
+            Complex64::ONE
+        } else {
+            Complex64::ZERO
+        }
+    };
+    let mut inverse: Vec<Complex64> = (0..n * n).map(identity).collect();
+    solve(&mut m, &mut inverse, n)?;
+    let u: Vec<Complex64> = (0..n)
+        .map(|a| (0..n).map(|b| inverse[a * n + b] * w[b]).sum())
+        .collect();
+    let t: Vec<Complex64> = (0..n)
+        .map(|b| (0..n).map(|a| lambda[a] * w[a] * inverse[a * n + b]).sum())
+        .collect();
+    let s: Complex64 = (0..n).map(|a| t[a] * w[a]).sum();
+    if s == Complex64::ZERO || s.is_nan() {
+        return Err(Singular);
+    }
+    let scale = s.inv();
+    Ok((0..n * n)
+        .map(|i| {
+            let (a, b) = (i / n, i % n);
+            (inverse[i] - u[a] * t[b] * scale - identity(i)) / lambda[b]
         })
         .collect())
 }

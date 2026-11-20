@@ -17,9 +17,9 @@ stages:
       size: 1422
     - path: crates
       hash: md5
-      md5: ba1cb0dfda907529d50d663245da94c2.dir
-      size: 5869544
-      nfiles: 280
+      md5: 65a848028d7361926996a645541e1bb0.dir
+      size: 5892572
+      nfiles: 281
     - path: flake.lock
       hash: md5
       md5: 83437230048eadb7a5c2f626d4ea10aa
@@ -40,8 +40,8 @@ stages:
     outs:
     - path: bin/chain
       hash: md5
-      md5: 3dc5862742acf25e62b6a791594d45ae
-      size: 2025664
+      md5: edf204e37609d7f1934d200fa8d1650e
+      size: 2025600
       isexec: true
     - path: bin/core
       hash: md5
@@ -55,8 +55,8 @@ stages:
       isexec: true
     - path: bin/xs
       hash: md5
-      md5: 8fcecafe2dcd6f92fb78cca40b24a11b
-      size: 3284616
+      md5: 805d95ad0a2b8cbcde617e6b27ff2620
+      size: 3291808
       isexec: true
   python-ast@examples/c5g7/compare.py:
     cmd: python3 scripts/normalize_python.py examples/c5g7/compare.py 
@@ -8446,8 +8446,8 @@ stages:
     deps:
     - path: bin/xs
       hash: md5
-      md5: 8fcecafe2dcd6f92fb78cca40b24a11b
-      size: 3284616
+      md5: 805d95ad0a2b8cbcde617e6b27ff2620
+      size: 3291808
       isexec: true
     - path: python-ast/scripts/normalize_binary.py.ast
       hash: md5
@@ -8456,15 +8456,15 @@ stages:
     outs:
     - path: binary-forms/xs.md5
       hash: md5
-      md5: ad908a1731aace01a5f8c86637370a55
+      md5: b4c7efed07032b0663a636230466eb43
       size: 33
   binary-forms@chain:
     cmd: python3 scripts/normalize_binary.py bin/chain binary-forms/chain.md5
     deps:
     - path: bin/chain
       hash: md5
-      md5: 3dc5862742acf25e62b6a791594d45ae
-      size: 2025664
+      md5: edf204e37609d7f1934d200fa8d1650e
+      size: 2025600
       isexec: true
     - path: python-ast/scripts/normalize_binary.py.ast
       hash: md5
@@ -8473,7 +8473,7 @@ stages:
     outs:
     - path: binary-forms/chain.md5
       hash: md5
-      md5: b6f2cb88671f2976555245bc4df83c45
+      md5: 06f422935479fd23f0b4b37e69a5b7d2
       size: 33
   toml-values@examples/vera/endfb70/openmc/openmc-1D.toml:
     cmd: python3 scripts/normalize_toml.py 

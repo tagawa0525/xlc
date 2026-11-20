@@ -147,6 +147,23 @@ pub struct RmlChannel {
     pub ape: f64,
     /// 透過因子とシフト因子に使う半径
     pub apt: f64,
+    /// バックグラウンドの R 行列（KBK の記録で LBK=2 が与えたものだけ）
+    pub background: Option<LogBackground>,
+}
+
+/// SAMMY の対数のパラメータ表示（LBK=2）のバックグラウンドの R 行列の係数（ENDF-102 の式 D.77）。
+/// エネルギーは実験室系の eV。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct LogBackground {
+    /// 下端 E_down
+    pub ed: f64,
+    /// 上端 E_up
+    pub eu: f64,
+    pub r0: f64,
+    pub r1: f64,
+    pub r2: f64,
+    pub s0: f64,
+    pub s1: f64,
 }
 
 /// 共鳴。`widths` はチャネルごとの幅 (eV) で、符号は換算幅の符号を表す。
@@ -738,19 +755,17 @@ fn read_r_matrix_limited(r: &mut Reader<'_>) -> Result<RMatrixLimited, Error> {
         // AJ PJ KBK KPS 6*NCH NCH と、チャネルごとに PPI L SCH BND APE APT
         let group_line = r.line() + 1;
         let group = r.list()?;
-        if group.l1 != 0 || group.l2 != 0 {
+        let kbk = count(group.l1, group_line, "KBK")?;
+        if group.l2 != 0 {
             return Err(Error::new(
                 group_line,
-                format!(
-                    "background R-matrix (KBK={}) and given phase shifts (KPS={}) are not supported",
-                    group.l1, group.l2
-                ),
+                format!("given phase shifts (KPS={}) are not supported", group.l2),
             ));
         }
         let (chunks, []) = group.values.as_chunks::<6>() else {
             return Err(Error::new(group_line, "channels must be 6 values each"));
         };
-        let channels = chunks
+        let mut channels = chunks
             .iter()
             .map(|c| {
                 let pair = integer(c[0], group_line, "PPI")?;
@@ -768,6 +783,7 @@ fn read_r_matrix_limited(r: &mut Reader<'_>) -> Result<RMatrixLimited, Error> {
                     bnd: c[3],
                     ape: c[4],
                     apt: c[5],
+                    background: None,
                 })
             })
             .collect::<Result<Vec<_>, Error>>()?;
@@ -796,6 +812,7 @@ fn read_r_matrix_limited(r: &mut Reader<'_>) -> Result<RMatrixLimited, Error> {
                 widths: v[1..=channels.len()].to_vec(),
             })
             .collect();
+        read_backgrounds(r, kbk, &mut channels)?;
         spin_groups.push(SpinGroup {
             aj: group.c1,
             pj: group.c2,
@@ -804,6 +821,68 @@ fn read_r_matrix_limited(r: &mut Reader<'_>) -> Result<RMatrixLimited, Error> {
         });
     }
     Ok(RMatrixLimited { pairs, spin_groups })
+}
+
+/// spin group の共鳴の後の、`kbk` 個のチャネルのバックグラウンドの R 行列の記録を読み、`channels` に入れる。
+/// LBK=0（足さない）と LBK=2（SAMMY の対数のパラメータ表示）だけを受ける。
+fn read_backgrounds(
+    r: &mut Reader<'_>,
+    kbk: usize,
+    channels: &mut [RmlChannel],
+) -> Result<(), Error> {
+    let mut given = vec![false; channels.len()];
+    for _ in 0..kbk {
+        // 0 0 LCH LBK 0 0
+        let line = r.line() + 1;
+        let record = r.cont()?;
+        let (lch, lbk) = (record.l1, record.l2);
+        let index = usize::try_from(lch - 1)
+            .ok()
+            .filter(|&i| i < channels.len() && !given[i])
+            .ok_or_else(|| {
+                Error::new(
+                    line,
+                    format!(
+                        "background R-matrix for LCH={lch}, which is not a channel of the spin \
+                         group or already has one"
+                    ),
+                )
+            })?;
+        given[index] = true;
+        match lbk {
+            0 => {}
+            2 => {
+                // ED EU 0 0 5 0 / R0 R1 R2 S0 S1
+                let line = r.line() + 1;
+                let list = r.list()?;
+                let [r0, r1, r2, s0, s1] = list.values[..] else {
+                    return Err(Error::new(
+                        line,
+                        format!(
+                            "{} values for the LBK=2 background; 5 are needed",
+                            list.values.len()
+                        ),
+                    ));
+                };
+                channels[index].background = Some(LogBackground {
+                    ed: list.c1,
+                    eu: list.c2,
+                    r0,
+                    r1,
+                    r2,
+                    s0,
+                    s1,
+                });
+            }
+            _ => {
+                return Err(Error::new(
+                    line,
+                    format!("background R-matrix LBK={lbk} is not supported (only LBK=0 and 2)"),
+                ));
+            }
+        }
+    }
+    Ok(())
 }
 
 fn read_reich_moore(r: &mut Reader<'_>, naps: i64) -> Result<ReichMoore, Error> {

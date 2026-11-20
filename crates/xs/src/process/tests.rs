@@ -196,6 +196,7 @@ fn rejects_differing_s_wave_radii() {
             bnd: 0.0,
             ape,
             apt: ape,
+            background: None,
         }],
         resonances: vec![],
     };

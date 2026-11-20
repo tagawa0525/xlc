@@ -74,7 +74,7 @@
     {
      "file": "n-017_Cl_035.endf",
      "nuclide": "Cl-35",
-     "reason": "particle pair 1: the shift factor (SHF=-1) is not supported"
+     "reason": "particle pair 3: a charged particle (ZA=1) is not supported"
     },
     {
      "file": "n-090_Th_232.endf",
@@ -147,8 +147,8 @@
   "VIII.1": {
    "in_chain": {
     "evaluations": 557,
-    "readable": 547,
-    "stopped": 10
+    "readable": 549,
+    "stopped": 8
    },
    "outside_chain": {
     "evaluations": 1,
@@ -182,16 +182,6 @@
      "file": "n-020_Ca_040.endf",
      "nuclide": "Ca-40",
      "reason": "particle pair 3: a charged particle (ZA=2) is not supported"
-    },
-    {
-     "file": "n-029_Cu_063.endf",
-     "nuclide": "Cu-63",
-     "reason": "particle pair 2: the shift factor (SHF=1) is not supported"
-    },
-    {
-     "file": "n-038_Sr_088.endf",
-     "nuclide": "Sr-88",
-     "reason": "background R-matrix (KBK=1) and given phase shifts (KPS=0) are not supported"
     },
     {
      "file": "n-090_Th_232.endf",
@@ -268,12 +258,10 @@
     "Pa-233"
    ]
   },
-  "particle pair 1: the shift factor (SHF=-1) is not supported": {
+  "particle pair 3: a charged particle (ZA=1) is not supported": {
    "VII.1": [
     "Cl-35"
-   ]
-  },
-  "particle pair 3: a charged particle (ZA=1) is not supported": {
+   ],
    "VIII.0": [
     "Cl-35"
    ],
@@ -287,16 +275,6 @@
    ],
    "VIII.1": [
     "Ca-40"
-   ]
-  },
-  "particle pair 2: the shift factor (SHF=1) is not supported": {
-   "VIII.1": [
-    "Cu-63"
-   ]
-  },
-  "background R-matrix (KBK=1) and given phase shifts (KPS=0) are not supported": {
-   "VIII.1": [
-    "Sr-88"
    ]
   }
  },
@@ -394,7 +372,7 @@
   },
   {
    "path": "read-survey-endfb71.toml",
-   "md5": "982aa65d97932b8aaed7f1689a902f20"
+   "md5": "8cc9ff014c729dc671621ae04ea4397a"
   },
   {
    "path": "endfb71/chain.msgpack",
@@ -410,7 +388,7 @@
   },
   {
    "path": "read-survey-endfb81.toml",
-   "md5": "48090184d2bf88ae6537112a15869f96"
+   "md5": "adc307a648cb0b3d6e9ffeab04e15771"
   },
   {
    "path": "endfb81/chain.msgpack",
