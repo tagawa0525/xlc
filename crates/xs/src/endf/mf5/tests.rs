@@ -216,6 +216,25 @@ fn watt_needs_positive_parameters() {
 }
 
 #[test]
+fn watt_names_the_bad_parameter() {
+    let tape = Tape::parse(&watt_mf5("9.77+5", "0.0")).unwrap();
+    let err = Mf5::parse(&tape.section(1, 5, 18).unwrap()).unwrap_err();
+    assert!(
+        err.message.contains("b must be positive"),
+        "{}",
+        err.message
+    );
+}
+
+#[test]
+fn watt_beyond_the_grouped_range_of_ab_is_error() {
+    // a b/4 = 9.8e5 × 2.1e-5/4 ≈ 5.1。群への振り分けの精度を確かめた a b/4 ≤ 5 の外
+    let tape = Tape::parse(&watt_mf5("9.77+5", "2.1-5")).unwrap();
+    let err = Mf5::parse(&tape.section(1, 5, 18).unwrap()).unwrap_err();
+    assert!(err.message.contains("a b/4"), "{}", err.message);
+}
+
+#[test]
 fn other_lf_is_error() {
     let text = two_point_mf5("3", ("1.0+6", "2.0+7", "1.0"), ("1.0-5", "1.0+6", "1.0"));
     let tape = Tape::parse(&text).unwrap();
