@@ -528,3 +528,67 @@ fn watt_cumulative_keeps_its_accuracy_over_the_read_range_of_ab() {
         }
     }
 }
+
+/// 位相空間分布の実験室系の群ごとの割合を、重心系のエネルギーについての細かい中点則で求めた参照。
+/// 重心系の E' = E_max sin²θ ごとに、実験室系の [(√E' − √Ec)², (√E' + √Ec)²] の一様分布を振り分ける
+fn phase_space_reference(
+    groups: &GroupStructure,
+    space: &PhaseSpace,
+    emax: f64,
+    ec: f64,
+) -> Vec<f64> {
+    let n = 200_000;
+    let h = std::f64::consts::FRAC_PI_2 / n as f64;
+    let m = space.exponent();
+    let mut out = vec![0.0; groups.len()];
+    for i in 0..n {
+        let t = (i as f64 + 0.5) * h;
+        let weight =
+            space.normalization() * 2.0 * t.sin().powi(2) * t.cos().powf(2.0 * m + 1.0) * h;
+        let v = emax.sqrt() * t.sin();
+        let (lo, hi) = ((v - ec.sqrt()).powi(2), (v + ec.sqrt()).powi(2));
+        uniform_fractions(groups, lo, hi, weight, &mut out);
+    }
+    out
+}
+
+#[test]
+fn phase_space_spreads_by_the_centre_of_mass_motion() {
+    let groups = GroupStructure::new(vec![
+        2.0e7, 5.0e6, 3.0e6, 1.0e6, 5.0e5, 1.0e5, 1.0e4, 1.0e-5,
+    ])
+    .unwrap();
+    // 重心の運動 Ec が E_max より小さいとき、大きいとき（実験室系の下限が 0 から離れる）
+    for (emax, ec) in [(2.0e6, 4.0e5), (3.0e5, 1.5e6)] {
+        for particles in [3, 4, 5] {
+            let space = PhaseSpace {
+                total_mass: 5.0,
+                particles,
+            };
+            let mut out = vec![0.0; groups.len()];
+            phase_space_fractions(&groups, &space, emax, ec, 2.0, &mut out);
+            let reference = phase_space_reference(&groups, &space, emax, ec);
+            for (g, (a, r)) in out.iter().zip(&reference).enumerate() {
+                assert!(
+                    (a - 2.0 * r).abs() < 2e-7,
+                    "E_max {emax}, Ec {ec}, n {particles}, group {g}: {out:?} vs {reference:?}"
+                );
+            }
+            let total: f64 = out.iter().sum();
+            assert!((total - 2.0).abs() < 1e-12, "{total}");
+        }
+    }
+}
+
+#[test]
+fn phase_space_below_threshold_moves_with_the_centre_of_mass() {
+    // E_max ≤ 0 では、重心系で止まった中性子が重心とともに Ec で進む
+    let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e5, 1.0e-5]).unwrap();
+    let space = PhaseSpace {
+        total_mass: 3.0,
+        particles: 3,
+    };
+    let mut out = vec![0.0; 3];
+    phase_space_fractions(&groups, &space, -1.0, 4.0e5, 1.5, &mut out);
+    assert_eq!(out, vec![0.0, 1.5, 0.0]);
+}

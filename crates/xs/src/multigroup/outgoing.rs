@@ -1,7 +1,7 @@
 //! 出射エネルギー分布の群への振り分け。
 
 use crate::endf::{
-    ClampedTab1, EnergyLaw, IncidentLaw, Interpolation, OutgoingDistributions, Tab1,
+    ClampedTab1, EnergyLaw, IncidentLaw, Interpolation, OutgoingDistributions, PhaseSpace, Tab1,
 };
 use crate::pointwise::linearize;
 use crate::special::{erf, exp_e1, gamma_p_2, gamma_p_3_2, lower_gamma_series};
@@ -75,6 +75,21 @@ fn laboratory_group_integrals(groups: &GroupStructure, density: &Tab1, ec: f64) 
         }
     }
     integrals
+}
+
+/// LAW=6 の位相空間分布（重心系で等方、重心系の出射エネルギーの上限 `emax`）の中性子を、実験室系の群に振り分け、
+/// `scale` を掛けて `out` に足す。`ec` は重心の運動による中性子1個あたりのエネルギー E/(A+1)²。
+/// 群構造の外に出る分は端の群に入れる。`emax` が 0 以下（しきい値の下か丸め）なら、重心系で止まった中性子として
+/// 実験室系のエネルギー `ec` の群に入れる。
+pub(super) fn phase_space_fractions(
+    groups: &GroupStructure,
+    space: &PhaseSpace,
+    emax: f64,
+    ec: f64,
+    scale: f64,
+    out: &mut [f64],
+) {
+    todo!("{groups:?} {space:?} {emax} {ec} {scale} {}", out.len())
 }
 
 /// [lo, hi] の一様分布を群に振り分け、`scale` を掛けて `out` に足す。

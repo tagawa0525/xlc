@@ -3,7 +3,8 @@
 //! 弾性散乱と離散準位の非弾性散乱は、静止した標的との2体反応として扱う。重心系の角度分布は MF4 で、
 //! なければ重心系で等方とする。
 //! 熱領域の弾性散乱は、指定があれば自由ガス模型で扱う（標的の熱運動による上方散乱を含む）。
-//! 連続的な中性子放出反応（MT91, (n,2n) など）は MF6 のエネルギー分布と多重度を使う。
+//! 連続的な中性子放出反応（MT91, (n,2n) など）は MF6 のエネルギー分布と多重度を使う。LAW=6 の位相空間分布は
+//! 反応の Q 値で出射エネルギーの上限を決める。
 //! MF6 がなく MF4/MF5 で与えられた反応は、MF5 のエネルギー分布と、反応で決まる多重度を使い、
 //! MF4 の実験室系の角度分布をエネルギーと独立に掛ける。
 
@@ -11,13 +12,13 @@ use std::collections::BTreeMap;
 use xlc_numeric::quadrature::{GAUSS_LEGENDRE_8, legendre};
 
 use super::free_gas::free_gas_group_moments;
-use super::outgoing::uniform_fractions;
+use super::outgoing::{phase_space_fractions, uniform_fractions};
 use super::{
     FreeGas, GroupStructure, GroupedLaw, GroupedOutgoing, ThermalSab, Weight, group_integrals,
     group_integrals_multi,
 };
 
-use crate::endf::{Angular, Distribution, Frame, Mf4, Mf5, Mf6, Tab1};
+use crate::endf::{Angular, Distribution, Frame, Mf4, Mf5, Mf6, NeutronSpectrum, PhaseSpace, Tab1};
 
 /// 重心系等方の2体反応（Q 値 q、標的の質量比 awr）で、入射エネルギー e の中性子の
 /// 出射エネルギーの範囲。出射エネルギーはこの範囲で一様に分布する。しきい値未満なら `None`。
@@ -102,7 +103,8 @@ pub enum ScatterError {
 pub struct Reactions<'a> {
     /// ポイントワイズの断面積
     pub tables: &'a BTreeMap<u32, Tab1>,
-    /// 離散準位の非弾性散乱（MT51〜90）の Q 値 (eV)
+    /// 反応の Q 値 (eV、MF3 の QI)。離散準位の非弾性散乱（MT51〜90）と、MF6 の中性子に LAW=6 の位相空間分布を
+    /// 持つ反応に要る
     pub q_values: &'a BTreeMap<u32, f64>,
     /// 連続的な中性子放出反応の出射分布
     pub emissions: &'a BTreeMap<u32, Emission>,
@@ -174,7 +176,9 @@ pub fn scattering_moments(
             Source::Elastic => {
                 elastic_rows(groups, weight, awr, table, thermal, angular.get(&2), order)
             }
-            Source::Continuum(data) => isotropic(emission_rows(groups, weight, table, data), order),
+            Source::Continuum(data, q) => {
+                isotropic(emission_rows(groups, weight, table, data, mt, q)?, order)
+            }
             Source::Spectrum(data, count) => {
                 spectrum_moments(groups, weight, table, data, count, angular.get(&mt), order)
             }
@@ -215,8 +219,8 @@ pub fn check_reactions(
 enum Source<'a> {
     /// 弾性散乱（MF6 の有無にかかわらず2体反応。熱領域では熱領域の扱い）
     Elastic,
-    /// MF6 の連続的な放出
-    Continuum(&'a Mf6),
+    /// MF6 の連続的な放出と、位相空間分布があればその反応の Q 値 (eV)
+    Continuum(&'a Mf6, Option<f64>),
     /// MF5 のエネルギー分布と、反応で決まる多重度
     Spectrum(&'a Mf5, f64),
     /// 離散準位の2体反応と、その Q 値 (eV)
@@ -267,7 +271,12 @@ fn sources<'a>(
         } else if let Some(Emission::Mf6(data)) = emissions.get(&mt)
             && !data.two_body
         {
-            Source::Continuum(data)
+            let q = if data.has_phase_space() {
+                Some(*q_values.get(&mt).ok_or(ScatterError::QValue(mt))?)
+            } else {
+                None
+            };
+            Source::Continuum(data, q)
         } else if let Some(Emission::Mf6(_)) = emissions.get(&mt)
             && !(51..=90).contains(&mt)
         {
@@ -568,30 +577,49 @@ fn two_body_kinks(groups: &GroupStructure, awr: f64, q: f64) -> Vec<f64> {
     kinks
 }
 
-/// MF6 の中性子放出の ∫_g σ(E) y(E) w(E) P(E→g') dE。
+/// MF6 の中性子放出 MT`mt` の ∫_g σ(E) y(E) w(E) P(E→g') dE。`q` は位相空間分布の反応の Q 値で、位相空間分布が
+/// あるのに無ければエラー（[`sources`] が先に止める）。
 fn emission_rows(
     groups: &GroupStructure,
     weight: &Weight,
     table: &Tab1,
     data: &Mf6,
-) -> Vec<Vec<f64>> {
+    mt: u32,
+    q: Option<f64>,
+) -> Result<Vec<Vec<f64>>, ScatterError> {
     let ng = groups.len();
     let mut rows = vec![vec![0.0; ng]; ng];
     for emission in &data.neutrons {
-        let grouped = match emission.frame {
-            Frame::Laboratory => GroupedOutgoing::new(groups, &emission.distributions),
-            Frame::CenterOfMass => {
-                GroupedOutgoing::center_of_mass(groups, &emission.distributions, data.awr)
-            }
-        };
         let mut breakpoints = table.x.clone();
         breakpoints.extend(&emission.multiplicity.x);
-        breakpoints.extend(grouped.incident());
+        let grouped = match &emission.spectrum {
+            NeutronSpectrum::Tabulated(distributions) => {
+                let grouped = match emission.frame {
+                    Frame::Laboratory => GroupedOutgoing::new(groups, distributions),
+                    Frame::CenterOfMass => {
+                        GroupedOutgoing::center_of_mass(groups, distributions, data.awr)
+                    }
+                };
+                breakpoints.extend(grouped.incident());
+                Grouped::Table(grouped)
+            }
+            NeutronSpectrum::PhaseSpace(space) => {
+                Grouped::PhaseSpace(*space, q.ok_or(ScatterError::QValue(mt))?)
+            }
+        };
         let part = group_integrals_multi(groups, weight, &breakpoints, ng, |e, out| {
             let source =
                 table.eval(e).unwrap_or(0.0) * emission.multiplicity.eval(e).unwrap_or(0.0);
-            if source != 0.0 {
-                grouped.accumulate(e, source, out);
+            if source == 0.0 {
+                return;
+            }
+            match &grouped {
+                Grouped::Table(grouped) => grouped.accumulate(e, source, out),
+                Grouped::PhaseSpace(space, q) => {
+                    let emax = space.max_energy(e, data.awr, *q);
+                    let ec = e / (data.awr + 1.0).powi(2);
+                    phase_space_fractions(groups, space, emax, ec, source, out);
+                }
             }
         });
         for (sum, row) in rows.iter_mut().zip(part) {
@@ -600,7 +628,14 @@ fn emission_rows(
             }
         }
     }
-    rows
+    Ok(rows)
+}
+
+/// MF6 の中性子の出射分布を群に振り分けるもの
+enum Grouped {
+    Table(GroupedOutgoing),
+    /// 位相空間分布と反応の Q 値 (eV)
+    PhaseSpace(PhaseSpace, f64),
 }
 
 /// MF5 の出射エネルギー分布と多重度 `count`、実験室系の角度分布（MF4。エネルギーと独立）による

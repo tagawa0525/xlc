@@ -155,3 +155,23 @@ fn a_file_that_is_not_text_stops_only_itself() {
 fn the_contents_of_a_readable_evaluation_pass() {
     assert_eq!(check_contents(plain().concat().as_bytes()), Ok(()));
 }
+
+#[test]
+fn a_phase_space_emission_takes_its_q_value_from_mf3() {
+    // (n,2n) の中性子が MF6 の LAW=6（3 体の位相空間分布）。出射エネルギーの上限に MF3 の QI を使う
+    let mut sections = plain();
+    let threshold = ["1.004237+6", "2.0+7"];
+    sections.insert(2, section(3, 16, "-1.0+6", threshold, ["0.2", "0.2"]));
+    let mf6 = [
+        rec(["9.223800+4", "2.360060+2", "0", "1", "1", "0"], 1, 6, 16),
+        rec(["1.0", "1.0", "0", "6", "1", "2"], 1, 6, 16),
+        rec(["2", "2", "", "", "", ""], 1, 6, 16),
+        rec([threshold[0], "2.0", threshold[1], "2.0", "", ""], 1, 6, 16),
+        rec(["2.370060+2", "0.0", "0", "0", "0", "3"], 1, 6, 16),
+        rec(["", "", "", "", "", ""], 1, 6, 0),
+    ]
+    .concat();
+    sections.push(mf6);
+    let result = check_evaluation(&tape(&sections));
+    assert!(result.is_ok(), "{result:?}");
+}

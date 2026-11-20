@@ -2,6 +2,8 @@
 //!
 //! 中性子の分布は LAW=1（連続エネルギー・角度分布）のエネルギー分布だけを扱い、角度は無視する
 //! （M0 の近似）。重心系の分布は、群に振り分けるときに重心系で等方として実験室系に変換する。
+//! LAW=6（N 体の位相空間分布）は重心系で等方な解析式の分布として持ち、LAW=7（実験室系の角度と
+//! エネルギーの表）は角度で積分したエネルギー分布だけを持つ（角度のデータは使わない。ADR-0082）。
 //! LAW=2（2体反応の角度分布）と LAW=3（等方の2体反応）は、出射エネルギーが角度と Q 値で決まる
 //! 2体反応であることだけを記録し、MF4 の離散準位と同じく重心系で等方の2体反応として扱う
 //! （角度分布は使わない）。
@@ -24,8 +26,46 @@ pub enum Frame {
 pub struct NeutronEmission {
     /// 多重度 y(E)
     pub multiplicity: Tab1,
-    pub distributions: OutgoingDistributions,
+    pub spectrum: NeutronSpectrum,
     pub frame: Frame,
+}
+
+/// 中性子の出射エネルギー分布。
+#[derive(Debug, Clone, PartialEq)]
+pub enum NeutronSpectrum {
+    /// 入射エネルギーごとの表（LAW=1 の b0 と、LAW=7 を角度で積分したもの）
+    Tabulated(OutgoingDistributions),
+    /// LAW=6 の N 体の位相空間分布（いつも重心系）
+    PhaseSpace(PhaseSpace),
+}
+
+/// LAW=6 の N 体の位相空間分布（ENDF-102 の 6.2.8）。重心系で等方で、重心系の出射エネルギー E' の密度は
+/// C_n √E' (E_max − E')^(3n/2 − 4)。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PhaseSpace {
+    /// この分布で扱う n 個の粒子の質量の和（中性子の質量を単位。APSX）
+    pub total_mass: f64,
+    /// 粒子の数 n（NPSX。3〜5）
+    pub particles: u8,
+}
+
+impl PhaseSpace {
+    /// 入射エネルギー e (eV) での重心系の出射エネルギーの上限 E_max = (A_p − 1)/A_p (A/(A + 1) E + Q)。
+    /// `awr` は標的の質量比 A、`q` は反応の Q 値 (eV)。しきい値の下では 0 以下になる。
+    pub fn max_energy(&self, e: f64, awr: f64, q: f64) -> f64 {
+        todo!("{e} {awr} {q}")
+    }
+
+    /// 密度の (1 − E'/E_max) の指数 3n/2 − 4
+    pub fn exponent(&self) -> f64 {
+        todo!()
+    }
+
+    /// u = E'/E_max の密度 √u (1 − u)^(3n/2 − 4) を 0〜1 で 1 にする係数 1/B(3/2, 3n/2 − 3)（ENDF-102 の C_n に
+    /// E_max^(3n/2 − 2) と、余弦の範囲の幅 2 を掛けたもの）
+    pub fn normalization(&self) -> f64 {
+        todo!()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -36,6 +76,15 @@ pub struct Mf6 {
     pub neutrons: Vec<NeutronEmission>,
     /// 中性子が2体反応（LAW=2, 3）で与えられている
     pub two_body: bool,
+}
+
+impl Mf6 {
+    /// 中性子に LAW=6 の位相空間分布がある（群に振り分けるのに反応の Q 値が要る）
+    pub fn has_phase_space(&self) -> bool {
+        self.neutrons
+            .iter()
+            .any(|n| matches!(n.spectrum, NeutronSpectrum::PhaseSpace(_)))
+    }
 }
 
 impl Mf6 {
@@ -63,7 +112,7 @@ impl Mf6 {
             match law {
                 1 => neutrons.push(NeutronEmission {
                     multiplicity: product.table,
-                    distributions: read_law1(&mut r)?,
+                    spectrum: NeutronSpectrum::Tabulated(read_law1(&mut r)?),
                     frame,
                 }),
                 // LAW=2 は角度分布つき、LAW=3 は等方の2体反応（どちらも角度分布は使わない）
