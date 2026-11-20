@@ -474,6 +474,13 @@ impl ColdParts {
                 .map_err(|message| Error::new(section.reader().line(), message))?;
             mf2 = Some(parsed);
         }
+        reject_negative_broadened(&tables, mf2.as_ref()).map_err(|(mt, message)| {
+            // MF3 に無い反応（共鳴だけの反応）は、MF2 の行を示す
+            let section = tape
+                .section(mat, 3, mt)
+                .or_else(|| tape.section(mat, 2, 151));
+            Error::new(section.map_or(0, |s| s.reader().line()), message)
+        })?;
         Ok(Self {
             tables,
             mf2,
@@ -511,6 +518,42 @@ impl ColdParts {
     }
 }
 
+/// `broaden_parts` が広げる上限エネルギー。
+fn parts_broadening_limit(tables: &BTreeMap<u32, Tab1>, mf2: Option<&Mf2>) -> f64 {
+    let candidates = tables.iter().filter(|(mt, _)| is_broadened(**mt));
+    broadening_limit(mf2, candidates.map(|(_, t)| t))
+}
+
+/// 広げる反応の、広げる上限より下に負の値があれば、その MT と文を返す（ADR-0267）。
+///
+/// ドップラー拡がりの格子の判定（`doppler::split`）は正の値を前提にし、両端が負の区間を際限なく分ける。
+fn reject_negative_broadened(
+    tables: &BTreeMap<u32, Tab1>,
+    mf2: Option<&Mf2>,
+) -> Result<(), (u32, String)> {
+    let e_max = parts_broadening_limit(tables, mf2);
+    for (&mt, t) in tables.iter().filter(|(mt, _)| is_broadened(**mt)) {
+        let negative: Vec<usize> = (0..t.x.len())
+            .filter(|&k| t.x[k] < e_max && t.y[k] < 0.0)
+            .collect();
+        let (Some(&first), Some(&last)) = (negative.first(), negative.last()) else {
+            continue;
+        };
+        let lowest = negative.iter().map(|&k| t.y[k]).fold(0.0, f64::min);
+        return Err((
+            mt,
+            format!(
+                "MT{mt} is negative at {} points below the Doppler broadening limit {e_max} eV \
+                 ({:.4e}..{:.4e} eV, down to {lowest:.3e} b); a negative cross section cannot be broadened",
+                negative.len(),
+                t.x[first],
+                t.x[last]
+            ),
+        ));
+    }
+    Ok(())
+}
+
 /// 上限エネルギーより下から始まる反応を、まとめてドップラー拡がりで広げる。
 fn broaden_parts(
     tables: &mut BTreeMap<u32, Tab1>,
@@ -520,7 +563,7 @@ fn broaden_parts(
     tol: f64,
 ) {
     let candidates = || tables.iter().filter(|(mt, _)| is_broadened(**mt));
-    let e_max = broadening_limit(mf2, candidates().map(|(_, t)| t));
+    let e_max = parts_broadening_limit(tables, mf2);
     let mts: Vec<u32> = candidates()
         .filter(|(_, t)| t.x[0] < e_max)
         .map(|(mt, _)| *mt)
