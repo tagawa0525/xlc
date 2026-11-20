@@ -621,14 +621,13 @@
   {
    "nuclide": "V-50",
    "endf": "n-023_V_000.endf",
-   "seconds": 0.0,
-   "user_seconds": 0.0,
-   "max_rss_kb": 6432,
-   "exit": 1,
+   "seconds": 1.58,
+   "user_seconds": 1.57,
+   "max_rss_kb": 10524,
+   "exit": 0,
    "warnings": {
     "xlc_xs::pointwise: N reactions start below their kinematic threshold -Q(A+N)/A and now start at it with a zero cross section; the largest shift is N eV in MTN and the largest relative shift is N of the threshold in MTN; N points below the thresholds were dropped": 1
    },
-   "error": "NIS=2 isotopes are not supported",
    "source": "log"
   },
   {
@@ -891,14 +890,13 @@
   {
    "nuclide": "Zn-64",
    "endf": "n-030_Zn_000.endf",
-   "seconds": 0.0,
-   "user_seconds": 0.0,
-   "max_rss_kb": 5972,
-   "exit": 1,
+   "seconds": 12.23,
+   "user_seconds": 12.19,
+   "max_rss_kb": 59180,
+   "exit": 0,
    "warnings": {
     "xlc_xs::pointwise: N reactions start below their kinematic threshold -Q(A+N)/A and now start at it with a zero cross section; the largest shift is N eV in MTN and the largest relative shift is N of the threshold in MTN; N points below the thresholds were dropped": 1
    },
-   "error": "NIS=5 isotopes are not supported",
    "source": "log"
   },
   {
@@ -4146,14 +4144,13 @@
   {
    "nuclide": "U-233",
    "endf": "n-092_U_233.endf",
-   "seconds": 1.25,
-   "user_seconds": 1.1,
-   "max_rss_kb": 15044,
-   "exit": 1,
+   "seconds": 213.69,
+   "user_seconds": 414.57,
+   "max_rss_kb": 23396,
+   "exit": 0,
    "warnings": {
     "xlc_xs::pointwise: N reactions start below their kinematic threshold -Q(A+N)/A and now start at it with a zero cross section; the largest shift is N eV in MTN and the largest relative shift is N of the threshold in MTN; N points below the thresholds were dropped": 1
    },
-   "error": "LF=11 is not supported",
    "source": "log"
   },
   {

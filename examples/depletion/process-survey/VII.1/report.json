@@ -4369,14 +4369,13 @@
   {
    "nuclide": "U-233",
    "endf": "n-092_U_233.endf",
-   "seconds": 1.45,
-   "user_seconds": 1.15,
-   "max_rss_kb": 38180,
-   "exit": 1,
+   "seconds": 219.2,
+   "user_seconds": 423.69,
+   "max_rss_kb": 42080,
+   "exit": 0,
    "warnings": {
     "xlc_xs::pointwise: N reactions start below their kinematic threshold -Q(A+N)/A and now start at it with a zero cross section; the largest shift is N eV in MTN and the largest relative shift is N of the threshold in MTN; N points below the thresholds were dropped": 1
    },
-   "error": "LF=11 is not supported",
    "source": "log"
   },
   {
