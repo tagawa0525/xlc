@@ -686,6 +686,64 @@ fn r_matrix_limited_fission_goes_to_the_fission_mt() {
     }
 }
 
+#[test]
+fn negative_resolved_elastic_with_its_background_is_raised_to_zero() {
+    // R 行列の弾性散乱は負にならないが、MF3 の負のバックグラウンドとの和は負になりうる（ENDF/B-VIII.1 の Fe-54 の 3.5 keV）。
+    // 和が負になるところは、和の lin-lin の表を 0 で切った値にする（零点を格子に入れる）。範囲の外と、負でないところはそのまま
+    let (el, eh) = (1.0, 5.0e3);
+    let mf2 = Mf2 {
+        za: 0.0,
+        awr: AWRI,
+        ranges: vec![ResonanceRange {
+            el,
+            eh,
+            kind: RangeKind::RMatrixLimited(inelastic_level(0.5)),
+        }],
+    };
+    let mut resonance = BTreeMap::new();
+    add_resonances(&mut resonance, &mf2, 18, 1.0e-3).unwrap();
+    let inside = |e: &f64| el < *e && *e < eh;
+    let values = || {
+        resonance[&2]
+            .x
+            .iter()
+            .zip(&resonance[&2].y)
+            .filter(|(e, _)| inside(e))
+    };
+    let lowest = values().map(|(_, v)| *v).fold(f64::INFINITY, f64::min);
+    let highest = values().map(|(_, v)| *v).fold(0.0, f64::max);
+    assert!(lowest >= 0.0 && lowest < highest);
+    let background = linear(
+        &[1.0e-5, 2.0e7],
+        &[-(lowest + 0.01 * (highest - lowest)); 2],
+    );
+    let unclamped = add(&background, &resonance[&2]);
+
+    let mut tables = BTreeMap::from([(2, background.clone())]);
+    add_resonances(&mut tables, &mf2, 18, 1.0e-3).unwrap();
+    let elastic = &tables[&2];
+    let negative = |t: &Tab1| {
+        t.x.iter()
+            .zip(&t.y)
+            .filter(|(e, v)| inside(e) && **v < 0.0)
+            .count()
+    };
+    assert!(negative(&unclamped) > 0);
+    assert_eq!(negative(elastic), 0);
+    // 表の点と、点の間の中点のどちらでも、和を 0 で切った値と同じ
+    let midpoints = elastic.x.windows(2).map(|w| 0.5 * (w[0] + w[1]));
+    for e in elastic.x.iter().copied().chain(midpoints).filter(inside) {
+        let expected = unclamped.eval(e).unwrap().max(0.0);
+        let actual = elastic.eval(e).unwrap();
+        assert!(
+            (actual - expected).abs() <= 1.0e-9 * highest,
+            "at {e} eV: {actual} vs {expected}"
+        );
+    }
+    // 範囲の外はバックグラウンドのまま
+    assert_eq!(elastic.eval(0.5), background.eval(0.5));
+}
+
 /// 分離共鳴の SLBW の範囲 [1, 50] eV だけの MF2
 fn slbw_mf2(data: crate::endf::BreitWigner) -> Mf2 {
     Mf2 {
