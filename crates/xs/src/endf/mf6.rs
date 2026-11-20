@@ -345,7 +345,9 @@ fn read_law7(r: &mut Reader<'_>) -> Result<OutgoingDistributions, Error> {
             .zip(table.y.windows(2))
             .map(|(x, y)| 0.5 * (x[1] - x[0]) * (y[0] + y[1]))
             .sum();
-        if (total - 1.0).abs() > LAW7_NORMALIZATION_TOLERANCE {
+        // しきい値（最初の入射エネルギー）の断面積は 0 で、分布を 0 で与える評価がある。そこでの 0 の分布は中性子を失わない
+        let zero_at_threshold = incident.is_empty() && table.y.iter().all(|&y| y == 0.0);
+        if !zero_at_threshold && (total - 1.0).abs() > LAW7_NORMALIZATION_TOLERANCE {
             return Err(Error::new(
                 start,
                 format!(
