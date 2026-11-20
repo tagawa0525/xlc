@@ -45,6 +45,8 @@ def compare_temperature(a, b):
         raise ValueError("scattering orders differ")
     rows = [sum(row) for row in a["scatter"][0]]
     for order, (ma, mb) in enumerate(zip(a["scatter"], b["scatter"])):
+        if len(ma) != len(mb):
+            raise ValueError("scattering rows differ")
         worst = (0.0, 0, 0)
         for g, (ra, rb) in enumerate(zip(ma, mb)):
             if len(ra) != len(rb):
@@ -62,6 +64,8 @@ def compare_temperature(a, b):
     for name in SHIELDED:
         worst = (0.0, 0, 0)
         for s, (sa, sb) in enumerate(zip(a["shielded"], b["shielded"])):
+            if len(sa[name]) != len(sb[name]):
+                raise ValueError(f"shielded {name} lengths differ")
             for g, (x, y) in enumerate(zip(sa[name], sb[name])):
                 d = relative(x, y)
                 if d > worst[0]:
@@ -88,9 +92,10 @@ def compare(a, b):
         for ta, tb in zip(na["temperatures"], nb["temperatures"]):
             prefix = f"{na['name']} {ta['temperature']:g} K"
             diffs = compare_temperature(ta, tb)
-            lines.extend(f"{prefix} {d}" for d in diffs) if diffs else lines.append(
-                f"{prefix} same"
-            )
+            if diffs:
+                lines.extend(f"{prefix} {d}" for d in diffs)
+            else:
+                lines.append(f"{prefix} same")
     return lines
 
 
