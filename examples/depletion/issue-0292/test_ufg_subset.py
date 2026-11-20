@@ -77,8 +77,10 @@ class Table(unittest.TestCase):
             ufg_subset.k_by_burnup(t)
 
 
-def write_case(fuel_dir, case, k, timed):
-    """組のテーブル（out/）と、自己遮蔽の区間の時間のログ（out/ と、排他のジョブの out-timed/）"""
+def write_case(fuel_dir, case, k, timed, listed=None):
+    """組の入力（`listed` は `ufg-nuclides`）、テーブル（out/）と、自己遮蔽の区間の時間のログ（out/ と、排他のジョブの out-timed/）"""
+    line = "" if listed is None else f"ufg-nuclides = {listed}\n".replace("'", '"')
+    (fuel_dir / f"{case}.toml").write_text(f'library = "x"\n{line}')
     table = one_state_table([0.0, 10.0], k)
     (fuel_dir / "out" / f"{case}.msgpack").write_bytes(msgpack.packb(table))
     span = "INFO shielding: xlc_lattice::shielding: close time.busy={} time.idle=1µs\n"
@@ -99,16 +101,22 @@ class Compare(unittest.TestCase):
             fuel_dir = root / "ufg-subset" / "u"
             (fuel_dir / "out").mkdir(parents=True)
             (fuel_dir / "out-timed").mkdir()
+            (root / "trial").mkdir()
+            (root / "trial" / "added-65.txt").write_text("Xe-131\nPm-147\n")
             for case in ufg_subset.SETS:
                 write_case(fuel_dir, case, [1.2, 1.1], ["4s", "8s"])
-            write_case(fuel_dir, "s4", [1.2, 1.1], ["2s", "6s"])
+            write_case(fuel_dir, "s4", [1.2, 1.1], ["2s", "6s"], ["U-235", "Xe-131"])
             d = ufg_subset.compare("u", root, "trial")
             s4 = next(c for c in d["cases"] if c["case"] == "s4")
             self.assertEqual(s4["seconds"], [2.0, 6.0])
             self.assertEqual(s4["ratio"], [0.5, 0.75])
+            # UFG で解く足した核種の数は、解いた入力の `ufg-nuclides` から数える
+            self.assertEqual(s4["ufg_added"], 1)
+            self.assertIsNone(d["cases"][0]["ufg_added"])
             paths = [i["path"] for i in d["inputs"]]
             self.assertIn("issue-0292/ufg-subset/u/out/s4.msgpack", paths)
             self.assertIn("issue-0292/ufg-subset/u/out-timed/s4.log", paths)
+            self.assertIn("issue-0292/ufg-subset/u/s4.toml", paths)
 
 
 class Report(unittest.TestCase):
@@ -205,10 +213,12 @@ class AllSeries(unittest.TestCase):
         (fuel_dir / "out").mkdir(parents=True)
         (fuel_dir / "out-timed").mkdir()
         (root / "ufg-subset" / "u" / "out").mkdir(parents=True)
-        (root / "all" / "u").mkdir(parents=True)
+        (root / "all" / "u").mkdir(parents=True, exist_ok=True)
         (root / "all" / "library").mkdir()
-        for case in ALL_CASES:
-            write_case(fuel_dir, case, [1.2, 1.1], ["4s", "8s"])
+        for case, kept in ALL_CASES.items():
+            listed = None if kept is None else ["U-235", *kept]
+            write_case(fuel_dir, case, [1.2, 1.1], ["4s", "8s"], listed)
+        (root / "all" / "added-to-p2.txt").parent.mkdir(parents=True, exist_ok=True)
         (fuel_dir / "out" / "control.msgpack").write_bytes(
             msgpack.packb(one_state_table([0.0, 10.0], [1.2, 1.0]))
         )
@@ -224,6 +234,7 @@ class AllSeries(unittest.TestCase):
         (root / "all" / "u" / "nominal.msgpack").write_bytes(
             msgpack.packb({"transportable": transported})
         )
+        (root / "all" / "added-to-p2.txt").write_text("A\n")
 
     def test_the_comparison_gives_the_library_change_from_the_control(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -231,6 +242,7 @@ class AllSeries(unittest.TestCase):
             self.write_series(root, ["A", "U-235"])
             d = ufg_subset.compare("u", root, "all", ALL_CASES)
             self.assertEqual([c["case"] for c in d["cases"]], list(ALL_CASES))
+            self.assertEqual([c["ufg_added"] for c in d["cases"]], [None, 0, 1])
             change = d["library_change_pcm"]
             self.assertAlmostEqual(change[0], 0.0)
             self.assertAlmostEqual(change[1], 1e5 * (1 / 1.1 - 1 / 1.0))
@@ -250,6 +262,29 @@ class AllSeries(unittest.TestCase):
                 ufg_subset.library_transported(root / "all" / "library" / "xs.toml"),
                 ["U-235", "A"],
             )
+
+
+class Sources(unittest.TestCase):
+    def test_the_dilution_sets_name_their_json_sources(self):
+        root = Path("r")
+        self.assertEqual(ufg_subset.set_sources("trial", root), [])
+        self.assertEqual(
+            ufg_subset.set_sources("all", root),
+            [root / "all" / f"dilution-{f}.json" for f in ufg_subset.FUELS],
+        )
+
+
+class LibraryTable(unittest.TestCase):
+    def test_the_report_has_the_library_change_per_fuel(self):
+        summaries = [
+            {"fuel": "u", "burnup": [0.0, 10.0], "library_change_pcm": [0.0, -0.17]},
+            {"fuel": "gd", "burnup": [0.0, 10.0], "library_change_pcm": [0.01, 0.3]},
+        ]
+        rows = ufg_subset.library_table(summaries).splitlines()[2:]
+        self.assertEqual(len(rows), 2)
+        self.assertIn("U", rows[0])
+        self.assertIn("−0.2", rows[0])
+        self.assertIn("Gd", rows[1])
 
 
 if __name__ == "__main__":
