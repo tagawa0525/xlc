@@ -80,5 +80,27 @@ class Compare(unittest.TestCase):
             )
 
 
+class Unestimated(unittest.TestCase):
+    def test_unestimated_nuclides_are_left_out_of_the_estimates(self):
+        before, after = history([(10.0, 1.0)]), history([(10.0, 1.0)], ["A", "U"])
+        shares = absorption([(10.0, 1.0, {"A": (0.01, 1.0)})])
+        summary = compare_added.compare(before, after, shares, ["A", "U"], ["U"])
+        (row,) = summary["points"]
+        self.assertAlmostEqual(row["decay_only_pcm"], -1e3)
+        self.assertEqual(summary["unestimated"], ["U"])
+
+    def test_an_unestimated_nuclide_with_a_share_is_an_error(self):
+        before, after = history([(10.0, 1.0)]), history([(10.0, 1.0)], ["A"])
+        shares = absorption([(10.0, 1.0, {"A": (0.01, 1.0)})])
+        with self.assertRaises(SystemExit):
+            compare_added.compare(before, after, shares, ["A"], ["A"])
+
+    def test_unestimated_nuclides_must_be_added_ones(self):
+        before, after = history([(10.0, 1.0)]), history([(10.0, 1.0)], ["A"])
+        shares = absorption([(10.0, 1.0, {"A": (0.01, 1.0)})])
+        with self.assertRaises(SystemExit):
+            compare_added.compare(before, after, shares, ["A"], ["U"])
+
+
 if __name__ == "__main__":
     unittest.main()
