@@ -313,3 +313,4 @@
 * [xs が MF5 の LF=11（エネルギーによる Watt 分布）を読めない（ENDF/B-VII.0、VII.1 の U-233）](0313-mf5-lf11-energy-dependent-watt.md)
 * [ENDF/B-VII.0 の Rb-87 の MF5 MT17 の TAB1 の補間の区切り（NBT）が点の数と食い違い、xs が読めない](0316-rb87-vii0-tab1-nbt.md)
 * [形式を変える修正の検査が、git で追う cache: false の出力をキャッシュに無いとして止める](0317-readable-outputs-cache-false.md)
+* [共鳴の線形化の中点の検査が変曲点で止まり、許容誤差の 2 倍を超える点が残る](0318-linearize-past-inflection-points.md)
