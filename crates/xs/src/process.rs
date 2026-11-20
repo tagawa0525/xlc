@@ -4,8 +4,8 @@ use std::collections::BTreeMap;
 use std::convert::Infallible;
 
 use crate::endf::{
-    Mf2, Mf3, Mf4, Mf5, Mf6, Mf7Incoherent, OrbitalL, RangeKind, Tab1, Tape, final_state_table,
-    final_states, parse_delayed, parse_nubar, total_nubar,
+    FinalStateEntry, Mf2, Mf3, Mf4, Mf5, Mf6, Mf7Incoherent, OrbitalL, RangeKind, Tab1, Tape,
+    final_state_table, final_states, parse_delayed, parse_nubar, total_nubar,
 };
 use crate::multigroup::{
     Emission, FissionNeutrons, FreeGas, ReactionAverages, Reactions, SabError, SabOutside,
@@ -601,8 +601,9 @@ pub fn process_activation(
 /// 反応の断面積は `tables` の代表の MT（部分の MT があれば、再構成が部分の和で作り直したもの。`ColdParts`。部分の MT はチェーンの
 /// `ChainReaction` と同じ）。MF8 が状態を MF9（多重度）か MF10（生成断面積）で
 /// 挙げれば状態ごとに分け（テープの順）、基底状態を挙げなければ、残りを基底状態への経路（LFS が nil）にする（チェーンと同じ）。
-/// MF9 の表の外の多重度は 0（NJOY GROUPR と同じ。反応がそこにあれば警告する）。挙げた経路の和が、経路の表の線形化の
-/// 許容誤差 `tolerance`（相対）より反応を超える群があればエラー、基底状態を挙げて和が反応に足りなければ警告する。`tables` は
+/// MF9 の表の外の多重度は 0（NJOY GROUPR と同じ。反応がそこにあれば警告する）。挙げた経路の和が反応を超えるエネルギーでは、
+/// 経路を反応に合わせて縮め（`FinalStates`）、超過が経路の表の線形化の許容誤差 `tolerance`（相対）を超えれば警告する。縮めた後も
+/// 和が許容誤差より反応を超える群があればエラー、基底状態を挙げて和が反応に足りなければ警告する。`tables` は
 /// 温度に広げた断面積で、MF10 は 0 K の値を、反応の断面積が 0 でないエネルギーでだけ使う（しきい値より下を数えない）。
 fn chain_reactions(
     tape: &Tape,
@@ -620,10 +621,31 @@ fn chain_reactions(
             continue;
         };
         let entries = final_states(tape, mat, spec.mt)?.unwrap_or_default();
+        let listed = entries
+            .iter()
+            .map(|entry| final_state_table(tape, mat, entry.mf, spec.mt, entry.lfs))
+            .collect::<Result<Vec<_>, _>>()?;
+        let states = FinalStates {
+            entries: &entries,
+            tables: &listed,
+            sigma,
+        };
+        // 群の範囲の外の超過は群の断面積に入らず、許容誤差の内の超過は表の線形化の誤差と区別できないので、どちらも警告しない
+        // （縮めることは同じ）
+        if let Some((energy, excess)) = states.largest_excess(groups.bounds())
+            && excess > tolerance
+        {
+            xlc_log::warn!(
+                mt = spec.mt,
+                energy,
+                excess,
+                "the final states listed in MF8 sum to more than the reaction by this relative excess at most; \
+                 they are scaled down to the reaction wherever they exceed it"
+            );
+        }
         let mut keys = Vec::with_capacity(entries.len());
-        for entry in &entries {
-            let table = final_state_table(tape, mat, entry.mf, spec.mt, entry.lfs)?;
-            let state = state_table(&table, entry.mf, sigma, tolerance, spec.mt, entry.lfs)?;
+        for (i, entry) in entries.iter().enumerate() {
+            let state = states.table(i, tolerance, spec.mt, entry.lfs)?;
             let key = u32::try_from(parts.len()).unwrap_or(u32::MAX);
             parts.insert(key, state);
             keys.push(key);
@@ -698,52 +720,124 @@ fn chain_reactions(
     Ok(reactions)
 }
 
-/// 状態の経路の断面積を、許容誤差 `tolerance` の lin-lin の表にする。MF9 なら多重度 `table` × 反応の断面積 `sigma`、MF10 なら
-/// 生成断面積 `table` そのもので、どちらも `sigma` が 0 のエネルギーでは 0（MF3 と同じく運動学のしきい値から数える。ADR-0100）。
-/// 表の外は 0 とし、MF9 の表の外に反応があれば警告する（NJOY GROUPR と同じく、その分は状態に入らない）。
-fn state_table(
-    table: &Tab1,
-    mf: u32,
-    sigma: &Tab1,
-    tolerance: f64,
-    mt: u32,
-    lfs: u32,
-) -> Result<Tab1, ProcessError> {
-    let (Some(&low), Some(&high)) = (sigma.x.first(), sigma.x.last()) else {
-        return Err(ProcessError::EmptyProduct { mt });
-    };
-    let uncovered = std::cell::Cell::new(None::<f64>);
-    let value = |e: f64| -> Result<[f64; 1], std::convert::Infallible> {
-        let s = sigma.eval(e).unwrap_or(0.0);
-        if s == 0.0 {
-            return Ok([0.0]);
-        }
-        match table.eval(e) {
-            Some(v) if mf == 9 => Ok([v * s]),
-            Some(v) => Ok([v]),
+/// 1 つの反応の、MF8 が挙げた状態の経路。`tables` は `entries` の順の MF9（多重度）か MF10（生成断面積）の表、`sigma` は反応の
+/// 断面積。状態の経路の断面積は、MF9 なら多重度 × `sigma`、MF10 なら生成断面積そのもので、どちらも `sigma` が 0 のエネルギーでは 0
+/// （MF3 と同じく運動学のしきい値から数える。ADR-0100）。表の外は 0（MF9 は NJOY GROUPR と同じく、その分は状態に入らない）。
+/// 経路の和 S が `sigma` を超えるエネルギーでは、すべての経路を `sigma`/S 倍にする（反応の断面積を正とし、状態の比を保つ。ADR-0172）
+struct FinalStates<'a> {
+    entries: &'a [FinalStateEntry],
+    tables: &'a [Tab1],
+    sigma: &'a Tab1,
+}
+
+impl FinalStates<'_> {
+    /// 経路 `i` の、縮める前の断面積（反応の断面積 `s` が 0 でないエネルギー `e` で）。MF9 の表の外なら `uncovered` に `e` を残す
+    fn raw(
+        &self,
+        i: usize,
+        e: f64,
+        s: f64,
+        uncovered: Option<&std::cell::Cell<Option<f64>>>,
+    ) -> f64 {
+        match self.tables[i].eval(e) {
+            Some(v) if self.entries[i].mf == 9 => v * s,
+            Some(v) => v,
             None => {
-                if mf == 9 && uncovered.get().is_none() {
-                    uncovered.set(Some(e));
+                if self.entries[i].mf == 9
+                    && let Some(cell) = uncovered
+                    && cell.get().is_none()
+                {
+                    cell.set(Some(e));
                 }
-                Ok([0.0])
+                0.0
             }
         }
-    };
-    let nodes: Vec<f64> = table.x.iter().chain(&sigma.x).copied().collect();
-    let Ok(tables) = resonance_tables(value, &nodes, low, high, tolerance);
-    if let Some(energy) = uncovered.get() {
-        xlc_log::warn!(
-            mt,
-            lfs,
-            energy,
-            "the MF9 multiplicity does not cover all energies where the reaction is nonzero; the state \
-             gets none of the reaction there (as NJOY GROUPR)"
-        );
     }
-    let [table] = &tables[..] else {
-        return Err(ProcessError::EmptyProduct { mt });
-    };
-    Ok(table.clone())
+
+    /// エネルギー `e` の、反応の断面積と、縮める前の経路の和
+    fn sum_at(&self, e: f64) -> (f64, f64) {
+        let s = self.sigma.eval(e).unwrap_or(0.0);
+        if s == 0.0 {
+            return (0.0, 0.0);
+        }
+        (
+            s,
+            (0..self.tables.len())
+                .map(|i| self.raw(i, e, s, None))
+                .sum(),
+        )
+    }
+
+    /// 群の境界 `bounds`（降順）と、その範囲の中の表の点（反応と全部の経路の表の点）のうち、経路の和が反応を最も大きく超える
+    /// 所の (エネルギー, 相対の超過)。超えなければ None
+    fn largest_excess(&self, bounds: &[f64]) -> Option<(f64, f64)> {
+        let (Some(&low), Some(&high)) = (bounds.last(), bounds.first()) else {
+            return None;
+        };
+        self.tables
+            .iter()
+            .flat_map(|t| &t.x)
+            .chain(&self.sigma.x)
+            .copied()
+            .filter(|e| (low..=high).contains(e))
+            .chain(bounds.iter().copied())
+            .filter_map(|e| {
+                let (s, sum) = self.sum_at(e);
+                (sum > s).then(|| (e, (sum - s) / s))
+            })
+            .max_by(|a, b| a.1.total_cmp(&b.1))
+    }
+
+    /// 経路 `i` の断面積を、許容誤差 `tolerance` の lin-lin の表にする。MF9 の表の外に反応があれば警告する。表の点は、経路 `i` と
+    /// 反応の表の点に、ほかの経路の表の点のうち和が反応を超える所（縮める倍率がそこで折れる）を足したもの。超えない評価の
+    /// 表は、縮めない経路の表と同じ点になる
+    fn table(&self, i: usize, tolerance: f64, mt: u32, lfs: u32) -> Result<Tab1, ProcessError> {
+        let (Some(&low), Some(&high)) = (self.sigma.x.first(), self.sigma.x.last()) else {
+            return Err(ProcessError::EmptyProduct { mt });
+        };
+        let uncovered = std::cell::Cell::new(None::<f64>);
+        let value = |e: f64| -> Result<[f64; 1], std::convert::Infallible> {
+            let (s, sum) = self.sum_at(e);
+            if s == 0.0 {
+                return Ok([0.0]);
+            }
+            let v = self.raw(i, e, s, Some(&uncovered));
+            Ok([if sum > s { v * (s / sum) } else { v }])
+        };
+        let own = &self.tables[i];
+        let others = self
+            .tables
+            .iter()
+            .enumerate()
+            .filter(|&(j, _)| j != i)
+            .flat_map(|(_, t)| &t.x)
+            .copied()
+            .filter(|&e| {
+                let (s, sum) = self.sum_at(e);
+                sum > s
+            });
+        let nodes: Vec<f64> = own
+            .x
+            .iter()
+            .chain(&self.sigma.x)
+            .copied()
+            .chain(others)
+            .collect();
+        let Ok(tables) = resonance_tables(value, &nodes, low, high, tolerance);
+        if let Some(energy) = uncovered.get() {
+            xlc_log::warn!(
+                mt,
+                lfs,
+                energy,
+                "the MF9 multiplicity does not cover all energies where the reaction is nonzero; the state \
+                 gets none of the reaction there (as NJOY GROUPR)"
+            );
+        }
+        let [table] = &tables[..] else {
+            return Err(ProcessError::EmptyProduct { mt });
+        };
+        Ok(table.clone())
+    }
 }
 
 /// 温度によらない、1核種の評価の読み込み（多群の処理の前に `process_nuclide` が読むもの）。
