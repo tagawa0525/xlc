@@ -139,7 +139,7 @@ fn laboratory_reference(groups: &GroupStructure, density: &Tab1, ec: f64) -> Vec
 }
 
 #[test]
-fn centre_of_mass_panel_wider_than_ec_is_split_exactly_into_low_groups() {
+fn center_of_mass_panel_wider_than_ec_is_split_exactly_into_low_groups() {
     // Pa-233 の MF6 MT18 の入射 1e-5 eV の形: E' = 0〜100 keV の 1 区間の線形の密度。Ec = 100 eV の程度の群（10〜1000 eV）にも
     // 実験室系の範囲が掛かる
     let density = Tab1::linear(vec![0.0, 1.0e5], vec![1.0e-6 / 0.55, 1.0e-5 / 0.55]);
@@ -161,7 +161,7 @@ fn centre_of_mass_panel_wider_than_ec_is_split_exactly_into_low_groups() {
 }
 
 #[test]
-fn centre_of_mass_groups_out_of_reach_stay_exactly_zero() {
+fn center_of_mass_groups_out_of_reach_stay_exactly_zero() {
     // 重心系で 1〜3 MeV の 30 区間の密度、Ec = 1 keV。実験室系の範囲 [(√E' − √Ec)², (√E' + √Ec)²] の届かない群は丸めの値でなく
     // ちょうど 0 で、どの群も負にならない（負の χ は媒質の検査で止まる）
     let x: Vec<f64> = (0..=30)
@@ -186,6 +186,29 @@ fn centre_of_mass_groups_out_of_reach_stay_exactly_zero() {
             assert_eq!(*value, 0.0, "group {g} [{bottom:e}, {top:e}]");
         }
     }
+    let total: f64 = density
+        .x
+        .windows(2)
+        .zip(density.y.windows(2))
+        .map(|(x, y)| 0.5 * (x[1] - x[0]) * (y[0] + y[1]))
+        .sum();
+    assert!((actual.iter().sum::<f64>() / total - 1.0).abs() < 1e-13);
+}
+
+#[test]
+fn center_of_mass_motion_far_smaller_than_the_outgoing_energy_keeps_the_total() {
+    // 入射 1e-5 eV の重い標的（A ≈ 232）の Ec ≈ 1.8e-10 eV。実験室系の範囲の幅 4√(E' Ec) は E' の丸めの桁に近く、範囲の両端の差から
+    // 幅を求めると相対 1e-8 ほど狂う。群に入る量の和は重心系の密度の積分のまま
+    let density = Tab1::linear(vec![0.0, 1.0e6, 2.0e7], vec![1.0e-7, 1.0e-7, 0.0]);
+    let groups = GroupStructure::wims69();
+    let ec = 1.0e-5 / 233.0_f64.powi(2);
+    let actual = laboratory_group_integrals(&groups, &density, ec);
+    let total = 0.5 * 1.0e6 * 2.0e-7 + 0.5 * 1.9e7 * 1.0e-7;
+    assert!(
+        (actual.iter().sum::<f64>() / total - 1.0).abs() < 1e-13,
+        "{}",
+        actual.iter().sum::<f64>() / total - 1.0
+    );
 }
 
 /// 入射エネルギー 10 と 20 で、[0, 1] と [0, 3] の一様分布
