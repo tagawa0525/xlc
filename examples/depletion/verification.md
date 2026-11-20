@@ -1043,21 +1043,21 @@ Fe54 VIII.1 MT102: points ours 100308 njoy 48648, compared 48648, max rel diff 1
 
 0 K の再構成の後に負の値が残る評価は、エネルギーと反応によらず止まり、入力の核種の項目 `negative-to-zero` に宣言した範囲だけを 0 に
 する（[ADR-0267](../../docs/adr/0267-raise-negative-resolved-elastic-sums.md)）。4 つの版の中性子のファイルの全部（1931 の `.endf`）を
-`ColdParts::read`（宣言なし）に通して数え、宣言の要る評価を `read-survey/sample-VII.0.toml` と `sample-VIII.1.toml` に宣言して
+`survey_negative`（`ColdParts::read` を宣言なしで呼ぶ例）に通して数え、宣言の要る評価を `read-survey/sample-VII.0.toml` と `sample-VIII.1.toml` に宣言して
 `xs nuclide` に通し、NJOY2016.79（RECONR、BROADR、GROUPR。許容誤差 1e-3、600 K、WIMS 69 群、iwt = 4、無限希釈）と比べた。NJOY の入力と
 出力、比べたスクリプトは references/njoy-runs/negative/（git で追跡しない）。
 
 ```sh
+ls references/endf/ENDF-B-*_neutrons/*.endf | xargs -P 6 -n 8 target/release/examples/survey_negative   # cargo build --release -p xlc-xs --example survey_negative
 cd examples/depletion/read-survey && ../../../bin/xs nuclide sample-VII.0.toml ../endfb70/xs-range.toml Y-89 <出力>
 python3 references/njoy-runs/negative/tools/groups.py references/njoy-runs/negative/Y89-VII.0/output <出力> 1,2,102 2,3,4
 ```
 
 ### 計算
 
-数えたのは xlc 769cb5f1（分岐点 6af59212、2026-11-20）のライブラリを呼ぶ手元の試行のプログラム（`ColdParts::read` だけを呼ぶ。
-6 並列で 2 分）。`xs nuclide` は d8ede950（分岐点 6af59212、2026-11-20）の `cargo build --release` の bin で、手元で 1 スレッドで実行した。
-宣言しない核種の出力は、同じ bin と分岐点 6af59212 の `cargo build --release` の bin で `read-survey/keep-VIII.0.toml`、
-`sample-VIII.0.toml`、`keep-VIII.1.toml` を実行して比べた（crates は e530335c と d8ede950 で同じ）。
+xlc 2d8496d5（分岐点 6af59212、2026-11-20）の `cargo build --release` の `survey_negative`（手元で 6 並列）と bin で、`xs nuclide` は手元で
+1 スレッドで実行した。宣言しない核種の出力は、同じ bin と分岐点 6af59212 の `cargo build --release` の bin で `read-survey/keep-VIII.0.toml`、
+`sample-VIII.0.toml`、`keep-VIII.1.toml` を実行して比べた。
 
 ### 結果
 

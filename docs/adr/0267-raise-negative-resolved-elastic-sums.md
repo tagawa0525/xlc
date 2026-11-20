@@ -62,7 +62,9 @@ NJOY2016 の RECONR は、共鳴の部分を負なら 0 にしてから MF3 を�
   ところに零点を足す（上の分離共鳴の弾性散乱と同じ切り方）。`take-from` に別の反応を書くと、0 にするために足した分をその反応から
   引き、部分反応の和（全断面積）を変えない。宣言は分離共鳴の弾性散乱を 0 にした後に当て、当てるたびに、MT、範囲、負の点の数、最小の
   値、引いた先を warn で出す。範囲に負の点が無い、表が無い、範囲が有限でないか逆転している、`take-from` が同じ反応か無い宣言は
-  止める（評価が替わって古くなった宣言を黙って当てない）
+  止める（評価が替わって古くなった宣言を黙って当てない）。`take-from` は、両方の反応が全断面積に入らないか、引いた先が負になれば
+  止める。LSSF=0 の非分離共鳴の範囲に重なる、共鳴の反応（MT2、18、19、102）の宣言も止める（その範囲の自己遮蔽はテープの MF3 の
+  バックグラウンドを読み、宣言が届かない）
   - 宣言は評価の誤りの中身（どの反応のどの範囲が負か）そのもので、入力とログから読める。ADR-0272 の `corrections`（テープの整数の
     欄を読む前に書き換える）とは別の項目にする。負の値の多くは MF3 の値でなく、共鳴との和（VII.0 の Co-58）や再構成の後の表に
     表れるので、テープの欄では書けない
@@ -73,7 +75,9 @@ NJOY2016 の RECONR は、共鳴の部分を負なら 0 にしてから MF3 を�
 
 - 単体テスト（crates/xs/src/pointwise/tests.rs）: `negative_resolved_elastic_with_its_background_is_raised_to_zero`、
   `negative_cross_sections_are_an_error_at_any_energy`、`declared_negative_values_are_raised_to_zero_with_a_warning`、
-  `declarations_that_do_not_match_the_tables_are_an_error`、`the_raised_amount_is_taken_from_the_declared_reaction`。入力のテスト
+  `declarations_that_do_not_match_the_tables_are_an_error`、`the_raised_amount_is_taken_from_the_declared_reaction`、
+  `taking_the_raised_amount_must_keep_the_total_and_the_source_non_negative`、
+  `declarations_cannot_reach_the_background_of_an_lssf0_unresolved_range`。入力のテスト
   （crates/xs/src/main/tests.rs）: `reads_declared_negative_values_to_raise_to_zero`
 - 宣言した VII.0 の Cl-35、Co-58、Y-89 と VIII.1 の Ni-60 の 600 K の `xs nuclide` が終了コード 0 で終わり、宣言しない核種の出力は
   変わらない（examples/depletion/verification.md の「版ごとのライブラリの負の 0 K の断面積の宣言」）
