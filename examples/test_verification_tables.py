@@ -867,6 +867,126 @@ class DrawReadSurvey(unittest.TestCase):
             vt.read_survey_reasons([{"format": "xlc-compare-depletion"}])
 
 
+def process_survey() -> dict:
+    """process_survey.py の要約（版は 2 つ）"""
+
+    def version(stopped):
+        return {
+            "in_chain": {
+                "evaluations": 10,
+                "passed": 10 - len(stopped),
+                "stopped": len(stopped),
+                "stopped_reading": sum(s["stage"] == "reading" for s in stopped),
+            },
+            "outside_chain": {
+                "evaluations": 2,
+                "processed": 1,
+                "passed": 1,
+                "stopped": 0,
+                "left_out": 1,
+            },
+            "stopped": stopped,
+            "slowest": [],
+            "largest": [],
+        }
+
+    def stop(nuclide, stage, reason, cause=None, where=None, issue=None):
+        return {
+            "nuclide": nuclide,
+            "file": f"{nuclide}.endf",
+            "chain": True,
+            "stage": stage,
+            "reason": reason,
+            "cause": cause,
+            "where": where,
+            "issue": issue,
+        }
+
+    return {
+        "format": "xlc-process-survey",
+        "versions": {
+            "VII.0": version(
+                [
+                    stop("H-2", "reading", "LAW=6", "MF6", "endf/mf6.rs", "#0311"),
+                    stop("Ta-181", "processing", "not positive"),
+                ]
+            ),
+            "VIII.0": version(
+                [stop("H-2", "reading", "LAW=6", "MF6", "endf/mf6.rs", "#0311")]
+            ),
+        },
+        "warnings": {"xs: a": {"VII.0": 3}, "xs: b": {"VII.0": 1, "VIII.0": 2}},
+        "across": [],
+        "inputs": [],
+    }
+
+
+class DrawProcessSurvey(unittest.TestCase):
+    def rows(self, table):
+        return [
+            [c.strip() for c in line.strip("|").split("|")]
+            for line in table.split("\n")[2:]
+        ]
+
+    def test_rows_count_the_evaluations_of_each_version_by_the_chain(self):
+        self.assertEqual(
+            self.rows(vt.process_survey([process_survey()])),
+            [
+                ["VII.0", "10", "8", "2", "1", "2", "1", "1", "0", "1"],
+                ["VIII.0", "10", "9", "1", "1", "2", "1", "1", "0", "1"],
+            ],
+        )
+
+    def test_stopped_rows_give_the_stage_cause_and_issue_of_each_evaluation(self):
+        self.assertEqual(
+            self.rows(vt.process_survey_stopped([process_survey()])),
+            [
+                [
+                    "VII.0",
+                    "H-2",
+                    "走査でも止まる",
+                    "LAW=6",
+                    "MF6",
+                    "endf/mf6.rs",
+                    "#0311",
+                ],
+                [
+                    "VII.0",
+                    "Ta-181",
+                    "処理で初めて止まる",
+                    "not positive",
+                    "–",
+                    "–",
+                    "–",
+                ],
+                [
+                    "VIII.0",
+                    "H-2",
+                    "走査でも止まる",
+                    "LAW=6",
+                    "MF6",
+                    "endf/mf6.rs",
+                    "#0311",
+                ],
+            ],
+        )
+
+    def test_warning_rows_count_the_evaluations_of_each_version(self):
+        self.assertEqual(
+            self.rows(vt.process_survey_warnings([process_survey()])),
+            [["xs: a", "3", "0"], ["xs: b", "1", "2"]],
+        )
+
+    def test_another_summary_is_an_error(self):
+        for draw in (
+            vt.process_survey,
+            vt.process_survey_stopped,
+            vt.process_survey_warnings,
+        ):
+            with self.assertRaises(vt.TableError):
+                draw([{"format": "xlc-read-survey"}])
+
+
 def depletion_versions() -> dict:
     """compare_depletion_versions.py の要約（燃焼点 3 つ、基準 VII.1）"""
 
