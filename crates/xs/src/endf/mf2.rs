@@ -147,6 +147,23 @@ pub struct RmlChannel {
     pub ape: f64,
     /// 透過因子とシフト因子に使う半径
     pub apt: f64,
+    /// バックグラウンドの R 行列（KBK の記録で LBK=2 が与えたものだけ）
+    pub background: Option<LogBackground>,
+}
+
+/// SAMMY の対数のパラメータ表示（LBK=2）のバックグラウンドの R 行列の係数（ENDF-102 の式 D.77）。
+/// エネルギーは実験室系の eV。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct LogBackground {
+    /// 下端 E_down
+    pub ed: f64,
+    /// 上端 E_up
+    pub eu: f64,
+    pub r0: f64,
+    pub r1: f64,
+    pub r2: f64,
+    pub s0: f64,
+    pub s1: f64,
 }
 
 /// 共鳴。`widths` はチャネルごとの幅 (eV) で、符号は換算幅の符号を表す。
@@ -768,6 +785,7 @@ fn read_r_matrix_limited(r: &mut Reader<'_>) -> Result<RMatrixLimited, Error> {
                     bnd: c[3],
                     ape: c[4],
                     apt: c[5],
+                    background: None,
                 })
             })
             .collect::<Result<Vec<_>, Error>>()?;

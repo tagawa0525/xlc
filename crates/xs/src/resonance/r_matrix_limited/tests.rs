@@ -1,5 +1,6 @@
 use super::*;
 use crate::endf::{OrbitalL, ParticlePair, RMatrixLimited, RmlChannel, RmlResonance, SpinGroup};
+use crate::physics::wave_number_factor;
 use crate::resonance::reich_moore_tests::{AP, AWRI, single_level_exact};
 
 fn pair(ma: f64, mb: f64, q: f64, mt: u32) -> ParticlePair {
@@ -25,6 +26,7 @@ fn channel(pair: usize, l: OrbitalL, sch: f64) -> RmlChannel {
         bnd: 0.0,
         ape: AP,
         apt: AP,
+        background: None,
     }
 }
 
@@ -165,12 +167,182 @@ fn rejects_width_of_a_channel_closed_at_the_resonance() {
     assert!(error.contains("closed"), "{error}");
 }
 
+/// 捕獲と中性子の 1 チャネル（軌道角運動量 `l`）の単一準位。中性子の粒子対のシフト因子の指定は `shf`、
+/// 境界条件は `bnd`。
+fn one_channel_level(l: OrbitalL, shf: i64, bnd: f64, gn: f64, gg: f64) -> RMatrixLimited {
+    let mut data = single_level(gn, gg);
+    data.pairs[1].shf = shf;
+    let group = &mut data.spin_groups[0];
+    group.aj = 0.5 + f64::from(l.number());
+    group.channels[1].l = l;
+    group.channels[1].bnd = bnd;
+    data
+}
+
+/// 1 チャネルの R 行列 R(E) = γ²/(E_λ − E − iΓγ/2) + R_bkg(E) の、ENDF-102 の式 (D.42)〜(D.45) による
+/// 全断面積、弾性散乱、捕獲。X = P R / (1 − R L)、L = (S − B) + iP、U = e^{−2iφ}(1 + 2iX)。
+/// `shift` がなければ S − B = 0。
+fn one_channel_exact(
+    data: &RMatrixLimited,
+    e: f64,
+    shift_on: bool,
+    background: impl Fn(f64) -> f64,
+) -> [f64; 3] {
+    use crate::resonance::factors::{penetrability, phase_shift, shift};
+    let group = &data.spin_groups[0];
+    let channel = &group.channels[1];
+    let resonance = &group.resonances[0];
+    let (gg, gn) = (resonance.widths[0], resonance.widths[1]);
+    let k = |e: f64| wave_number_factor() * AWRI / (AWRI + 1.0) * e.sqrt();
+    let p = |e: f64| penetrability(channel.l, k(e) * channel.apt);
+    let gamma2 = gn.abs() / (2.0 * p(resonance.er.abs()));
+    let r =
+        Complex64::new(gamma2, 0.0) / Complex64::new(resonance.er - e, -0.5 * gg) + background(e);
+    let s_minus_b = if shift_on {
+        shift(channel.l, k(e) * channel.apt) - channel.bnd
+    } else {
+        0.0
+    };
+    let l = Complex64::new(s_minus_b, p(e));
+    let x = p(e) * r / (1.0 - r * l);
+    let phi = phase_shift(channel.l, k(e) * channel.ape);
+    let u = Complex64::from_polar(1.0, -2.0 * phi) * (1.0 + 2.0 * Complex64::I * x);
+    let g = (2.0 * group.aj + 1.0) / 2.0;
+    let pifac = PI * g / (k(e) * k(e));
+    let total = 2.0 * pifac * (1.0 - u.re);
+    let elastic = pifac * (1.0 - u).norm_sqr();
+    [total, elastic, total - elastic]
+}
+
+fn assert_matches_one_channel(data: &RMatrixLimited, shift_on: bool, bkg: impl Fn(f64) -> f64) {
+    let xs = RMatrixLimitedXs::new(data).unwrap();
+    for e in [
+        1.0e-5, 1.0e-3, 1.0, 6.0, 6.674, 6.69, 7.0, 100.0, 1.0e4, 1.0e5,
+    ] {
+        let expected = one_channel_exact(data, e, shift_on, &bkg);
+        let actual = xs.cross_sections(e).unwrap();
+        for (i, what) in ["total", "elastic", "capture"].iter().enumerate() {
+            assert_close(actual[i], expected[i], &format!("{what} at {e}"));
+        }
+    }
+}
+
 #[test]
-fn rejects_shift_factor() {
+fn shift_factor_enters_the_level_matrix() {
+    // l=1、B = −1（S_1(0) と同じ。ENDF/B-VIII.1 の Cu-63 の p 波の形）
+    let data = one_channel_level(OrbitalL::P, 1, -1.0, 1.5e-3, 2.3e-2);
+    assert_matches_one_channel(&data, true, |_| 0.0);
+    // S − B が 0 でない所で、シフト因子を使わないときと違う
+    let shifted = RMatrixLimitedXs::new(&data).unwrap();
+    let plain =
+        RMatrixLimitedXs::new(&one_channel_level(OrbitalL::P, 0, -1.0, 1.5e-3, 2.3e-2)).unwrap();
+    let (a, b) = (
+        shifted.cross_sections(1.0e4).unwrap(),
+        plain.cross_sections(1.0e4).unwrap(),
+    );
+    assert!(
+        (a[2] - b[2]).abs() > 1e-6 * b[2],
+        "capture {} and {}",
+        a[2],
+        b[2]
+    );
+}
+
+#[test]
+fn shift_factor_of_an_s_wave_with_zero_boundary_changes_nothing() {
+    let shifted = one_channel_level(OrbitalL::S, 1, 0.0, 1.5e-3, 2.3e-2);
+    assert_matches_one_channel(&shifted, true, |_| 0.0);
+}
+
+#[test]
+fn shift_factor_flag_minus_one_is_not_calculated() {
+    // ENDF-102（2005 年版）は SHF=-1 を計算しない指定とする（ENDF/B-VII.1 の Cl-35）
+    let data = one_channel_level(OrbitalL::P, -1, -1.0, 1.5e-3, 2.3e-2);
+    assert_matches_one_channel(&data, false, |_| 0.0);
+}
+
+#[test]
+fn pole_with_shift_factor_is_the_limit() {
+    let data = one_channel_level(OrbitalL::P, 1, -1.0, 1.5e-3, 0.0);
+    let xs = RMatrixLimitedXs::new(&data).unwrap();
+    let er = 6.674;
+    let at = xs.cross_sections(er).unwrap();
+    let below = xs.cross_sections(er * (1.0 - 1.0e-9)).unwrap();
+    let above = xs.cross_sections(er * (1.0 + 1.0e-9)).unwrap();
+    for ((a, b), c) in at.iter().zip(&below).zip(&above) {
+        assert_close(*a, 0.5 * (b + c), "pole");
+    }
+}
+
+#[test]
+fn rejects_unknown_shift_factor_flag() {
+    let data = one_channel_level(OrbitalL::P, 2, -1.0, 1.5e-3, 2.3e-2);
+    let error = RMatrixLimitedXs::new(&data).unwrap_err().to_string();
+    assert!(error.contains("SHF=2"), "{error}");
+}
+
+#[test]
+fn rejects_shift_factor_for_capture() {
     let mut data = single_level(1.5e-3, 2.3e-2);
-    data.pairs[1].shf = 1;
+    data.pairs[0].shf = 1;
     let error = RMatrixLimitedXs::new(&data).unwrap_err().to_string();
     assert!(error.contains("SHF=1"), "{error}");
+}
+
+/// ENDF/B-VIII.1 の Sr-88 の形の、SAMMY の対数のバックグラウンド（LBK=2）。
+fn sammy_background() -> crate::endf::LogBackground {
+    crate::endf::LogBackground {
+        ed: 0.0,
+        eu: 9.55e5,
+        r0: -4.3e-2,
+        r1: 2.8e-8,
+        r2: 1.0e-14,
+        s0: 1.0e-2,
+        s1: 3.0e-9,
+    }
+}
+
+/// ENDF-102 の式 (D.77)。
+fn sammy_background_at(e: f64) -> f64 {
+    let b = sammy_background();
+    b.r0 + b.r1 * e + b.r2 * e * e
+        - b.s1 * (b.eu - b.ed)
+        - (b.s0 + b.s1 * e) * ((b.eu - e) / (e - b.ed)).ln()
+}
+
+#[test]
+fn background_r_matrix_adds_to_the_channel() {
+    let mut data = one_channel_level(OrbitalL::S, 0, 0.0, 1.5e-3, 2.3e-2);
+    data.spin_groups[0].channels[1].background = Some(sammy_background());
+    assert_matches_one_channel(&data, false, sammy_background_at);
+}
+
+#[test]
+fn background_r_matrix_with_shift_factor() {
+    let mut data = one_channel_level(OrbitalL::P, 1, -1.0, 1.5e-3, 2.3e-2);
+    data.spin_groups[0].channels[1].background = Some(sammy_background());
+    assert_matches_one_channel(&data, true, sammy_background_at);
+}
+
+#[test]
+fn rejects_energies_outside_the_background_range() {
+    let mut data = one_channel_level(OrbitalL::S, 0, 0.0, 1.5e-3, 2.3e-2);
+    data.spin_groups[0].channels[1].background = Some(crate::endf::LogBackground {
+        eu: 1.0e3,
+        ..sammy_background()
+    });
+    let xs = RMatrixLimitedXs::new(&data).unwrap();
+    assert!(xs.cross_sections(10.0).is_ok());
+    let error = xs.cross_sections(2.0e3).unwrap_err().to_string();
+    assert!(error.contains("background"), "{error}");
+}
+
+#[test]
+fn rejects_background_on_the_capture_channel() {
+    let mut data = single_level(1.5e-3, 2.3e-2);
+    data.spin_groups[0].channels[0].background = Some(sammy_background());
+    let error = RMatrixLimitedXs::new(&data).unwrap_err().to_string();
+    assert!(error.contains("background"), "{error}");
 }
 
 #[test]

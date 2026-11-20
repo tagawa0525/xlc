@@ -82,6 +82,7 @@ fn reads_r_matrix_limited_range() {
                     bnd: 0.0,
                     ape: 0.0,
                     apt: 0.0,
+                    background: None,
                 },
                 RmlChannel {
                     pair: 1,
@@ -90,6 +91,7 @@ fn reads_r_matrix_limited_range() {
                     bnd: 0.0,
                     ape: 0.63,
                     apt: 0.64,
+                    background: None,
                 },
             ],
             resonances: vec![
@@ -120,6 +122,120 @@ fn rejects_r_matrix_limited_with_reduced_amplitudes() {
         .unwrap_err()
         .to_string();
     assert!(error.contains("IFG=1"), "{error}");
+}
+
+/// Reich-Moore の R-matrix limited の範囲の spin group に、`kbk` と `kps` を書き、共鳴の後に `extra` の記録を足す。
+fn rml_with_extensions(
+    kbk: &'static str,
+    kps: &'static str,
+    extra: &[[&'static str; 6]],
+) -> Vec<[&'static str; 6]> {
+    let mut lines = rml_lines(["0.0", "0.0", "0", "3", "1", "0"]);
+    lines[9] = ["1.0", "0.0", kbk, kps, "12", "2"];
+    lines.extend_from_slice(extra);
+    lines
+}
+
+fn read_rml(lines: &[[&str; 6]]) -> Result<RMatrixLimited, Error> {
+    let data = mf2(lines)?;
+    let RangeKind::RMatrixLimited(rml) = &data.isotopes[0].ranges[0].kind else {
+        panic!("expected R-matrix limited");
+    };
+    Ok(rml.clone())
+}
+
+#[test]
+fn reads_sammy_logarithmic_background_of_a_channel() {
+    let rml = read_rml(&rml_with_extensions(
+        "1",
+        "0",
+        &[
+            // 0 0 LCH LBK 0 0 と、ED EU 0 0 5 0 / R0 R1 R2 S0 S1
+            ["0.0", "0.0", "2", "2", "0", "0"],
+            ["0.0", "9.55+5", "0", "0", "5", "0"],
+            ["-4.3-2", "2.8-8", "1.0-14", "1.0-2", "3.0-9", "0.0"],
+        ],
+    ))
+    .unwrap();
+    let channels = &rml.spin_groups[0].channels;
+    assert_eq!(channels[0].background, None);
+    assert_eq!(
+        channels[1].background,
+        Some(LogBackground {
+            ed: 0.0,
+            eu: 9.55e5,
+            r0: -4.3e-2,
+            r1: 2.8e-8,
+            r2: 1.0e-14,
+            s0: 1.0e-2,
+            s1: 3.0e-9,
+        })
+    );
+}
+
+#[test]
+fn background_option_zero_adds_nothing() {
+    let rml = read_rml(&rml_with_extensions(
+        "1",
+        "0",
+        &[["0.0", "0.0", "2", "0", "0", "0"]],
+    ))
+    .unwrap();
+    assert!(
+        rml.spin_groups[0]
+            .channels
+            .iter()
+            .all(|c| c.background.is_none())
+    );
+}
+
+#[test]
+fn rejects_backgrounds_other_than_sammy_logarithmic() {
+    for lbk in ["1", "3"] {
+        let error = read_rml(&rml_with_extensions(
+            "1",
+            "0",
+            &[["0.0", "0.0", "2", lbk, "0", "0"]],
+        ))
+        .unwrap_err()
+        .to_string();
+        assert!(error.contains(&format!("LBK={lbk}")), "{error}");
+    }
+}
+
+#[test]
+fn rejects_background_of_a_channel_outside_the_spin_group() {
+    let error = read_rml(&rml_with_extensions(
+        "1",
+        "0",
+        &[["0.0", "0.0", "3", "0", "0", "0"]],
+    ))
+    .unwrap_err()
+    .to_string();
+    assert!(error.contains("LCH=3"), "{error}");
+}
+
+#[test]
+fn rejects_two_backgrounds_of_one_channel() {
+    let error = read_rml(&rml_with_extensions(
+        "2",
+        "0",
+        &[
+            ["0.0", "0.0", "2", "0", "0", "0"],
+            ["0.0", "0.0", "2", "0", "0", "0"],
+        ],
+    ))
+    .unwrap_err()
+    .to_string();
+    assert!(error.contains("LCH=2"), "{error}");
+}
+
+#[test]
+fn rejects_given_phase_shifts() {
+    let error = read_rml(&rml_with_extensions("0", "1", &[]))
+        .unwrap_err()
+        .to_string();
+    assert!(error.contains("KPS=1"), "{error}");
 }
 
 #[test]
