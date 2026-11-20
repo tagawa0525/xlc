@@ -1,0 +1,17 @@
+# #0312: 核分裂の中性子の分布を MF6 MT18 で与えた評価の 600 K の 1 点（VII.1）
+output = "fission-VII.1.msgpack"
+endf-directory = "../../../references/endf/ENDF-B-VII.1_neutrons"
+sigma0 = [1e10, 1e5, 1e4, 1e3, 300, 100, 30, 10, 1]
+scattering-order = 3
+
+[nuclide.Th-232]
+endf = "n-090_Th_232.endf"
+temperatures = [600]
+
+[nuclide.Pa-231]
+endf = "n-091_Pa_231.endf"
+temperatures = [600]
+
+[nuclide.Pa-233]
+endf = "n-091_Pa_233.endf"
+temperatures = [600]

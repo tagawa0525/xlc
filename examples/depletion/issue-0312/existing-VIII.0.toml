@@ -1,0 +1,17 @@
+# #0312: 既存の核種の出力が変わらないこと（ENDF/B-VIII.0、600 K の 1 点）。U-235 と Pu-239 は MF5 MT18 と JP=11 の MF6 MT18 を持つ
+output = "existing-VIII.0.msgpack"
+endf-directory = "../../../references/endf/ENDF-B-VIII.0_neutrons"
+sigma0 = [1e10, 1e5, 1e4, 1e3, 300, 100, 30, 10, 1]
+scattering-order = 3
+
+[nuclide.U-235]
+endf = "n-092_U_235.endf"
+temperatures = [600]
+
+[nuclide.Pu-239]
+endf = "n-094_Pu_239.endf"
+temperatures = [600]
+
+[nuclide.U-238]
+endf = "n-092_U_238.endf"
+temperatures = [600]
