@@ -5,7 +5,7 @@ date: 2026-10-14
 requires: [ADR-0011, ADR-0073, ADR-0164]
 supersedes: []
 superseded-by:
-issues: []
+issues: ["#0264"]
 ---
 
 # ADR-0172: ライブラリに燃焼チェーンの反応の群の断面積を持たせる（捕獲は σ0 ごとに遮蔽しポイントワイズも持ち、しきい値の反応と状態ごとの経路は無限希釈）
@@ -57,8 +57,10 @@ xs は σ0 ごとの捕獲（MT102）を群定数を作る途中で求めてい�
 - 反応の断面積: 再構成した断面積の代表の MT（部分の MT（875〜891、600〜649、800〜849）があれば、再構成が部分の和で作り直した
   もの。NJOY RECONR と同じ。作り直す和の部分の MT はチェーンの `ChainReaction` と同じことをテストで確かめる）。経路の断面積は、MF9 なら多重度 × 反応の断面積、MF10 なら状態の生成断面積、残りは反応の断面積から
   挙げた経路を引いたもの。MF9 の表の外の多重度は 0 とし（NJOY GROUPR と同じ）、そこに反応があれば警告する（ENDF/B-VIII.0 の
-  Np-237 の MT16、Al-27、I-127 などは MF9 が反応のしきい値より上から始まる）。挙げた経路の和が、経路の表の線形化の許容誤差
-  （相対）より反応を超えればエラー。MF9、MF10 とも、反応の断面積が 0 のエネルギー（運動学のしきい値より下。ADR-0100）では数えない。基底状態を挙げる反応で和が反応に足りなければ、その分はどの経路にも入らないので警告する。群の平均は、重み関数だけで取る（無限希釈）。MF10 は 0 K の値をそのまま使う
+  Np-237 の MT16、Al-27、I-127 などは MF9 が反応のしきい値より上から始まる）。挙げた経路の和が反応を超えるエネルギーでは、
+  反応の断面積を正とし、すべての経路を比を保って反応に縮める（点ごとに 反応 / 和 倍。基底状態を挙げない反応の残りは 0）。超過が群の範囲で、
+  経路の表の線形化の許容誤差（相対）を超えれば、MT、最大の相対の超過とそのエネルギーを警告する。縮めた後も群の和が許容誤差より
+  反応を超えればエラー。MF9、MF10 とも、反応の断面積が 0 のエネルギー（運動学のしきい値より下。ADR-0100）では数えない。基底状態を挙げる反応で和が反応に足りなければ、その分はどの経路にも入らないので警告する。群の平均は、重み関数だけで取る（無限希釈）。MF10 は 0 K の値をそのまま使う
   （NJOY BROADR も MF10 を広げない）
 - ライブラリの検査: 反応はチェーンの反応の MT だけで、経路は、状態に分けないただ 1 つの経路か、MF9 か MF10 の状態で残りが最後
 - 反応を持つかは、チェーンと同じく、代表か部分の MT のどれかが MF3 にあること
@@ -70,7 +72,9 @@ xs は σ0 ごとの捕獲（MT102）を群定数を作る途中で求めてい�
   `interpolation_mixes_the_capture_and_the_reactions`、`interpolates_shielded_cross_sections_in_ln_sigma0`（捕獲）
 - xs の単体テスト（crates/xs/src/process/tests.rs）: `capture_is_kept_per_sigma0_and_pointwise`、
   `chain_reactions_sum_the_partial_mts_and_split_the_mf9_states`、`capture_states_without_the_ground_state_leave_the_remainder_to_it`、
-  `listed_states_beyond_the_reaction_are_an_error`、`multiplicities_count_only_where_the_mf9_table_is_given`；形式の
+  `listed_states_beyond_the_reaction_are_scaled_down_to_it`、`excited_states_beyond_the_reaction_leave_no_remainder`、
+  `production_beyond_the_reaction_is_scaled_down_where_it_exceeds`、`excess_within_the_tolerance_is_scaled_without_a_warning`、
+  `multiplicities_count_only_where_the_mf9_table_is_given`；形式の
   `reaction_channels_follow_the_chain_layout`；チェーンの `reaction_kinematics_belong_to_their_mt`
 - lattice の単体テスト: `capture_is_shielded_with_the_same_flux_as_fission`（UFG）、`absorber_rods_are_shielded_by_slowing_down`
   （棒のリングの平均の捕獲）
@@ -82,8 +86,24 @@ xs は σ0 ごとの捕獲（MT102）を群定数を作る途中で求めてい�
 ## 帰結
 
 - 既存のライブラリの形式が変わるので、xs のステージをすべて作り直す。bin/xs と bin/lattice が変わるので、下流のステージも走る
-- MF10 の状態は 0 K の値で、温度に広げた反応と比べて残りを作る。共鳴の領域に MF10 を持つ反応では、広げた差が残りに入り、差が
-  許容誤差を超えると処理が止まる（燃焼チェーンの核種のライブラリを作るときに当たれば、MF10 を広げる扱いを決める）
+- MF10 の状態は 0 K の値で、温度に広げた反応と比べて残りを作る。共鳴の領域に MF10 を持つ反応では、広げた差が残りに入り、和が
+  広げた反応を超える所では経路が縮む（燃焼チェーンの核種のライブラリで差が効けば、MF10 を広げる扱いを決める）
 - 捕獲の状態ごとの経路の比を群の中で一定とする近似が残る（Am-241 の (n,γ) の Am-242m など）。燃焼の比較（「進め方」5）で
   OpenMC の状態ごとの反応率と比べる
 - 核分裂の反応率は、既存の `fission` を使う
+- 経路の和が反応を超える評価は、状態の比を保ったまま反応に合わせて縮み、警告が出る。4 つの版で止まっていた Tm-169、W-182〜186、
+  Pt-193、Pb-207 の `xs nuclide` は通る（超過の大きさは #0264 の「経緯」。examples/depletion の 2A のライブラリに戻すのは #0264 に残す）
+
+## 変更
+
+- 2026-11-20: 挙げた経路の和が反応を超えるときの扱い。前は「挙げた経路の和が、経路の表の線形化の許容誤差（相対）より反応を超えればエラー。」。
+  2A の放射化のライブラリで止まった Tm-169、W-182〜186、Pt-193、Pb-207（#0264）を、評価のファイルの点で xs と別に比べると、超過は
+  xs の読み込みや和の取り方でなく、評価の MF10 の生成断面積か MF9 の多重度の和が MF3（部分の MT の和を含む）を超えることにある
+  （W-184 の MT16 は 10 MeV で 3.1%、Tm-169 の MT107 は 10 MeV で 97%、Pt-193 の VIII.0 の MT103 は 400 keV で多重度の和が
+  1.0093。#0264）。反応の断面積は輸送と吸収に入る値で、親の核種が減る割合と状態の経路で娘が生まれる割合を揃えるため、反応を正とする。
+  比べた案: (1) エラーのまま（評価の不整合で 10 核種の冷却計算の断面積が作れない）、(2) 経路の和を反応にする（輸送の反応と燃焼の
+  反応率が食い違い、核種の数が保存しない）、(3) 群の平均で比べて縮める（群の中に和が反応を超える所と超えない所があると、群の平均では
+  超えずに縮まらず、超える所の分だけ経路が多い。xs の単体テスト `production_beyond_the_reaction_is_scaled_down_where_it_exceeds`。
+  VIII.1 の Pt-193 の MT107 は MF3 が 1/v で MF10 がほぼ一定で、和は 330 eV で反応の 76 倍）、(4) 絶対の床を足す（Pt-193 と Pb-207 は
+  反応が 1e-18 b の桁の群で、超過は相対で 0.4〜0.8% あり、丸めでない。床の値の根拠が無い）。点ごとに縮めるので、和が反応を
+  超えない評価の経路の表は前と同じ点と値になる
