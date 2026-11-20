@@ -617,7 +617,8 @@ Np239 VII.0 chi  : max rel diff 2.87e-5 in group 0 (ours 2.644276e-2, njoy 2.644
 
 核分裂スペクトルの MF5 の LF=11（エネルギーによる Watt の分布 exp(−E'/a) sinh(√(b E'))。ENDF-102 の 5.1.1.5）を読む xs（#0313）の無限希釈の
 0 K の群の値（WIMS 69 群、重みは iwt=4）を、NJOY2016.79 の RECONR（許容誤差 1e-3）と GROUPR の GENDF（MF3 MT452 と、MF6 MT18 から求めた χ）と
-比べた。核種は版ごとのライブラリでこの形を持つもの（VII.0 と VII.1 の U-233。MF5 MT18 の U = −30 MeV と a(E)、b(E) の表は 2 つの版で同じ）。
+比べた。核種は版ごとのライブラリでこの形を持つもの（VII.0 と VII.1 の U-233。MF5 MT18 の U = −30 MeV と a(E)、b(E) の表は 2 つの版で同じで、
+a b/4 は 0.71 以下。xs は群への振り分けの精度を確かめた a b/4 ≤ 5 の評価だけを読む）。
 NJOY の入力と出力は references/njoy-runs/lf11/U233-<版>/（git で追跡しない。入力は references/njoy-runs/U236-groupr/ と同じ形で MAT だけが違う）。
 
 ```sh
@@ -627,9 +628,9 @@ cargo run --release -p xlc-xs --example compare_njoy_gendf -- \
 
 ### 計算
 
-xlc 325c3ef2（分岐点 49e3045c、2026-11-20）。手元で `compare_njoy_gendf` を実行した。`xs nuclide` は同じコミットの `cargo build --release` の bin
-（VII.0 の U-233 は、rebase の前の、crates と Cargo.lock が同じコミットの bin）で、`read-survey/sample-<版>.toml` と同じ σ0 と散乱の次数の温度 1 点
-（600 K）の入力を手元の試行に置き、`examples/depletion/xs-range.toml` を与えて実行した。
+xlc f37d6d49（分岐点 49e3045c、2026-11-20）。手元で `compare_njoy_gendf` を実行した。`xs nuclide` は同じコミットの `cargo build --release` の bin
+（4 スレッド）で、`read-survey/sample-<版>.toml` と同じ σ0 と散乱の次数の温度 1 点（600 K）の入力を手元の試行に置き、
+`examples/depletion/xs-range.toml` を与えて実行した。
 
 ### 結果
 
