@@ -1182,8 +1182,6 @@ fn nuclides_without_pointwise_data_take_no_sab_transfer() {
     assert!(library.to_msgpack().is_ok());
     library.nuclides[1].temperatures[0].pointwise = None;
     assert!(library.to_msgpack().is_err());
-    library.nuclides[1].temperatures[0].sab_transfer = None;
-    assert!(library.to_msgpack().is_ok());
 }
 
 #[test]
@@ -1199,4 +1197,13 @@ fn interpolation_keeps_the_pointwise_data_left_out() {
     let h1 = library.nuclides.last_mut().unwrap();
     h1.temperatures[0].pointwise = sample().nuclides[0].temperatures[0].pointwise.clone();
     assert!(library.lookup("H-1", 565.0).is_err());
+}
+
+#[test]
+fn s_alpha_beta_nuclides_keep_their_pointwise_data() {
+    // S(α, β) の核種は減速材の核種で UFG で解く（ADR-0268、ADR-0269）ので、範囲のあるライブラリでは持たないとエラー
+    let mut library = sample();
+    library.nuclides[1].thermal_scattering = true;
+    library.nuclides[1].temperatures[0].pointwise = None;
+    assert!(library.to_msgpack().is_err());
 }
