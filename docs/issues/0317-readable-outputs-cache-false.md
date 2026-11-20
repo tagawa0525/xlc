@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [dvc, checks]
 opened: 2026-11-20
-closed:
+closed: 2026-11-20
 milestone:
 blocked-by: []
-resolution:
+resolution: コミット 8cfff3377
 ---
 
 # 形式を変える修正の検査が、git で追う cache: false の出力をキャッシュに無いとして止める
@@ -34,7 +34,7 @@ resolution:
 ## 完了の条件
 
 - [x] `cache: false` で git で追う xlc の形式の出力を、検査が lock の md5 の版で読む（または止める理由を ADR に書く）
-- [ ] ブランチ feat/0303-pin-depletion-by-endf-version の run-checks.sh が通る
+- [x] ブランチ feat/0303-pin-depletion-by-endf-version の run-checks.sh が通る
 
 ## 検討して捨てた形
 
@@ -49,3 +49,5 @@ resolution:
 - 2026-11-20: 版ごとのピンセルの燃焼（#0303）のブランチのチェックで、VII.0 の範囲の TOML が止まって見つけた
 - 2026-11-20: 検査が、キャッシュに無く git の index が追う出力を、lock と同じ md5 の blob で読むようにした。#0303 のブランチの
   worktree で検査が通ることを確かめた
+- 2026-11-20: ブランチ feat/0303-pin-depletion-by-endf-version を main 8cfff3377 に rebase し、その worktree（HEAD 13283812f）の
+  run-checks.sh が `--base main` で終了コード 0 で通った（上流の出力の読み込みは `MISSING:` なしで 2145 ファイル、2231 の出力）。閉じた
