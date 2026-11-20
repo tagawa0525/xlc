@@ -67,7 +67,7 @@
 //! endf = "n-073_Ta_181.endf"
 //! temperatures = [565]
 //! # 非分離共鳴（LSSF=0）の MF3 の捕獲か核分裂のバックグラウンドが負の評価の宣言（省略すると、その評価は止まる）
-//! unresolved-shielding = "factors"
+//! unresolved-negative-background = "scale"
 //! ```
 //!
 //! `activation = true` の核種は、チェーンの反応と核分裂の無限希釈の群の断面積だけを作り、ライブラリの `activation` に置く
@@ -78,8 +78,9 @@
 //!
 //! 核種ごとの処理時間はログとして標準エラーに出す（`RUST_LOG=debug` で温度・段階ごとの内訳）。
 //!
-//! `unresolved-shielding = "factors"` の核種は、非分離共鳴の自己遮蔽を MF3 のバックグラウンドを入れない File 2 のラダーの比で
-//! 求め、無限希釈の断面積に掛ける（ADR-0274）。輸送する核種だけに使え、宣言の要らない評価では止まる。
+//! `unresolved-negative-background = "scale"` の核種は、非分離共鳴の自己遮蔽のラダーで、MF3 のバックグラウンドが負の反応を、
+//! 定数で足す代わりに File 2 のサンプルを (平均 + バックグラウンド)/平均 倍にして求める（ADR-0274）。輸送する核種だけに使え、
+//! 宣言の要らない評価では止まる。
 //!
 //! `corrections` の宣言は、テープを読んだ直後、MF ごとの読み込みの前に、行の MF と MT と欄の元の値を確かめて当て、当てるたびに
 //! warn を出す（ADR-0272）。どれかが宣言と違えば止まる。
@@ -205,14 +206,14 @@ struct NuclideEntry {
     #[serde(default)]
     negative_to_zero: Vec<NegativeToZero>,
     /// 非分離共鳴の負のバックグラウンドの宣言（ADR-0274）。省略すると MF3 のバックグラウンドをサンプルに足す
-    unresolved_shielding: Option<UnresolvedShieldingEntry>,
+    unresolved_negative_background: Option<NegativeBackgroundEntry>,
 }
 
-/// `unresolved-shielding` の値。宣言だけの項目で、取り消す値を持たない（効かない宣言を書けないように）
+/// `unresolved-negative-background` の値。宣言だけの項目で、取り消す値を持たない（効かない宣言を書けないように）
 #[derive(Deserialize)]
 #[serde(rename_all = "kebab-case")]
-enum UnresolvedShieldingEntry {
-    Factors,
+enum NegativeBackgroundEntry {
+    Scale,
 }
 
 /// `pointwise` を省略したときの値（ADR-0269 の既定。今のとおり持たせる）
@@ -322,13 +323,13 @@ fn parse_input(text: &str, base: &Path) -> Result<Input, InputError> {
                  pointwise data, and S(α, β) nuclides are moderator nuclides the UFG solves)"
             ));
         }
-        let unresolved = match entry.unresolved_shielding {
+        let unresolved = match entry.unresolved_negative_background {
             None => UnresolvedMethod::Additive,
-            Some(UnresolvedShieldingEntry::Factors) => UnresolvedMethod::Factors,
+            Some(NegativeBackgroundEntry::Scale) => UnresolvedMethod::ScaleNegative,
         };
         if entry.activation && unresolved != UnresolvedMethod::Additive {
             return invalid(format!(
-                "{name}: activation nuclides are not shielded and take no `unresolved-shielding`"
+                "{name}: activation nuclides are not shielded and take no `unresolved-negative-background`"
             ));
         }
         nuclides.push(NuclideInput {

@@ -7,7 +7,7 @@
 //! 群定数の統計誤差になる。
 
 use xlc_xs::endf::{Mf2, RangeKind, Tape};
-use xlc_xs::resonance::{Sampling, Sigma, UnresolvedXs};
+use xlc_xs::resonance::{Sampling, Scales, Sigma, UnresolvedXs};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
@@ -55,6 +55,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 &[temperature],
                 &sigma0,
                 Sigma::default(),
+                Scales::ONE,
                 sampling,
                 seed,
             )?)

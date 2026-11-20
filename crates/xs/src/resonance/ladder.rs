@@ -45,6 +45,21 @@ const MAX_MARGIN_SPACINGS: f64 = 1000.0;
 /// ローレンツの裾の寄与は平均の Γ/(π L) 倍なので、L = Γ/(π D TAIL) 個の準位間隔まで並べる
 const TAIL: f64 = 1.0e-4;
 
+/// 共鳴の部分の核分裂と捕獲に掛ける倍率。入力で宣言した評価の、MF3 のバックグラウンドが負の反応だけ 1 でない（ADR-0274）
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Scales {
+    pub fission: f64,
+    pub capture: f64,
+}
+
+impl Scales {
+    /// 縮めない（掛けても値のビットは変わらない）
+    pub const ONE: Self = Self {
+        fission: 1.0,
+        capture: 1.0,
+    };
+}
+
 /// 弾性散乱（バックグラウンドを含む）が負になる点の弾性散乱 (barn)。NJOY PURR と同じ値
 const ELASTIC_FLOOR: f64 = 1.0e-6;
 
@@ -97,7 +112,8 @@ pub(super) enum LadderError {
 }
 
 /// 系列 `sequences` のラダーで、温度ごとに σ0 ごとの実効断面積を求める。`deltas` は温度ごとの、系列ごとのドップラー幅 Δ (eV)
-/// で、結果はその温度の順に並ぶ。`potential` はポテンシャル散乱 (barn)、`background` は MF3 のバックグラウンド断面積。サンプルの数は
+/// で、結果はその温度の順に並ぶ。`potential` はポテンシャル散乱 (barn)、`background` は MF3 のバックグラウンド断面積、`scales` は
+/// 共鳴の部分の核分裂と捕獲に掛ける倍率。サンプルの数は
 /// `sampling`、乱数は種 `seed` から決まる。弾性散乱（バックグラウンドを含む）が負の点は弾性散乱を 1 μb にし（数を `floored` に
 /// 数える）、それでも全断面積が 0 以下になる点があれば、その温度を止める。
 ///
@@ -109,6 +125,7 @@ pub(super) fn bondarenko(
     deltas: &[Vec<f64>],
     potential: f64,
     background: Sigma,
+    scales: Scales,
     sigma0: &[f64],
     sampling: Sampling,
     seed: u64,
@@ -167,7 +184,7 @@ pub(super) fn bondarenko(
         }
         for t in temperatures.iter_mut().filter(|t| t.error.is_none()) {
             t.error = t
-                .add_samples(&energies, potential, background, other, sigma0)
+                .add_samples(&energies, potential, background, scales, other, sigma0)
                 .err();
         }
     }
@@ -205,6 +222,7 @@ impl Accumulator {
         energies: &[f64],
         potential: f64,
         background: Sigma,
+        scales: Scales,
         other: f64,
         sigma0: &[f64],
     ) -> Result<(), LadderError> {
@@ -217,8 +235,8 @@ impl Accumulator {
                 elastic = ELASTIC_FLOOR;
                 self.floored += 1;
             }
-            let fission = background.fission + self.parts.fission[j];
-            let capture = background.capture + self.parts.capture[j];
+            let fission = background.fission + scales.fission * self.parts.fission[j];
+            let capture = background.capture + scales.capture * self.parts.capture[j];
             let total = elastic + fission + capture + other;
             if total.is_nan() || total <= 0.0 {
                 return Err(LadderError::NonPositiveTotal {
