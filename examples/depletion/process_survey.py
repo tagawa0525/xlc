@@ -55,9 +55,9 @@ CAUSES: list[tuple[str, str, str, str]] = [
     ),
     (
         r"last NBT must equal NP",
-        "MF5 MT17 の TAB1 の補間の区切りが点の数と食い違う（評価の誤り）",
+        "MF5 MT17 の TAB1 の補間の区切りが点の数と食い違う（評価の誤り。入力の `corrections` の宣言で読める。ADR-0272）",
         "endf/tape.rs の tab1",
-        "#0316",
+        "#0316（closed）",
     ),
     (
         r"fission needs MF1 MT452 and MF5 MT18",
