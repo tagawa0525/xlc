@@ -684,8 +684,77 @@ fn huge_range_count_is_error_not_abort() {
     assert_eq!(err.line, 3);
 }
 
+/// MLBW の範囲 [1e-5, `eh`] を 1 つ持つ同位体の行（isotope の CONT から）
+fn mlbw_isotope(zai: &'static str, abn: &'static str, eh: &'static str) -> Vec<[&'static str; 6]> {
+    vec![
+        [zai, abn, "0", "0", "1", "0"],
+        ["1.0-5", eh, "1", "2", "0", "0"],
+        ["0.0", "5.6-1", "0", "0", "1", "0"],
+        ["6.338000+1", "0.0", "0", "0", "6", "1"],
+        ["1.0+3", "0.5", "2.3", "2.0", "0.3", "0.0"],
+    ]
+}
+
+/// NIS = 2 の MF2（元素 Zn の見出し）
+fn two_isotopes(a: Vec<[&'static str; 6]>, b: Vec<[&'static str; 6]>) -> Result<Mf2, Error> {
+    let head = ["3.000000+4", "6.483400+1", "0", "0", "2", "0"];
+    let lines: Vec<[&str; 6]> = std::iter::once(head).chain(a).chain(b).collect();
+    mf2(&lines)
+}
+
 #[test]
-fn multiple_isotopes_are_error() {
-    let err = mf2(&[["9.223800+4", "2.360058+2", "0", "0", "2", "0"]]).unwrap_err();
-    assert_eq!(err.line, 1);
+fn abundance_outside_zero_to_one_is_error() {
+    for abn in ["0.0", "-1.0-1", "1.5"] {
+        let err = two_isotopes(
+            mlbw_isotope("3.006400+4", abn, "1.0+5"),
+            mlbw_isotope("3.006600+4", "4.0-1", "1.0+5"),
+        )
+        .unwrap_err();
+        assert!(err.message.contains("ABN"), "{abn}: {}", err.message);
+    }
+}
+
+#[test]
+fn isotopes_with_different_resolved_tops_are_error() {
+    // 分離共鳴の上のポテンシャル散乱を同位体の和で決めるので、上端は同位体の間で揃っていること
+    let err = two_isotopes(
+        mlbw_isotope("3.006400+4", "6.0-1", "1.0+5"),
+        mlbw_isotope("3.006600+4", "4.0-1", "5.0+4"),
+    )
+    .unwrap_err();
+    assert!(err.message.contains("upper end"), "{}", err.message);
+}
+
+#[test]
+fn isotopes_with_unresolved_or_slbw_or_radius_only_ranges_are_error() {
+    // 非分離共鳴、SLBW、散乱半径だけの範囲は、同位体の存在比の重みを扱わない処理（遮蔽、MF3 との和で切る SLBW）に渡るので止める
+    let unresolved = vec![
+        ["3.006600+4", "4.0-1", "0", "0", "1", "0"],
+        ["1.0+5", "2.0+5", "2", "2", "0", "1"],
+        ["0.0", "0.6", "0", "0", "1", "0"],
+        ["6.338000+1", "0.0", "0", "0", "1", "0"],
+        ["0.5", "0.0", "2", "0", "18", "2"],
+        ["0.0", "0.0", "0.0", "1.0", "0.0", "0.0"],
+        ["1.0+5", "1.0+3", "0.0", "1.0-1", "1.0", "0.0"],
+        ["2.0+5", "1.0+3", "0.0", "1.0-1", "1.0", "0.0"],
+    ];
+    let mut slbw = mlbw_isotope("3.006600+4", "4.0-1", "1.0+5");
+    slbw[1][3] = "1";
+    let radius_only = vec![
+        ["3.006600+4", "4.0-1", "0", "0", "1", "0"],
+        ["1.0-5", "1.0+5", "0", "0", "0", "0"],
+        ["0.0", "0.6", "0", "0", "0", "0"],
+    ];
+    for (name, isotope) in [
+        ("LRU=2", unresolved),
+        ("LRF=1", slbw),
+        ("LRU=0", radius_only),
+    ] {
+        let err = two_isotopes(mlbw_isotope("3.006400+4", "6.0-1", "1.0+5"), isotope).unwrap_err();
+        assert!(
+            err.message.contains("isotopes") && err.message.contains(name),
+            "{name}: {}",
+            err.message
+        );
+    }
 }

@@ -933,3 +933,85 @@ fn rebuilt_sums_follow_the_chain_reaction_ranges() {
         );
     }
 }
+
+/// MLBW の 1 つの範囲 [1e-5, 1e3] eV を持つ同位体の、MF2 の isotope の CONT からの行。値は ZAI、ABN、AP、共鳴エネルギー
+fn mlbw_isotope(
+    zai: &'static str,
+    abn: &'static str,
+    ap: &'static str,
+    er: &'static str,
+) -> Vec<[&'static str; 6]> {
+    vec![
+        [zai, abn, "0", "0", "1", "0"],
+        ["1.0-5", "1.0+3", "1", "2", "0", "0"],
+        ["0.0", ap, "0", "0", "1", "0"],
+        // l=0: AWRI QX L LRX 6*NRS NRS、値は ER AJ GT GN GG GF
+        ["6.338000+1", "0.0", "0", "0", "6", "1"],
+        [er, "0.5", "2.3", "2.0", "0.3", "0.0"],
+    ]
+}
+
+/// 同位体を並べた MF2 と、MF3 の全断面積・弾性散乱・捕獲（どれも一定）の評価
+fn evaluation_with_isotopes(isotopes: &[Vec<[&'static str; 6]>]) -> String {
+    use crate::endf::rec;
+    let nis = isotopes.len().to_string();
+    let head = ["3.000000+4", "6.483400+1", "0", "0", nis.as_str(), "0"];
+    let full = ["1.0-5", "2.0+7"];
+    std::iter::once(head)
+        .chain(isotopes.iter().flatten().copied())
+        .map(|f| rec(f, 1, 2, 151))
+        .chain([
+            rec(["", "", "", "", "", ""], 1, 2, 0),
+            mf3_section(1, full, ["4.0", "4.0"]),
+            mf3_section(2, full, ["3.0", "3.0"]),
+            mf3_section(102, full, ["1.0", "1.0"]),
+        ])
+        .collect()
+}
+
+#[test]
+fn resonances_of_isotopes_are_summed_with_their_abundances() {
+    // ENDF-102 の 2.1: 天然の元素の MF2 は同位体ごとのパラメータを持ち、断面積は同位体の断面積を存在比 ABN（個数の割合）で
+    // 重み付けした和。ここでは MF3 のバックグラウンドに 0.6 σ(Zn-64) + 0.4 σ(Zn-66) を足したもの
+    use crate::resonance::MlbwXs;
+    let a = mlbw_isotope("3.006400+4", "6.0-1", "5.6-1", "1.0+2");
+    let b = mlbw_isotope("3.006600+4", "4.0-1", "6.3-1", "3.0+2");
+    let alone = |isotope: &[[&'static str; 6]]| {
+        let mut lines = isotope.to_vec();
+        lines[0][1] = "1.0";
+        let tape = Tape::parse(&evaluation_with_isotopes(&[lines])).unwrap();
+        let mf2 = crate::endf::Mf2::parse(&tape.section(1, 2, 151).unwrap()).unwrap();
+        let RangeKind::Mlbw(bw) = mf2.ranges[0].kind.clone() else {
+            panic!("expected MLBW");
+        };
+        MlbwXs::new(&bw)
+    };
+    let (xs_a, xs_b) = (alone(&a), alone(&b));
+    let tape = Tape::parse(&evaluation_with_isotopes(&[a, b])).unwrap();
+    let tables = reconstruct(&tape, 1, 1.0e-3).unwrap();
+    let inside: Vec<f64> = tables[&1]
+        .x
+        .iter()
+        .copied()
+        .filter(|&e| 1.0e-5 < e && e < 1.0e3)
+        .collect();
+    assert!(inside.len() > 20, "{inside:?}");
+    for e in inside {
+        let (sa, sb) = (
+            xs_a.cross_sections(e).unwrap(),
+            xs_b.cross_sections(e).unwrap(),
+        );
+        let weighted = |f: fn(&crate::resonance::Sigma) -> f64| 0.6 * f(&sa) + 0.4 * f(&sb);
+        for (mt, background, part) in [
+            (2, 3.0, weighted(|s| s.elastic)),
+            (102, 1.0, weighted(|s| s.capture)),
+        ] {
+            let expected = background + part;
+            let actual = tables[&mt].eval(e).unwrap();
+            assert!(
+                (actual - expected).abs() <= 1.0e-12 * expected,
+                "MT{mt} at {e} eV: {actual} vs {expected}"
+            );
+        }
+    }
+}
