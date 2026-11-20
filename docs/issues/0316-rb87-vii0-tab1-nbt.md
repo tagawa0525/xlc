@@ -20,7 +20,7 @@ resolution:
 - NJOY がこの TAB1 をどう読むかは確かめていない。リポジトリの方針（怪しい入力は止める）では、黙って直して読まない
 - 再現: `bin/xs check <報告> references/endf/ENDF-B-VII.0_neutrons/n-037_Rb_087.endf`
 
-関係する ADR: なし
+関係する ADR: ADR-0272
 
 ## 完了の条件
 
