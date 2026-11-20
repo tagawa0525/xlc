@@ -18,7 +18,7 @@
    "endf": "n-001_H_002.endf",
    "seconds": 0.0,
    "user_seconds": 0.0,
-   "max_rss_kb": 5608,
+   "max_rss_kb": 6428,
    "exit": 1,
    "warnings": {
     "xlc_xs::pointwise: N reactions start below their kinematic threshold -Q(A+N)/A and now start at it with a zero cross section; the largest shift is N eV in MTN and the largest relative shift is N of the threshold in MTN; N points below the thresholds were dropped": 1
@@ -97,7 +97,7 @@
    "endf": "n-004_Be_009.endf",
    "seconds": 0.0,
    "user_seconds": 0.0,
-   "max_rss_kb": 7892,
+   "max_rss_kb": 8444,
    "exit": 1,
    "warnings": {
     "xlc_xs::pointwise: N reactions start below their kinematic threshold -Q(A+N)/A and now start at it with a zero cross section; the largest shift is N eV in MTN and the largest relative shift is N of the threshold in MTN; N points below the thresholds were dropped": 1
@@ -381,7 +381,7 @@
    "endf": "n-017_Cl_035.endf",
    "seconds": 0.0,
    "user_seconds": 0.0,
-   "max_rss_kb": 13212,
+   "max_rss_kb": 13060,
    "exit": 1,
    "warnings": {
     "xlc_xs::pointwise: N reactions start below their kinematic threshold -Q(A+N)/A and now start at it with a zero cross section; the largest shift is N eV in MTN and the largest relative shift is N of the threshold in MTN; N points below the thresholds were dropped": 1
@@ -4227,9 +4227,9 @@
   {
    "nuclide": "Th-232",
    "endf": "n-090_Th_232.endf",
-   "seconds": 62.24,
-   "user_seconds": 87.62,
-   "max_rss_kb": 105384,
+   "seconds": 28.99,
+   "user_seconds": 45.87,
+   "max_rss_kb": 105772,
    "exit": 1,
    "warnings": {
     "xlc_xs::pointwise: N reactions start below their kinematic threshold -Q(A+N)/A and now start at it with a zero cross section; the largest shift is N eV in MTN and the largest relative shift is N of the threshold in MTN; N points below the thresholds were dropped": 1
@@ -4292,9 +4292,9 @@
   {
    "nuclide": "Pa-231",
    "endf": "n-091_Pa_231.endf",
-   "seconds": 276.99,
-   "user_seconds": 446.74,
-   "max_rss_kb": 40216,
+   "seconds": 114.11,
+   "user_seconds": 223.24,
+   "max_rss_kb": 40404,
    "exit": 1,
    "warnings": {
     "xlc_xs::pointwise: N reactions start below their kinematic threshold -Q(A+N)/A and now start at it with a zero cross section; the largest shift is N eV in MTN and the largest relative shift is N of the threshold in MTN; N points below the thresholds were dropped": 1
@@ -4318,9 +4318,9 @@
   {
    "nuclide": "Pa-233",
    "endf": "n-091_Pa_233.endf",
-   "seconds": 253.81,
-   "user_seconds": 405.96,
-   "max_rss_kb": 25096,
+   "seconds": 105.15,
+   "user_seconds": 205.27,
+   "max_rss_kb": 25356,
    "exit": 1,
    "warnings": {
     "xlc_xs::pointwise: N reactions start below their kinematic threshold -Q(A+N)/A and now start at it with a zero cross section; the largest shift is N eV in MTN and the largest relative shift is N of the threshold in MTN; N points below the thresholds were dropped": 1
