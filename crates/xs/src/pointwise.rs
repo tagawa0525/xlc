@@ -775,7 +775,7 @@ fn add_resonances(
                 range.el,
                 range.eh,
                 raised.points,
-                elastic.x.len(),
+                raised.inside,
                 raised.lowest,
                 raised.from,
                 raised.to
@@ -791,6 +791,8 @@ struct Raised {
     table: Tab1,
     /// 負だった点の数
     points: usize,
+    /// 範囲の中の点の数
+    inside: usize,
     /// 最も小さかった値 (b)
     lowest: f64,
     /// 負だった点のエネルギーの範囲 (eV)
@@ -833,6 +835,7 @@ fn raise_negative(t: &Tab1, el: f64, eh: f64) -> Option<Raised> {
     Some(Raised {
         table: Tab1::linear(x, y),
         points: negative.len(),
+        inside: (0..n).filter(|&k| inside(k)).count(),
         lowest,
         from: t.x[first],
         to: t.x[last],
