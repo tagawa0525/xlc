@@ -279,7 +279,8 @@ fn skip_range(r: &mut Reader<'_>, h: &RangeHead, lfw: i64) -> Result<(), String>
 fn read_failures(tape: &Tape, mat: i32) -> Vec<(String, String)> {
     // 先の確認で止まっても、あとの確認を続ける（ほかの理由を隠さない）。同じ理由は `summarize` が評価ごとに 1 つに数える
     let mut failures = Vec::new();
-    if let Err(err) = read_evaluation(tape, DEFAULT_TOLERANCE) {
+    // 入力の宣言（`negative-to-zero`。ADR-0267）は読まず、評価をそのまま読む
+    if let Err(err) = read_evaluation(tape, DEFAULT_TOLERANCE, &[]) {
         failures.push(("evaluation".into(), err.to_string()));
     }
     if let Err(err) = resolved(tape, mat) {

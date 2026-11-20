@@ -351,7 +351,7 @@ fn declarations_that_do_not_match_the_tables_are_an_error() {
         declared(102, 1.0e-5, 10.0, Some(4)),
         declared(102, 1.0e-5, 10.0, Some(102)),
     ] {
-        let message = error(&[negatives.clone()]);
+        let message = error(std::slice::from_ref(&negatives));
         assert!(
             message.contains("MT102") || message.contains("MT103"),
             "{negatives:?}: {message}"

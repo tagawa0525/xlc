@@ -16,7 +16,8 @@ use crate::multigroup::{
 use crate::parallel::in_parallel;
 use crate::physics::BK;
 use crate::pointwise::{
-    ColdParts, DEFAULT_TOLERANCE, left_limit, linearize, resonance_tables, right_limit,
+    ColdParts, DEFAULT_TOLERANCE, NegativeToZero, left_limit, linearize, resonance_tables,
+    right_limit,
 };
 use crate::resonance::{
     Bondarenko, Sampling, Sigma, UnresolvedXs, UrrError, unresolved_grid, unresolved_interpolation,
@@ -498,13 +499,14 @@ pub fn thermal_correction(elastic: &[f64], elastic_matrix: &[Vec<f64>]) -> Vec<f
 
 /// テープ中の（ただ1つの）物質を、温度 `temperatures` (K) ごとに処理する。
 /// `thermal` があれば、その上限まで弾性散乱を S(α, β) と自由ガス模型で、なければ `settings.thermal_cutoff` 未満を
-/// 自由ガス模型で扱う。
+/// 自由ガス模型で扱う。`negatives` は入力の宣言で 0 にする負の 0 K の断面積（ADR-0267）。
 #[tracing::instrument(name = "process", level = "debug", skip_all)]
 pub fn process_nuclide(
     tape: &Tape,
     name: &str,
     temperatures: &[f64],
     thermal: Option<&ThermalScattering>,
+    negatives: &[NegativeToZero],
     settings: &Settings,
 ) -> Result<NuclideData, ProcessError> {
     if let Some(thermal) = thermal {
@@ -517,7 +519,7 @@ pub fn process_nuclide(
              quadratically, so its scattering cross section differs (ADR-0133)"
         );
     }
-    let evaluation = read_evaluation(tape, settings.tolerance)?;
+    let evaluation = read_evaluation(tape, settings.tolerance, negatives)?;
     let common = Common {
         tape,
         evaluation: &evaluation,
@@ -558,6 +560,7 @@ pub fn process_activation(
     tape: &Tape,
     name: &str,
     temperatures: &[f64],
+    negatives: &[NegativeToZero],
     settings: &Settings,
 ) -> Result<ActivationData, ProcessError> {
     let materials = tape.materials();
@@ -566,7 +569,7 @@ pub fn process_activation(
     };
     let first = *tape.mts(mat, 3).first().ok_or(ProcessError::NoMf3)?;
     let head = Mf3::parse(&tape.section(mat, 3, first).ok_or(ProcessError::NoMf3)?)?;
-    let cold = ColdParts::read(tape, mat, settings.tolerance)?;
+    let cold = ColdParts::read(tape, mat, settings.tolerance, negatives)?;
     let (groups, weight) = (&settings.groups, &settings.weight);
     let temperatures = in_parallel(temperatures.len(), |k| {
         let temperature = temperatures[k];
@@ -863,8 +866,13 @@ pub struct Evaluation {
     pub angular: BTreeMap<u32, Mf4>,
 }
 
-/// テープ中の（ただ1つの）物質を読み、0 K のポイントワイズの断面積を許容誤差 `tolerance` で再構成する。
-pub fn read_evaluation(tape: &Tape, tolerance: f64) -> Result<Evaluation, ProcessError> {
+/// テープ中の（ただ1つの）物質を読み、0 K のポイントワイズの断面積を許容誤差 `tolerance` で再構成する。`negatives` は入力の
+/// 宣言で 0 にする負の値（ADR-0267）。
+pub fn read_evaluation(
+    tape: &Tape,
+    tolerance: f64,
+    negatives: &[NegativeToZero],
+) -> Result<Evaluation, ProcessError> {
     let materials = tape.materials();
     let [mat] = materials[..] else {
         return Err(ProcessError::Materials(materials));
@@ -878,7 +886,7 @@ pub fn read_evaluation(tape: &Tape, tolerance: f64) -> Result<Evaluation, Proces
     let first = *tape.mts(mat, 3).first().ok_or(ProcessError::NoMf3)?;
     let head = mf3(first)?;
     let nubar = total_nubar(tape, mat)?;
-    let cold = ColdParts::read(tape, mat, tolerance)?;
+    let cold = ColdParts::read(tape, mat, tolerance, negatives)?;
     let Distributions {
         fission_parts,
         delayed,
