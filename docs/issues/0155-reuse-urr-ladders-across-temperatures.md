@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [xs]
 opened: 2026-10-23
-closed:
+closed: 2026-11-20
 milestone:
 blocked-by: []
-resolution:
+resolution: ADR-0188
 ---
 
 # 非分離共鳴のラダーと係数を温度の間で再利用する
@@ -25,8 +25,8 @@ process.rs の温度のループ（`Common::at_temperature`）から呼び方を
 
 ## 完了の条件
 
-ラダーと係数を温度の間で 1 度だけ作り、65 核種の燃焼のライブラリ（examples/depletion）の出力の md5 が変わらないことと、CPU 時間の
-変化を確かめる。
+- [x] ラダーと係数を温度の間で 1 度だけ作り、65 核種の燃焼のライブラリ（examples/depletion）の出力の md5 が変わらないことと、CPU
+  時間の変化を確かめる
 
 ## 経緯
 
@@ -39,4 +39,6 @@ process.rs の温度のループ（`Common::at_temperature`）から呼び方を
   `shielding_temperatures_together_gives_the_bits_of_each_temperature_alone`（crates/xs/src/process/tests.rs）が、3 温度を一緒に作った補正と
   温度ごとに作った補正がビットまで同じことを示す。13 温度の Am-242m の出力の md5 は直す前と後で同じ（048df745。手元で
   `xs nuclide` を 8 スレッドで実行）、4 温度の Cm-244 も同じで、燃焼のライブラリの出力とも同じ（756a0a60）。時間は区分 timed の
-  ジョブで測ってから書く。65 核種のライブラリの md5 と CPU 時間は、ライブラリの作り直しで確かめる
+  ジョブで測った（次の項）
+- 2026-11-20: Am-242m の時間を区分 timed の Slurm 990（直す前）と 991（直した後）で、65 核種の燃焼のライブラリの md5 を Slurm 992 で
+  確かめた。CPU 時間は 4 温度で約 4 割、13 温度で約 5 割減り、65 核種すべての md5 が変わらない。値とコミットは ADR-0188 の「確認」
