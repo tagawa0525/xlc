@@ -1055,7 +1055,7 @@ python3 references/njoy-runs/negative/tools/groups.py references/njoy-runs/negat
 
 ### 計算
 
-xlc 2d8496d5（分岐点 6af59212、2026-11-20）の `cargo build --release` の `survey_negative`（手元で 6 並列）と bin で、`xs nuclide` は手元で
+xlc fb1b59bc（分岐点 6af59212、2026-11-20）の `cargo build --release` の `survey_negative`（手元で 6 並列）と bin で、`xs nuclide` は手元で
 1 スレッドで実行した。宣言しない核種の出力は、同じ bin と分岐点 6af59212 の `cargo build --release` の bin で `read-survey/keep-VIII.0.toml`、
 `sample-VIII.0.toml`、`keep-VIII.1.toml` を実行して比べた。
 
