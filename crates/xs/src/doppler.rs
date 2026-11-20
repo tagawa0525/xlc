@@ -62,6 +62,7 @@ const SQRT_PI: f64 = 1.772_453_850_905_516;
 /// `e_max` 未満のエネルギーは拡げた値を、NJOY broadn と同じ判定（`tol` を errthn とする）で
 /// 細かくした格子に置き、`e_max` 以上は元の表の点をそのまま使う。
 /// 最初の点が格子全体の最初の点より上にある表（しきい反応）は、しきい値より下を 0 のままにする。
+/// `e_max` 未満の値は負でないこと（`grid` の判定は両端が負の区間を際限なく分ける。0 K の再構成が確かめる。ADR-0267）。
 pub fn broaden(tables: &[Tab1], awr: f64, temperature: f64, e_max: f64, tol: f64) -> Vec<Tab1> {
     let alpha = awr / (BK * temperature);
     let union = Union::new(tables);
