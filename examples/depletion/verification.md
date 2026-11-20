@@ -11275,6 +11275,10 @@ cd ../u && for c in s17 s17-full; do ../../../../../target/release/lattice $c.to
 cd examples/depletion/issue-0292
 # ライブラリ（all/library と all/control）は all_nuclides.py の入力で xs nuclide と xs assemble。燃焼:
 for f in u mox gd; do (cd all/$f && ../../../../../target/release/lattice nominal.toml > nominal.out 2> nominal.log); done
+# t の順位までの組と対照（a の目安は、下の all のテーブルから出す）
+python3 ufg_subset.py --series all inputs --rankings t
+for f in u mox gd; do (cd all-ufg/$f && for c in control all none s17 t1 t0.3 t0.1; do \
+  ../../../../../target/release/lattice $c.toml > out/$c.out 2> out/$c.log; done); done
 cd ..
 for f in u mox gd; do python3 issue-0292/added_effect.py --json issue-0292/all/effect-$f.json \
   --shares issue-0292/all/shares-$f.json issue-0292/all/added-to-p2.txt issue-0292/trial/$f/nominal.msgpack \
@@ -11288,8 +11292,9 @@ for f in u mox gd; do python3 issue-0292/added_effect.py --json issue-0292/all/e
   python3 issue-0292/compare_added.py --json issue-0292/all/added-p2-$f.json issue-0292/$f/out/nominal.msgpack \
   issue-0292/all/$f/nominal.msgpack issue-0292/absorption-$f.json issue-0292/all/added-to-p2.txt --unestimated issue-0292/all/unranked.txt; done
 cd issue-0292
+# a の組
 python3 ufg_subset.py --series all inputs
-for f in u mox gd; do (cd all-ufg/$f && for c in control all none s17 t1 t0.3 t0.1 a1 a0.3 a0.1; do \
+for f in u mox gd; do (cd all-ufg/$f && for c in a1 a0.3 a0.1; do \
   ../../../../../target/release/lattice $c.toml > out/$c.out 2> out/$c.log; done); done
 # 時間は、同じ入力を区分 timed の排他のジョブで解いたログ（out-timed/）から読む。a の組はまだ解いていない
 for f in u mox gd; do python3 ufg_subset.py --series all compare --json all/ufg-$f.json $f --untimed a1 a0.3 a0.1; done
@@ -11298,7 +11303,8 @@ python3 added_effect.py --report all/effect-u.json all/effect-mox.json all/effec
 ```
 
 燃焼の履歴とログ（`all/<燃料>/nominal.{msgpack,log}`）、組の出力（`all-ufg/<燃料>/out`）と時間のログ（`all-ufg/<燃料>/out-timed`）は `dvc add` で追い、
-比較の JSON（`all/ufg-<燃料>.json`、`all/added-<燃料>.json`、`all/added-p2-<燃料>.json`、`all/effect-<燃料>.json`、`all/dilution-all-<燃料>.json`）は git で追跡する。
+比較の JSON（`all/ufg-<燃料>.json`、`all/added-<燃料>.json`、`all/added-p2-<燃料>.json`、`all/effect-<燃料>.json`）と、`a` の順位を作る
+全核種の組成の吸収の割合（`all/shares-<燃料>.json`。`dilution_shielding.py` が読む吸収の割合の JSON の形）と目安（`all/dilution-all-<燃料>.json`）は git で追跡する。
 
 #### 計算
 
@@ -11306,7 +11312,8 @@ python3 added_effect.py --report all/effect-u.json all/effect-mox.json all/effec
 （`target/release/lattice`、md5 9fae10c3。ブランチの crates は分岐点 51876d5c と同じ）で、r995 の 32 スレッド（既定）、2026-11-20:
 燃焼は Slurm 1001（U）、1002（MOX）、1003（Gd）、対照は Slurm 1000、組の `all`、`none`、`s17`、`t` の組はブランチの df36c7c9（分岐点 51876d5c）で
 区分 timed の排他のジョブ Slurm 1004（elapsed 16 分 56 秒。`out/` のテーブルと `out-timed/` のログを同じ実行で書いた）、`a` の組は 18dbec8a で
-Slurm 1005（区分 decision。割り込まれうるので時間は使わない）。1000〜1003 も区分 decision で、時間は使わない。比較は 6bc1fafd の時点で手元。
+Slurm 1005（区分 decision。割り込まれうるので時間は使わない）。1000〜1003 も区分 decision で、時間は使わない。比較は手元で、`effect`、`shares`、`dilution-all`、`added` の JSON は
+18dbec8a、`ufg` と `added-p2` の JSON は 6bc1fafd でコミットした（どちらもその時点のツール）。
 入力の md5 は JSON の `inputs`。
 
 #### 結果
@@ -11463,9 +11470,10 @@ Slurm 1005（区分 decision。割り込まれうるので時間は使わない�
 
 - `a0.1`（47 核種）の差は、3 つの燃料、4 つの燃焼度で 1.8 pcm 以下（最大は Gd の 60 MWd/kg の +1.8）。`t0.1`（41 核種）は U と MOX で 1.3 pcm 以下だが、
   Gd の 60 MWd/kg で −10.5 pcm。`a0.1` が足す 6 核種は Dy-162、Dy-160、Dy-163、Pm-148、Dy-161、Tb-160（どれも 89 核種の燃焼の組成ではほとんど無い捕獲の先）で、
-  全核種の組成の目安で `t0.1` の外に残る和は Gd の 60 MWd/kg で 9.2 pcm（Dy-162 4.8、Dy-160 1.75）。`a0.1` の外に残る和は 3 つの燃料で 1.0 pcm 以下
-- 閾値の粗い組は、組の目安の外の和（全核種の組成）と測った差が合わない: U の 60 MWd/kg で `t1` +10.1、`a1` −9.8（外の和 14.6、8.0）、MOX の 60 MWd/kg で
-  `t0.3` と `a0.3` がどちらも −5.6（外の和 3.5、2.3）。足す核種で符号が変わり、外の和より大きい差の原因は確かめていない（候補: 核種どうしの共鳴の重なり、
+  全核種の組成の目安で `t0.1` の外に残る和は Gd の 60 MWd/kg で 9.2 pcm（Dy-162 4.8、Dy-160 1.75）。`a0.1` の外に残る和は 3 つの燃料で 1.04 pcm 以下（Gd の 60 MWd/kg）
+- 閾値の粗い組は、足す核種で差の符号が変わり、組の外に残る目安の和（全核種の組成。絶対値の和）から差の向きも大きさも決まらない: U の 60 MWd/kg で
+  `t1` +10.1、`a1` −9.8（外の和 14.6、8.0）、Gd の 60 MWd/kg で `t1` −0.9、`t0.3` −9.7（22.1、15.1）、MOX の 60 MWd/kg で `t0.3` と `a0.3` がどちらも −5.6
+  （3.5、2.3。外の和の 1.6 倍と 2.4 倍）。原因は確かめていない（候補: 核種どうしの共鳴の重なり、
   目安が吸収だけを数える核分裂する核種（MOX の Cm-245 は 0.3 pcm の組に入らず 0.1 pcm の組に入る））
 - 燃焼度 0 は足した核種の数密度がどれも 0 の組成で、差は +0.1〜0.2 pcm。数密度によらない差（段の断面積を持つ核種の格子の点など）が候補で、確かめていない
 - `none` は 10 MWd/kg で U +0.7、Gd +1.2 pcm、30 MWd/kg で U −73.6、Gd −73.1 pcm と、上の 65 核種の測定と同じ形で離れる。30 MWd/kg の `s17` は 4.4 pcm 以下で、
