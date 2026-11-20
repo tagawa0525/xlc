@@ -3,6 +3,7 @@
 実行: python3 -m unittest discover -s examples/depletion/issue-0292 -p 'test_ufg_subset.py'
 """
 
+import json
 import sys
 import tempfile
 import unittest
@@ -188,6 +189,19 @@ class ThresholdSets(unittest.TestCase):
         sets = ufg_subset.threshold_sets([self.dilution([("A", 5.0)])], (1.0,), "a")
         self.assertEqual(sets, {"a1": ["A"]})
 
+    def test_the_listed_rankings_read_only_their_files(self):
+        # 全核種の組成の順位（a）は、t の組の all を解いた後でなければ出せない。t の組の入力はその前に書ける
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "all").mkdir()
+            for fuel in ufg_subset.FUELS:
+                (root / "all" / f"dilution-{fuel}.json").write_text(
+                    json.dumps(self.dilution([("A", 5.0)]))
+                )
+            sets = ufg_subset.sets("all", root, ("t",))
+            self.assertEqual(sets["t1"], ["A"])
+            self.assertNotIn("a1", sets)
+
     def test_the_trial_series_keeps_its_fixed_sets(self):
         self.assertIs(ufg_subset.sets("trial", Path("unused")), ufg_subset.SETS)
 
@@ -288,6 +302,14 @@ class AllSeries(unittest.TestCase):
             self.assertNotIn("issue-0292/all-ufg/u/out-timed/t1.log", paths)
             self.assertIn("issue-0292/all-ufg/u/out/t1.msgpack", paths)
 
+    def test_an_untimed_name_must_be_a_set(self):
+        # 書き違えた名前を黙って無視すると、残っている古いログの時間が測った時間として入る
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "issue-0292"
+            self.write_series(root, ["A", "U-235"])
+            with self.assertRaises(SystemExit):
+                ufg_subset.compare("u", root, "all", ALL_CASES, untimed={"t01"})
+
     def test_the_reference_set_must_be_timed(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "issue-0292"
@@ -332,6 +354,12 @@ class Sources(unittest.TestCase):
             [root / "all" / f"dilution-{f}.json" for f in ufg_subset.FUELS]
             + [root / "all" / f"dilution-all-{f}.json" for f in ufg_subset.FUELS],
         )
+        self.assertEqual(
+            ufg_subset.set_sources("all", root, ("a",)),
+            [root / "all" / f"dilution-all-{f}.json" for f in ufg_subset.FUELS],
+        )
+        with self.assertRaises(SystemExit):
+            ufg_subset.set_sources("all", root, ("x",))
 
 
 class LibraryTable(unittest.TestCase):
