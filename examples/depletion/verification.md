@@ -893,8 +893,8 @@ cargo run --release -p xlc-xs --example compare_njoy_gendf -- \
 
 ### 計算
 
-`compare_njoy_gendf` は xlc 754671c0（分岐点 51245259、2026-11-21。重心系の変換は下の「重心系の分布の実験室系の群への振り分け」）で、手元で実行した。
-`xs nuclide` は 4a04ac94（分岐点 0f883589、2026-11-21）と 754671c0 の `cargo build --release` の bin（どちらも 4 スレッド。終了コードは両方で確かめ、時間は 4a04ac94 のもの）で、`issue-0312/fission-<版>.toml`
+`compare_njoy_gendf` は xlc e3da233d（分岐点 51245259、2026-11-21。重心系の変換は下の「重心系の分布の実験室系の群への振り分け」）で、手元で実行した。
+`xs nuclide` は 4a04ac94（分岐点 0f883589、2026-11-21）と e3da233d の `cargo build --release` の bin（どちらも 4 スレッド。終了コードは両方で確かめ、時間は 4a04ac94 のもの）で、`issue-0312/fission-<版>.toml`
 （σ0 と散乱の次数は `read-survey/sample-<版>.toml` と同じ、温度 1 点の 600 K）に `examples/depletion/xs-range.toml` を与えて実行した。
 
 ### 結果
@@ -958,7 +958,7 @@ python3 examples/depletion/compare_xs_outputs.py <main の出力> <ブランチ�
 
 ### 計算
 
-xlc 754671c0（分岐点 51245259、2026-11-21）。手元で実行した。NJOY の許容を変えたビルドは、references/NJOY2016（2016.79）の src に
+xlc e3da233d（分岐点 51245259、2026-11-21）。手元で実行した。NJOY の許容を変えたビルドは、references/NJOY2016（2016.79）の src に
 `issue-0325/njoy-cm2lab-tol.patch` だけを当て、手元で gfortran 13 と cmake でビルドしたもの（パッチなしで同じ手順でビルドした njoy の
 VIII.0 の Th-232 の GENDF は、references の devShell の njoy の GENDF とバイトで同じ）。入力は references/njoy-runs/mf6-fission/<核種>-VIII.0/ と同じで、
 出力は `<核種>-VIII.0-cm2lab-tol1e-4`、`Th232-VIII.0-isotropic-cm2lab-tol1e-4` に置いた（git で追跡しない）。`xs nuclide` は `issue-0325/existing-VIII.0.toml`
