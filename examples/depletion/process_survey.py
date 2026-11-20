@@ -4,6 +4,7 @@
 で止まる評価を、版ごとに洗い出す。
 
 使い方: python3 process_survey.py input <置き場> <走査の報告（TOML）> <チェーン（TOML）> <チェーン（msgpack）> <版の xs の入力> [--reuse <前の置き場>]
+          [--declarations <宣言の TOML>]
         python3 process_survey.py report <置き場> [--reuse <前の置き場>]
         python3 process_survey.py summary --json <要約の出力先> <版>=<置き場>,<走査の報告>,<チェーン（msgpack）>...
         python3 process_survey.py --report <要約の JSON>
@@ -12,7 +13,8 @@
   書く。走査の評価のすべてを、温度 `TEMPERATURE` の 1 点で輸送する核種にする（走査で止まる評価も、`xs nuclide` が止まる場所を
   確かめるために入れる）。名前はチェーンの名前、チェーンに無いものはファイルの名前（`input_entries`）。S(α, β) の核種は版の xs の
   入力の項目をそのまま使う。`--reuse` は前に流した置き場（`xs.toml`、`xs-range.toml`、混ざったログ `xs.log`。Slurm 999 の形）で、
-  そこで同じ項目のまま終わった核種（`reusable`）を `nuclides.txt` から除く
+  そこで同じ項目のまま終わった核種（`reusable`）を `nuclides.txt` から除く。`--declarations` は、評価の欠陥を読み替える核種の項目
+  （`[nuclide]` の核種ごとの表。ADR-0272、ADR-0274 の宣言）で、`declare` がその核種の項目に足す
 - `report`: 置き場の `log/<核種>.log`（`xs nuclide` の標準エラー）と `log/<核種>.time`（GNU time の `-f "%e s %U user %M kB exit %x"`）、
   無い核種は `--reuse` の置き場のログ（範囲が同じときだけ）から、評価ごとの成否、止まった文、時間、最大の常駐、警告の種類の数を
   `report.json` に書く
@@ -154,11 +156,30 @@ def input_entries(
     return entries, left_out
 
 
+def declare(entries: dict[str, dict], declarations: dict[str, dict]) -> dict[str, dict]:
+    """`entries` の核種に、宣言のファイルの核種ごとの項目（ADR-0272 の `corrections`、ADR-0274 の非分離共鳴の読み替えなど）を足す。
+
+    入力に無い核種への宣言と、走査の項目を置き換える宣言は止める（宣言は評価の欠陥の読み替えで、温度などの走査の条件は変えない）"""
+    unknown = sorted(set(declarations) - set(entries))
+    if unknown:
+        raise SystemExit(f"declarations for nuclides outside the input: {unknown}")
+    out = {}
+    for name, entry in entries.items():
+        items = declarations.get(name, {})
+        replaced = sorted(set(items) & set(entry))
+        if replaced:
+            raise SystemExit(f"{name}: a declaration would replace {replaced}")
+        out[name] = {**entry, **items}
+    return out
+
+
 def value(v) -> str:
     if isinstance(v, str):
         return json.dumps(v, ensure_ascii=False)
     if isinstance(v, list):
         return "[" + ", ".join(value(x) for x in v) + "]"
+    if isinstance(v, dict):
+        return "{ " + ", ".join(f"{k} = {value(x)}" for k, x in v.items()) + " }"
     return str(v)
 
 
@@ -480,9 +501,17 @@ def read_reuse(place: Path, reuse: Path) -> tuple[dict, set[str]]:
 
 
 def write_input(args: list[str]) -> None:
-    reuse = None
-    if len(args) == 8 and args[6] == "--reuse":
-        reuse, args = Path(args[7]), args[:6]
+    reuse = declarations_path = None
+    for flag in ("--reuse", "--declarations"):
+        if flag in args[6:]:
+            k = args.index(flag, 6)
+            if k + 1 >= len(args):
+                raise SystemExit(__doc__)
+            if flag == "--reuse":
+                reuse = Path(args[k + 1])
+            else:
+                declarations_path = Path(args[k + 1])
+            args = args[:k] + args[k + 2 :]
     if len(args) != 6:
         raise SystemExit(__doc__)
     place, survey_path, chain_toml, chain_path, base_path = map(Path, args[1:])
@@ -491,6 +520,9 @@ def write_input(args: list[str]) -> None:
     natural = tomllib.loads(chain_toml.read_text()).get("natural-isotopes", [])
     base = tomllib.loads(base_path.read_text())
     entries, left_out = input_entries(survey, chain, natural, base["nuclide"])
+    if declarations_path is not None:
+        declarations = tomllib.loads(declarations_path.read_text())
+        entries = declare(entries, declarations.get("nuclide", {}))
     directories = {Path(e["endf"]).parent for e in survey["evaluation"]}
     if len(directories) != 1:
         raise SystemExit(f"the survey reads files of {len(directories)} directories")
@@ -512,6 +544,10 @@ def write_input(args: list[str]) -> None:
         ),
         *(f"入れない評価: {f}（{why}）" for f, why in left_out),
     ]
+    if declarations_path is not None:
+        head.append(
+            f"核種の宣言の項目は {os.path.relpath(declarations_path, place)} から足す（評価の欠陥の読み替え）"
+        )
     if reuse is not None:
         head.append(
             f"nuclides.txt は、{reuse} の実行で同じ項目のまま終わった核種を除く（report の --reuse）"

@@ -60,11 +60,26 @@ def input_entries(survey: dict, chain: dict, natural_isotopes: list[str], base: 
             entries[name] = {'endf': file, 'temperatures': [TEMPERATURE]}
     return (entries, left_out)
 
+def declare(entries: dict[str, dict], declarations: dict[str, dict]) -> dict[str, dict]:
+    unknown = sorted(set(declarations) - set(entries))
+    if unknown:
+        raise SystemExit(f'declarations for nuclides outside the input: {unknown}')
+    out = {}
+    for name, entry in entries.items():
+        items = declarations.get(name, {})
+        replaced = sorted(set(items) & set(entry))
+        if replaced:
+            raise SystemExit(f'{name}: a declaration would replace {replaced}')
+        out[name] = {**entry, **items}
+    return out
+
 def value(v) -> str:
     if isinstance(v, str):
         return json.dumps(v, ensure_ascii=False)
     if isinstance(v, list):
         return '[' + ', '.join((value(x) for x in v)) + ']'
+    if isinstance(v, dict):
+        return '{ ' + ', '.join((f'{k} = {value(x)}' for k, x in v.items())) + ' }'
     return str(v)
 
 def render_input(head: list[str], common: dict, entries: dict) -> str:
@@ -270,9 +285,17 @@ def read_reuse(place: Path, reuse: Path) -> tuple[dict, set[str]]:
     return (runs, reusable(now['nuclide'], earlier['nuclide'], set(runs)))
 
 def write_input(args: list[str]) -> None:
-    reuse = None
-    if len(args) == 8 and args[6] == '--reuse':
-        reuse, args = (Path(args[7]), args[:6])
+    reuse = declarations_path = None
+    for flag in ('--reuse', '--declarations'):
+        if flag in args[6:]:
+            k = args.index(flag, 6)
+            if k + 1 >= len(args):
+                raise SystemExit(__doc__)
+            if flag == '--reuse':
+                reuse = Path(args[k + 1])
+            else:
+                declarations_path = Path(args[k + 1])
+            args = args[:k] + args[k + 2:]
     if len(args) != 6:
         raise SystemExit(__doc__)
     place, survey_path, chain_toml, chain_path, base_path = map(Path, args[1:])
@@ -281,12 +304,17 @@ def write_input(args: list[str]) -> None:
     natural = tomllib.loads(chain_toml.read_text()).get('natural-isotopes', [])
     base = tomllib.loads(base_path.read_text())
     entries, left_out = input_entries(survey, chain, natural, base['nuclide'])
+    if declarations_path is not None:
+        declarations = tomllib.loads(declarations_path.read_text())
+        entries = declare(entries, declarations.get('nuclide', {}))
     directories = {Path(e['endf']).parent for e in survey['evaluation']}
     if len(directories) != 1:
         raise SystemExit(f'the survey reads files of {len(directories)} directories')
     directory, = directories
     common = {'output': 'unused.msgpack', 'endf-directory': os.path.relpath(survey_path.parent / directory, place), 'thermal-directory': os.path.relpath(base_path.parent / base['thermal-directory'], place), 'sigma0': base['sigma0'], 'scattering-order': base['scattering-order']}
     head = [f'#0292: {survey_path.name} の評価のすべてを {TEMPERATURE} K の 1 点で輸送する核種にした、`xs nuclide` の走査の入力。', f'process_survey.py が書く。手で直さない。S(α, β) の核種の項目、σ0、散乱の次数は {base_path.name}（{base_path.parent.name}）と同じ。', *(f'入れない評価: {f}（{why}）' for f, why in left_out)]
+    if declarations_path is not None:
+        head.append(f'核種の宣言の項目は {os.path.relpath(declarations_path, place)} から足す（評価の欠陥の読み替え）')
     if reuse is not None:
         head.append(f'nuclides.txt は、{reuse} の実行で同じ項目のまま終わった核種を除く（report の --reuse）')
     range_head = [f'#0292: xs.toml のうち、走査（{survey_path.name}）で止まらない評価だけの、`xs range` の入力。process_survey.py が書く。']
