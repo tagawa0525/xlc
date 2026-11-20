@@ -723,7 +723,7 @@ cargo run --release -p xlc-xs --example compare_njoy_rml_points -- \
 
 ### 計算
 
-xlc e63b152a（分岐点 49e3045c、2026-11-20）。手元で 2 つの比べるツールを実行した。`xs nuclide` は同じコミットの `cargo build --release` の bin で、
+xlc 67973393（分岐点 49e3045c、2026-11-20）。手元で 2 つの比べるツールを実行した。`xs nuclide` は同じコミットの `cargo build --release` の bin で、
 600 K の 1 点の入力（`sigma0` と `scattering-order` は examples/depletion/read-survey/sample-VIII.1.toml と同じ）を手元の試行に置き、
 1 スレッドで実行した。
 
@@ -757,7 +757,7 @@ Sr-88 MT102: compared 44326, max rel diff 1.00e-3 at 1.540038e5 eV, > 2 tol: 0
   差は xs の線形化の格子の隙間から来る（#0318）
 - 範囲の外は、どの反応も相対差が 7.7e-7 以下
 - シフト因子は準位を動かす。Cu-63 の 69941.6 eV の p 波の準位のピークは 10 eV（半値幅の 2.6 倍）低い。格子点を E_λ ± 半値幅に置いた
-  版（5a555dfb）では、その裾の格子の隙間で全断面積が NJOY と 4.0e-3 違ったので、格子点を準位のずれの分だけ動かした（ADR-0055 の
+  版（99bf9766）では、その裾の格子の隙間で全断面積が NJOY と 4.0e-3 違ったので、格子点を準位のずれの分だけ動かした（ADR-0055 の
   「変更」）
 - `xs nuclide`: VIII.1 の Cu-63 と Sr-88 は終了コード 0 で終わる（16 秒、11 秒）。VII.0、VII.1、VIII.0 の Cu-63 と Sr-88 も終了コード 0。
   VII.1 の Cl-35 は、シフト因子（SHF=−1、計算しない）を通り、次の荷電粒子の粒子対で止まる（#0264）。VII.0 の Cl-35 は LRF=7 でなく、
