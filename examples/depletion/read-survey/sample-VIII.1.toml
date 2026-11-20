@@ -9,3 +9,8 @@ Sr-88 = { endf = "n-038_Sr_088.endf", temperatures = [600] }
 Cu-63 = { endf = "n-029_Cu_063.endf", temperatures = [600] }
 Li-7 = { endf = "n-003_Li_007.endf", temperatures = [600] }
 Ni-58 = { endf = "n-028_Ni_058.endf", temperatures = [600] }
+# MF3 の弾性散乱は、分離共鳴の上端 800 keV の段差の右の値が −1.058e-12 b（左の値は 0、次の 800.021 keV の点は 4.47 b）。分離共鳴の
+# 範囲の中の負の和は宣言なしで 0 にする（ADR-0267）が、範囲の外のこの値は宣言して 0 にする
+Ni-60 = { endf = "n-028_Ni_060.endf", temperatures = [600], negative-to-zero = [
+  { mt = 2, from = 8.0e5, to = 8.0e5 },
+] }
