@@ -628,7 +628,7 @@ cargo run --release -p xlc-xs --example compare_njoy_gendf -- \
 
 ### 計算
 
-xlc f37d6d49（分岐点 49e3045c、2026-11-20）。手元で `compare_njoy_gendf` を実行した。`xs nuclide` は同じコミットの `cargo build --release` の bin
+xlc 62814be3（分岐点 49e3045c、2026-11-20）。手元で `compare_njoy_gendf` を実行した。`xs nuclide` は同じコミットの `cargo build --release` の bin
 （4 スレッド）で、`read-survey/sample-<版>.toml` と同じ σ0 と散乱の次数の温度 1 点（600 K）の入力を手元の試行に置き、
 `examples/depletion/xs-range.toml` を与えて実行した。
 
