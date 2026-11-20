@@ -182,7 +182,10 @@ def render(base_text: str, head: list[str], entries: dict) -> str:
 
 
 def exclusion_notes(base: dict, excluded: dict) -> list[str]:
-    """外した核種ごとの注釈（試行の入力 `base` で放射化の核種なら、残すことを書く。`library_entries` と同じ判定）"""
+    """外した核種ごとの注釈（試行の入力 `base` で放射化の核種なら、残すことを書く。`library_entries` と同じ判定）。外した核種が
+    無ければ「なし」"""
+    if not excluded:
+        return ["なし"]
     return [
         f"{n}: {reason}（{issue}）"
         + ("。放射化の核種として残す" if base.get(n, {}).get("activation") else "")
