@@ -9,17 +9,17 @@ stages:
       size: 653
     - path: Cargo.lock
       hash: md5
-      md5: a1b9896436ea55313c52bd9390b86bfa
-      size: 29693
+      md5: d45df7a2d9c8ed784eeeddd2071ae23a
+      size: 29881
     - path: Cargo.toml
       hash: md5
       md5: 683e6ade069d2e592a845971523eb150
       size: 1422
     - path: crates
       hash: md5
-      md5: 90e58c669172880cdceb934ec5d21da2.dir
-      size: 5682470
-      nfiles: 268
+      md5: 7866fddcc05a855798812bcfdf677ff2.dir
+      size: 5762913
+      nfiles: 280
     - path: flake.lock
       hash: md5
       md5: 83437230048eadb7a5c2f626d4ea10aa
@@ -40,23 +40,23 @@ stages:
     outs:
     - path: bin/chain
       hash: md5
-      md5: 8ca4bc06be0d1a70bb9bb8c9b62607c4
+      md5: 75e54eaacd881ecaad7c3daa82a8abe0
       size: 2025664
       isexec: true
     - path: bin/core
       hash: md5
-      md5: 2529f044f0a3d9894560d9be71e0479b
+      md5: 3a37b946995a6f36dab47f2424801a23
       size: 7443448
       isexec: true
     - path: bin/lattice
       hash: md5
-      md5: 9a4b0ad3df7c67d0e3eb69e5f217da2d
+      md5: cdf573a06cdc9cde882f8c868f8436f9
       size: 11232384
       isexec: true
     - path: bin/xs
       hash: md5
-      md5: 66934bbc7167ca962ae8c286b507f160
-      size: 3071728
+      md5: 7d4285dfd75c1e35392d91f5d7699d7a
+      size: 3197552
       isexec: true
   python-ast@examples/c5g7/compare.py:
     cmd: python3 scripts/normalize_python.py examples/c5g7/compare.py 
@@ -8412,7 +8412,7 @@ stages:
     deps:
     - path: bin/lattice
       hash: md5
-      md5: 9a4b0ad3df7c67d0e3eb69e5f217da2d
+      md5: cdf573a06cdc9cde882f8c868f8436f9
       size: 11232384
       isexec: true
     - path: python-ast/scripts/normalize_binary.py.ast
@@ -8429,7 +8429,7 @@ stages:
     deps:
     - path: bin/core
       hash: md5
-      md5: 2529f044f0a3d9894560d9be71e0479b
+      md5: 3a37b946995a6f36dab47f2424801a23
       size: 7443448
       isexec: true
     - path: python-ast/scripts/normalize_binary.py.ast
@@ -8446,8 +8446,8 @@ stages:
     deps:
     - path: bin/xs
       hash: md5
-      md5: 66934bbc7167ca962ae8c286b507f160
-      size: 3071728
+      md5: 7d4285dfd75c1e35392d91f5d7699d7a
+      size: 3197552
       isexec: true
     - path: python-ast/scripts/normalize_binary.py.ast
       hash: md5
@@ -8456,14 +8456,14 @@ stages:
     outs:
     - path: binary-forms/xs.md5
       hash: md5
-      md5: 59918a3e6ef681e76c366648f3bf5376
+      md5: 3497396e961a4ad700813520825182b8
       size: 33
   binary-forms@chain:
     cmd: python3 scripts/normalize_binary.py bin/chain binary-forms/chain.md5
     deps:
     - path: bin/chain
       hash: md5
-      md5: 8ca4bc06be0d1a70bb9bb8c9b62607c4
+      md5: 75e54eaacd881ecaad7c3daa82a8abe0
       size: 2025664
       isexec: true
     - path: python-ast/scripts/normalize_binary.py.ast
@@ -8473,7 +8473,7 @@ stages:
     outs:
     - path: binary-forms/chain.md5
       hash: md5
-      md5: 8391b8ec885103684ffcf5db0ad6415a
+      md5: 1fe99a3a3e69c3f6c466b86a3de3f76d
       size: 33
   toml-values@examples/vera/endfb70/openmc/openmc-1D.toml:
     cmd: python3 scripts/normalize_toml.py 
