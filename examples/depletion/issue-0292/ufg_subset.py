@@ -75,7 +75,8 @@ SERIES = {
         "sets": "dilution",
         "control": True,
         # 輸送する核種をライブラリの入力から取る（燃焼の前に入力を書くため。履歴の輸送する核種は、チェーンの核種のうち
-        # ライブラリが輸送するもので、入力のどの核種もチェーンの評価なので同じ。compare が履歴と食い違えば止める）
+        # ライブラリが燃焼させる物質の温度で持つもので、入力のどの核種もチェーンの評価なので、その温度の点を持つ入力の核種と
+        # 同じ。compare が履歴と食い違えば止める。`burnt_transported`）
         "library_input": "all/library/xs.toml",
     },
 }
@@ -193,6 +194,24 @@ def library_transported(path: Path) -> list[str]:
     return transported_names(tomllib.loads(path.read_text())["nuclide"])
 
 
+def burnt_transported(root: Path, config: dict, fuel: str) -> list[str]:
+    """燃焼の履歴が輸送する核種として持つはずの核種: xs の入力の輸送する核種のうち、燃焼させるすべての物質の温度の点を持つもの
+    （燃焼は、その温度のデータの無い核種を崩壊だけで追う。crates/lattice/src/depletion.rs の `has_data_at`。H-1 は S(α, β) の
+    内挿の点だけを持ち、燃料の温度の点を持たない）。燃焼の入力は履歴の隣の同じ名前の .toml"""
+    burnup = tomllib.loads(
+        history_file(root, config, fuel).with_suffix(".toml").read_text()
+    )
+    temperatures = {
+        burnup["material"][m]["temperature"] for m in burnup["depletion"]["materials"]
+    }
+    entries = tomllib.loads((root / config["library_input"]).read_text())["nuclide"]
+    return [
+        n
+        for n in transported_names(entries)
+        if temperatures <= set(entries[n]["temperatures"])
+    ]
+
+
 def write_inputs(series: str) -> None:
     config = SERIES[series]
     added = (HERE / config["added"]).read_text().split()
@@ -307,10 +326,11 @@ def compare(fuel: str, root: Path, series: str, cases_of=None) -> dict:
     if "library_input" in config:
         history = read(history_file(root, config, fuel))
         if sorted(history["transportable"]) != sorted(
-            library_transported(root / config["library_input"])
+            burnt_transported(root, config, fuel)
         ):
             raise SystemExit(
-                "the history transports other nuclides than the library input"
+                "the history transports other nuclides than the library input "
+                "has at the burnt temperatures"
             )
     if config.get("control"):
         paths = [
