@@ -379,7 +379,10 @@ python3 examples/depletion/compare_depletion_versions.py --report examples/deple
 分岐点 7ec34be0 の xs（さらに LRF=7 の核分裂の対の #0308、負の弾性散乱の #0309 の後）で作った。これらの変更は、それぞれ既存の核種の
 出力のバイトが変わらないことを標本の核種で確かめた（ADR-0265 の「確認」と、上の 3 つの節の「既存の形の出力は変わらない」の項）。
 4 つとも、main の f73fda31（MF8 の経路の和を反応に縮める修正。#0264）より前の xs で作った。f73fda31 の後の xs で 65 核種の出力が
-変わるか（変わる核種があれば反応度の差がどれだけ動くか）は確かめていない。
+変わるか（変わる核種があれば反応度の差がどれだけ動くか）は確かめていない。4 つの燃焼の `bin/lattice`（b6ae1a92）は、main の
+834ddcaa（UFG で解く核種を入力の `ufg-nuclides` で選ぶ。#0292）より前のもので、その後の `bin/lattice`（d5142708）で燃焼の結果が
+変わるかは確かめていない。そのため、ライブラリ（`xs-range`、`xs-nuclide`、`xs`）と燃焼（`lattice-1C-version`）のステージは、今の
+実行ファイルの正規形に対して changed のまま残る。
 
 比べたのは c6cb65ce（分岐点 f73fda31、2026-11-20。rebase の後の付け直しで比較のステージだけを実行した）。比較の文章は
 `compare-depletion-versions.txt`（`--report` と同じ）。比較のステージは、天然の元素の評価の検査（`natural-isotopes`）の 4 つの出力を
