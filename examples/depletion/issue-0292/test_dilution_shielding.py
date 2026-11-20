@@ -73,11 +73,21 @@ class Ratio(unittest.TestCase):
         self.assertAlmostEqual(r, 1.0, places=6)
         self.assertAlmostEqual(one, 50.5)
 
-    def test_a_nuclide_without_capture_or_fission_is_not_shielded(self):
+    def test_a_nuclide_without_capture_or_fission_is_an_error(self):
         x = nuclide([[0.0, 0.0], [0.0, 0.0]])
-        r, one = ds.ratio(x, [1.0, 1.0], 1.0, [1e10, 1.0], [1.0, 1.0], 565.0)
-        self.assertEqual(r, 1.0)
-        self.assertEqual(one, 0.0)
+        with self.assertRaises(SystemExit):
+            ds.ratio(x, [1.0, 1.0], 1.0, [1e10, 1.0], [1.0, 1.0], 565.0)
+
+
+class Tableless(unittest.TestCase):
+    def test_nuclides_without_capture_or_fission_are_set_apart(self):
+        files = {
+            "A": nuclide([[1.0, 0.0], [0.5, 0.0]]),
+            "T": nuclide([[0.0, 0.0], [0.0, 0.0]]),
+        }
+        ranked, tableless = ds.split_tableless(["A", "T"], files.__getitem__, 565.0)
+        self.assertEqual(ranked, ["A"])
+        self.assertEqual(tableless, ["T"])
 
     def test_a_concentrated_nuclide_takes_the_shielded_table(self):
         x = nuclide([[100.0, 1.0], [50.0, 1.0]])
