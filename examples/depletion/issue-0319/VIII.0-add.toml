@@ -1,0 +1,12 @@
+# #0319: 非分離共鳴の負のバックグラウンドの読み方（ADR-0274）を比べる、VIII.0 の評価の xs nuclide の入力（σ0、散乱の次数は process-survey/VIII.0/xs.toml と同じ）
+output = "unused.msgpack"
+endf-directory = "../../../references/endf/ENDF-B-VIII.0_neutrons"
+sigma0 = [10000000000.0, 100000.0, 10000.0, 1000.0, 300, 100, 30, 10, 1]
+scattering-order = 3
+
+[nuclide]
+Eu-154 = { endf = "n-063_Eu_154.endf", temperatures = [565, 900] }
+Na-22 = { endf = "n-011_Na_022.endf", temperatures = [565] }
+Ar-36 = { endf = "n-018_Ar_036.endf", temperatures = [565] }
+Cd-106 = { endf = "n-048_Cd_106.endf", temperatures = [565] }
+Cd-111 = { endf = "n-048_Cd_111.endf", temperatures = [565] }

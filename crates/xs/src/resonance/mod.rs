@@ -14,7 +14,7 @@ mod slbw;
 mod unresolved;
 
 pub use breit_wigner::BreitWignerError;
-pub use ladder::{Bondarenko, Sampling};
+pub use ladder::{Background, Bondarenko, Sampling, Scales};
 pub use mlbw::MlbwXs;
 pub use r_matrix_limited::{RMatrixLimitedXs, RmlError};
 pub use reich_moore::{ReichMooreError, ReichMooreXs};

@@ -101,6 +101,75 @@ class InputEntriesTest(unittest.TestCase):
             process_survey.input_entries(SURVEY, CHAIN, [], BASE)
 
 
+DECLARED_ENTRIES = {
+    "U-235": {"endf": "n-092_U_235.endf", "temperatures": [565]},
+    "Ta-181": {"endf": "n-073_Ta_181.endf", "temperatures": [565]},
+}
+
+
+class DeclaredItemsTest(unittest.TestCase):
+    def test_lists_the_declaration_items_of_an_entry_in_a_fixed_order(self):
+        entry = {
+            "endf": "x.endf",
+            "temperatures": [565],
+            "unresolved-negative-background": "scale",
+            "corrections": [{"line": 1}],
+        }
+        self.assertEqual(
+            process_survey.declared_items(entry),
+            ["corrections", "unresolved-negative-background"],
+        )
+        self.assertEqual(process_survey.declared_items({"endf": "x.endf"}), [])
+
+
+class DeclareTest(unittest.TestCase):
+    def test_adds_the_declared_items_to_their_nuclides(self):
+        declared = process_survey.declare(
+            DECLARED_ENTRIES, {"Ta-181": {"unresolved-negative-background": "scale"}}
+        )
+        self.assertEqual(
+            declared["Ta-181"],
+            {
+                "endf": "n-073_Ta_181.endf",
+                "temperatures": [565],
+                "unresolved-negative-background": "scale",
+            },
+        )
+        self.assertEqual(declared["U-235"], DECLARED_ENTRIES["U-235"])
+        self.assertEqual(list(declared), list(DECLARED_ENTRIES))
+
+    def test_a_declaration_outside_the_input_is_an_error(self):
+        with self.assertRaises(SystemExit):
+            process_survey.declare(
+                DECLARED_ENTRIES,
+                {"Es-253": {"unresolved-negative-background": "scale"}},
+            )
+
+    def test_a_declaration_replacing_an_item_is_an_error(self):
+        with self.assertRaises(SystemExit):
+            process_survey.declare(
+                DECLARED_ENTRIES, {"Ta-181": {"temperatures": [600]}}
+            )
+
+
+class RenderInputTest(unittest.TestCase):
+    def test_writes_lists_of_tables_inline(self):
+        text = process_survey.render_input(
+            [],
+            {},
+            {
+                "Rb-87": {
+                    "endf": "rb.endf",
+                    "corrections": [{"line": 1194, "mf": 5, "from": 1}],
+                }
+            },
+        )
+        self.assertIn(
+            'Rb-87 = { endf = "rb.endf", corrections = [{ line = 1194, mf = 5, from = 1 }] }',
+            text,
+        )
+
+
 class NameFromFileTest(unittest.TestCase):
     def test_writes_the_first_metastable_state_as_m(self):
         self.assertEqual(
@@ -397,6 +466,42 @@ class SummarizeTest(unittest.TestCase):
             **REPORT,
             "evaluations": [
                 run("Rb-87", "n-037_Rb_087.endf") if e["nuclide"] == "Rb-87" else e
+                for e in REPORT["evaluations"]
+            ],
+        }
+        with self.assertRaises(SystemExit):
+            process_survey.summarize([("VII.0", report, SURVEY, CHAIN)], CAUSES)
+
+    def test_a_survey_stop_a_declaration_lets_pass_counts_as_passed(self):
+        # 読み込みの走査は宣言を持たないので止まり、宣言を足した `xs nuclide` は通る（ADR-0272 など）
+        report = {
+            **REPORT,
+            "evaluations": [
+                {**run("Rb-87", "n-037_Rb_087.endf"), "declarations": ["corrections"]}
+                if e["nuclide"] == "Rb-87"
+                else e
+                for e in REPORT["evaluations"]
+            ],
+        }
+        version = process_survey.summarize([("VII.0", report, SURVEY, CHAIN)], CAUSES)[
+            "versions"
+        ]["VII.0"]
+        self.assertEqual(version["in_chain"]["passed"], 4)
+        self.assertEqual(
+            version["declared"], [{"nuclide": "Rb-87", "items": ["corrections"]}]
+        )
+
+    def test_a_survey_stop_passes_only_with_a_correction_of_the_tape(self):
+        # 読み込みの走査で止まる評価を通せるのは、読む前にテープを直す `corrections` だけ（ほかの宣言は読んだ後に当てる）
+        report = {
+            **REPORT,
+            "evaluations": [
+                {
+                    **run("Rb-87", "n-037_Rb_087.endf"),
+                    "declarations": ["unresolved-negative-background"],
+                }
+                if e["nuclide"] == "Rb-87"
+                else e
                 for e in REPORT["evaluations"]
             ],
         }

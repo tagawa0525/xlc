@@ -20,7 +20,7 @@ use xlc_format::group::GroupStructure;
 use xlc_xs::endf::{Section, Tape, total_nubar};
 use xlc_xs::multigroup::{Weight, shielded_averages};
 use xlc_xs::pointwise::{DEFAULT_TOLERANCE, reconstruct_at};
-use xlc_xs::process::{slowing_down_range, unresolved_shielding};
+use xlc_xs::process::{UnresolvedMethod, slowing_down_range, unresolved_shielding};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (flags, args): (Vec<String>, Vec<String>) =
@@ -50,8 +50,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let groups = GroupStructure::wims69();
     let ng = groups.len();
     let start = std::time::Instant::now();
-    let shielding =
-        unresolved_shielding(&tape, mat, &[temperature], &sigma0)?.map(|mut at| at.remove(0));
+    let shielding = unresolved_shielding(
+        &tape,
+        mat,
+        &[temperature],
+        &sigma0,
+        UnresolvedMethod::Additive,
+    )?
+    .map(|mut at| at.remove(0));
     println!(
         "unresolved shielding in {:.1} s",
         start.elapsed().as_secs_f64()

@@ -1,0 +1,11 @@
+# 評価の欠陥を読み替える核種の宣言（process_survey.py input の --declarations）。xs.toml の核種の項目に足す
+[nuclide]
+# 0 K の再構成の後に残る負の値（#0309、ADR-0267。根拠は ../../read-survey/sample-VIII.1.toml の注釈）
+# MF3 の弾性散乱の、分離共鳴の上端 800 keV の段差の右の値が −1.058e-12 b
+Ni-60 = { negative-to-zero = [{ mt = 2, from = 8.0e5, to = 8.0e5 }] }
+# 非分離共鳴（LSSF=0）の範囲の MF3 の捕獲のバックグラウンドが負（#0319、ADR-0274。範囲の中の最小）
+Na-22 = { unresolved-negative-background = "scale" }   # MT102 −0.0396 b
+Ar-36 = { unresolved-negative-background = "scale" }   # MT102 −0.0005 b
+Cd-106 = { unresolved-negative-background = "scale" }  # MT102 −0.0647 b
+Cd-111 = { unresolved-negative-background = "scale" }  # MT102 −0.146 b
+Eu-154 = { unresolved-negative-background = "scale" }  # MT102 −0.099 b

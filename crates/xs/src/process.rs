@@ -21,7 +21,8 @@ use crate::pointwise::{
     right_limit,
 };
 use crate::resonance::{
-    Bondarenko, Sampling, Sigma, UnresolvedXs, UrrError, unresolved_grid, unresolved_interpolation,
+    Background, Bondarenko, Sampling, Scales, Sigma, UnresolvedXs, UrrError, unresolved_grid,
+    unresolved_interpolation,
 };
 use xlc_format::group::GroupStructure;
 use xlc_format::library::{
@@ -53,6 +54,17 @@ pub enum SabUpper {
     Evaluated,
     /// 評価済みデータの上限以下のエネルギー (eV)
     Energy(f64),
+}
+
+/// 非分離共鳴の範囲の自己遮蔽の求め方。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UnresolvedMethod {
+    /// LSSF=0 は MF3 のバックグラウンドをラダーの各サンプルに足して差 s(σ0) − s(∞) を、LSSF=1 は File 2 だけのラダーの
+    /// 比 s(σ0)/s(∞) を、ポイントワイズの断面積に当てる（ADR-0177）
+    Additive,
+    /// 入力の宣言（`unresolved-negative-background = "scale"`）。LSSF=0 の評価の、MF3 のバックグラウンドが負の捕獲と核分裂は、
+    /// 定数で足す代わりに File 2 のサンプルを (平均 + バックグラウンド)/平均 倍にする。ほかは `Additive` と同じ（ADR-0274）
+    ScaleNegative,
 }
 
 /// S(α, β) を持つ核種の熱領域の扱い（ADR-0133）。
@@ -116,6 +128,35 @@ pub enum ProcessError {
     FreeGasUpper { given: f64, sab: f64 },
     #[error("more than one unresolved range")]
     MultipleUnresolved,
+    #[error(
+        "the MF3 background of MT{mt} at the unresolved grid energies in [{el}, {eh}] eV is negative (down to {value} b \
+         at {energy} eV): added to every sampled ladder, it makes the {reaction} negative between resonances. \
+         Declare `unresolved-negative-background = \"scale\"` for the nuclide to scale the sampled File 2 part \
+         of that reaction by (mean + background)/mean instead (ADR-0274)"
+    )]
+    NegativeUnresolvedBackground {
+        mt: u32,
+        reaction: &'static str,
+        el: f64,
+        eh: f64,
+        value: f64,
+        energy: f64,
+    },
+    #[error(
+        "MT{mt} at {energy} eV in the unresolved range: the MF3 background {background} b is deeper than the File 2 \
+         mean {mean} b, so the dilute cross section is negative and cannot be read by scaling (ADR-0274)"
+    )]
+    NegativeUnresolvedDilute {
+        mt: u32,
+        energy: f64,
+        mean: f64,
+        background: f64,
+    },
+    #[error(
+        "`unresolved-negative-background = \"scale\"` is declared, but the evaluation has no LSSF=0 unresolved \
+         range with a negative MF3 capture or fission background (ADR-0274)"
+    )]
+    UnneededUnresolvedScaling,
     #[error(
         "the R-matrix limited range has no s-wave elastic channel for the potential scattering"
     )]
@@ -191,6 +232,10 @@ pub fn read_thermal_scattering(tape: &Tape) -> Result<Mf7Incoherent, ProcessErro
 /// 非分離共鳴の自己遮蔽の補正を、温度 `temperatures` (K) ごとに、バックグラウンド断面積 `sigma0` について作る
 /// （NJOY UNRESR に相当）。結果は温度の順に並ぶ。非分離共鳴がなければ `None`。
 ///
+/// 求め方は `method` で選ぶ。LSSF=0 の範囲の MF3 の捕獲か核分裂のバックグラウンドに負の値があれば、`Additive` では止まり、
+/// `ScaleNegative`（入力の宣言）ではその反応の File 2 のサンプルを縮める。`ScaleNegative` を、そうでない評価に与えると止まる
+/// （ADR-0274）。
+///
 /// どの温度にも同じラダーを使う（ADR-0177）ので、ラダーと係数は温度の間で 1 度だけ作る。どの温度の補正も、その温度だけを
 /// 作ったときとビットまで同じ（#0155）。サンプリングのエラーは、温度ごとに作ったときに最初にエラーになる温度のものを、その温度の
 /// `ProcessError::Temperature` で包んで返す。温度によらないエラー（MF2 の読み、格子、正でない温度）は包まず、正でない温度は
@@ -201,9 +246,14 @@ pub fn unresolved_shielding(
     mat: i32,
     temperatures: &[f64],
     sigma0: &[f64],
+    method: UnresolvedMethod,
 ) -> Result<Option<Vec<UnresolvedShielding>>, ProcessError> {
+    let unneeded = || match method {
+        UnresolvedMethod::ScaleNegative => Err(ProcessError::UnneededUnresolvedScaling),
+        UnresolvedMethod::Additive => Ok(None),
+    };
     let Some(section) = tape.section(mat, 2, 151) else {
-        return Ok(None);
+        return unneeded();
     };
     let mf2 = Mf2::parse(&section)?;
     let mut unresolved = None;
@@ -215,7 +265,7 @@ pub fn unresolved_shielding(
         }
     }
     let Some((range, urr)) = unresolved else {
-        return Ok(None);
+        return unneeded();
     };
     if temperatures.is_empty() {
         return Ok(Some(Vec::new()));
@@ -249,22 +299,120 @@ pub fn unresolved_shielding(
             }
         })
     };
+    // 正でない温度は、バックグラウンドの検査より先に返す（ラダーの和と同じエラー）
+    if let Some(&t) = temperatures.iter().find(|t| t.is_nan() || **t <= 0.0) {
+        return Err(UrrError::Temperature(t).into());
+    }
+    // ラダーの和に足すのは格子点のバックグラウンドなので、格子点の値で決める。格子の上の最も小さい値と、そのエネルギー
+    let minimum = |t: &Option<Tab1>| {
+        t.as_ref().map(|_| {
+            grid.iter()
+                .map(|&e| (at(t, e), e))
+                .fold(
+                    (f64::INFINITY, range.el),
+                    |a, b| if b.0 < a.0 { b } else { a },
+                )
+        })
+    };
+    // 共鳴の部分の捕獲と核分裂は負にならないので、それらのバックグラウンドが負なら、各サンプルに足すと共鳴の間の点が
+    // 負になりうる。負になるかは温度とラダーに依るので、サンプルでなくバックグラウンドの値で決める（ADR-0274）
+    let negatives: Vec<_> = [(18, "fission", &fission), (102, "capture", &capture)]
+        .into_iter()
+        .filter_map(|(mt, reaction, t)| {
+            minimum(t)
+                .filter(|&(value, _)| value < 0.0)
+                .map(|(value, energy)| (mt, reaction, value, energy))
+        })
+        .collect();
+    let scaled = match (method, negatives.first()) {
+        (UnresolvedMethod::Additive, Some(&(mt, reaction, value, energy))) => {
+            return Err(ProcessError::NegativeUnresolvedBackground {
+                mt,
+                reaction,
+                el: range.el,
+                eh: range.eh,
+                value,
+                energy,
+            });
+        }
+        (UnresolvedMethod::Additive, None) => false,
+        (UnresolvedMethod::ScaleNegative, Some(_)) => {
+            let found: Vec<String> = negatives
+                .iter()
+                .map(|(mt, _, value, energy)| format!("MT{mt} down to {value} b at {energy} eV"))
+                .collect();
+            xlc_log::warn!(
+                "the MF3 background in the unresolved range is negative ({}); the sampled File 2 part of each \
+                 reaction with a negative background is scaled by (mean + background)/mean instead, as the input \
+                 declares (ADR-0274)",
+                found.join(", ")
+            );
+            true
+        }
+        (UnresolvedMethod::ScaleNegative, None) => {
+            return Err(ProcessError::UnneededUnresolvedScaling);
+        }
+    };
+    // 格子点ごとのバックグラウンドと倍率。宣言した評価の、バックグラウンドが負の反応は、定数で足す代わりに File 2 のサンプルを
+    // (平均 + バックグラウンド)/平均 倍にする（平均は評価の値のまま、サンプルは負にならない）。全断面積のバックグラウンドからも
+    // その分を除き、ほかの反応（MF3 の全断面積との差）を変えない
+    let backgrounds = grid
+        .iter()
+        .map(|&e| {
+            let mut background = Sigma {
+                total: at(&total, e),
+                elastic: at(&elastic, e),
+                fission: at(&fission, e),
+                capture: at(&capture, e),
+            };
+            let mut scales = Scales::ONE;
+            if scaled {
+                let mean = xs.cross_sections(e)?;
+                for (mt, part, mean, scale) in [
+                    (
+                        18,
+                        &mut background.fission,
+                        mean.fission,
+                        &mut scales.fission,
+                    ),
+                    (
+                        102,
+                        &mut background.capture,
+                        mean.capture,
+                        &mut scales.capture,
+                    ),
+                ] {
+                    if *part < 0.0 {
+                        // 平均が正でなければ、バックグラウンドとの和（0 K の表の値）は負で、倍率で読み替えられない
+                        if !(mean > 0.0 && mean + *part >= 0.0) {
+                            return Err(ProcessError::NegativeUnresolvedDilute {
+                                mt,
+                                energy: e,
+                                mean,
+                                background: *part,
+                            });
+                        }
+                        *scale = (mean + *part) / mean;
+                        background.total -= *part;
+                        *part = 0.0;
+                    }
+                }
+            }
+            Ok(Background {
+                sigma: background,
+                scales,
+            })
+        })
+        .collect::<Result<Vec<_>, ProcessError>>()?;
 
     // 格子点ごとに独立なので並列に求める。種は格子点の番号（温度と σ0 によらず同じラダーを使い、温度の間の相関を保つ。
     // スレッドの数によらない。ADR-0177）。エラーでも止めず、下で温度ごとに作ったときと同じエラーを選ぶ
     let sampled = in_parallel(grid.len(), |i| {
-        let e = grid[i];
-        let background = Sigma {
-            total: at(&total, e),
-            elastic: at(&elastic, e),
-            fission: at(&fission, e),
-            capture: at(&capture, e),
-        };
         Ok::<_, Infallible>(xs.shielded(
-            e,
+            grid[i],
             temperatures,
             sigma0,
-            background,
+            backgrounds[i],
             Sampling::LIBRARY,
             i as u64,
         ))
@@ -528,6 +676,7 @@ pub fn process_nuclide(
     temperatures: &[f64],
     thermal: Option<&ThermalScattering>,
     negatives: &[NegativeToZero],
+    unresolved: UnresolvedMethod,
     settings: &Settings,
 ) -> Result<NuclideData, ProcessError> {
     if let Some(thermal) = thermal {
@@ -548,7 +697,13 @@ pub fn process_nuclide(
         settings,
     };
     // 非分離共鳴の補正は、温度の間で同じラダーを 1 度だけ作る（#0155）ので、温度のループの前に全温度を求める
-    let shielding = unresolved_shielding(tape, evaluation.mat, temperatures, &settings.sigma0)?;
+    let shielding = unresolved_shielding(
+        tape,
+        evaluation.mat,
+        temperatures,
+        &settings.sigma0,
+        unresolved,
+    )?;
     // 温度ごとに独立なので並列に求める。結果は温度の順で、エラーは最初の温度のもの。非分離共鳴の補正のエラーは、上で
     // ほかの処理のエラーより先に返る
     let temperatures = in_parallel(temperatures.len(), |k| {

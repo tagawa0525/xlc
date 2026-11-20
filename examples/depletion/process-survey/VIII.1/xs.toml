@@ -1,6 +1,7 @@
 # #0292: read-survey-endfb81.toml の評価のすべてを 565 K の 1 点で輸送する核種にした、`xs nuclide` の走査の入力。
 # process_survey.py が書く。手で直さない。S(α, β) の核種の項目、σ0、散乱の次数は xs.toml（endfb81）と同じ。
 # 入れない評価: n-000_n_001.endf（中性子（Z = 0）の評価で、輸送する標的の核種でない）
+# 核種の宣言の項目は declarations.toml から足す（評価の欠陥の読み替え）
 output = "unused.msgpack"
 endf-directory = "../../../../references/endf/ENDF-B-VIII.1_neutrons"
 thermal-directory = "../../../../references/endf/ENDF-B-VIII.1_thermal_scatt"
@@ -30,7 +31,7 @@ F-19 = { endf = "n-009_F_019.endf", temperatures = [565] }
 Ne-20 = { endf = "n-010_Ne_020.endf", temperatures = [565] }
 Ne-21 = { endf = "n-010_Ne_021.endf", temperatures = [565] }
 Ne-22 = { endf = "n-010_Ne_022.endf", temperatures = [565] }
-Na-22 = { endf = "n-011_Na_022.endf", temperatures = [565] }
+Na-22 = { endf = "n-011_Na_022.endf", temperatures = [565], unresolved-negative-background = "scale" }
 Na-23 = { endf = "n-011_Na_023.endf", temperatures = [565] }
 Mg-24 = { endf = "n-012_Mg_024.endf", temperatures = [565] }
 Mg-25 = { endf = "n-012_Mg_025.endf", temperatures = [565] }
@@ -51,7 +52,7 @@ S-36 = { endf = "n-016_S_036.endf", temperatures = [565] }
 Cl-35 = { endf = "n-017_Cl_035.endf", temperatures = [565] }
 Cl-36 = { endf = "n-017_Cl_036.endf", temperatures = [565] }
 Cl-37 = { endf = "n-017_Cl_037.endf", temperatures = [565] }
-Ar-36 = { endf = "n-018_Ar_036.endf", temperatures = [565] }
+Ar-36 = { endf = "n-018_Ar_036.endf", temperatures = [565], unresolved-negative-background = "scale" }
 Ar-37 = { endf = "n-018_Ar_037.endf", temperatures = [565] }
 Ar-38 = { endf = "n-018_Ar_038.endf", temperatures = [565] }
 Ar-39 = { endf = "n-018_Ar_039.endf", temperatures = [565] }
@@ -95,7 +96,7 @@ Co-58m = { endf = "n-027_Co_058m1.endf", temperatures = [565] }
 Co-59 = { endf = "n-027_Co_059.endf", temperatures = [565] }
 Ni-58 = { endf = "n-028_Ni_058.endf", temperatures = [565] }
 Ni-59 = { endf = "n-028_Ni_059.endf", temperatures = [565] }
-Ni-60 = { endf = "n-028_Ni_060.endf", temperatures = [565] }
+Ni-60 = { endf = "n-028_Ni_060.endf", temperatures = [565], negative-to-zero = [{ mt = 2, from = 800000.0, to = 800000.0 }] }
 Ni-61 = { endf = "n-028_Ni_061.endf", temperatures = [565] }
 Ni-62 = { endf = "n-028_Ni_062.endf", temperatures = [565] }
 Ni-63 = { endf = "n-028_Ni_063.endf", temperatures = [565] }
@@ -213,12 +214,12 @@ Ag-115 = { endf = "n-047_Ag_115.endf", temperatures = [565] }
 Ag-116 = { endf = "n-047_Ag_116.endf", temperatures = [565] }
 Ag-117 = { endf = "n-047_Ag_117.endf", temperatures = [565] }
 Ag-118m = { endf = "n-047_Ag_118m1.endf", temperatures = [565] }
-Cd-106 = { endf = "n-048_Cd_106.endf", temperatures = [565] }
+Cd-106 = { endf = "n-048_Cd_106.endf", temperatures = [565], unresolved-negative-background = "scale" }
 Cd-107 = { endf = "n-048_Cd_107.endf", temperatures = [565] }
 Cd-108 = { endf = "n-048_Cd_108.endf", temperatures = [565] }
 Cd-109 = { endf = "n-048_Cd_109.endf", temperatures = [565] }
 Cd-110 = { endf = "n-048_Cd_110.endf", temperatures = [565] }
-Cd-111 = { endf = "n-048_Cd_111.endf", temperatures = [565] }
+Cd-111 = { endf = "n-048_Cd_111.endf", temperatures = [565], unresolved-negative-background = "scale" }
 Cd-112 = { endf = "n-048_Cd_112.endf", temperatures = [565] }
 Cd-113 = { endf = "n-048_Cd_113.endf", temperatures = [565] }
 Cd-114 = { endf = "n-048_Cd_114.endf", temperatures = [565] }
@@ -352,7 +353,7 @@ Sm-154 = { endf = "n-062_Sm_154.endf", temperatures = [565] }
 Eu-151 = { endf = "n-063_Eu_151.endf", temperatures = [565] }
 Eu-152 = { endf = "n-063_Eu_152.endf", temperatures = [565] }
 Eu-153 = { endf = "n-063_Eu_153.endf", temperatures = [565] }
-Eu-154 = { endf = "n-063_Eu_154.endf", temperatures = [565] }
+Eu-154 = { endf = "n-063_Eu_154.endf", temperatures = [565], unresolved-negative-background = "scale" }
 Eu-155 = { endf = "n-063_Eu_155.endf", temperatures = [565] }
 Eu-156 = { endf = "n-063_Eu_156.endf", temperatures = [565] }
 Eu-157 = { endf = "n-063_Eu_157.endf", temperatures = [565] }

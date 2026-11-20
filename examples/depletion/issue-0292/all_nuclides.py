@@ -2,7 +2,8 @@
 
 燃焼チェーン（../chain.msgpack）にあって ENDF/B-VIII.0 の中性子のファイルがある核種（読み込みの走査 ../read-survey-endfb80.toml の
 チェーンの評価）を、すべて輸送する核種にする。核種の項目は 154 核種の試行のライブラリの入力（trial/library/xs.toml）から取り、
-温度だけを試行のセルの温度 `TEMPERATURE` の 1 点にする（S(α, β) の核種は、内挿に使う温度をそのまま持つ）。走査で止まる評価は
+温度だけを試行のセルの温度 `TEMPERATURE` の 1 点にする（S(α, β) の核種は、内挿に使う温度をそのまま持つ）。評価の欠陥を読み替える
+宣言は、VIII.0 の走査の宣言（`DECLARATIONS`）から足す（`declare`）。走査で止まる評価は
 `EXCLUDED`（核種と issue）で、止まる評価と食い違えば書かずに止める。外した核種のうち試行の入力で放射化の核種だったものは、
 放射化の核種のまま残す（冷却計算の断面積を失わない。ADR-0238）。
 
@@ -29,8 +30,6 @@ FUELS = ("u", "mox", "gd")
 TEMPERATURE = 565
 # 走査（../read-survey-endfb80.toml）で xs が止まる、チェーンの評価
 EXCLUDED = {
-    "H-2": ("#0311", "MF6 の中性子の LAW=6 を読めない"),
-    "Be-9": ("#0311", "MF6 の中性子の LAW=7 を読めない"),
     "Th-232": (
         "#0312",
         "核分裂の中性子の分布が MF6 MT18 で、輸送する核種として処理できない",
@@ -43,12 +42,14 @@ EXCLUDED = {
         "#0312",
         "核分裂の中性子の分布が MF6 MT18 で、輸送する核種として処理できない",
     ),
-    "Cl-35": ("#0264", "分離共鳴（R 行列の制限形）の荷電粒子の対を読めない"),
-    "Ca-40": ("#0264", "分離共鳴（R 行列の制限形）の荷電粒子の対を読めない"),
 }
 SURVEY = HERE.parent / "read-survey-endfb80.toml"
 CHAIN = HERE.parent / "chain.msgpack"
 TRIAL = HERE / "trial" / "library" / "xs.toml"
+# 評価の欠陥を読み替える核種の宣言（版の走査の宣言と同じファイル。process_survey.py の `declare`）
+DECLARATIONS = HERE.parent / "process-survey" / "VIII.0" / "declarations.toml"
+# 放射化の核種は遮蔽しないので取らない宣言（xs は書くと止まる。ADR-0274）
+SHIELDING_ONLY = ("unresolved-negative-background",)
 P2 = HERE.parent / "p2" / "xs.toml"
 
 
@@ -101,11 +102,42 @@ def transported(entries: dict) -> list[str]:
     return [n for n, v in entries.items() if not v.get("activation")]
 
 
+def declare(entries: dict, declarations: dict) -> dict[str, dict]:
+    """`entries` の核種に宣言の項目を足す（放射化の核種には `SHIELDING_ONLY` を足さない）。入力に無い核種への宣言と、試行の入力の
+    項目と値の違う宣言は止める（同じ値なら、試行の入力の宣言をそのまま使う）"""
+    unknown = sorted(set(declarations) - set(entries))
+    if unknown:
+        raise SystemExit(f"declarations for nuclides outside the entries: {unknown}")
+    out = {}
+    for name, entry in entries.items():
+        items = {
+            k: v
+            for k, v in declarations.get(name, {}).items()
+            if not (entry.get("activation") and k in SHIELDING_ONLY)
+        }
+        conflicting = sorted(
+            k for k, v in items.items() if k in entry and entry[k] != v
+        )
+        if conflicting:
+            raise SystemExit(
+                f"{name}: a declaration differs from the base entry in {conflicting}"
+            )
+        out[name] = {**entry, **items}
+    return out
+
+
 def control_entries(base: dict, entries: dict) -> dict[str, dict]:
-    """`entries` の核種の項目のうち、試行の入力 `base` が輸送しない核種を放射化の核種にしたもの"""
+    """`entries` の核種の項目のうち、試行の入力 `base` が輸送しない核種を放射化の核種にしたもの（放射化の核種は
+    `SHIELDING_ONLY` の宣言を持たない）"""
     keep = set(transported(base))
     return {
-        n: v if n in keep else {**v, "activation": True} for n, v in entries.items()
+        n: v
+        if n in keep
+        else {
+            **{k: x for k, x in v.items() if k not in SHIELDING_ONLY},
+            "activation": True,
+        }
+        for n, v in entries.items()
     }
 
 
@@ -128,6 +160,8 @@ def value(v) -> str:
         return f'"{v}"'
     if isinstance(v, list):
         return "[" + ", ".join(value(x) for x in v) + "]"
+    if isinstance(v, dict):
+        return "{ " + ", ".join(f"{k} = {value(x)}" for k, x in v.items()) + " }"
     return str(v)
 
 
@@ -183,11 +217,14 @@ CONTROL_HEAD = [
 def write_library() -> None:
     base_text = TRIAL.read_text()
     base = tomllib.loads(base_text)["nuclide"]
-    entries = library_entries(
-        base,
-        tomllib.loads(SURVEY.read_text()),
-        msgpack.unpackb(CHAIN.read_bytes(), strict_map_key=False),
-        EXCLUDED,
+    entries = declare(
+        library_entries(
+            base,
+            tomllib.loads(SURVEY.read_text()),
+            msgpack.unpackb(CHAIN.read_bytes(), strict_map_key=False),
+            EXCLUDED,
+        ),
+        tomllib.loads(DECLARATIONS.read_text())["nuclide"],
     )
     notes = [f"  {n}" for n in exclusion_notes(base, EXCLUDED)]
     control = control_entries(base, entries)

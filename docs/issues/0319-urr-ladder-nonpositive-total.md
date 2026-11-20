@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [xs, depletion]
 opened: 2026-11-20
-closed:
+closed: 2026-11-20
 milestone:
 blocked-by: []
-resolution:
+resolution: ADR-0274
 ---
 
 # 非分離共鳴のラダーのサンプルの全断面積が正でなく、xs が止まる（ENDF/B-VII.0 の Ta-181、Es-253）
@@ -26,13 +26,18 @@ resolution:
 - NJOY PURR が捕獲のバックグラウンドの負の点をどう扱うかは確かめていない
 - 再現: examples/depletion/process-survey/VII.0 で `../../../../bin/xs --threads 2 nuclide xs.toml xs-range.toml Ta-181 <出力>`（Es-253 も同じ）
 
-関係する ADR: なし
+関係する ADR: [ADR-0274](../adr/0274-scale-sampled-reactions-with-negative-unresolved-backgrounds.md)
 
 ## 完了の条件
 
-- [ ] 負の MF3 のバックグラウンドで全断面積が 0 以下になる点の扱いを決め（NJOY PURR の扱いを確かめてから）、VII.0 の Ta-181 と Es-253 が
+- [x] 負の MF3 のバックグラウンドで全断面積が 0 以下になる点の扱いを決め（NJOY PURR の扱いを確かめてから）、VII.0 の Ta-181 と Es-253 が
   `xs nuclide` を通る
 
 ## 経緯
 
 - 2026-11-20: 4 つの版の中性子の評価のすべてを `xs nuclide` に通し（#0292）、VII.0 の 2 つが止まって起こした
+- 2026-11-20: 原因は MF3 の捕獲のバックグラウンドが負で、各サンプルに定数で足すと共鳴の間の点の捕獲が負になること（Ta-181 は 330 eV で
+  −1.61 b、Es-253 は 10 keV で −0.698 b）と分かった。NJOY PURR は止まらず、確率テーブルに負の値を残し、Ta-181 の σ0 = 1 b の直接のサンプルの
+  全断面積は −195 b（references/njoy-runs/issue-0319/）。同じ状態の評価を 4 つの版で数え（25 評価）、既定はバックグラウンドの値で止め、
+  宣言 `unresolved-negative-background = "scale"` でその反応のサンプルを (平均 + バックグラウンド)/平均 倍にすると決めた（ADR-0274）。宣言した
+  Ta-181 と Es-253 は `xs nuclide` を通り、閉じた

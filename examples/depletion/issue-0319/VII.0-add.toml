@@ -1,0 +1,9 @@
+# #0319: 非分離共鳴の負のバックグラウンドの読み方（ADR-0274）を比べる、VII.0 の評価の xs nuclide の入力（σ0、散乱の次数は process-survey/VII.0/xs.toml と同じ）
+output = "unused.msgpack"
+endf-directory = "../../../references/endf/ENDF-B-VII.0_neutrons"
+sigma0 = [10000000000.0, 100000.0, 10000.0, 1000.0, 300, 100, 30, 10, 1]
+scattering-order = 3
+
+[nuclide]
+Am-241 = { endf = "n-095_Am_241.endf", temperatures = [565] }
+Cf-252 = { endf = "n-098_Cf_252.endf", temperatures = [565] }

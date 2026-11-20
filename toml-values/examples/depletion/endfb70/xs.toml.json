@@ -346,7 +346,8 @@
     600,
     900,
     1200
-   ]
+   ],
+   "unresolved-negative-background": "scale"
   },
   "Am-242m": {
    "endf": "n-095_Am_242m1.endf",

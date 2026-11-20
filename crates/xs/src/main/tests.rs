@@ -45,6 +45,7 @@ fn parses_input_relative_to_its_directory() {
                 pointwise: true,
                 corrections: Vec::new(),
                 negatives: Vec::new(),
+                unresolved: UnresolvedMethod::Additive,
                 thermal: Some(ThermalInput {
                     path: PathBuf::from("work/tsl/h2o.endf"),
                     upper: SabUpper::Evaluated,
@@ -60,6 +61,7 @@ fn parses_input_relative_to_its_directory() {
                 pointwise: true,
                 corrections: Vec::new(),
                 negatives: Vec::new(),
+                unresolved: UnresolvedMethod::Additive,
                 thermal: None,
             },
         ]
@@ -496,6 +498,38 @@ fn reads_declared_negative_values_to_raise_to_zero() {
         ("to = 10.0 }", "to = 10.0, value = 0 }"),
     ] {
         let text = NEGATIVE_INPUT.replace(from, to);
+        assert!(parse_input(&text, Path::new(".")).is_err(), "{text}");
+    }
+}
+
+const SCALED_INPUT: &str = r#"
+output = "m1.msgpack"
+endf-directory = "endf"
+sigma0 = [1e10, 10, 1]
+
+[nuclide.Ta-181]
+endf = "ta181.endf"
+temperatures = [565]
+unresolved-negative-background = "scale"
+"#;
+
+#[test]
+fn reads_declared_scaling_of_negative_unresolved_backgrounds() {
+    let input = parse_input(SCALED_INPUT, Path::new(".")).unwrap();
+    assert_eq!(
+        input.nuclides[0].unresolved,
+        UnresolvedMethod::ScaleNegative
+    );
+    // 宣言の値は "scale" だけで、輸送しない放射化の核種は遮蔽しないので宣言を取らない
+    for (from, to) in [
+        ("\"scale\"", "\"add\""),
+        ("\"scale\"", "true"),
+        (
+            "temperatures = [565]",
+            "temperatures = [565]\nactivation = true",
+        ),
+    ] {
+        let text = SCALED_INPUT.replace(from, to);
         assert!(parse_input(&text, Path::new(".")).is_err(), "{text}");
     }
 }

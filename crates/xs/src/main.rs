@@ -62,6 +62,12 @@
 //! # 0 K の再構成の後に残る負の値を 0 にする宣言（省略すると負の値で止まる）: MT の from〜to eV の点の負の値を 0 にし、
 //! # take-from（省略できる）があれば、0 にするために足した分をその MT から引く
 //! negative-to-zero = [{ mt = 91, from = 1.0e6, to = 5.0e6, take-from = 2 }]
+//!
+//! [nuclide.Ta-181]
+//! endf = "n-073_Ta_181.endf"
+//! temperatures = [565]
+//! # 非分離共鳴（LSSF=0）の MF3 の捕獲か核分裂のバックグラウンドが負の評価の宣言（省略すると、その評価は止まる）
+//! unresolved-negative-background = "scale"
 //! ```
 //!
 //! `activation = true` の核種は、チェーンの反応と核分裂の無限希釈の群の断面積だけを作り、ライブラリの `activation` に置く
@@ -71,6 +77,10 @@
 //! 中心の物質の核種にだけ使える）。`activation` と `thermal` とは組めない。ポイントワイズの範囲は、持たせない核種も含めて決める。
 //!
 //! 核種ごとの処理時間はログとして標準エラーに出す（`RUST_LOG=debug` で温度・段階ごとの内訳）。
+//!
+//! `unresolved-negative-background = "scale"` の核種は、非分離共鳴の自己遮蔽のラダーで、MF3 のバックグラウンドが負の反応を、
+//! 定数で足す代わりに File 2 のサンプルを (平均 + バックグラウンド)/平均 倍にして求める（ADR-0274）。輸送する核種だけに使え、
+//! 宣言の要らない評価では止まる。
 //!
 //! `corrections` の宣言は、テープを読んだ直後、MF ごとの読み込みの前に、行の MF と MT と欄の元の値を確かめて当て、当てるたびに
 //! warn を出す（ADR-0272）。どれかが宣言と違えば止まる。
@@ -105,7 +115,7 @@ use xlc_xs::multigroup::{SabOutside, Weight, inverse_velocity};
 use xlc_xs::parallel::{in_parallel, set_threads};
 use xlc_xs::pointwise::{DEFAULT_TOLERANCE, NegativeToZero};
 use xlc_xs::process::{
-    SabUpper, Settings, ThermalScattering, process_activation, process_nuclide,
+    SabUpper, Settings, ThermalScattering, UnresolvedMethod, process_activation, process_nuclide,
     read_thermal_scattering, resolved,
 };
 use xlc_xs::range;
@@ -132,6 +142,8 @@ struct NuclideInput {
     corrections: Vec<Correction>,
     /// 0 K の再構成の後に 0 にする負の値（ADR-0267）
     negatives: Vec<NegativeToZero>,
+    /// 非分離共鳴の自己遮蔽の求め方（ADR-0274）
+    unresolved: UnresolvedMethod,
     thermal: Option<ThermalInput>,
 }
 
@@ -193,6 +205,15 @@ struct NuclideEntry {
     /// 0 K の再構成の後に 0 にする負の値（ADR-0267）。省略すると、負の値で止まる
     #[serde(default)]
     negative_to_zero: Vec<NegativeToZero>,
+    /// 非分離共鳴の負のバックグラウンドの宣言（ADR-0274）。省略すると MF3 のバックグラウンドをサンプルに足す
+    unresolved_negative_background: Option<NegativeBackgroundEntry>,
+}
+
+/// `unresolved-negative-background` の値。宣言だけの項目で、取り消す値を持たない（効かない宣言を書けないように）
+#[derive(Deserialize)]
+#[serde(rename_all = "kebab-case")]
+enum NegativeBackgroundEntry {
+    Scale,
 }
 
 /// `pointwise` を省略したときの値（ADR-0269 の既定。今のとおり持たせる）
@@ -302,6 +323,15 @@ fn parse_input(text: &str, base: &Path) -> Result<Input, InputError> {
                  pointwise data, and S(α, β) nuclides are moderator nuclides the UFG solves)"
             ));
         }
+        let unresolved = match entry.unresolved_negative_background {
+            None => UnresolvedMethod::Additive,
+            Some(NegativeBackgroundEntry::Scale) => UnresolvedMethod::ScaleNegative,
+        };
+        if entry.activation && unresolved != UnresolvedMethod::Additive {
+            return invalid(format!(
+                "{name}: activation nuclides are not shielded and take no `unresolved-negative-background`"
+            ));
+        }
         nuclides.push(NuclideInput {
             endf: endf_directory.join(&entry.endf),
             temperatures: entry.temperatures,
@@ -309,6 +339,7 @@ fn parse_input(text: &str, base: &Path) -> Result<Input, InputError> {
             pointwise: entry.pointwise,
             corrections: entry.corrections,
             negatives: entry.negative_to_zero,
+            unresolved,
             thermal,
             name,
         });
@@ -775,6 +806,7 @@ fn process_file(
         &nuclide.temperatures,
         thermal.as_ref(),
         &nuclide.negatives,
+        nuclide.unresolved,
         settings,
     )
     .with_context(|| name.clone())?;

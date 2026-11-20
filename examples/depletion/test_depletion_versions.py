@@ -4,6 +4,7 @@
 """
 
 import copy
+import sys
 import unittest
 from pathlib import Path
 
@@ -11,6 +12,9 @@ import tomllib
 import yaml
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+from process_survey import DECLARATION_KEYS
+
 # 版のディレクトリ → ENDF の版の名前。VIII.0 のライブラリとチェーンは HERE の xs.toml と chain.toml
 VERSIONS = {
     "endfb70": "ENDF-B-VII.0",
@@ -46,6 +50,10 @@ class Libraries(unittest.TestCase):
                 del expected["endf-directory"], expected["thermal-directory"]
                 if key in WITHOUT_5736:
                     expected["nuclide"]["H-1"]["temperatures"] = [550, 600]
+                # 評価の欠陥を読み替える宣言は版の評価ごとに違う（あることは test_input_declarations.py が確かめる）
+                for entry in [*ours["nuclide"].values(), *expected["nuclide"].values()]:
+                    for k in DECLARATION_KEYS:
+                        entry.pop(k, None)
                 self.assertEqual(ours, expected)
 
     def test_each_chain_reads_the_neutrons_of_its_library(self):

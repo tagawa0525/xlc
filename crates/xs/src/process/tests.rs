@@ -9,33 +9,62 @@ fn thermal_correction_is_row_sum_minus_elastic() {
 
 /// 非分離共鳴（LSSF=1、s 波の1系列）と、MF3 の一定の断面積だけのテープ。
 fn unresolved_tape() -> Tape {
+    let constant = |v| table(&[("1.0-5", v), ("2.0+7", v)]);
+    unresolved_tape_with(
+        "1",
+        &[
+            (1, constant("11.0")),
+            (2, constant("10.0")),
+            (102, constant("1.0")),
+        ],
+    )
+}
+
+/// MF3 の表の点 (E, σ)（ENDF の数の書き方）
+fn table(points: &[(&str, &str)]) -> Vec<(String, String)> {
+    points
+        .iter()
+        .map(|&(x, y)| (x.to_string(), y.to_string()))
+        .collect()
+}
+
+/// 非分離共鳴（1e3〜1e5 eV、s 波の1系列、LSSF は `lssf`）と、MF3 の MT ごとの lin-lin の表 `mf3`（点の (E, σ)）だけの
+/// テープ。
+fn unresolved_tape_with(lssf: &str, mf3_values: &[(u32, Vec<(String, String)>)]) -> Tape {
     use crate::endf::rec;
-    let mf3 = |mt: u32, value: &str| {
-        [
+    let mf3 = |mt: u32, points: &[(String, String)]| {
+        let n = points.len().to_string();
+        let mut lines = vec![
             rec(["1.001000+3", "2.360060+2", "0", "0", "0", "0"], 1, 3, mt),
-            rec(["0.0", "0.0", "0", "0", "1", "2"], 1, 3, mt),
-            rec(["2", "2", "", "", "", ""], 1, 3, mt),
-            rec(["1.0-5", value, "2.0+7", value, "", ""], 1, 3, mt),
-            rec(["", "", "", "", "", ""], 1, 3, 0),
-        ]
-        .concat()
+            rec(["0.0", "0.0", "0", "0", "1", &n], 1, 3, mt),
+            rec([&n, "2", "", "", "", ""], 1, 3, mt),
+        ];
+        for row in points.chunks(3) {
+            let mut fields = [""; 6];
+            for (k, (x, y)) in row.iter().enumerate() {
+                fields[2 * k] = x.as_str();
+                fields[2 * k + 1] = y.as_str();
+            }
+            lines.push(rec(fields, 1, 3, mt));
+        }
+        lines.push(rec(["", "", "", "", "", ""], 1, 3, 0));
+        lines.concat()
     };
     let text = [
         rec(["1.001000+3", "2.360060+2", "0", "0", "1", "0"], 1, 2, 151),
         rec(["1.001000+3", "1.0", "0", "0", "1", "0"], 1, 2, 151),
         rec(["1.0+3", "1.0+5", "2", "2", "0", "1"], 1, 2, 151),
-        rec(["0.0", "0.948", "1", "0", "1", "0"], 1, 2, 151),
+        rec(["0.0", "0.948", lssf, "0", "1", "0"], 1, 2, 151),
         rec(["2.360060+2", "0.0", "0", "0", "1", "0"], 1, 2, 151),
         rec(["0.5", "0.0", "2", "0", "18", "2"], 1, 2, 151),
         rec(["0.0", "0.0", "0.0", "1.0", "0.0", "0.0"], 1, 2, 151),
         rec(["1.0+3", "20.0", "0.0", "1.0-3", "2.3-2", "0.0"], 1, 2, 151),
         rec(["1.0+5", "20.0", "0.0", "1.0-3", "2.3-2", "0.0"], 1, 2, 151),
         rec(["", "", "", "", "", ""], 1, 2, 0),
-        mf3(1, "11.0"),
-        mf3(2, "10.0"),
-        mf3(102, "1.0"),
     ]
-    .concat();
+    .into_iter()
+    .chain(mf3_values.iter().map(|(mt, points)| mf3(*mt, points)))
+    .collect::<String>();
     Tape::parse(&text).unwrap()
 }
 
@@ -269,9 +298,10 @@ fn unresolved_shielding_lowers_capture_at_small_background() {
     use crate::multigroup::shielded_averages;
     let tape = unresolved_tape();
     let sigma0 = [1.0e10, 1.0];
-    let [shielding] = &unresolved_shielding(&tape, 1, &[300.0], &sigma0)
-        .unwrap()
-        .unwrap()[..]
+    let [shielding] =
+        &unresolved_shielding(&tape, 1, &[300.0], &sigma0, UnresolvedMethod::Additive)
+            .unwrap()
+            .unwrap()[..]
     else {
         panic!("one temperature gives one shielding");
     };
@@ -301,12 +331,13 @@ fn shielding_temperatures_together_gives_the_bits_of_each_temperature_alone() {
     let tape = unresolved_tape();
     let sigma0 = [1.0e10, 100.0, 1.0];
     let temperatures = [300.0, 600.0, 1200.0];
-    let together = unresolved_shielding(&tape, 1, &temperatures, &sigma0)
-        .unwrap()
-        .unwrap();
+    let together =
+        unresolved_shielding(&tape, 1, &temperatures, &sigma0, UnresolvedMethod::Additive)
+            .unwrap()
+            .unwrap();
     assert_eq!(together.len(), temperatures.len());
     for (shielding, &t) in together.iter().zip(&temperatures) {
-        let [alone] = &unresolved_shielding(&tape, 1, &[t], &sigma0)
+        let [alone] = &unresolved_shielding(&tape, 1, &[t], &sigma0, UnresolvedMethod::Additive)
             .unwrap()
             .unwrap()[..]
         else {
@@ -317,6 +348,232 @@ fn shielding_temperatures_together_gives_the_bits_of_each_temperature_alone() {
     }
     // 温度で補正が変わる（同じ値を温度の数だけ返していない）
     assert_ne!(together[0], together[2]);
+}
+
+/// LSSF=0 の非分離共鳴で、MF3 のバックグラウンドの `mt` が非分離共鳴の範囲の中だけ `value` (b)、弾性散乱が 10 b のテープ
+fn background_tape(mt: u32, value: f64) -> Tape {
+    let total = format!("{:.6e}", 10.0 + value).replace('e', "");
+    let partial = format!("{value:.6e}").replace('e', "");
+    let within = |outside: &str, inside: &str| {
+        table(&[
+            ("1.0-5", outside),
+            ("1.0+3", outside),
+            ("1.0+3", inside),
+            ("1.0+5", inside),
+            ("1.0+5", outside),
+            ("2.0+7", outside),
+        ])
+    };
+    unresolved_tape_with(
+        "0",
+        &[
+            (1, within("10.0", &total)),
+            (2, table(&[("1.0-5", "10.0"), ("2.0+7", "10.0")])),
+            (mt, within("0.0", &partial)),
+        ],
+    )
+}
+
+#[test]
+fn a_negative_capture_or_fission_background_is_an_error_without_the_declaration() {
+    // 共鳴の部分の捕獲と核分裂は負にならないので、負のバックグラウンドを各サンプルに足すと、共鳴の間の点が負になりうる。
+    // 実際に負になるかは温度とラダーに依るので、サンプルによらずバックグラウンドの値で止める
+    for mt in [102, 18] {
+        for temperatures in [&[300.0][..], &[300.0, 1200.0]] {
+            let error = unresolved_shielding(
+                &background_tape(mt, -1.0e-3),
+                1,
+                temperatures,
+                &[1.0e10, 1.0],
+                UnresolvedMethod::Additive,
+            )
+            .unwrap_err();
+            assert!(
+                matches!(error, ProcessError::NegativeUnresolvedBackground { mt: m, .. } if m == mt),
+                "MT{mt}: {error}"
+            );
+            assert!(
+                error.to_string().contains("unresolved-negative-background"),
+                "{error}"
+            );
+        }
+    }
+}
+
+#[test]
+fn the_background_is_judged_at_the_sampled_grid_energies() {
+    // ラダーに足すのは非分離共鳴の格子点のバックグラウンドなので、格子点の間（1.1 keV）だけの負の点では止まらず、宣言は要らない
+    let between = table(&[
+        ("1.0-5", "0.0"),
+        ("1.0+3", "0.0"),
+        ("1.0+3", "1.0-3"),
+        ("1.1+3", "-1.0-3"),
+        ("1.2+3", "1.0-3"),
+        ("1.0+5", "1.0-3"),
+        ("1.0+5", "0.0"),
+        ("2.0+7", "0.0"),
+    ]);
+    let total = table(&[("1.0-5", "10.0"), ("2.0+7", "10.0")]);
+    let tape = unresolved_tape_with(
+        "0",
+        &[
+            (1, total),
+            (2, table(&[("1.0-5", "10.0"), ("2.0+7", "10.0")])),
+            (102, between),
+        ],
+    );
+    let sigma0 = [1.0e10, 1.0];
+    assert!(unresolved_shielding(&tape, 1, &[300.0], &sigma0, UnresolvedMethod::Additive).is_ok());
+    assert!(matches!(
+        unresolved_shielding(&tape, 1, &[300.0], &sigma0, UnresolvedMethod::ScaleNegative),
+        Err(ProcessError::UnneededUnresolvedScaling)
+    ));
+}
+
+#[test]
+fn temperatures_are_checked_before_the_background() {
+    // 温度の無い呼び出しは何も求めず、正でない温度は、評価のバックグラウンドによらず先に返る
+    let tape = background_tape(102, -1.0e-3);
+    assert_eq!(
+        unresolved_shielding(&tape, 1, &[], &[1.0e10], UnresolvedMethod::Additive).unwrap(),
+        Some(Vec::new())
+    );
+    let error =
+        unresolved_shielding(&tape, 1, &[0.0], &[1.0e10], UnresolvedMethod::Additive).unwrap_err();
+    assert!(
+        matches!(error, ProcessError::Unresolved(UrrError::Temperature(t)) if t == 0.0),
+        "{error}"
+    );
+}
+
+#[test]
+fn a_negative_elastic_background_keeps_the_additive_shielding() {
+    // 弾性散乱の負は 1 μb にする今の扱い（ADR-0177）のままで、宣言は要らない
+    let tape = unresolved_tape_with(
+        "0",
+        &[
+            (1, table(&[("1.0-5", "0.0"), ("2.0+7", "0.0")])),
+            (2, table(&[("1.0-5", "-1.0"), ("2.0+7", "-1.0")])),
+            (102, table(&[("1.0-5", "1.0"), ("2.0+7", "1.0")])),
+        ],
+    );
+    assert!(
+        unresolved_shielding(
+            &tape,
+            1,
+            &[300.0],
+            &[1.0e10, 1.0],
+            UnresolvedMethod::Additive
+        )
+        .is_ok()
+    );
+}
+
+/// `tape` の非分離共鳴の補正（温度 300 K）を当てた、1e4〜5e4 eV の 1 群の σ0 ごとの捕獲と、補正なしの捕獲
+fn shielded_capture(tape: &Tape, sigma0: &[f64], method: UnresolvedMethod) -> (Vec<f64>, f64) {
+    use crate::multigroup::shielded_averages;
+    let [shielding] = &unresolved_shielding(tape, 1, &[300.0], sigma0, method)
+        .unwrap()
+        .unwrap()[..]
+    else {
+        panic!("one temperature gives one shielding");
+    };
+    let tables = crate::pointwise::reconstruct(tape, 1, 1.0e-3).unwrap();
+    let groups = GroupStructure::new(vec![5.0e4, 1.0e4]).unwrap();
+    let averages = |shielding| {
+        shielded_averages(
+            &groups,
+            &Weight::lwr(),
+            &tables,
+            None,
+            sigma0,
+            shielding,
+            None,
+        )
+        .unwrap()
+    };
+    let capture = averages(Some(shielding))
+        .iter()
+        .map(|a| a.sigma[&102][0])
+        .collect();
+    (capture, averages(None)[0].sigma[&102][0])
+}
+
+#[test]
+fn declared_scaling_keeps_the_dilute_cross_sections_of_the_evaluation() {
+    // 負のバックグラウンドの反応は File 2 のサンプルを (平均 + バックグラウンド)/平均 倍にするので、遮蔽のない極限は 0 K の表
+    // （File 2 の平均とバックグラウンドの和）に戻る
+    let (capture, dilute) = shielded_capture(
+        &background_tape(102, -1.0e-3),
+        &[1.0e10, 1.0],
+        UnresolvedMethod::ScaleNegative,
+    );
+    assert!(
+        (capture[0] / dilute - 1.0).abs() < 1e-5,
+        "{capture:?} {dilute}"
+    );
+    assert!(capture[1] < 0.99 * dilute);
+}
+
+#[test]
+fn declared_scaling_keeps_the_shielded_capture_positive() {
+    // サンプルは負にならないので、無限希釈の捕獲が正なら、どの σ0 でも遮蔽した捕獲は正
+    let (capture, _) = shielded_capture(
+        &background_tape(102, -1.0e-3),
+        &[1.0e10, 30.0, 1.0],
+        UnresolvedMethod::ScaleNegative,
+    );
+    assert!(capture.iter().all(|&c| c > 0.0), "{capture:?}");
+}
+
+#[test]
+fn declared_scaling_of_a_negative_dilute_cross_section_is_an_error() {
+    // バックグラウンドが File 2 の平均より負に大きいと、縮める倍率が負になる。0 K の表の負の値で、読み替えでは直らない
+    let error = unresolved_shielding(
+        &background_tape(102, -1.0e3),
+        1,
+        &[300.0],
+        &[1.0e10, 1.0],
+        UnresolvedMethod::ScaleNegative,
+    )
+    .unwrap_err();
+    assert!(
+        matches!(
+            error,
+            ProcessError::NegativeUnresolvedDilute { mt: 102, .. }
+        ),
+        "{error}"
+    );
+}
+
+#[test]
+fn the_declaration_needs_a_negative_capture_or_fission_background() {
+    // 宣言が要らない評価（LSSF=1、背景が負でない、弾性散乱だけが負）への宣言は、古くなった宣言を黙って当てないよう止める
+    for tape in [
+        unresolved_tape(),
+        background_tape(102, 1.0e-3),
+        unresolved_tape_with(
+            "0",
+            &[
+                (1, table(&[("1.0-5", "0.0"), ("2.0+7", "0.0")])),
+                (2, table(&[("1.0-5", "-1.0"), ("2.0+7", "-1.0")])),
+                (102, table(&[("1.0-5", "1.0"), ("2.0+7", "1.0")])),
+            ],
+        ),
+    ] {
+        let error = unresolved_shielding(
+            &tape,
+            1,
+            &[300.0],
+            &[1.0e10, 1.0],
+            UnresolvedMethod::ScaleNegative,
+        )
+        .unwrap_err();
+        assert!(
+            matches!(error, ProcessError::UnneededUnresolvedScaling),
+            "{error}"
+        );
+    }
 }
 
 #[test]
@@ -332,7 +589,7 @@ fn no_unresolved_range_gives_no_shielding() {
     .concat();
     let tape = Tape::parse(&text).unwrap();
     assert_eq!(
-        unresolved_shielding(&tape, 1, &[300.0], &[10.0]).unwrap(),
+        unresolved_shielding(&tape, 1, &[300.0], &[10.0], UnresolvedMethod::Additive).unwrap(),
         None
     );
 }
@@ -438,7 +695,16 @@ fn scattering_order_sets_the_number_of_moments() {
             pointwise_range: Some((4.0, 1.0e4)),
             scattering_order: order,
         };
-        let data = process_nuclide(&tape, "X", &[293.6], None, &[], &settings).unwrap();
+        let data = process_nuclide(
+            &tape,
+            "X",
+            &[293.6],
+            None,
+            &[],
+            UnresolvedMethod::Additive,
+            &settings,
+        )
+        .unwrap();
         assert_eq!(data.temperatures[0].scatter.len(), order + 1);
     }
 }
@@ -455,7 +721,16 @@ fn processes_each_temperature_and_sigma0() {
         pointwise_range: Some((4.0, 1.0e4)),
         scattering_order: 0,
     };
-    let data = process_nuclide(&tape, "X", &[293.6, 600.0], None, &[], &settings).unwrap();
+    let data = process_nuclide(
+        &tape,
+        "X",
+        &[293.6, 600.0],
+        None,
+        &[],
+        UnresolvedMethod::Additive,
+        &settings,
+    )
+    .unwrap();
     assert_eq!(data.name, "X");
     let temperatures: Vec<f64> = data.temperatures.iter().map(|t| t.temperature).collect();
     assert_eq!(temperatures, vec![293.6, 600.0]);
@@ -595,6 +870,7 @@ fn capture_is_kept_per_sigma0_and_pointwise() {
         &[293.6],
         None,
         &[],
+        UnresolvedMethod::Additive,
         &reaction_settings(),
     )
     .unwrap();
@@ -616,7 +892,16 @@ fn capture_is_kept_per_sigma0_and_pointwise() {
 fn chain_reactions_sum_the_partial_mts_and_split_the_mf9_states() {
     let settings = reaction_settings();
     let tape = reaction_tape(&[(0, "0.0", "0.9"), (2, "5.0+4", "0.1")]);
-    let data = process_nuclide(&tape, "X", &[293.6], None, &[], &settings).unwrap();
+    let data = process_nuclide(
+        &tape,
+        "X",
+        &[293.6],
+        None,
+        &[],
+        UnresolvedMethod::Additive,
+        &settings,
+    )
+    .unwrap();
     let reactions = &data.temperatures[0].reactions;
     let mts: Vec<u32> = reactions.iter().map(|r| r.mt).collect();
     assert_eq!(mts, vec![102, 103]);
@@ -667,7 +952,16 @@ fn chain_reactions_sum_the_partial_mts_and_split_the_mf9_states() {
 fn capture_states_without_the_ground_state_leave_the_remainder_to_it() {
     let settings = reaction_settings();
     let tape = reaction_tape(&[(2, "5.0+4", "0.1")]);
-    let data = process_nuclide(&tape, "X", &[293.6], None, &[], &settings).unwrap();
+    let data = process_nuclide(
+        &tape,
+        "X",
+        &[293.6],
+        None,
+        &[],
+        UnresolvedMethod::Additive,
+        &settings,
+    )
+    .unwrap();
     let capture = &data.temperatures[0].reactions[0];
     use xlc_format::library::ChannelState;
     let states: Vec<_> = capture.channels.iter().map(|c| c.final_state).collect();
@@ -690,7 +984,16 @@ fn listed_states_beyond_the_reaction_are_scaled_down_to_it() {
     // 多重度の和が 1.2 の評価は、状態の比を保って反応（MF3）に合わせる
     let settings = reaction_settings();
     let tape = reaction_tape(&[(0, "0.0", "0.9"), (2, "5.0+4", "0.3")]);
-    let data = process_nuclide(&tape, "X", &[293.6], None, &[], &settings).unwrap();
+    let data = process_nuclide(
+        &tape,
+        "X",
+        &[293.6],
+        None,
+        &[],
+        UnresolvedMethod::Additive,
+        &settings,
+    )
+    .unwrap();
     let capture = &data.temperatures[0].reactions[0];
     let tables = crate::pointwise::reconstruct_at(&tape, 1, 1.0e-3, 293.6).unwrap();
     let averages =
@@ -711,7 +1014,16 @@ fn excited_states_beyond_the_reaction_leave_no_remainder() {
     // 励起状態だけで反応を超えると、状態が反応のすべてを持ち、基底状態への残りは 0
     let settings = reaction_settings();
     let tape = reaction_tape(&[(2, "5.0+4", "1.2")]);
-    let data = process_nuclide(&tape, "X", &[293.6], None, &[], &settings).unwrap();
+    let data = process_nuclide(
+        &tape,
+        "X",
+        &[293.6],
+        None,
+        &[],
+        UnresolvedMethod::Additive,
+        &settings,
+    )
+    .unwrap();
     let capture = &data.temperatures[0].reactions[0];
     let (state, rest) = (&capture.channels[0], &capture.channels[1]);
     let tables = crate::pointwise::reconstruct_at(&tape, 1, 1.0e-3, 293.6).unwrap();
@@ -734,7 +1046,16 @@ fn multiplicities_count_only_where_the_mf9_table_is_given() {
     // とし（NJOY GROUPR と同じ）、残りの経路がその分を持つ
     let settings = reaction_settings();
     let tape = reaction_tape_from(&[(2, "5.0+4", "0.1")], "1.0+3");
-    let data = process_nuclide(&tape, "X", &[293.6], None, &[], &settings).unwrap();
+    let data = process_nuclide(
+        &tape,
+        "X",
+        &[293.6],
+        None,
+        &[],
+        UnresolvedMethod::Additive,
+        &settings,
+    )
+    .unwrap();
     let capture = &data.temperatures[0].reactions[0];
     let (state, rest) = (&capture.channels[0], &capture.channels[1]);
     let total = |g: usize| state.cross_section[g] + rest.cross_section[g];
@@ -802,6 +1123,7 @@ fn production_cross_sections_start_where_the_reaction_does() {
         &[293.6],
         None,
         &[],
+        UnresolvedMethod::Additive,
         &settings,
     )
     .unwrap();
@@ -886,7 +1208,16 @@ fn production_beyond_the_reaction_is_scaled_down_where_it_exceeds() {
     // （6.0655〜10 MeV）の生成断面積の平均は反応より小さいので、群の平均で比べて縮めると縮まらない。点ごとに min(生成, 反応)
     let settings = reaction_settings();
     let tape = reaction_tape_with_production(["1.1+6", "2.0+7"], ["0.0", "0.76"]);
-    let data = process_nuclide(&tape, "X", &[293.6], None, &[], &settings).unwrap();
+    let data = process_nuclide(
+        &tape,
+        "X",
+        &[293.6],
+        None,
+        &[],
+        UnresolvedMethod::Additive,
+        &settings,
+    )
+    .unwrap();
     let np = &data.temperatures[0].reactions[1];
     assert_eq!(np.mt, 103);
     let (state, rest) = (&np.channels[0], &np.channels[1]);
@@ -928,7 +1259,16 @@ fn excess_within_the_tolerance_is_scaled_without_a_warning() {
     let settings = reaction_settings();
     let tape = reaction_tape(&[(0, "0.0", "0.9"), (2, "5.0+4", "0.1005")]);
     assert_eq!(excess_warnings(&tape, &settings), vec![]);
-    let data = process_nuclide(&tape, "X", &[293.6], None, &[], &settings).unwrap();
+    let data = process_nuclide(
+        &tape,
+        "X",
+        &[293.6],
+        None,
+        &[],
+        UnresolvedMethod::Additive,
+        &settings,
+    )
+    .unwrap();
     let capture = &data.temperatures[0].reactions[0];
     let tables = crate::pointwise::reconstruct_at(&tape, 1, 1.0e-3, 293.6).unwrap();
     let averages =
@@ -1280,11 +1620,29 @@ fn sab_nuclides_carry_the_ufg_transfer_with_a_pointwise_range() {
     };
     let settings = reaction_settings();
     let tape = reaction_tape(&[]);
-    let data = process_nuclide(&tape, "X", &[TEMPERATURE], Some(&thermal), &[], &settings).unwrap();
+    let data = process_nuclide(
+        &tape,
+        "X",
+        &[TEMPERATURE],
+        Some(&thermal),
+        &[],
+        UnresolvedMethod::Additive,
+        &settings,
+    )
+    .unwrap();
     let table = data.temperatures[0].sab_transfer.as_ref().unwrap();
     assert_eq!(table.incident.last(), Some(&10.0));
     // S(α, β) のない核種と、ポイントワイズの範囲のないライブラリは持たない
-    let plain = process_nuclide(&tape, "X", &[TEMPERATURE], None, &[], &settings).unwrap();
+    let plain = process_nuclide(
+        &tape,
+        "X",
+        &[TEMPERATURE],
+        None,
+        &[],
+        UnresolvedMethod::Additive,
+        &settings,
+    )
+    .unwrap();
     assert!(plain.temperatures[0].sab_transfer.is_none());
     let without_range = Settings {
         pointwise_range: None,
@@ -1296,6 +1654,7 @@ fn sab_nuclides_carry_the_ufg_transfer_with_a_pointwise_range() {
         &[TEMPERATURE],
         Some(&thermal),
         &[],
+        UnresolvedMethod::Additive,
         &without_range,
     )
     .unwrap();
@@ -1377,7 +1736,16 @@ fn activation_nuclides_have_the_chain_reactions_of_a_processed_nuclide() {
     let tape = reaction_tape(&[(2, "1.0+5", "0.4")]);
     let settings = reaction_settings();
     let activation = process_activation(&tape, "X", &[293.6, 600.0], &[], &settings).unwrap();
-    let processed = process_nuclide(&tape, "X", &[293.6, 600.0], None, &[], &settings).unwrap();
+    let processed = process_nuclide(
+        &tape,
+        "X",
+        &[293.6, 600.0],
+        None,
+        &[],
+        UnresolvedMethod::Additive,
+        &settings,
+    )
+    .unwrap();
     assert_eq!(activation.name, "X");
     assert_eq!(
         (activation.za, activation.awr),

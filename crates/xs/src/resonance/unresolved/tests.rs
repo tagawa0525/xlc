@@ -21,7 +21,7 @@ impl UnresolvedXs<'_> {
             e,
             &[temperature],
             sigma0,
-            background,
+            Background::additive(background),
             sampling,
             seed,
         )?)

@@ -6255,8 +6255,8 @@ stages:
     deps:
     - path: ../../python-ast/examples/depletion/process_survey.py.ast
       hash: md5
-      md5: be3d5011299730932496d0399d58f10a
-      size: 19542
+      md5: ae2e971b50fda3974db7c3facce218ce
+      size: 21651
     - path: ../../python-ast/examples/depletion/read_survey.py.ast
       hash: md5
       md5: cd0025150d19086de08a89a7502f0859
@@ -6279,42 +6279,42 @@ stages:
       size: 4613905
     - path: process-survey/VII.0/report.json
       hash: md5
-      md5: 6aae6e99c21e992d801db64dfa1e5d1b
-      size: 197023
+      md5: 15fb32127456651d7b576241e90fa9b5
+      size: 200876
     - path: process-survey/VII.1/report.json
       hash: md5
-      md5: 9b1d235b621b9bb851259eb620117c7d
-      size: 209986
+      md5: a49770221fd46d96cda5d604a0dfffc3
+      size: 211657
     - path: process-survey/VIII.0/report.json
       hash: md5
-      md5: a4cd693e5bb3ddb212aa73269e250a08
-      size: 274561
+      md5: 6ef82ad942dd6e2a88d09cbc4155da90
+      size: 276459
     - path: process-survey/VIII.1/report.json
       hash: md5
-      md5: 416077cc0e74e56d5f69f41e09d36afc
-      size: 274450
+      md5: 140485f85ce43ac8e1bdcf46589915a4
+      size: 276724
     - path: read-survey-endfb70.toml
       hash: md5
-      md5: 37c306096b13b590937e042294a6d78b
-      size: 34454
+      md5: f4550979d486933f24cd1f374a62645a
+      size: 34210
     - path: read-survey-endfb71.toml
       hash: md5
-      md5: 8cc9ff014c729dc671621ae04ea4397a
-      size: 37098
+      md5: 289632b78ccb19d0fc1a8196bbbf8082
+      size: 36774
     - path: read-survey-endfb80.toml
       hash: md5
-      md5: 5b469fe4cc44068c53fc44c2e0cad63c
-      size: 49405
+      md5: ea0c63f65bd9c1afda9c17169b9e78c3
+      size: 49001
     - path: read-survey-endfb81.toml
       hash: md5
-      md5: adc307a648cb0b3d6e9ffeab04e15771
-      size: 49548
+      md5: 2813847c97b786c48ff89ea51a9a2595
+      size: 49091
     outs:
     - path: process-survey.json
       hash: md5
-      md5: 279fef28f810cbb3983def920823a0a0
-      size: 22935
+      md5: 1323014554ba6c0641e21757c91e2781
+      size: 17002
     - path: process-survey.txt
       hash: md5
-      md5: 0c91a7195987c02ae2572a2aff234016
-      size: 14415
+      md5: 93881e6ede9060e9983bae56e1679931
+      size: 9644

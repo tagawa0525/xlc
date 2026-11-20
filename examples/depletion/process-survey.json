@@ -4,9 +4,9 @@
   "VII.0": {
    "in_chain": {
     "evaluations": 393,
-    "passed": 382,
-    "stopped": 11,
-    "stopped_reading": 6
+    "passed": 393,
+    "stopped": 0,
+    "stopped_reading": 0
    },
    "outside_chain": {
     "evaluations": 0,
@@ -15,116 +15,91 @@
     "stopped": 0,
     "left_out": 0
    },
-   "stopped": [
+   "stopped": [],
+   "declared": [
     {
-     "nuclide": "H-2",
-     "file": "n-001_H_002.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "neutron LAW=6 is not supported",
-     "cause": "MF6 の中性子の LAW=6、7 を読めない",
-     "where": "endf/mf6.rs の parse",
-     "issue": "#0311"
-    },
-    {
-     "nuclide": "Be-9",
-     "file": "n-004_Be_009.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "neutron LAW=7 is not supported",
-     "cause": "MF6 の中性子の LAW=6、7 を読めない",
-     "where": "endf/mf6.rs の parse",
-     "issue": "#0311"
+     "nuclide": "Na-22",
+     "items": [
+      "unresolved-negative-background"
+     ]
     },
     {
      "nuclide": "Cl-35",
-     "file": "n-017_Cl_035.endf",
-     "chain": true,
-     "stage": "processing",
-     "reason": "MT2 is negative at 2 points up to the Doppler broadening limit 217643.623542 eV (1.0000e-5..1.2260e-5 eV, down to -2.218e3 b); a negative cross section cannot be broadened",
-     "cause": "広げる範囲の 0 K の断面積が負（ADR-0267 でエラー）",
-     "where": "pointwise.rs の reject_negative_broadened",
-     "issue": "#0309"
+     "items": [
+      "negative-to-zero"
+     ]
+    },
+    {
+     "nuclide": "Ar-36",
+     "items": [
+      "unresolved-negative-background"
+     ]
     },
     {
      "nuclide": "Co-58",
-     "file": "n-027_Co_058.endf",
-     "chain": true,
-     "stage": "processing",
-     "reason": "MT102 is negative at 42 points up to the Doppler broadening limit 596.41 eV (8.4925e0..9.5433e0 eV, down to -3.742e3 b); a negative cross section cannot be broadened",
-     "cause": "広げる範囲の 0 K の断面積が負（ADR-0267 でエラー）",
-     "where": "pointwise.rs の reject_negative_broadened",
-     "issue": "#0309"
+     "items": [
+      "negative-to-zero"
+     ]
     },
     {
      "nuclide": "Rb-87",
-     "file": "n-037_Rb_087.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "last NBT must equal NP",
-     "cause": "MF5 MT17 の TAB1 の補間の区切りが点の数と食い違う（評価の誤り。入力の `corrections` の宣言で読める。ADR-0272）",
-     "where": "endf/tape.rs の tab1",
-     "issue": "#0316（closed）"
+     "items": [
+      "corrections"
+     ]
+    },
+    {
+     "nuclide": "Y-89",
+     "items": [
+      "negative-to-zero"
+     ]
+    },
+    {
+     "nuclide": "Cd-106",
+     "items": [
+      "unresolved-negative-background"
+     ]
+    },
+    {
+     "nuclide": "Cd-111",
+     "items": [
+      "unresolved-negative-background"
+     ]
+    },
+    {
+     "nuclide": "Eu-154",
+     "items": [
+      "unresolved-negative-background"
+     ]
     },
     {
      "nuclide": "Ta-181",
-     "file": "n-073_Ta_181.endf",
-     "chain": true,
-     "stage": "processing",
-     "reason": "565 K: the sampled total cross section is not positive -251.8341136002381 eV from 330 eV",
-     "cause": "非分離共鳴のラダーのサンプルの全断面積が正でない",
-     "where": "resonance/ladder.rs の add_samples",
-     "issue": "#0319"
+     "items": [
+      "unresolved-negative-background"
+     ]
     },
     {
-     "nuclide": "Th-232",
-     "file": "n-090_Th_232.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "565 K: fission needs MF1 MT452 and MF5 MT18",
-     "cause": "核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない",
-     "where": "process.rs の at_temperature",
-     "issue": "#0312"
+     "nuclide": "Am-241",
+     "items": [
+      "unresolved-negative-background"
+     ]
     },
     {
-     "nuclide": "Pa-231",
-     "file": "n-091_Pa_231.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "565 K: fission needs MF1 MT452 and MF5 MT18",
-     "cause": "核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない",
-     "where": "process.rs の at_temperature",
-     "issue": "#0312"
-    },
-    {
-     "nuclide": "Pa-233",
-     "file": "n-091_Pa_233.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "565 K: fission needs MF1 MT452 and MF5 MT18",
-     "cause": "核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない",
-     "where": "process.rs の at_temperature",
-     "issue": "#0312"
+     "nuclide": "Cf-252",
+     "items": [
+      "unresolved-negative-background"
+     ]
     },
     {
      "nuclide": "Cf-253",
-     "file": "n-098_Cf_253.endf",
-     "chain": true,
-     "stage": "processing",
-     "reason": "Cf-253 at 565 K: non-finite value NaN",
-     "cause": "σ0 が 10 b 以下の群定数に NaN（作る計算は確かめていない）",
-     "where": "crates/format の library.rs の NuclideData の検査",
-     "issue": "#0320"
+     "items": [
+      "unresolved-negative-background"
+     ]
     },
     {
      "nuclide": "Es-253",
-     "file": "n-099_Es_253.endf",
-     "chain": true,
-     "stage": "processing",
-     "reason": "565 K: the sampled total cross section is not positive 5.060674332312416 eV from 8500 eV",
-     "cause": "非分離共鳴のラダーのサンプルの全断面積が正でない",
-     "where": "resonance/ladder.rs の add_samples",
-     "issue": "#0319"
+     "items": [
+      "unresolved-negative-background"
+     ]
     }
    ],
    "slowest": [
@@ -132,11 +107,6 @@
      "nuclide": "Am-242m",
      "seconds": 347.2,
      "max_rss_kb": 9608
-    },
-    {
-     "nuclide": "Eu-154",
-     "seconds": 257.02,
-     "max_rss_kb": 7632
     },
     {
      "nuclide": "Cm-245",
@@ -152,6 +122,11 @@
      "nuclide": "U-233",
      "seconds": 213.69,
      "max_rss_kb": 23396
+    },
+    {
+     "nuclide": "Eu-151",
+     "seconds": 203.74,
+     "max_rss_kb": 10320
     }
    ],
    "largest": [
@@ -172,8 +147,8 @@
     },
     {
      "nuclide": "Th-232",
-     "seconds": 28.65,
-     "max_rss_kb": 104832
+     "seconds": 31.13,
+     "max_rss_kb": 103824
     },
     {
      "nuclide": "Tc-99",
@@ -185,9 +160,9 @@
   "VII.1": {
    "in_chain": {
     "evaluations": 423,
-    "passed": 417,
-    "stopped": 6,
-    "stopped_reading": 6
+    "passed": 423,
+    "stopped": 0,
+    "stopped_reading": 0
    },
    "outside_chain": {
     "evaluations": 0,
@@ -196,66 +171,37 @@
     "stopped": 0,
     "left_out": 0
    },
-   "stopped": [
+   "stopped": [],
+   "declared": [
     {
-     "nuclide": "H-2",
-     "file": "n-001_H_002.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "neutron LAW=6 is not supported",
-     "cause": "MF6 の中性子の LAW=6、7 を読めない",
-     "where": "endf/mf6.rs の parse",
-     "issue": "#0311"
+     "nuclide": "Na-22",
+     "items": [
+      "unresolved-negative-background"
+     ]
     },
     {
-     "nuclide": "Be-9",
-     "file": "n-004_Be_009.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "neutron LAW=7 is not supported",
-     "cause": "MF6 の中性子の LAW=6、7 を読めない",
-     "where": "endf/mf6.rs の parse",
-     "issue": "#0311"
+     "nuclide": "Ar-36",
+     "items": [
+      "unresolved-negative-background"
+     ]
     },
     {
-     "nuclide": "Cl-35",
-     "file": "n-017_Cl_035.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "particle pair 3: a charged particle (ZA=1) is not supported",
-     "cause": "R 行列の制限形の荷電粒子の対を読めない",
-     "where": "resonance/r_matrix_limited.rs の role",
-     "issue": "#0264"
+     "nuclide": "Cd-106",
+     "items": [
+      "unresolved-negative-background"
+     ]
     },
     {
-     "nuclide": "Th-232",
-     "file": "n-090_Th_232.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "565 K: fission needs MF1 MT452 and MF5 MT18",
-     "cause": "核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない",
-     "where": "process.rs の at_temperature",
-     "issue": "#0312"
+     "nuclide": "Cd-111",
+     "items": [
+      "unresolved-negative-background"
+     ]
     },
     {
-     "nuclide": "Pa-231",
-     "file": "n-091_Pa_231.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "565 K: fission needs MF1 MT452 and MF5 MT18",
-     "cause": "核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない",
-     "where": "process.rs の at_temperature",
-     "issue": "#0312"
-    },
-    {
-     "nuclide": "Pa-233",
-     "file": "n-091_Pa_233.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "565 K: fission needs MF1 MT452 and MF5 MT18",
-     "cause": "核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない",
-     "where": "process.rs の at_temperature",
-     "issue": "#0312"
+     "nuclide": "Eu-154",
+     "items": [
+      "unresolved-negative-background"
+     ]
     }
    ],
    "slowest": [
@@ -263,11 +209,6 @@
      "nuclide": "Am-242m",
      "seconds": 393.16,
      "max_rss_kb": 10104
-    },
-    {
-     "nuclide": "Eu-154",
-     "seconds": 294.03,
-     "max_rss_kb": 7660
     },
     {
      "nuclide": "U-238",
@@ -283,6 +224,11 @@
      "nuclide": "Np-238",
      "seconds": 232.87,
      "max_rss_kb": 13340
+    },
+    {
+     "nuclide": "Eu-151",
+     "seconds": 231.7,
+     "max_rss_kb": 10036
     }
    ],
    "largest": [
@@ -303,8 +249,8 @@
     },
     {
      "nuclide": "Th-232",
-     "seconds": 28.99,
-     "max_rss_kb": 105772
+     "seconds": 30.6,
+     "max_rss_kb": 106004
     },
     {
      "nuclide": "Tm-169",
@@ -316,9 +262,9 @@
   "VIII.0": {
    "in_chain": {
     "evaluations": 556,
-    "passed": 549,
-    "stopped": 7,
-    "stopped_reading": 7
+    "passed": 556,
+    "stopped": 0,
+    "stopped_reading": 0
    },
    "outside_chain": {
     "evaluations": 1,
@@ -327,76 +273,37 @@
     "stopped": 0,
     "left_out": 1
    },
-   "stopped": [
+   "stopped": [],
+   "declared": [
     {
-     "nuclide": "H-2",
-     "file": "n-001_H_002.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "neutron LAW=6 is not supported",
-     "cause": "MF6 の中性子の LAW=6、7 を読めない",
-     "where": "endf/mf6.rs の parse",
-     "issue": "#0311"
+     "nuclide": "Na-22",
+     "items": [
+      "unresolved-negative-background"
+     ]
     },
     {
-     "nuclide": "Be-9",
-     "file": "n-004_Be_009.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "neutron LAW=7 is not supported",
-     "cause": "MF6 の中性子の LAW=6、7 を読めない",
-     "where": "endf/mf6.rs の parse",
-     "issue": "#0311"
+     "nuclide": "Ar-36",
+     "items": [
+      "unresolved-negative-background"
+     ]
     },
     {
-     "nuclide": "Cl-35",
-     "file": "n-017_Cl_035.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "particle pair 3: a charged particle (ZA=1) is not supported",
-     "cause": "R 行列の制限形の荷電粒子の対を読めない",
-     "where": "resonance/r_matrix_limited.rs の role",
-     "issue": "#0264"
+     "nuclide": "Cd-106",
+     "items": [
+      "unresolved-negative-background"
+     ]
     },
     {
-     "nuclide": "Ca-40",
-     "file": "n-020_Ca_040.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "particle pair 3: a charged particle (ZA=2) is not supported",
-     "cause": "R 行列の制限形の荷電粒子の対を読めない",
-     "where": "resonance/r_matrix_limited.rs の role",
-     "issue": "#0264"
+     "nuclide": "Cd-111",
+     "items": [
+      "unresolved-negative-background"
+     ]
     },
     {
-     "nuclide": "Th-232",
-     "file": "n-090_Th_232.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "565 K: fission needs MF1 MT452 and MF5 MT18",
-     "cause": "核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない",
-     "where": "process.rs の at_temperature",
-     "issue": "#0312"
-    },
-    {
-     "nuclide": "Pa-231",
-     "file": "n-091_Pa_231.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "565 K: fission needs MF1 MT452 and MF5 MT18",
-     "cause": "核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない",
-     "where": "process.rs の at_temperature",
-     "issue": "#0312"
-    },
-    {
-     "nuclide": "Pa-233",
-     "file": "n-091_Pa_233.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "565 K: fission needs MF1 MT452 and MF5 MT18",
-     "cause": "核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない",
-     "where": "process.rs の at_temperature",
-     "issue": "#0312"
+     "nuclide": "Eu-154",
+     "items": [
+      "unresolved-negative-background"
+     ]
     }
    ],
    "slowest": [
@@ -404,11 +311,6 @@
      "nuclide": "Am-242m",
      "seconds": 281.06,
      "max_rss_kb": 10396
-    },
-    {
-     "nuclide": "Eu-154",
-     "seconds": 233.59,
-     "max_rss_kb": 8416
     },
     {
      "nuclide": "Eu-151",
@@ -424,6 +326,11 @@
      "nuclide": "Am-242",
      "seconds": 153.62,
      "max_rss_kb": 11268
+    },
+    {
+     "nuclide": "Np-236",
+     "seconds": 152.84,
+     "max_rss_kb": 11260
     }
    ],
    "largest": [
@@ -457,9 +364,9 @@
   "VIII.1": {
    "in_chain": {
     "evaluations": 557,
-    "passed": 549,
-    "stopped": 8,
-    "stopped_reading": 8
+    "passed": 557,
+    "stopped": 0,
+    "stopped_reading": 0
    },
    "outside_chain": {
     "evaluations": 1,
@@ -468,86 +375,43 @@
     "stopped": 0,
     "left_out": 1
    },
-   "stopped": [
+   "stopped": [],
+   "declared": [
     {
-     "nuclide": "H-2",
-     "file": "n-001_H_002.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "neutron LAW=6 is not supported",
-     "cause": "MF6 の中性子の LAW=6、7 を読めない",
-     "where": "endf/mf6.rs の parse",
-     "issue": "#0311"
+     "nuclide": "Na-22",
+     "items": [
+      "unresolved-negative-background"
+     ]
     },
     {
-     "nuclide": "Li-6",
-     "file": "n-003_Li_006.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "neutron LAW=6 is not supported",
-     "cause": "MF6 の中性子の LAW=6、7 を読めない",
-     "where": "endf/mf6.rs の parse",
-     "issue": "#0311"
+     "nuclide": "Ar-36",
+     "items": [
+      "unresolved-negative-background"
+     ]
     },
     {
-     "nuclide": "Be-9",
-     "file": "n-004_Be_009.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "neutron LAW=7 is not supported",
-     "cause": "MF6 の中性子の LAW=6、7 を読めない",
-     "where": "endf/mf6.rs の parse",
-     "issue": "#0311"
+     "nuclide": "Ni-60",
+     "items": [
+      "negative-to-zero"
+     ]
     },
     {
-     "nuclide": "Cl-35",
-     "file": "n-017_Cl_035.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "particle pair 3: a charged particle (ZA=1) is not supported",
-     "cause": "R 行列の制限形の荷電粒子の対を読めない",
-     "where": "resonance/r_matrix_limited.rs の role",
-     "issue": "#0264"
+     "nuclide": "Cd-106",
+     "items": [
+      "unresolved-negative-background"
+     ]
     },
     {
-     "nuclide": "Ca-40",
-     "file": "n-020_Ca_040.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "particle pair 3: a charged particle (ZA=2) is not supported",
-     "cause": "R 行列の制限形の荷電粒子の対を読めない",
-     "where": "resonance/r_matrix_limited.rs の role",
-     "issue": "#0264"
+     "nuclide": "Cd-111",
+     "items": [
+      "unresolved-negative-background"
+     ]
     },
     {
-     "nuclide": "Th-232",
-     "file": "n-090_Th_232.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "565 K: fission needs MF1 MT452 and MF5 MT18",
-     "cause": "核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない",
-     "where": "process.rs の at_temperature",
-     "issue": "#0312"
-    },
-    {
-     "nuclide": "Pa-231",
-     "file": "n-091_Pa_231.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "565 K: fission needs MF1 MT452 and MF5 MT18",
-     "cause": "核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない",
-     "where": "process.rs の at_temperature",
-     "issue": "#0312"
-    },
-    {
-     "nuclide": "Pa-233",
-     "file": "n-091_Pa_233.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "565 K: fission needs MF1 MT452 and MF5 MT18",
-     "cause": "核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない",
-     "where": "process.rs の at_temperature",
-     "issue": "#0312"
+     "nuclide": "Eu-154",
+     "items": [
+      "unresolved-negative-background"
+     ]
     }
    ],
    "slowest": [
@@ -555,11 +419,6 @@
      "nuclide": "Am-242m",
      "seconds": 305.32,
      "max_rss_kb": 10092
-    },
-    {
-     "nuclide": "Eu-154",
-     "seconds": 250.99,
-     "max_rss_kb": 7852
     },
     {
      "nuclide": "H-1",
@@ -575,6 +434,11 @@
      "nuclide": "Np-236",
      "seconds": 194.47,
      "max_rss_kb": 10472
+    },
+    {
+     "nuclide": "Eu-151",
+     "seconds": 192.12,
+     "max_rss_kb": 11024
     }
    ],
    "largest": [
@@ -619,6 +483,18 @@
    "VIII.0": 542,
    "VIII.1": 539
   },
+  "xlc_xs::endf::mf6: neutron LAW=N phase space is grouped at each incident energy; NJOY GROUPR tabulates it N apart in incident energy and interpolates the laboratory spectra by unit base (ADR-N)": {
+   "VII.0": 1,
+   "VII.1": 1,
+   "VIII.0": 1,
+   "VIII.1": 2
+  },
+  "xlc_xs::endf::mf6: neutron LAW=N is integrated over the cosines as tabulated; NJOY GROUPR's llNlab thins the outgoing energies with swapped interpolation weights, which smears histogram tables (ADR-N)": {
+   "VII.0": 1,
+   "VII.1": 1,
+   "VIII.0": 1,
+   "VIII.1": 1
+  },
   "xlc_xs::pointwise: N reactions start below their kinematic threshold -Q(A+N)/A and now start at it with a zero cross section; the largest shift is N eV in MTN and the largest relative shift is N of the threshold in MTN; N points below the thresholds were dropped; N reactions had nonzero values below the threshold, now N (the largest N of the reaction maximum in MTN)": {
    "VII.0": 15,
    "VII.1": 10,
@@ -631,8 +507,14 @@
    "VIII.0": 8,
    "VIII.1": 4
   },
+  "xlc_xs::process: the MFN background in the unresolved range is negative (MTN down to -N b at N eV); the sampled File N part of each reaction with a negative background is scaled by (mean + background)/mean instead, as the input declares (ADR-N)": {
+   "VII.0": 10,
+   "VII.1": 5,
+   "VIII.0": 5,
+   "VIII.1": 5
+  },
   "xlc_xs::process: N K: the sampled elastic (with the MFN background) is negative at N of N sampled energies in the unresolved range and is raised to N microbarn, as NJOY PURR does": {
-   "VII.0": 6,
+   "VII.0": 8,
    "VII.1": 5,
    "VIII.0": 4,
    "VIII.1": 4
@@ -649,10 +531,20 @@
    "VIII.0": 30,
    "VIII.1": 34
   },
+  "xlc_xs::pointwise: MTN: N of N points in N..N eV are negative (down to -N b, at N..N eV) and are raised to N, as the input declares (ADR-N)": {
+   "VII.0": 2,
+   "VIII.1": 1
+  },
   "xlc_xs::pointwise: resolved range N..N eV: the elastic with the MFN background is negative at N of N points (down to -N b, at N..N eV) and is raised to N (NJOY RECONR raises it to N b, ADR-N)": {
    "VII.0": 3,
    "VII.1": 3,
    "VIII.1": 2
+  },
+  "xs: Rb-N: corrected line N (MFN MTN) field N from N to N, as the input declares": {
+   "VII.0": 1
+  },
+  "xlc_xs::pointwise: MTN: N of N points in N..N eV are negative (down to -N b, at N..N eV) and are raised to N, as the input declares (ADR-N); the raised amount (up to N b) is taken from MTN, keeping the total": {
+   "VII.0": 1
   },
   "xlc_xs::pointwise: SLBW range N..N eV: the resonance elastic is negative at N of N points; the sum with the MFN background is negative at N of them (down to -N b) and is raised to N, and the background compensates the other N (NJOY RECONR raises the resonance part alone to N before adding the background, ADR-N)": {
    "VII.0": 10,
@@ -673,6 +565,10 @@
    "VII.1": 50,
    "VIII.0": 52,
    "VIII.1": 53
+  },
+  "xlc_xs::pointwise: resolved range N..N eV: N widths of charged particle pairs (MT {N, N}) lie below the Coulomb barrier with eta >= N; xs computes the Coulomb penetrability exactly, NJOY RECONR approximates it there (JWKB, the large-eta series, and N below N), so these reactions differ from NJOY (ADR-N)": {
+   "VIII.0": 1,
+   "VIII.1": 1
   },
   "xlc_xs::endf::mf2: unresolved range has L=N beyond the ENDF limit of N; using the hard-sphere factors for that L (NJOY uses those of L=N)": {
    "VIII.0": 1,
@@ -738,6 +634,21 @@
     "VII.1": 7416,
     "VIII.0": 13936,
     "VIII.1": 14848
+   }
+  },
+  {
+   "nuclide": "Ta-181",
+   "seconds": {
+    "VII.0": 3.25,
+    "VII.1": 17.48,
+    "VIII.0": 19.66,
+    "VIII.1": 85.63
+   },
+   "max_rss_kb": {
+    "VII.0": 11188,
+    "VII.1": 28340,
+    "VIII.0": 29616,
+    "VIII.1": 123372
    }
   },
   {
@@ -829,16 +740,31 @@
     "VIII.0": 11700,
     "VIII.1": 10996
    }
+  },
+  {
+   "nuclide": "Cf-252",
+   "seconds": {
+    "VII.0": 1.18,
+    "VII.1": 16.03,
+    "VIII.0": 11.01,
+    "VIII.1": 8.15
+   },
+   "max_rss_kb": {
+    "VII.0": 9624,
+    "VII.1": 14688,
+    "VIII.0": 15256,
+    "VIII.1": 14640
+   }
   }
  ],
  "inputs": [
   {
    "path": "process-survey/VII.0/report.json",
-   "md5": "6aae6e99c21e992d801db64dfa1e5d1b"
+   "md5": "15fb32127456651d7b576241e90fa9b5"
   },
   {
    "path": "read-survey-endfb70.toml",
-   "md5": "37c306096b13b590937e042294a6d78b"
+   "md5": "f4550979d486933f24cd1f374a62645a"
   },
   {
    "path": "endfb70/chain.msgpack",
@@ -846,11 +772,11 @@
   },
   {
    "path": "process-survey/VII.1/report.json",
-   "md5": "9b1d235b621b9bb851259eb620117c7d"
+   "md5": "a49770221fd46d96cda5d604a0dfffc3"
   },
   {
    "path": "read-survey-endfb71.toml",
-   "md5": "8cc9ff014c729dc671621ae04ea4397a"
+   "md5": "289632b78ccb19d0fc1a8196bbbf8082"
   },
   {
    "path": "endfb71/chain.msgpack",
@@ -858,11 +784,11 @@
   },
   {
    "path": "process-survey/VIII.0/report.json",
-   "md5": "a4cd693e5bb3ddb212aa73269e250a08"
+   "md5": "6ef82ad942dd6e2a88d09cbc4155da90"
   },
   {
    "path": "read-survey-endfb80.toml",
-   "md5": "5b469fe4cc44068c53fc44c2e0cad63c"
+   "md5": "ea0c63f65bd9c1afda9c17169b9e78c3"
   },
   {
    "path": "chain.msgpack",
@@ -870,11 +796,11 @@
   },
   {
    "path": "process-survey/VIII.1/report.json",
-   "md5": "416077cc0e74e56d5f69f41e09d36afc"
+   "md5": "140485f85ce43ac8e1bdcf46589915a4"
   },
   {
    "path": "read-survey-endfb81.toml",
-   "md5": "adc307a648cb0b3d6e9ffeab04e15771"
+   "md5": "2813847c97b786c48ff89ea51a9a2595"
   },
   {
    "path": "endfb81/chain.msgpack",

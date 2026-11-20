@@ -21,7 +21,9 @@ use xlc_chain::endf::read_material;
 use xlc_depletion::chain::Chain;
 use xlc_xs::endf::{Reader, Tape};
 use xlc_xs::pointwise::DEFAULT_TOLERANCE;
-use xlc_xs::process::{ProcessError, read_evaluation, resolved, unresolved_shielding};
+use xlc_xs::process::{
+    ProcessError, UnresolvedMethod, read_evaluation, resolved, unresolved_shielding,
+};
 
 /// 非分離共鳴の自己遮蔽を確かめる温度 (K)。VERA の燃料の核種の温度（examples/vera/xs.toml の値をコピーしたもの。変えたら合わせる）
 const TEMPERATURES: [f64; 4] = [565.0, 600.0, 900.0, 1200.0];
@@ -279,7 +281,7 @@ fn skip_range(r: &mut Reader<'_>, h: &RangeHead, lfw: i64) -> Result<(), String>
 fn read_failures(tape: &Tape, mat: i32) -> Vec<(String, String)> {
     // 先の確認で止まっても、あとの確認を続ける（ほかの理由を隠さない）。同じ理由は `summarize` が評価ごとに 1 つに数える
     let mut failures = Vec::new();
-    // 入力の宣言（`negative-to-zero`。ADR-0267）は読まず、評価をそのまま読む
+    // 入力の宣言（`negative-to-zero`。ADR-0267。非分離共鳴の `unresolved-negative-background`。ADR-0274）は読まず、評価をそのまま読む
     if let Err(err) = read_evaluation(tape, DEFAULT_TOLERANCE, &[]) {
         failures.push(("evaluation".into(), err.to_string()));
     }
@@ -288,11 +290,12 @@ fn read_failures(tape: &Tape, mat: i32) -> Vec<(String, String)> {
     }
     // 温度を 1 つずつ渡し、どの温度で止まるかをすべて挙げる（全温度を 1 度に渡すと、最初にエラーになる温度だけが返る）
     for t in TEMPERATURES {
-        let failure = match unresolved_shielding(tape, mat, &[t], &SIGMA0) {
-            Ok(_) => continue,
-            Err(ProcessError::Temperature { source, .. }) => source.to_string(),
-            Err(err) => err.to_string(),
-        };
+        let failure =
+            match unresolved_shielding(tape, mat, &[t], &SIGMA0, UnresolvedMethod::Additive) {
+                Ok(_) => continue,
+                Err(ProcessError::Temperature { source, .. }) => source.to_string(),
+                Err(err) => err.to_string(),
+            };
         failures.push((format!("unresolved at {t} K"), failure));
     }
     failures
