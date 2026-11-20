@@ -243,6 +243,15 @@ fn two_step_phase_space_is_error() {
     let tape = Tape::parse(&phase_space("1", "2.0", "3")).unwrap();
     let err = Mf6::parse(&tape.section(825, 6, 16).unwrap()).unwrap_err();
     assert_eq!(err.line, 5, "{err}");
+    // 1 段の反応の APSX は A + 1 から Q/(m_n c²) ほど（0.002〜0.004）ずれるだけで、通る。境は中性子の質量の半分
+    for (apsx, ok) in [("2.9928", true), ("2.5", true), ("2.49", false)] {
+        let tape = Tape::parse(&phase_space("1", apsx, "3")).unwrap();
+        assert_eq!(
+            Mf6::parse(&tape.section(825, 6, 16).unwrap()).is_ok(),
+            ok,
+            "APSX={apsx}"
+        );
+    }
 }
 
 #[test]
@@ -420,6 +429,17 @@ fn law7_cosines_over_part_of_the_range_integrate_what_is_given() {
     };
     let expected = 0.25 * 2.0e-7 + 0.75 * 4.0e-7;
     assert!((d.spectra[0].eval(0.0).unwrap() - expected).abs() < 1e-18);
+    // E' = 5e5 では μ = 1 の表が 8e-7 で、最後の余弦の重み 0.5 も効く
+    let expected = 0.25 * 2.0e-7 + 0.75 * 4.0e-7 + 0.5 * 8.0e-7;
+    assert!((d.spectra[0].eval(5.0e5).unwrap() - expected).abs() < 1e-18);
+}
+
+#[test]
+fn law7_cosines_outside_minus_one_to_one_are_error() {
+    let text = angle_energy("1", "2").replacen("       -1.0", "       -1.5", 1);
+    let tape = Tape::parse(&text).unwrap();
+    let err = Mf6::parse(&tape.section(825, 6, 16).unwrap()).unwrap_err();
+    assert_eq!(err.line, 7, "{err}");
 }
 
 /// 中性子が LAW=7 で、入射エネルギー 2e6 と 3e6 のどちらも余弦が 1 つだけ（μ = 0）の節
