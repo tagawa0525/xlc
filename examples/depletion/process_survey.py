@@ -3,17 +3,19 @@
 読み込みの走査（read_survey.py、`xs check`。ADR-0266）が確かめない処理（再構成、ドップラー拡がり、非分離共鳴、群定数、MF8 の経路の和）
 で止まる評価を、版ごとに洗い出す。
 
-使い方: python3 process_survey.py input <置き場> <走査の報告（TOML）> <チェーン（TOML）> <チェーン（msgpack）> <版の xs の入力> [--reuse <ログ>]
-        python3 process_survey.py report <置き場> [--reuse <ログ>]
+使い方: python3 process_survey.py input <置き場> <走査の報告（TOML）> <チェーン（TOML）> <チェーン（msgpack）> <版の xs の入力> [--reuse <前の置き場>]
+        python3 process_survey.py report <置き場> [--reuse <前の置き場>]
         python3 process_survey.py summary --json <要約の出力先> <版>=<置き場>,<走査の報告>,<チェーン（msgpack）>...
         python3 process_survey.py --report <要約の JSON>
 
-- `input`: 置き場に xs の入力 `xs.toml` と、`xs nuclide` に通す核種の一覧 `nuclides.txt` を書く。走査の評価のすべてを、温度
-  `TEMPERATURE` の 1 点で輸送する核種にする（走査で止まる評価も、`xs nuclide` が止まる場所を確かめるために入れる）。名前はチェーンの
-  名前、チェーンに無いものはファイルの名前（`input_entries`）。S(α, β) の核種は版の xs の入力の項目をそのまま使う。`--reuse` は
-  前に流した結果の混ざったログ（Slurm 999 の xs.log の形）で、そこで終わった核種を `nuclides.txt` から除く
+- `input`: 置き場に xs の入力 `xs.toml`、範囲の入力 `range.toml`（`range_entries`）、`xs nuclide` に通す核種の一覧 `nuclides.txt` を
+  書く。走査の評価のすべてを、温度 `TEMPERATURE` の 1 点で輸送する核種にする（走査で止まる評価も、`xs nuclide` が止まる場所を
+  確かめるために入れる）。名前はチェーンの名前、チェーンに無いものはファイルの名前（`input_entries`）。S(α, β) の核種は版の xs の
+  入力の項目をそのまま使う。`--reuse` は前に流した置き場（`xs.toml`、`xs-range.toml`、混ざったログ `xs.log`。Slurm 999 の形）で、
+  そこで同じ項目のまま終わった核種（`reusable`）を `nuclides.txt` から除く
 - `report`: 置き場の `log/<核種>.log`（`xs nuclide` の標準エラー）と `log/<核種>.time`（GNU time の `-f "%e s %U user %M kB exit %x"`）、
-  無い核種は `--reuse` のログから、評価ごとの成否、止まった文、時間、最大の常駐、警告の種類の数を `report.json` に書く
+  無い核種は `--reuse` の置き場のログ（範囲が同じときだけ）から、評価ごとの成否、止まった文、時間、最大の常駐、警告の種類の数を
+  `report.json` に書く
 - `summary`: 版ごとに、チェーンの中と外の成否、止まった評価の段（走査でも止まれば reading、ほかは processing）と原因（`CAUSES`）、
   警告の種類ごとの評価の数、時間と常駐の大きい核種、版の間で時間か常駐が 10 倍以上違う核種を JSON に書き、文章を標準出力に書く
 - `--report`: 要約の JSON を文章で描く
@@ -387,6 +389,36 @@ def report_text(summary: dict) -> list[str]:
     return lines
 
 
+def reusable(entries: dict, earlier: dict, done: set[str]) -> set[str]:
+    """前の入力 `earlier` で終わった核種 `done` のうち、項目が今の入力 `entries` と同じもの（同じ処理なので結果を使える）"""
+    unknown = done - set(entries)
+    if unknown:
+        raise SystemExit(f"{sorted(unknown)} of the reused run are not in the input")
+    return {n for n in done if earlier.get(n) == entries[n]}
+
+
+def range_entries(entries: dict, survey: dict) -> dict:
+    """範囲（`xs range`）の入力の核種: 走査で止まる評価を除く（`xs range` は MF2 を読み、読めない評価で止まる。ライブラリに入れられる
+    評価の範囲にする）"""
+    stopped = {Path(e["endf"]).name for e in survey["evaluation"] if "error" in e}
+    return {n: e for n, e in entries.items() if e["endf"] not in stopped}
+
+
+def read_reuse(place: Path, reuse: Path) -> tuple[dict, set[str]]:
+    """前に流した置き場 `reuse`（xs.toml、xs.log）の終わった核種の項目と、今の入力で使える核種"""
+    text = (reuse / "xs.toml").read_text()
+    earlier, now = tomllib.loads(text), tomllib.loads((place / "xs.toml").read_text())
+    for key in ("sigma0", "scattering-order"):
+        if earlier.get(key) != now.get(key):
+            raise SystemExit(f"the reused input has another {key}")
+    if (reuse / earlier["endf-directory"]).resolve() != (
+        place / now["endf-directory"]
+    ).resolve():
+        raise SystemExit("the reused input reads another ENDF directory")
+    runs = combined_runs((reuse / "xs.log").read_text())
+    return runs, reusable(now["nuclide"], earlier["nuclide"], set(runs))
+
+
 def write_input(args: list[str]) -> None:
     reuse = None
     if len(args) == 8 and args[6] == "--reuse":
@@ -422,14 +454,17 @@ def write_input(args: list[str]) -> None:
     ]
     if reuse is not None:
         head.append(
-            f"nuclides.txt は、{reuse.name} で終わった核種を除く（report の --reuse）"
+            f"nuclides.txt は、{reuse} の実行で同じ項目のまま終わった核種を除く（report の --reuse）"
         )
+    range_head = [
+        f"#0292: xs.toml のうち、走査（{survey_path.name}）で止まらない評価だけの、`xs range` の入力。process_survey.py が書く。",
+    ]
     place.mkdir(parents=True, exist_ok=True)
     (place / "xs.toml").write_text(render_input(head, common, entries))
-    done = set(combined_runs(reuse.read_text())) if reuse is not None else set()
-    unknown = done - set(entries)
-    if unknown:
-        raise SystemExit(f"{sorted(unknown)} of the reused log are not in the input")
+    (place / "range.toml").write_text(
+        render_input(range_head, common, range_entries(entries, survey))
+    )
+    done = read_reuse(place, reuse)[1] if reuse is not None else set()
     (place / "nuclides.txt").write_text(
         "".join(f"{n}\n" for n in entries if n not in done)
     )
@@ -443,24 +478,30 @@ def write_report(args: list[str]) -> None:
         raise SystemExit(__doc__)
     place = Path(args[1])
     entries = tomllib.loads((place / "xs.toml").read_text())["nuclide"]
-    reused = combined_runs(reuse.read_text()) if reuse is not None else {}
+    runs, usable = read_reuse(place, reuse) if reuse is not None else ({}, set())
+    if (
+        reuse is not None
+        and (place / "xs-range.toml").read_text()
+        != (reuse / "xs-range.toml").read_text()
+    ):
+        raise SystemExit("the reused run has another pointwise range")
     evaluations = []
     for name, entry in entries.items():
         log, time = place / "log" / f"{name}.log", place / "log" / f"{name}.time"
         if log.exists():
             e = evaluation(name, entry["endf"], log.read_text(), time.read_text())
             e["source"] = "log"
-        elif name in reused:
-            e = {**reused[name], "endf": entry["endf"], "source": "reused"}
+        elif name in usable:
+            e = {**runs[name], "endf": entry["endf"], "source": "reused"}
         else:
             raise SystemExit(f"{name} has no log")
         evaluations.append(e)
     report = {"format": "xlc-process-survey-report", "evaluations": evaluations}
     if reuse is not None:
-        report["reused"] = {
-            "path": str(reuse),
-            "md5": hashlib.md5(reuse.read_bytes()).hexdigest(),
-        }
+        report["reused"] = [
+            {"path": str(f), "md5": hashlib.md5(f.read_bytes()).hexdigest()}
+            for f in (reuse / "xs.toml", reuse / "xs-range.toml", reuse / "xs.log")
+        ]
     (place / "report.json").write_text(
         json.dumps(report, indent=1, ensure_ascii=False) + "\n"
     )
