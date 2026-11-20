@@ -893,8 +893,8 @@ cargo run --release -p xlc-xs --example compare_njoy_gendf -- \
 
 ### 計算
 
-`compare_njoy_gendf` は xlc 7bcc9559（分岐点 51245259、2026-11-21。重心系の変換は下の「重心系の分布の実験室系の群への振り分け」）で、手元で実行した。
-`xs nuclide` は 4a04ac94（分岐点 0f883589、2026-11-21）と 7bcc9559 の `cargo build --release` の bin（どちらも 4 スレッド。終了コードは両方で確かめ、時間は 4a04ac94 のもの）で、`issue-0312/fission-<版>.toml`
+`compare_njoy_gendf` は xlc 754671c0（分岐点 51245259、2026-11-21。重心系の変換は下の「重心系の分布の実験室系の群への振り分け」）で、手元で実行した。
+`xs nuclide` は 4a04ac94（分岐点 0f883589、2026-11-21）と 754671c0 の `cargo build --release` の bin（どちらも 4 スレッド。終了コードは両方で確かめ、時間は 4a04ac94 のもの）で、`issue-0312/fission-<版>.toml`
 （σ0 と散乱の次数は `read-survey/sample-<版>.toml` と同じ、温度 1 点の 600 K）に `examples/depletion/xs-range.toml` を与えて実行した。
 
 ### 結果
@@ -958,7 +958,7 @@ python3 examples/depletion/compare_xs_outputs.py <main の出力> <ブランチ�
 
 ### 計算
 
-xlc 7bcc9559（分岐点 51245259、2026-11-21）。手元で実行した。NJOY の許容を変えたビルドは、references/NJOY2016（2016.79）の src に
+xlc 754671c0（分岐点 51245259、2026-11-21）。手元で実行した。NJOY の許容を変えたビルドは、references/NJOY2016（2016.79）の src に
 `issue-0325/njoy-cm2lab-tol.patch` だけを当て、手元で gfortran 13 と cmake でビルドしたもの（パッチなしで同じ手順でビルドした njoy の
 VIII.0 の Th-232 の GENDF は、references の devShell の njoy の GENDF とバイトで同じ）。入力は references/njoy-runs/mf6-fission/<核種>-VIII.0/ と同じで、
 出力は `<核種>-VIII.0-cm2lab-tol1e-4`、`Th232-VIII.0-isotropic-cm2lab-tol1e-4` に置いた（git で追跡しない）。`xs nuclide` は `issue-0325/existing-VIII.0.toml`
@@ -1008,8 +1008,8 @@ Th232-VIII.0-isotropic-cm2lab-tol1e-4 chi  : max rel diff 1.72e-3 in group 19 (o
 - 本番の結果への影響の見積もり（確かめていない）: 散乱行列の変わる量は行の和の 1e-5 以下で、χ が変わるのは MF6 MT18 の 3 核種（燃焼の
   チェーンで微量の核種）だけなので、格子計算の k への効きは 1 pcm に満たない程度と見込む
 - 時間: `perf stat` の `cycles:u`（手元の計算で、ほかのジョブと重なった時間があり、時間は記録の測定ではない）は、main に対してブランチが
-  U-235 0.98 倍、U-238 0.98 倍、Pu-239 1.01 倍、Zr-90 0.99 倍、O-16 0.98 倍、Fe-56 1.04 倍、H-1 0.97 倍、Th-232 0.97 倍、Pa-231 0.96 倍、Pa-233 1.00 倍で、
-  変わらない側の H-1 と同じく、ばらつきの幅に収まる。区間をすべての境界の折れ目で分けて求積した途中の形（#0325 の「検討して捨てた形」）は、U-238 で
+  U-235 0.94 倍、U-238 0.97 倍、Pu-239 1.00 倍、Zr-90 1.01 倍、O-16 1.04 倍、Fe-56 0.87 倍、H-1 1.13 倍、Th-232 0.99 倍、Pa-231 0.96 倍、Pa-233 0.99 倍で、
+  計算の変わらない H-1 の 1.13 倍と同じ程度のばらつきに収まる。区間をすべての境界の折れ目で分けて求積した途中の形（#0325 の「検討して捨てた形」）は、U-238 で
   main の 1.5 倍の時間（経過時間、手元）がかかった
 
 ## 版ごとのライブラリの分離共鳴の R 行列の制限形の核分裂
