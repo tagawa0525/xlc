@@ -50,6 +50,16 @@ class CompareTest(unittest.TestCase):
             "U-235 600 K shielded capture: max rel diff 9.091e-02 at sigma0 0, group 1",
         )
 
+    def test_different_group_counts_stop(self):
+        # 散乱行列の行の数と自己遮蔽した量の長さが違う出力は、短い方に切り詰めて比べずに止める
+        rows = output()
+        rows["nuclides"][0]["temperatures"][0]["scatter"][0].pop()
+        shielded = output()
+        shielded["nuclides"][0]["temperatures"][0]["shielded"][0]["capture"].pop()
+        for b in (rows, shielded):
+            with self.assertRaises(ValueError):
+                cxo.compare(output(), b)
+
     def test_different_nuclides_stop(self):
         b = copy.deepcopy(output())
         b["nuclides"][0]["name"] = "U-238"
