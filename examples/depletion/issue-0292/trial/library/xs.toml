@@ -341,6 +341,7 @@ temperatures = [560, 565, 570, 580, 590, 600, 610, 615, 750, 900, 1050, 1200, 13
 [nuclide.Cd-106]
 endf = "n-048_Cd_106.endf"
 temperatures = [560, 565, 570, 580, 590, 600, 610, 615, 750, 900, 1050, 1200, 1350]
+unresolved-negative-background = "scale"
 
 [nuclide.Cd-108]
 endf = "n-048_Cd_108.endf"
@@ -353,6 +354,7 @@ temperatures = [560, 565, 570, 580, 590, 600, 610, 615, 750, 900, 1050, 1200, 13
 [nuclide.Cd-111]
 endf = "n-048_Cd_111.endf"
 temperatures = [560, 565, 570, 580, 590, 600, 610, 615, 750, 900, 1050, 1200, 1350]
+unresolved-negative-background = "scale"
 
 [nuclide.Cd-112]
 endf = "n-048_Cd_112.endf"

@@ -170,6 +170,7 @@ temperatures = [565, 600, 900, 1200]
 [nuclide.Am-241]
 endf = "n-095_Am_241.endf"
 temperatures = [565, 600, 900, 1200]
+unresolved-negative-background = "scale"
 
 [nuclide.Am-242m]
 endf = "n-095_Am_242m1.endf"
