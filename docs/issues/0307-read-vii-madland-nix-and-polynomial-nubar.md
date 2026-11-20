@@ -42,6 +42,5 @@ resolution: コミット f6360d711
   割合が 1.6e-7 ずれ、1e-4 eV より下の群では負になりうる。レビューの指摘）。小さいところを、g を √u E1(u) の積分に書いた 8 点の
   Gauss-Legendre の二重の積分で求める形を試したが、Am-241（VII.0）の `compare_njoy_gendf` が閉じた式だけの 4.1 秒から 36.7 秒になった
   ので捨て、同じ積分の級数の始めの 3 項にした（2.4 秒。閾値の前後の相対誤差は、閉じた式で 3e-9 以下、級数で 1.1e-11 以下）
-- 2026-11-20: VII.0 と VII.1 の 65 核種のライブラリのステージ（examples/depletion/endfb70、endfb71 の dvc.yaml の xs-nuclide と xs）が、
-  f6360d711 の後の xs で最後まで終わり（Slurm 987、988）、閉じた（ブランチ feat/0303-pin-depletion-by-endf-version の
-  examples/depletion/verification.md の「版ごとのピンセルの燃焼」）
+- 2026-11-20: VII.0 と VII.1 の 65 核種のライブラリが最後まで作れ（Slurm 987、988。examples/depletion/verification.md の
+  「版ごとのピンセルの燃焼」）、閉じた
