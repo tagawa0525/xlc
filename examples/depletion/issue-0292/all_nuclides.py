@@ -60,8 +60,11 @@ def chain_evaluations(survey: dict, chain: dict) -> dict[str, tuple[str, str | N
     out = {}
     for e in survey["evaluation"]:
         name = names.get(nuclide_key(e["endf"]))
-        if name is not None:
-            out[name] = (Path(e["endf"]).name, e.get("error"))
+        if name is None:
+            continue
+        if name in out:
+            raise SystemExit(f"{name} has two evaluations in the survey")
+        out[name] = (Path(e["endf"]).name, e.get("error"))
     return out
 
 
@@ -143,12 +146,22 @@ def render(base_text: str, head: list[str], entries: dict) -> str:
     return "\n".join([*(f"# {h}" for h in head), *common, "", "[nuclide]", *rows, ""])
 
 
-def exclusion_notes() -> list[str]:
+def exclusion_notes(base: dict, excluded: dict) -> list[str]:
+    """外した核種ごとの注釈（試行の入力 `base` で放射化の核種なら、残すことを書く。`library_entries` と同じ判定）"""
     return [
         f"{n}: {reason}（{issue}）"
-        + ("。放射化の核種として残す" if n not in ("Cl-35", "Ca-40") else "")
-        for n, (issue, reason) in EXCLUDED.items()
+        + ("。放射化の核種として残す" if base.get(n, {}).get("activation") else "")
+        for n, (issue, reason) in excluded.items()
     ]
+
+
+def job_lists(entries: dict, control: dict) -> dict[str, list[str]]:
+    """ジョブが `xs nuclide` に渡す核種: 全核種のライブラリはすべて、対照は放射化の核種だけ（輸送する核種は、範囲とビルドの
+    同じ全核種のライブラリの xs のファイルを使う）"""
+    return {
+        "library": list(entries),
+        "control": [n for n, v in control.items() if v.get("activation")],
+    }
 
 
 LIBRARY_HEAD = [
@@ -161,6 +174,8 @@ CONTROL_HEAD = [
     "#0292 の試行の対照: ../library/xs.toml と同じ核種の項目で、154 核種の試行のライブラリ（../../trial/library）が",
     "輸送する核種だけを輸送し、ほかを放射化の核種にしたもの。範囲（xs-range）とビルドを全核種のライブラリとそろえ、",
     "全核種を輸送した差から、範囲と xs の版の違いの分を分ける。all_nuclides.py が書く。手で直さない。",
+    "nuclides.txt の放射化の核種だけを ../library/xs-range.toml の範囲で xs-nuclides に作り、組み立ては、../library/xs-nuclides の上に",
+    "xs-nuclides を重ねた置き場で ../library/xs-range.toml と行う（輸送する核種は全核種のライブラリの xs のファイル）。",
 ]
 
 
@@ -173,21 +188,17 @@ def write_library() -> None:
         msgpack.unpackb(CHAIN.read_bytes(), strict_map_key=False),
         EXCLUDED,
     )
-    notes = [f"  {n}" for n in exclusion_notes()]
+    notes = [f"  {n}" for n in exclusion_notes(base, EXCLUDED)]
+    control = control_entries(base, entries)
+    jobs = job_lists(entries, control)
     for directory, head, items in [
         ("library", LIBRARY_HEAD + notes, entries),
-        ("control", CONTROL_HEAD, control_entries(base, entries)),
+        ("control", CONTROL_HEAD, control),
     ]:
         path = HERE / "all" / directory / "xs.toml"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(render(base_text, head, items))
-        # ジョブが `xs nuclide` に渡す核種（対照は、全核種のライブラリの xs のファイルを使わない放射化の核種だけ）
-        names = (
-            items
-            if directory == "library"
-            else [n for n in items if n not in set(transported(items))]
-        )
-        (path.parent / "nuclides.txt").write_text("\n".join(names) + "\n")
+        (path.parent / "nuclides.txt").write_text("\n".join(jobs[directory]) + "\n")
     p2 = tomllib.loads(P2.read_text())["nuclide"]
     for name, names in nuclide_lists(entries, base, p2).items():
         (HERE / "all" / f"{name}.txt").write_text("\n".join(names) + "\n")
