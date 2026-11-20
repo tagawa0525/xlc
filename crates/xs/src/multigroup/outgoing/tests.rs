@@ -515,9 +515,9 @@ fn watt_keeps_the_relative_accuracy_of_low_groups() {
 
 #[test]
 fn watt_cumulative_keeps_its_accuracy_over_the_read_range_of_ab() {
-    // 読む範囲の a b/4 = c（0.05〜5。ENDF の読み込みが上限を確かめる）で、閉じた式と級数の切り替え（x = E'/a = 1）の前後の累積が、
+    // 読む範囲の a b/4 = c（5 以下。ENDF の読み込みが上限を確かめる）で、閉じた式と級数の切り替え（x = E'/a = 1）の前後の累積が、
     // 数値積分と合う（a = 1 として b = 4c）
-    for c in [0.05, 0.3, 0.62, 2.0, 5.0] {
+    for c in [1.0e-6, 1.0e-3, 0.05, 0.3, 0.62, 2.0, 5.0] {
         for x in [1.0e-6, 0.5, 0.999, 1.001, 2.0, 30.0] {
             let expected = watt_integral(0.0, x, 1.0, 4.0 * c) * (-c).exp();
             let actual = watt_cumulative(x, c);
