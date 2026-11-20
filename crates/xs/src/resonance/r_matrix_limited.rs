@@ -538,7 +538,7 @@ fn x_at_shifted_pole(
     n: usize,
 ) -> Result<Vec<Complex64>, Singular> {
     let identity = |i: usize| {
-        if i % (n + 1) == 0 {
+        if i.is_multiple_of(n + 1) {
             Complex64::ONE
         } else {
             Complex64::ZERO
