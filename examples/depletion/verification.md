@@ -373,9 +373,9 @@ python3 examples/depletion/process_survey.py --report examples/depletion/process
 
 ### 計算
 
-VII.0、VII.1、VIII.1 は Slurm 1006、1007、1008（f445bad8、分岐点 49e3045c の `bin/xs`、2026-11-20）、VIII.0 の 8 つは手元（d98cf1d5、同じ `bin/xs`、
+VII.0、VII.1、VIII.1 は Slurm 1006、1007、1008（be7f45c1、分岐点 49e3045c の `bin/xs`、2026-11-20）、VIII.0 の 8 つは手元（8fb8497b、同じ `bin/xs`、
 2026-11-20）。どれも 1 核種に 2 スレッド（`--threads 2`）で、1 核種のアドレス空間を 5 GiB、時間を 20 分で打ち切る（16 並列でメモリの搭載量に
-収めるため）。打ち切りに当たった核種は無い。報告は d9fa39ad の `process_survey.py`、要約のステージは 46b80678 で実行した。
+収めるため）。打ち切りに当たった核種は無い。報告は 7aa95ee3 の `process_survey.py`、要約のステージは 3f2882bd で実行した。
 
 ### 版ごとの数
 
