@@ -61,7 +61,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if tables.is_empty() {
         return Err(format!("none of MT{mts:?} is in the 0 K PENDF").into());
     }
-    // 拡がりの格子は正の値を前提にし、負の区間を際限なく分ける（ADR-0267）。NJOY RECONR は弾性散乱のほかの負の値を残す
+    // 拡がりの格子は正の値を前提にし、負の区間を際限なく分ける（ADR-0267）。NJOY RECONR は、共鳴のある評価の弾性散乱の
+    // ほかの負の値を残す（共鳴の無い評価の弾性散乱も）
     for (mt, table) in present.iter().zip(&tables) {
         if let Some(lowest) = table
             .y
