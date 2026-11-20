@@ -122,6 +122,23 @@ def absorption_groups(shielded_entry):
     return [c + f for c, f in zip(shielded_entry["capture"], shielded_entry["fission"])]
 
 
+def data_name(nuclide_file):
+    return nuclide_file["nuclides"][0]["name"]
+
+
+def split_tableless(names, load, temperature):
+    """`names` を、順位を付ける核種と、Bondarenko の表（捕獲と核分裂）が無限希釈ですべての群で 0 の核種に分ける（H-3 の (n,2n)、
+    Be-7 の (n,p) のように表に無い反応だけで中性子を失う核種は、表で自己遮蔽を見積もれない）。`load` は名前から xs のファイル"""
+    ranked, tableless = [], []
+    for name in names:
+        table = temperature_data(load(name), temperature)["shielded"][0]
+        if any(c + f != 0.0 for c, f in zip(table["capture"], table["fission"])):
+            ranked.append(name)
+        else:
+            tableless.append(name)
+    return ranked, tableless
+
+
 def ratio(added, background, density, sigma0, w, temperature):
     """足す核種の、組成の希釈の 1 群の吸収断面積と無限希釈の比、と無限希釈の 1 群の値（重み `w` の和で割る）"""
     data = temperature_data(added, temperature)
@@ -134,8 +151,9 @@ def ratio(added, background, density, sigma0, w, temperature):
     infinite = tables[0]
     one = sum(a * x for a, x in zip(infinite, w))
     if one == 0.0:
-        # 捕獲も核分裂も無い核種（H-3 の (n,2n)、Be-7 の (n,p) だけで中性子を失う）。表はその反応を持たないので、遮蔽しない
-        return 1.0, 0.0
+        raise SystemExit(
+            f"{data_name(added)}: no capture or fission to shield (set it apart with split_tableless)"
+        )
     return sum(a * x for a, x in zip(shielded, w)) / one, one / sum(w)
 
 
@@ -270,7 +288,11 @@ def main():
     added = Path(list_path).read_text().split()
     unranked = Path(args.unranked).read_text().split() if args.unranked else []
     table = read(table_path)
-    names = ranked_names(added, table["cooling"]["nuclides"], unranked)
+    names, tableless = split_tableless(
+        ranked_names(added, table["cooling"]["nuclides"], unranked),
+        lambda n: read(Path(added_dir) / f"{n}.msgpack"),
+        args.temperature,
+    )
     summary = {
         "format": "xlc-dilution-shielding",
         "inputs": [
@@ -279,9 +301,11 @@ def main():
             + ((args.unranked,) if args.unranked else ())
         ],
         "unranked": unranked,
+        # 表で自己遮蔽を見積もれず、順位を付けない核種（split_tableless）
+        "tableless": tableless,
         # 比を決める xs のファイルの置き場ごとの md5（足す核種と、履歴の輸送する核種）
         "xs_files": {
-            "added": directory_md5(added_dir, names),
+            "added": directory_md5(added_dir, names + tableless),
             "transported": directory_md5(
                 transported_dir, read(history_path)["transportable"]
             ),
