@@ -4,15 +4,15 @@
   "VII.0": {
    "in_chain": {
     "evaluations": 390,
-    "passed": 378,
-    "stopped": 12,
-    "stopped_reading": 7
+    "passed": 379,
+    "stopped": 11,
+    "stopped_reading": 6
    },
    "outside_chain": {
     "evaluations": 3,
     "processed": 3,
-    "passed": 1,
-    "stopped": 2,
+    "passed": 3,
+    "stopped": 0,
     "left_out": 0
    },
    "stopped": [
@@ -47,16 +47,6 @@
      "issue": "#0309"
     },
     {
-     "nuclide": "V-50",
-     "file": "n-023_V_000.endf",
-     "chain": false,
-     "stage": "reading",
-     "reason": "NIS=2 isotopes are not supported",
-     "cause": "MF2 の複数の同位体（NIS > 1）を読めない",
-     "where": "endf/mf2.rs の parse",
-     "issue": "#0305"
-    },
-    {
      "nuclide": "Co-58",
      "file": "n-027_Co_058.endf",
      "chain": true,
@@ -65,16 +55,6 @@
      "cause": "広げる範囲の 0 K の断面積が負（ADR-0267 でエラー）",
      "where": "pointwise.rs の reject_negative_broadened",
      "issue": "#0309"
-    },
-    {
-     "nuclide": "Zn-64",
-     "file": "n-030_Zn_000.endf",
-     "chain": false,
-     "stage": "reading",
-     "reason": "NIS=5 isotopes are not supported",
-     "cause": "MF2 の複数の同位体（NIS > 1）を読めない",
-     "where": "endf/mf2.rs の parse",
-     "issue": "#0305"
     },
     {
      "nuclide": "Rb-87",
@@ -127,16 +107,6 @@
      "issue": "#0312"
     },
     {
-     "nuclide": "U-233",
-     "file": "n-092_U_233.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "LF=11 is not supported",
-     "cause": "MF5 の LF=11（エネルギーによる Watt 分布）を読めない",
-     "where": "endf/mf5.rs の parse",
-     "issue": "#0313"
-    },
-    {
      "nuclide": "Cf-253",
      "file": "n-098_Cf_253.endf",
      "chain": true,
@@ -179,9 +149,9 @@
      "max_rss_kb": 8348
     },
     {
-     "nuclide": "Pa-231",
-     "seconds": 207.84,
-     "max_rss_kb": 40500
+     "nuclide": "U-233",
+     "seconds": 213.69,
+     "max_rss_kb": 23396
     }
    ],
    "largest": [
@@ -215,9 +185,9 @@
   "VII.1": {
    "in_chain": {
     "evaluations": 422,
-    "passed": 415,
-    "stopped": 7,
-    "stopped_reading": 7
+    "passed": 416,
+    "stopped": 6,
+    "stopped_reading": 6
    },
    "outside_chain": {
     "evaluations": 1,
@@ -286,16 +256,6 @@
      "cause": "核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない",
      "where": "process.rs の at_temperature",
      "issue": "#0312"
-    },
-    {
-     "nuclide": "U-233",
-     "file": "n-092_U_233.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "LF=11 is not supported",
-     "cause": "MF5 の LF=11（エネルギーによる Watt 分布）を読めない",
-     "where": "endf/mf5.rs の parse",
-     "issue": "#0313"
     }
    ],
    "slowest": [
@@ -894,11 +854,11 @@
  "inputs": [
   {
    "path": "process-survey/VII.0/report.json",
-   "md5": "c9ac9cc7c43d6d0c53594d9ae1d9c5b9"
+   "md5": "b7af8f2c67b2b7fd16eeacaa96f8f73c"
   },
   {
    "path": "read-survey-endfb70.toml",
-   "md5": "d38b4dd07e57807bd699e1b961584167"
+   "md5": "37c306096b13b590937e042294a6d78b"
   },
   {
    "path": "endfb70/chain.msgpack",
@@ -906,11 +866,11 @@
   },
   {
    "path": "process-survey/VII.1/report.json",
-   "md5": "47017479840b646a61b03e72b248166e"
+   "md5": "762212d2aa7d33e37d56d9f73ac6f087"
   },
   {
    "path": "read-survey-endfb71.toml",
-   "md5": "4f9ec699b8527b3081f3eaf099e6c3cf"
+   "md5": "982aa65d97932b8aaed7f1689a902f20"
   },
   {
    "path": "endfb71/chain.msgpack",
