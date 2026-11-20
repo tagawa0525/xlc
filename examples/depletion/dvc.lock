@@ -45,7 +45,7 @@ stages:
     deps:
     - path: ../../binary-forms/chain.md5
       hash: md5
-      md5: e22b27b1883a9fdf00cc0fe2f7c212eb
+      md5: b6f2cb88671f2976555245bc4df83c45
       size: 33
     - path: ../../references/endf/ENDF-B-VIII.0_decay
       hash: md5
@@ -5619,7 +5619,7 @@ stages:
     deps:
     - path: ../../binary-forms/chain.md5
       hash: md5
-      md5: e22b27b1883a9fdf00cc0fe2f7c212eb
+      md5: b6f2cb88671f2976555245bc4df83c45
       size: 33
     - path: ../../references/endf/ENDF-B-VII.0_decay
       hash: md5
@@ -5650,7 +5650,7 @@ stages:
     deps:
     - path: ../../binary-forms/chain.md5
       hash: md5
-      md5: e22b27b1883a9fdf00cc0fe2f7c212eb
+      md5: b6f2cb88671f2976555245bc4df83c45
       size: 33
     - path: ../../references/endf/ENDF-B-VII.1_decay
       hash: md5
@@ -5707,7 +5707,7 @@ stages:
     deps:
     - path: ../../binary-forms/chain.md5
       hash: md5
-      md5: e22b27b1883a9fdf00cc0fe2f7c212eb
+      md5: b6f2cb88671f2976555245bc4df83c45
       size: 33
     - path: ../../references/endf/ENDF-B-VIII.1_decay
       hash: md5
@@ -5791,7 +5791,7 @@ stages:
     deps:
     - path: ../../binary-forms/xs.md5
       hash: md5
-      md5: ec82514af95383f196b51d1f04f3e8ec
+      md5: ad908a1731aace01a5f8c86637370a55
       size: 33
     - path: ../../references/endf/ENDF-B-VII.0_neutrons
       hash: md5
@@ -5801,15 +5801,15 @@ stages:
     outs:
     - path: read-survey-endfb70.toml
       hash: md5
-      md5: 19cc1c83a1be615317bd96847f58caba
-      size: 34499
+      md5: 37c306096b13b590937e042294a6d78b
+      size: 34454
   read-survey@endfb80:
     cmd: ../../bin/xs check read-survey-endfb80.toml 
       ../../references/endf/ENDF-B-VIII.0_neutrons/*.endf
     deps:
     - path: ../../binary-forms/xs.md5
       hash: md5
-      md5: ec82514af95383f196b51d1f04f3e8ec
+      md5: ad908a1731aace01a5f8c86637370a55
       size: 33
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons
       hash: md5
@@ -5827,7 +5827,7 @@ stages:
     deps:
     - path: ../../binary-forms/xs.md5
       hash: md5
-      md5: ec82514af95383f196b51d1f04f3e8ec
+      md5: ad908a1731aace01a5f8c86637370a55
       size: 33
     - path: ../../references/endf/ENDF-B-VIII.1_neutrons
       hash: md5
@@ -5845,7 +5845,7 @@ stages:
     deps:
     - path: ../../binary-forms/xs.md5
       hash: md5
-      md5: ec82514af95383f196b51d1f04f3e8ec
+      md5: ad908a1731aace01a5f8c86637370a55
       size: 33
     - path: ../../references/endf/ENDF-B-VII.1_neutrons
       hash: md5
@@ -5855,8 +5855,8 @@ stages:
     outs:
     - path: read-survey-endfb71.toml
       hash: md5
-      md5: 4f9ec699b8527b3081f3eaf099e6c3cf
-      size: 37143
+      md5: 982aa65d97932b8aaed7f1689a902f20
+      size: 37098
   read-survey-summary:
     cmd: python3 read_survey.py --json read-survey.json 
       VII.0=read-survey-endfb70.toml,endfb70/chain.msgpack 
@@ -5886,12 +5886,12 @@ stages:
       size: 4613905
     - path: read-survey-endfb70.toml
       hash: md5
-      md5: 19cc1c83a1be615317bd96847f58caba
-      size: 34499
+      md5: 37c306096b13b590937e042294a6d78b
+      size: 34454
     - path: read-survey-endfb71.toml
       hash: md5
-      md5: 4f9ec699b8527b3081f3eaf099e6c3cf
-      size: 37143
+      md5: 982aa65d97932b8aaed7f1689a902f20
+      size: 37098
     - path: read-survey-endfb80.toml
       hash: md5
       md5: 5b469fe4cc44068c53fc44c2e0cad63c
@@ -5903,12 +5903,12 @@ stages:
     outs:
     - path: read-survey.json
       hash: md5
-      md5: 24ca4a90f3a68ef9e84d9ea72cda8bfc
-      size: 8682
+      md5: d5304cc034560be8b2223f14a08be439
+      size: 8362
     - path: read-survey.txt
       hash: md5
-      md5: 8d416cbf7123a6e39f2cda39bbbb05df
-      size: 2549
+      md5: aa191663363c822a7b2df7bda47f1b69
+      size: 2476
   natural-isotopes@endfb70:
     cmd: python3 check_natural_isotopes.py endfb70/chain.toml 
       endfb70/chain.msgpack endfb70/xs.toml > endfb70/natural-isotopes.txt
