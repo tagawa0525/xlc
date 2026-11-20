@@ -15,13 +15,16 @@
 //!              temperatures: [{temperature (K), chi: [G 個],
 //!                              scatter: [[[無限希釈の σ_l(g→g')、行が入射の群]]（ルジャンドルの次数 l = 0, 1, … の順）],
 //!                              shielded: [{total, elastic, fission, nu_fission, capture}（σ0 の順）],
-//!                              pointwise: {energy, total, elastic, fission, nu_fission, capture},
+//!                              pointwise: nil か {energy, total, elastic, fission, nu_fission, capture},
 //!                              sab_transfer: nil か {incident, transfer, cumulative}（S(α, β) を持つ核種だけ）,
 //!                              reactions: [{mt: チェーンの反応の代表の MT, channels: [{final_state: nil か {mf, lfs（nil は残り）},
 //!                                           cross_section: [無限希釈の G 個]}]}],
 //!                              delayed: nil か {nu: [[族ごとの群の遅発中性子数]], chi: [[族ごとの遅発スペクトル]]}]}],
 //!  activation: [{name, za, awr, temperatures: [{temperature (K), fission: [無限希釈の G 個], reactions: [nuclides と同じ形]}]}]}
 //! ```
+//!
+//! `pointwise` の nil は、UFG で解かない核種（xs の `pointwise = false`）がポイントワイズの断面積を持たないこと（ADR-0269）で、核種の
+//! すべての温度で nil か、すべてで持つ。
 //!
 //! 遅発中性子の族のデータ（ADR-0238）は、ENDF の MF1 MT455 と MF5 MT455 の両方を持つ評価だけが持つ。`activation` は輸送しない
 //! 核種（放射化の核種）の、チェーンの反応と核分裂の無限希釈の群の断面積で、格子計算は輸送せず、冷却計算の 1 群の微視的断面積に使う。
@@ -184,7 +187,8 @@ pub struct TemperatureData {
     /// 無限希釈の散乱行列のルジャンドルのモーメント [次数 l][入射の群][出射の群]（少なくとも P0）
     pub scatter: Vec<Vec<Vec<f64>>>,
     pub shielded: Vec<Shielded>,
-    /// 超微細群の減速計算に使うポイントワイズの断面積
+    /// 超微細群の減速計算に使うポイントワイズの断面積。UFG で解かない核種（xs の `pointwise = false`）は nil で、核種のすべての
+    /// 温度で nil か、すべてで持つ（ADR-0269。nil でも項目は省けない）
     #[serde(deserialize_with = "crate::msgpack::nil_or")]
     pub pointwise: Option<Pointwise>,
     /// 燃焼チェーンの反応の群の断面積（代表の MT の昇順）
@@ -1244,9 +1248,19 @@ impl NuclideData {
                     ));
                 }
             }
-            let Some(p) = &t.pointwise else {
-                return Err(at("no pointwise data".into()));
-            };
+            // ポイントワイズの断面積を持たない核種は、UFG だけが読む S(α, β) の移行も持たない（ADR-0269）
+            if t.pointwise.is_some() != self.temperatures[0].pointwise.is_some() {
+                return Err(at(
+                    "pointwise data must be on every temperature or none".into()
+                ));
+            }
+            if t.pointwise.is_none() && t.sab_transfer.is_some() {
+                return Err(at(
+                    "an S(α, β) transfer needs the pointwise data of the nuclide".into(),
+                ));
+            }
+            let empty = Pointwise::default();
+            let p = t.pointwise.as_ref().unwrap_or(&empty);
             let columns = [&p.total, &p.elastic, &p.fission, &p.nu_fission, &p.capture];
             if columns.iter().any(|c| c.len() != p.energy.len()) {
                 return Err(at("pointwise columns must match the energies".into()));
@@ -1262,6 +1276,7 @@ impl NuclideData {
                 ));
             }
             match range {
+                Some(_) if t.pointwise.is_none() => {}
                 Some(range) => {
                     if p.energy.first() != Some(&range[0]) || p.energy.last() != Some(&range[1]) {
                         return Err(at(format!("pointwise data must cover the range {range:?}")));

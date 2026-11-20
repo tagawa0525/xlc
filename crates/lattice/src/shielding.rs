@@ -1072,6 +1072,16 @@ fn shield_fuel_by(
     {
         return Err(SelfShieldingError::UnknownUfgNuclide(name.clone()));
     }
+    // 挙げた核種はポイントワイズの断面積で解くので、持たない核種（xs の `pointwise = false`）は挙げられない（ADR-0269）
+    if let Some(name) = options.ufg_nuclides.iter().flatten().find(|name| {
+        library
+            .nuclides
+            .iter()
+            .filter(|n| &n.name == *name)
+            .any(|n| n.temperatures.iter().any(|t| t.pointwise.is_none()))
+    }) {
+        return Err(SelfShieldingError::UfgNuclideWithoutPointwise(name.clone()));
+    }
     if region_materials.len() != regions {
         return Err(SelfShieldingError::Regions {
             given: region_materials.len(),
