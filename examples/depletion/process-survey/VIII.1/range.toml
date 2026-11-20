@@ -93,6 +93,7 @@ Ni-61 = { endf = "n-028_Ni_061.endf", temperatures = [565] }
 Ni-62 = { endf = "n-028_Ni_062.endf", temperatures = [565] }
 Ni-63 = { endf = "n-028_Ni_063.endf", temperatures = [565] }
 Ni-64 = { endf = "n-028_Ni_064.endf", temperatures = [565] }
+Cu-63 = { endf = "n-029_Cu_063.endf", temperatures = [565] }
 Cu-64 = { endf = "n-029_Cu_064.endf", temperatures = [565] }
 Cu-65 = { endf = "n-029_Cu_065.endf", temperatures = [565] }
 Zn-64 = { endf = "n-030_Zn_064.endf", temperatures = [565] }
@@ -143,6 +144,7 @@ Sr-84 = { endf = "n-038_Sr_084.endf", temperatures = [565] }
 Sr-85 = { endf = "n-038_Sr_085.endf", temperatures = [565] }
 Sr-86 = { endf = "n-038_Sr_086.endf", temperatures = [565] }
 Sr-87 = { endf = "n-038_Sr_087.endf", temperatures = [565] }
+Sr-88 = { endf = "n-038_Sr_088.endf", temperatures = [565] }
 Sr-89 = { endf = "n-038_Sr_089.endf", temperatures = [565] }
 Sr-90 = { endf = "n-038_Sr_090.endf", temperatures = [565] }
 Y-89 = { endf = "n-039_Y_089.endf", temperatures = [565] }

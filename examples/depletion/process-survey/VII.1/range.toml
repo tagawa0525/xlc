@@ -359,6 +359,7 @@ Pa-232 = { endf = "n-091_Pa_232.endf", temperatures = [565] }
 U-230 = { endf = "n-092_U_230.endf", temperatures = [565] }
 U-231 = { endf = "n-092_U_231.endf", temperatures = [565] }
 U-232 = { endf = "n-092_U_232.endf", temperatures = [565] }
+U-233 = { endf = "n-092_U_233.endf", temperatures = [565] }
 U-234 = { endf = "n-092_U_234.endf", temperatures = [565] }
 U-235 = { endf = "n-092_U_235.endf", temperatures = [565] }
 U-236 = { endf = "n-092_U_236.endf", temperatures = [565] }
