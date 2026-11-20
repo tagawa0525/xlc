@@ -706,9 +706,14 @@ cargo run --release -p xlc-xs --example compare_njoy_pendf -- \
 
 ### 計算
 
-xlc 17644c98（分岐点 49e3045c、2026-11-20）。手元で `compare_njoy_pendf` を実行した。`xs nuclide` は、8bed7fc7 と同じコードの bin（main への rebase の前のコミットで
-`cargo build --release`。crates の差は無い）で、`endfb70/xs.toml` と同じ σ0 と散乱の次数で温度を 600 K の 1 点にした入力を手元の
-試行に置いて実行した（範囲のファイルは `endfb70/xs-range.toml`。核種の名前は V-51、Zn-64 を仮に当てた）。
+xlc 17644c98（分岐点 49e3045c、2026-11-20）。手元で `compare_njoy_pendf` を実行した。`xs nuclide` は 0625ec94（分岐点 49e3045c、2026-11-20）の
+`cargo build --release` の bin で、温度を 600 K の 1 点にした `read-survey/nis-VII.0.toml`（σ0 と散乱の次数は `endfb70/xs.toml` と同じ。核種の
+名前は入力の名前の形を満たすためだけのもので、ライブラリやチェーンの核種への対応ではない）と `read-survey/keep-<版>.toml` を、各版の
+`xs-range.toml` で手元で実行した。比べた main の bin は 51876d5c のもの（分岐点 49e3045c と crates の差は無い）。
+
+```sh
+cd examples/depletion/read-survey && ../../../bin/xs nuclide nis-VII.0.toml ../endfb70/xs-range.toml Zn-64 <出力>
+```
 
 ### 結果
 
@@ -741,9 +746,8 @@ Zn VII.0   outside the resonance ranges: compared 219, max rel diff 4.62e-7 at 1
 - 共鳴の弾性散乱が負になる点の warn（ADR-0267）は、V にも Zn にも出ない。MLBW の同位体ごとの弾性散乱は負にならないので、NJOY の同位体ごとに
   負を 0 にする手当て（`sigma` の `sigp(j)=0`）と、xs の和で判断する手当ては同じ値になる
 - `xs nuclide`（600 K）: VII.0 の V と Zn は終了コード 0 で終わる（手元で 2 秒、11 秒。時間は記録の測定ではない）
-- 既存の核種の出力は変わらない: VIII.0 の U-235、Zr-90（本番の `xs.toml`）、VII.1 の Pu-239（分離共鳴の Reich-Moore の範囲を 3 つ持つ。
-  `endfb71/xs.toml`）、VIII.1 の Fe-54（負の分離共鳴の弾性散乱を 0 にする。`endfb81/xs.toml`）の、温度を 600 K の 1 点にした入力の
-  `xs nuclide` の出力は、main の 51876d5c の bin の出力とバイトで同じ（範囲のファイルは各版の `xs-range.toml`）
+- 既存の核種の出力は変わらない: VIII.0 の U-235、Zr-90、VII.1 の Pu-239（分離共鳴の Reich-Moore の範囲を 3 つ持つ）、VIII.1 の Fe-54（負の
+  分離共鳴の弾性散乱を 0 にする）の `xs nuclide`（`read-survey/keep-<版>.toml`）の出力は、main の bin の出力とバイトで同じ
 
 ## 燃焼の多群ライブラリ
 
