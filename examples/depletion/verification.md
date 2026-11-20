@@ -257,7 +257,7 @@ python3 examples/depletion/read_survey.py --report examples/depletion/read-surve
 
 ### 計算
 
-`xs check` は 491465f0 のもの（分岐点 8e2b6c91、2026-11-20。`bin/xs` の正規形は `binary-forms/xs.md5`）で、4 つの版のステージと要約を
+`xs check` は 5da14142 のもの（分岐点 0e4d679a、2026-11-21。`bin/xs` の正規形は `binary-forms/xs.md5`）で、4 つの版のステージと要約を
 このコミットで実行した（要約のツールは 74f25be0 から変わっていない）。報告は `read-survey-<版>.toml`、要約の文章は `read-survey.txt`（`--report` と
 同じ）。1 つの版の全部のファイル（393〜558）は、手元の 8 スレッドで 1 秒に満たない（VII.0 の 393 ファイルで 0.4 秒。手元の計算で、時間は記録の
 測定ではない）。
@@ -268,10 +268,10 @@ python3 examples/depletion/read_survey.py --report examples/depletion/read-surve
 
 | 版     | チェーンの評価 | 読めた | 止まった | チェーンの外の評価 | 読めた | 止まった | ファイルの無いチェーンの核種 |
 | ------ | -------------- | ------ | -------- | ------------------ | ------ | -------- | ---------------------------- |
-| VII.0  | 390            | 386    | 4        | 3                  | 3      | 0        | 3447 / 3837                  |
-| VII.1  | 422            | 419    | 3        | 1                  | 1      | 0        | 3398 / 3820                  |
-| VIII.0 | 556            | 553    | 3        | 1                  | 1      | 0        | 3264 / 3820                  |
-| VIII.1 | 557            | 554    | 3        | 1                  | 1      | 0        | 3263 / 3820                  |
+| VII.0  | 390            | 389    | 1        | 3                  | 3      | 0        | 3447 / 3837                  |
+| VII.1  | 422            | 422    | 0        | 1                  | 1      | 0        | 3398 / 3820                  |
+| VIII.0 | 556            | 556    | 0        | 1                  | 1      | 0        | 3264 / 3820                  |
+| VIII.1 | 557            | 557    | 0        | 1                  | 1      | 0        | 3263 / 3820                  |
 
 <!-- /table -->
 
@@ -282,10 +282,9 @@ python3 examples/depletion/read_survey.py --report examples/depletion/read-surve
 
 <!-- table: read-survey-reasons -->
 
-| 止まった理由                         | VII.0                  | VII.1                  | VIII.0                 | VIII.1                 |
-| ------------------------------------ | ---------------------- | ---------------------- | ---------------------- | ---------------------- |
-| last NBT must equal NP               | Rb-87                  | –                      | –                      | –                      |
-| fission needs MF1 MT452 and MF5 MT18 | Th-232、Pa-231、Pa-233 | Th-232、Pa-231、Pa-233 | Th-232、Pa-231、Pa-233 | Th-232、Pa-231、Pa-233 |
+| 止まった理由           | VII.0 | VII.1 | VIII.0 | VIII.1 |
+| ---------------------- | ----- | ----- | ------ | ------ |
+| last NBT must equal NP | Rb-87 | –     | –      | –      |
 
 <!-- /table -->
 
@@ -914,8 +913,8 @@ cargo run --release -p xlc-xs --example compare_njoy_gendf -- \
 
 ### 計算
 
-xlc 8520eccd（分岐点 8e2b6c91、2026-11-20。xs のコードは 2b00c47b から、`compare_njoy_gendf` は 1934902f から変わっていない）。手元で
-`compare_njoy_gendf` を実行した。`xs nuclide` は 2b00c47b の `cargo build --release` の bin（4 スレッド）で、`issue-0312/fission-<版>.toml`
+xlc 5da14142（分岐点 0e4d679a、2026-11-21）。手元で `compare_njoy_gendf` を実行した。`xs nuclide` は同じコミットの `cargo build --release` の
+bin（4 スレッド）で、`issue-0312/fission-<版>.toml`
 （σ0 と散乱の次数は `read-survey/sample-<版>.toml` と同じ、温度 1 点の 600 K）に `examples/depletion/xs-range.toml` を与えて実行した。
 
 ### 結果
@@ -966,9 +965,9 @@ Pa233 VIII.1 chi  : max rel diff 3.19e-1 in group 19 (ours 1.357520e-6, njoy 1.0
   入射 1e-5 eV で E' = 0〜100 keV を 1 区間の lin-lin で与え、低い群（χ が 1e-6 以下）の値はこの区間の積分で決まる。xs の χ は 27.7 eV より
   下の群で 0 で、GROUPR は 1.5 eV まで値を持つ。この候補の大きさは確かめていない
 - `xs check` と `xs nuclide`: 12 の評価は `xs check` を通り（上の「中性子のファイルの読み込みの走査」）、`xs nuclide` は 12 のすべてが終了コード 0 で
-  終わる（1 つあたり 21〜91 秒）。warn は、どれも反応の閾値を運動学の閾値に移したもの 1 つだけ（MF3 の閾値の扱い。MF6 MT18 とは別）
+  終わる（1 つあたり 22〜77 秒）。warn は、どれも反応の閾値を運動学の閾値に移したもの 1 つだけ（MF3 の閾値の扱い。MF6 MT18 とは別）
 - 既存の形の出力は変わらない: VIII.0 の U-235、Pu-239（MF5 MT18 と、JP=11 の MF6 MT18。平均の分布は MF5 MT18 のまま）、U-238 の
-  `xs nuclide` の出力（`issue-0312/existing-VIII.0.toml`）は、main の `bin/xs`（分岐点 8e2b6c91 の `build` の出力）の出力とバイトで同じ
+  `xs nuclide` の出力（`issue-0312/existing-VIII.0.toml`）は、main の `bin/xs`（分岐点 0e4d679a の `build` の出力）の出力とバイトで同じ
   （md5 は U-235 d279db74、Pu-239 b09b0c8b、U-238 b4974bf3。同じ入力、どちらも 4 スレッド）
 
 ## 版ごとのライブラリの分離共鳴の R 行列の制限形の核分裂
