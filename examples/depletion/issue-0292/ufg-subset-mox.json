@@ -123,12 +123,20 @@
  ],
  "inputs": [
   {
+   "path": "issue-0292/ufg-subset/mox/all.toml",
+   "md5": "3def552dadb05fa5295d6cebcb33192d"
+  },
+  {
    "path": "issue-0292/ufg-subset/mox/out/all.msgpack",
    "md5": "5bec6cd7865fa390225d636c28a18937"
   },
   {
    "path": "issue-0292/ufg-subset/mox/out-timed/all.log",
    "md5": "9353427af5680ac6027b46e3de4fd566"
+  },
+  {
+   "path": "issue-0292/ufg-subset/mox/none.toml",
+   "md5": "981895984482ee1dc2f42bffa2468218"
   },
   {
    "path": "issue-0292/ufg-subset/mox/out/none.msgpack",
@@ -139,12 +147,20 @@
    "md5": "0486f74e742a333dd16d1d2a24efa180"
   },
   {
+   "path": "issue-0292/ufg-subset/mox/s4.toml",
+   "md5": "50cc410cfae9f9375bc7ff7418de96f3"
+  },
+  {
    "path": "issue-0292/ufg-subset/mox/out/s4.msgpack",
    "md5": "cdda9bca0fdcdc9f7ed8931cb8444e67"
   },
   {
    "path": "issue-0292/ufg-subset/mox/out-timed/s4.log",
    "md5": "41ee85a9a6cfe236cb41d70137a2e1f3"
+  },
+  {
+   "path": "issue-0292/ufg-subset/mox/s17.toml",
+   "md5": "82fecc7394c14dbab496f606ef705260"
   },
   {
    "path": "issue-0292/ufg-subset/mox/out/s17.msgpack",
