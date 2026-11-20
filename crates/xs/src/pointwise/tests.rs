@@ -761,8 +761,13 @@ fn broadening_limit_ignores_reactions_njoy_does_not_broaden() {
     assert!(hot[&2].x.contains(&crate::doppler::MAX_LIMIT));
 }
 
-/// 非分離共鳴だけの MF2（LSSF=0、s 波の1系列、パラメータは一定）
+/// 非分離共鳴だけの MF2（LSSF=0、s 波の1系列、パラメータは一定、エネルギーの間は lin-lin）
 fn unresolved_mf2() -> String {
+    unresolved_mf2_with_law("2")
+}
+
+/// `unresolved_mf2` の、パラメータのエネルギーの間の補間則を INT=`law` にしたもの
+fn unresolved_mf2_with_law(law: &str) -> String {
     use crate::endf::rec;
     [
         rec(["1.001000+3", "1.0", "0", "0", "1", "0"], 1, 2, 151),
@@ -770,7 +775,7 @@ fn unresolved_mf2() -> String {
         rec(["1.0+3", "1.0+5", "2", "2", "0", "1"], 1, 2, 151),
         rec(["0.0", "0.948", "0", "0", "1", "0"], 1, 2, 151),
         rec(["2.360060+2", "0.0", "0", "0", "1", "0"], 1, 2, 151),
-        rec(["0.5", "0.0", "2", "0", "18", "2"], 1, 2, 151),
+        rec(["0.5", "0.0", law, "0", "18", "2"], 1, 2, 151),
         rec(["0.0", "0.0", "0.0", "1.0", "0.0", "0.0"], 1, 2, 151),
         rec(["1.0+3", "20.0", "0.0", "1.0-3", "2.3-2", "0.0"], 1, 2, 151),
         rec(["1.0+5", "20.0", "0.0", "1.0-3", "2.3-2", "0.0"], 1, 2, 151),
@@ -807,6 +812,23 @@ fn unresolved_averages_replace_background_with_lssf0() {
     // 範囲の外は MF3 のまま
     assert_eq!((at(2, 10.0), at(2, 2.0e5)), (10.0, 10.0));
     assert_eq!(at(1, 2.0e3), at(2, 2.0e3) + at(102, 2.0e3));
+}
+
+#[test]
+fn negative_unresolved_sums_under_a_log_law_are_errors() {
+    // MF3 の捕獲のバックグラウンドが平均断面積を打ち消して和が負になり、格子点の間を log-log で補間できない
+    let full = ["1.0-5", "2.0+7"];
+    let text = [
+        unresolved_mf2_with_law("5"),
+        mf3_section(2, full, ["10.0", "10.0"]),
+        mf3_section(102, full, ["-100.0", "-100.0"]),
+    ]
+    .concat();
+    let tape = Tape::parse(&text).unwrap();
+    let message = reconstruct(&tape, 1, 1.0e-3).unwrap_err().to_string();
+    for part in ["MT102", "LogLog", "negative y"] {
+        assert!(message.contains(part), "{message}");
+    }
 }
 
 #[test]
