@@ -186,5 +186,34 @@ class Depletion(unittest.TestCase):
             )
 
 
+class Notes(unittest.TestCase):
+    def test_the_notes_say_which_exclusions_stay_activation(self):
+        base = tomllib.loads(BASE)["nuclide"]
+        excluded = {**EXCLUDED, "Ca-40": ("#0264", "荷電粒子の対")}
+        notes = all_nuclides.exclusion_notes(base, excluded)
+        self.assertIn("放射化の核種として残す", notes[0])
+        self.assertIn("#0312", notes[0])
+        self.assertNotIn("放射化", notes[1])
+
+
+class Jobs(unittest.TestCase):
+    def test_the_library_job_processes_every_nuclide_and_the_control_its_activation_ones(
+        self,
+    ):
+        e = entries()
+        control = all_nuclides.control_entries(tomllib.loads(BASE)["nuclide"], e)
+        jobs = all_nuclides.job_lists(e, control)
+        self.assertEqual(jobs["library"], list(e))
+        self.assertEqual(jobs["control"], ["Xe-131", "Th-232", "He-4", "Am-242m"])
+
+
+class Duplicates(unittest.TestCase):
+    def test_two_evaluations_of_one_chain_nuclide_stop(self):
+        s = survey({"n-090_Th_232.endf": "line 9: x"})
+        s["evaluation"].append({"endf": "../e/n-092_U_235.endf"})
+        with self.assertRaises(SystemExit):
+            all_nuclides.chain_evaluations(s, CHAIN)
+
+
 if __name__ == "__main__":
     unittest.main()
