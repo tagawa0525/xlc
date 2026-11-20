@@ -25,7 +25,7 @@ resolution:
   0 か負になる点、核分裂の 0 の群での 0/0
 - 再現: examples/depletion/process-survey/VII.0 で `../../../../bin/xs --threads 2 nuclide xs.toml xs-range.toml Cf-253 <出力>`
 
-関係する ADR: なし
+関係する ADR: [ADR-0274](../adr/0274-shield-negative-unresolved-backgrounds-by-declared-factors.md)
 
 ## 完了の条件
 
