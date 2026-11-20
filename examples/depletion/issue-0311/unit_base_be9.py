@@ -1,4 +1,7 @@
-"""Be-9 の MF6 MT16 の中性子（LAW=7）の入射エネルギーの補間則 INT=2 を、NJOY GROUPR が使う単位基底 INT=22 に替えたコピーを書く。"""
+"""Be-9 の MF6 MT16 の中性子（LAW=7）の入射エネルギーの補間則 INT=2 を、NJOY GROUPR が使う単位基底 INT=22 に替えたコピーを書く。
+
+NJOY との差の原因を診断するためだけのもので、xs の本番の経路ではない（NJOY の選択を xs の機能として足さない。ADR-0271）。
+"""
 
 import sys
 from pathlib import Path

@@ -7,6 +7,8 @@ f(E') = K/(4 c √E_max (m + 1)) [(1 − s_a)^(m+1) − (1 − s_b)^(m+1)]、c =
 [0, √E_max] の重なりの両端（重心系で等方な √E' = v の中性子が実験室系で一様に分布することから）。
 
 使い方: python3 -I tabulate_phase_space.py <ENDF> <MT> <Q eV> <cm|lab> <コピー>
+
+NJOY との差の原因を診断するためだけのもので、xs の本番の経路ではない（NJOY の選択を xs の機能として足さない。ADR-0271）。
 """
 
 import math
