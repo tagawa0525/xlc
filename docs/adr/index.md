@@ -267,3 +267,4 @@
 * [ADR-0270: UFG で解く核種を、全核種を輸送した燃焼の組成での自己遮蔽の目安が、どれかの燃料で 0.1 pcm を超える核種に選ぶ](0270-select-ufg-nuclides-from-the-all-nuclides-burnup.md)
 * [ADR-0271: MF6 の中性子の LAW=6 は入射エネルギーごとに ENDF-102 の式で、LAW=7 は余弦で積分したエネルギー分布で群に振り分け、NJOY の表の作り方を真似ない](0271-group-mf6-law6-and-law7-by-endf-102.md)
 * [ADR-0272: 評価の誤りは、xs の入力の核種の項目に、行と欄と元の値と正しい値を宣言して直してから読む](0272-correct-evaluation-errors-by-declared-fields.md)
+* [ADR-0273: 荷電粒子のチャネルの透過因子を、転回点の外の Steed の CF2 と、障壁の下の Riccati の式の ln P の積分で求める](0273-coulomb-penetrability-by-cf2-and-riccati.md)
