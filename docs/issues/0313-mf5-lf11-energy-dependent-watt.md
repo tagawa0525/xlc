@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [xs, depletion]
 opened: 2026-11-20
-closed:
+closed: 2026-11-20
 milestone:
 blocked-by: []
-resolution:
+resolution: コミット 325c3ef2a
 ---
 
 # xs が MF5 の LF=11（エネルギーによる Watt 分布）を読めない（ENDF/B-VII.0、VII.1 の U-233）
@@ -23,8 +23,12 @@ resolution:
 
 ## 完了の条件
 
-- [ ] LF=11 を ENDF-102 の式で読み、NJOY と比べる
+- [x] LF=11 を ENDF-102 の式で読み、NJOY と比べる（examples/depletion/verification.md の「版ごとのライブラリのエネルギーによる Watt の核分裂
+  スペクトル」。χ の差は 4.7e-7 以下）
 
 ## 経緯
 
 - 2026-11-20: 4 つの版の中性子のファイルの全部を `xs check` に通し、起こした
+- 2026-11-20: 4 つの版の全部の核種が流れるようにすることが求められ（ユーザー 2026-11-20。別のセッションが伝えたもの）、読むことにした。a(E) を θ とする x = E'/a の
+  累積の差で群に分け、x < 1 は桁落ちしない正の級数にした（325c3ef2a）。読み込みの走査で VII.0 と VII.1 の U-233 が「読めた」に移り、
+  600 K の `xs nuclide` は終了コード 0 で終わる。ADR は無い（ENDF-102 の式のとおりで、NJOY と同じ式。/adr の「ADR にするもの」に当たらない）
