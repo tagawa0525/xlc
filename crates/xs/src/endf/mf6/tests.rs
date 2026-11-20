@@ -386,7 +386,7 @@ fn law7_neutrons_integrate_the_cosines_into_a_laboratory_spectrum() {
 }
 
 #[test]
-fn law7_histogram_cosines_weight_the_left_tables() {
+fn law7_histogram_cosines_short_of_one_are_error() {
     // 余弦のヒストグラムでは、区間 [μ_i, μ_(i+1)) の値は左の表。E = 2e6 の重みは 1、1、0 で、
     // ∫∫ f = 2e-7 × 1e6 + 4e-7 × 1e6 = 0.6（台形なら 1）。規格化に足りないのでエラーになり、その値を示す
     let tape = Tape::parse(&angle_energy("1", "1")).unwrap();
@@ -417,8 +417,20 @@ fn law7_cosine_interpolation_other_than_histogram_or_linear_is_error() {
 /// 中性子が LAW=7 で、入射エネルギー 2e6 と 3e6 のどちらも余弦が `mu0` と 1 の 2 つ、E' の表は 0〜1e6 eV で一定の `value` の節。
 /// ∫∫ f = (1 − mu0) × value × 1e6
 fn cosine_pair(mu0: &str, value: &str) -> String {
-    let energy = |e: &str| {
-        let table = |mu: &str| {
+    cosine_pair_with(mu0, value, value, "2", false)
+}
+
+/// `cosine_pair` の一般形: 余弦 `mu0` の表は `low`、余弦 1 の表は `high`、余弦の補間則は `mu_int`。`zero_at_threshold` なら、
+/// 最初の入射エネルギー（しきい値）の表はどちらも 0
+fn cosine_pair_with(
+    mu0: &str,
+    low: &str,
+    high: &str,
+    mu_int: &str,
+    zero_at_threshold: bool,
+) -> String {
+    let energy = |e: &str, low: &str, high: &str| {
+        let table = |mu: &str, value: &str| {
             [
                 r(["0.0", mu, "0", "0", "1", "2"]),
                 r(["2", "2", "", "", "", ""]),
@@ -428,9 +440,9 @@ fn cosine_pair(mu0: &str, value: &str) -> String {
         };
         [
             r(["0.0", e, "0", "0", "1", "2"]),
-            r(["2", "2", "", "", "", ""]),
-            table(mu0),
-            table("1.0"),
+            r(["2", mu_int, "", "", "", ""]),
+            table(mu0, low),
+            table("1.0", high),
         ]
         .concat()
     };
@@ -441,8 +453,12 @@ fn cosine_pair(mu0: &str, value: &str) -> String {
         r(["2.0e6", "2.0", "3.0e6", "2.0", "", ""]),
         r(["0.0", "0.0", "0", "0", "1", "2"]),
         r(["2", "2", "", "", "", ""]),
-        energy("2.0e6"),
-        energy("3.0e6"),
+        if zero_at_threshold {
+            energy("2.0e6", "0.0", "0.0")
+        } else {
+            energy("2.0e6", low, high)
+        },
+        energy("3.0e6", low, high),
     ]
     .concat()
 }
@@ -457,6 +473,31 @@ fn law7_forward_cone_normalized_to_one_passes() {
         panic!("LAW=7 becomes a table");
     };
     assert!((d.spectra[0].eval(5.0e5).unwrap() - 1.0e-6).abs() < 1e-18);
+}
+
+#[test]
+fn law7_histogram_cosines_of_a_normalized_distribution_take_the_left_table() {
+    // 余弦のヒストグラムで 0〜1 の重みは左の表に 1、右の表に 0。左が 1e-6 なら ∫∫ f = 1 で通り、g は左の表になる
+    // （lin-lin なら (1e-6 + 3e-6)/2 で、規格化も 2 になる）
+    let tape = Tape::parse(&cosine_pair_with("0.0", "1.0e-6", "3.0e-6", "1", false)).unwrap();
+    let mf6 = Mf6::parse(&tape.section(825, 6, 16).unwrap()).unwrap();
+    let NeutronSpectrum::Tabulated(d) = &mf6.neutrons[0].spectrum else {
+        panic!("LAW=7 becomes a table");
+    };
+    for spectrum in &d.spectra {
+        assert!((spectrum.eval(5.0e5).unwrap() - 1.0e-6).abs() < 1e-18);
+    }
+}
+
+#[test]
+fn law7_zero_distribution_at_threshold_passes() {
+    // しきい値の入射エネルギーでは断面積が 0 で、分布を 0 で与える評価がある。最初の入射エネルギーの 0 の分布は通す
+    let tape = Tape::parse(&cosine_pair_with("0.0", "1.0e-6", "1.0e-6", "2", true)).unwrap();
+    let mf6 = Mf6::parse(&tape.section(825, 6, 16).unwrap()).unwrap();
+    let NeutronSpectrum::Tabulated(d) = &mf6.neutrons[0].spectrum else {
+        panic!("LAW=7 becomes a table");
+    };
+    assert_eq!(d.spectra[0].eval(5.0e5), Some(0.0));
 }
 
 #[test]
