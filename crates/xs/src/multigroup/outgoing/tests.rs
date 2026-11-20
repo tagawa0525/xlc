@@ -112,6 +112,54 @@ fn center_of_mass_energy_spreads_in_laboratory() {
     );
 }
 
+/// 重心系の密度 `density`（線形の区間）を実験室系の群に振り分けた値の参照。√E' について細かい中点則で、E' ごとの実験室系の一様な
+/// 範囲 [(√E' − √Ec)², (√E' + √Ec)²] と群の重なりを数える（群構造の外は端の群）
+fn laboratory_reference(groups: &GroupStructure, density: &Tab1, ec: f64) -> Vec<f64> {
+    const STEPS: usize = 400_000;
+    let bounds = groups.bounds();
+    let ng = groups.len();
+    let c = ec.sqrt();
+    let (u0, u1) = (density.x[0].sqrt(), density.x[density.x.len() - 1].sqrt());
+    let du = (u1 - u0) / STEPS as f64;
+    let mut out = vec![0.0; ng];
+    for i in 0..STEPS {
+        let u = u0 + (i as f64 + 0.5) * du;
+        let f = density.eval(u * u).unwrap_or(0.0) * 2.0 * u * du;
+        let (lo, hi) = ((u - c).powi(2), (u + c).powi(2));
+        for g in 0..ng {
+            let top = if g == 0 { f64::INFINITY } else { bounds[g] };
+            let bottom = if g == ng - 1 { 0.0 } else { bounds[g + 1] };
+            let overlap = hi.min(top) - lo.max(bottom);
+            if overlap > 0.0 {
+                out[g] += f * overlap / (hi - lo);
+            }
+        }
+    }
+    out
+}
+
+#[test]
+fn centre_of_mass_panel_wider_than_ec_is_split_exactly_into_low_groups() {
+    // Pa-233 の MF6 MT18 の入射 1e-5 eV の形: E' = 0〜100 keV の 1 区間の線形の密度。Ec = 100 eV の程度の群（10〜1000 eV）にも
+    // 実験室系の範囲が掛かる
+    let density = Tab1::linear(vec![0.0, 1.0e5], vec![1.0e-6 / 0.55, 1.0e-5 / 0.55]);
+    let groups =
+        GroupStructure::new(vec![2.0e5, 1.0e4, 1.0e3, 300.0, 100.0, 30.0, 10.0, 1.0e-5]).unwrap();
+    let ec = 100.0;
+    let actual = laboratory_group_integrals(&groups, &density, ec);
+    let expected = laboratory_reference(&groups, &density, ec);
+    for (g, (a, e)) in actual.iter().zip(&expected).enumerate() {
+        assert!(
+            (a - e).abs() <= 1e-7 * e.abs() + 1e-15,
+            "group {g}: {a:e} vs {e:e}"
+        );
+    }
+    assert!(
+        (actual.iter().sum::<f64>() - 1.0).abs() < 1e-12,
+        "{actual:?}"
+    );
+}
+
 /// 入射エネルギー 10 と 20 で、[0, 1] と [0, 3] の一様分布
 fn widening(law: IncidentLaw) -> OutgoingDistributions {
     OutgoingDistributions {
