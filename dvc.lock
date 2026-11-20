@@ -8579,3 +8579,162 @@ stages:
       hash: md5
       md5: cd0025150d19086de08a89a7502f0859
       size: 5096
+  python-ast@examples/depletion/check_natural_isotopes.py:
+    cmd: python3 scripts/normalize_python.py 
+      examples/depletion/check_natural_isotopes.py 
+      python-ast/examples/depletion/check_natural_isotopes.py.ast
+    deps:
+    - path: examples/depletion/check_natural_isotopes.py
+      hash: md5
+      md5: 773fd4a5cf69d4f70cc09d5da6b965d2
+      size: 5577
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/depletion/check_natural_isotopes.py.ast
+      hash: md5
+      md5: 4cf43e707245b9afa18aeef8f5e8451a
+      size: 3377
+  python-ast@examples/depletion/compare_depletion_versions.py:
+    cmd: python3 scripts/normalize_python.py 
+      examples/depletion/compare_depletion_versions.py 
+      python-ast/examples/depletion/compare_depletion_versions.py.ast
+    deps:
+    - path: examples/depletion/compare_depletion_versions.py
+      hash: md5
+      md5: 971370e0363077af4acb119184cf81c9
+      size: 10324
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/depletion/compare_depletion_versions.py.ast
+      hash: md5
+      md5: e9ee83d3f650041df26b880beb833ea5
+      size: 6666
+  toml-values@examples/depletion/endfb70/lattice-1C-60.toml:
+    cmd: python3 scripts/normalize_toml.py 
+      examples/depletion/endfb70/lattice-1C-60.toml 
+      toml-values/examples/depletion/endfb70/lattice-1C-60.toml.json
+    deps:
+    - path: examples/depletion/endfb70/lattice-1C-60.toml
+      hash: md5
+      md5: e3fe4b2b1ef8e1435c097e1089dc67e2
+      size: 2465
+    - path: python-ast/scripts/normalize_toml.py.ast
+      hash: md5
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
+    outs:
+    - path: toml-values/examples/depletion/endfb70/lattice-1C-60.toml.json
+      hash: md5
+      md5: 78cfce537a048be0025731046efe27b4
+      size: 2120
+  toml-values@examples/depletion/endfb70/xs.toml:
+    cmd: python3 scripts/normalize_toml.py examples/depletion/endfb70/xs.toml 
+      toml-values/examples/depletion/endfb70/xs.toml.json
+    deps:
+    - path: examples/depletion/endfb70/xs.toml
+      hash: md5
+      md5: b2be96291477078d99d6a13198f1a2f3
+      size: 6533
+    - path: python-ast/scripts/normalize_toml.py.ast
+      hash: md5
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
+    outs:
+    - path: toml-values/examples/depletion/endfb70/xs.toml.json
+      hash: md5
+      md5: 138fef44ed0debe336f090e01f017e0f
+      size: 7537
+  toml-values@examples/depletion/endfb71/lattice-1C-60.toml:
+    cmd: python3 scripts/normalize_toml.py 
+      examples/depletion/endfb71/lattice-1C-60.toml 
+      toml-values/examples/depletion/endfb71/lattice-1C-60.toml.json
+    deps:
+    - path: examples/depletion/endfb71/lattice-1C-60.toml
+      hash: md5
+      md5: 80f2a78dafee7f449980a0b027bf9e71
+      size: 2465
+    - path: python-ast/scripts/normalize_toml.py.ast
+      hash: md5
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
+    outs:
+    - path: toml-values/examples/depletion/endfb71/lattice-1C-60.toml.json
+      hash: md5
+      md5: 78cfce537a048be0025731046efe27b4
+      size: 2120
+  toml-values@examples/depletion/endfb71/xs.toml:
+    cmd: python3 scripts/normalize_toml.py examples/depletion/endfb71/xs.toml 
+      toml-values/examples/depletion/endfb71/xs.toml.json
+    deps:
+    - path: examples/depletion/endfb71/xs.toml
+      hash: md5
+      md5: cf6e47ee5546ca4c04e3ff232be31acd
+      size: 6533
+    - path: python-ast/scripts/normalize_toml.py.ast
+      hash: md5
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
+    outs:
+    - path: toml-values/examples/depletion/endfb71/xs.toml.json
+      hash: md5
+      md5: 6124fd70731b89c57e34415d9ad9e1f2
+      size: 7537
+  toml-values@examples/depletion/endfb80/lattice-1C-60.toml:
+    cmd: python3 scripts/normalize_toml.py 
+      examples/depletion/endfb80/lattice-1C-60.toml 
+      toml-values/examples/depletion/endfb80/lattice-1C-60.toml.json
+    deps:
+    - path: examples/depletion/endfb80/lattice-1C-60.toml
+      hash: md5
+      md5: ef186edb87bf977ca15f2abaaa217b8c
+      size: 2575
+    - path: python-ast/scripts/normalize_toml.py.ast
+      hash: md5
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
+    outs:
+    - path: toml-values/examples/depletion/endfb80/lattice-1C-60.toml.json
+      hash: md5
+      md5: 0c467e508cbaa5943e1a159398b21cb5
+      size: 2126
+  toml-values@examples/depletion/endfb81/lattice-1C-60.toml:
+    cmd: python3 scripts/normalize_toml.py 
+      examples/depletion/endfb81/lattice-1C-60.toml 
+      toml-values/examples/depletion/endfb81/lattice-1C-60.toml.json
+    deps:
+    - path: examples/depletion/endfb81/lattice-1C-60.toml
+      hash: md5
+      md5: 0a5f1f186123071c7c26bc0d26962e35
+      size: 2466
+    - path: python-ast/scripts/normalize_toml.py.ast
+      hash: md5
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
+    outs:
+    - path: toml-values/examples/depletion/endfb81/lattice-1C-60.toml.json
+      hash: md5
+      md5: 78cfce537a048be0025731046efe27b4
+      size: 2120
+  toml-values@examples/depletion/endfb81/xs.toml:
+    cmd: python3 scripts/normalize_toml.py examples/depletion/endfb81/xs.toml 
+      toml-values/examples/depletion/endfb81/xs.toml.json
+    deps:
+    - path: examples/depletion/endfb81/xs.toml
+      hash: md5
+      md5: e77b1f4b69bcd68a68a10485d4f871b1
+      size: 6361
+    - path: python-ast/scripts/normalize_toml.py.ast
+      hash: md5
+      md5: 82d3738ce2567f06e06af65bb8f664f7
+      size: 872
+    outs:
+    - path: toml-values/examples/depletion/endfb81/xs.toml.json
+      hash: md5
+      md5: 6d5d9c56df1eaac963bdda66a352c3f0
+      size: 7550
