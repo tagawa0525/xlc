@@ -165,6 +165,16 @@ class WarningKindTest(unittest.TestCase):
             "xlc_xs::endf::mf2: N of N SLBW resonances with L=N have J [N]",
         )
 
+    def test_a_range_and_signed_numbers_keep_their_separators(self):
+        line = (
+            "2026-11-20T08:28:26.695235Z  WARN nuclide{name=Cl-35}: xlc_xs::pointwise: SLBW range 1.0e-5..1.2260e3 eV: "
+            "down to -2.218e3 b, g = (2J+1)/(2(2I+1))"
+        )
+        self.assertEqual(
+            process_survey.warning_kind(line),
+            "xlc_xs::pointwise: SLBW range N..N eV: down to -N b, g = (NJ+N)/(N(NI+N))",
+        )
+
     def test_another_line_is_not_a_warning(self):
         self.assertIsNone(process_survey.warning_kind(CLOSE))
 
