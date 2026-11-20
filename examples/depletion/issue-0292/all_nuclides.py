@@ -8,7 +8,7 @@
 
 - `python3 all_nuclides.py library` は all/library/xs.toml（全核種）、all/control/xs.toml（同じ核種の項目で、試行のライブラリが
   輸送する核種だけを輸送し、ほかを放射化の核種にした対照）、核種の一覧（all/added-to-p2.txt、all/added-to-trial.txt、
-  all/unranked.txt）を書く
+  all/unranked.txt）と、ジョブが `xs nuclide` で処理する核種の一覧（all/<library か control>/nuclides.txt）を書く
 - `python3 all_nuclides.py depletion` は all/<燃料>/nominal.toml（trial/<燃料>/nominal.toml のライブラリを all/library に替えたもの）を書く
 """
 
@@ -181,6 +181,13 @@ def write_library() -> None:
         path = HERE / "all" / directory / "xs.toml"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(render(base_text, head, items))
+        # ジョブが `xs nuclide` に渡す核種（対照は、全核種のライブラリの xs のファイルを使わない放射化の核種だけ）
+        names = (
+            items
+            if directory == "library"
+            else [n for n in items if n not in set(transported(items))]
+        )
+        (path.parent / "nuclides.txt").write_text("\n".join(names) + "\n")
     p2 = tomllib.loads(P2.read_text())["nuclide"]
     for name, names in nuclide_lists(entries, base, p2).items():
         (HERE / "all" / f"{name}.txt").write_text("\n".join(names) + "\n")
