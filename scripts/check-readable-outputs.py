@@ -13,7 +13,10 @@ dvc.lock の指す古い上流の出力をまだ読めるか（changed をため
   `.dvc` の生成物であるもののうち、xlc の形式のもの（`.msgpack` と、`xs range` の書く範囲の TOML）。
   直下の dvc.lock（build と正規形）の出力、md5 の無い（流していない）出力、xlc の形式でない出力は読まない
 - 中身は作業ツリーでなく DVC のキャッシュから md5 で読む。出力を戻していない worktree でも同じ結果になり、走っている
-  ジョブが書いている途中の出力には当たらない。キャッシュに無い出力は `MISSING:` で止める
+  ジョブが書いている途中の出力には当たらない。キャッシュに無く、HEAD の git が追う出力（`cache: false` の出力。DVC は
+  git が追う出力をキャッシュに入れない（`dvc repro` が OutputAlreadyTrackedError で止まる））は、HEAD の blob の md5 が lock の
+  md5 と同じならその blob を読み、違えば `MISMATCH:` で止める（lock が古いか、出力の変更をコミットしていない）。どちらにも
+  無い出力は `MISSING:` で止める
 - 実行ファイルを変えうるブランチ（`--base` との差分（移動の元と先、追跡していないファイルを含む）が直下の dvc.yaml の `build` の deps、この script、下の一覧に当たる）
   だけを読み、ほかは `SKIP:` で終わる（`--all` は差分によらず読む）。`--base` の既定は HEAD と main の分岐点。
   一覧の形の確かめは、差分によらず行う
@@ -21,17 +24,20 @@ dvc.lock の指す古い上流の出力をまだ読めるか（changed をため
   ディレクトリの outs の `.dir` の md5）、`issue`（上流の作り直しの見積もりと時期を書いた open の issue。`#NNNN`）、
   `path`（結び付けたときのパス。照合には使わない）を書く。open の issue に結び付けた出力は `ALLOWED:` で通し、
   issue が無いか閉じていれば `STOP:` で止める
-- 出力の行: `UNREADABLE:`、`ALLOWED:`、`MISSING:`、`STOP:`、`SKIP:`、`READ:`（読んだファイルの数、時間、xlc の形式でないので読まなかった出力の数）。終了コードは、
-  `UNREADABLE:`、`MISSING:`、`STOP:` のどれかがあれば 1、ほかは 0
+- 出力の行: `UNREADABLE:`、`ALLOWED:`、`MISSING:`、`MISMATCH:`、`STOP:`、`SKIP:`、`READ:`（読んだファイルの数、時間、xlc の形式でないので読まなかった出力の数）。終了コードは、
+  `UNREADABLE:`、`MISSING:`、`MISMATCH:`、`STOP:` のどれかがあれば 1、ほかは 0
 - 読み手の既定は `cargo run -p xlc-outputs`（dev のプロファイル。run-checks.sh の cargo test が作ったものを再利用する）
 """
 
 import argparse
+import dataclasses
+import hashlib
 import json
 import posixpath
 import re
 import subprocess
 import sys
+import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -272,6 +278,40 @@ def exemptions(root):
     return allowed
 
 
+def from_head(root, xlc, tmp):
+    """キャッシュに無いファイルを、HEAD の git が追っていれば、lock の md5 と同じ blob を tmp に書いたものに替える。
+    読むファイル、どちらにも無いファイル、blob の md5 が lock と違うファイルの組"""
+    present = [t for t in xlc if t.file.exists()]
+    absent = [t for t in xlc if not t.file.exists()]
+    missing, mismatched = [], []
+    if not absent:
+        return present, missing, mismatched
+    head = set(git(root, "ls-tree", "-r", "-z", "--name-only", "HEAD").split("\0"))
+    for t in absent:
+        if t.path not in head:
+            missing.append(
+                (
+                    t.path,
+                    t.md5,
+                    f"DVC のキャッシュに無く（{t.file}）、HEAD の git も追っていない",
+                )
+            )
+            continue
+        blob = subprocess.run(
+            ["git", "-C", str(root), "cat-file", "blob", f"HEAD:{t.path}"],
+            check=True,
+            capture_output=True,
+        ).stdout
+        actual = hashlib.md5(blob).hexdigest()
+        if actual != t.md5:
+            mismatched.append((t.path, t.md5, actual))
+            continue
+        file = tmp / t.md5
+        file.write_bytes(blob)
+        present.append(dataclasses.replace(t, file=file))
+    return present, missing, mismatched
+
+
 def needs_reading(root, base):
     """--base との差分（作業ツリー）が、実行ファイルを変えうるパスに当たるか。当たったパスか None"""
     build = load_yaml(root, "dvc.yaml").get("stages", {}).get("build")
@@ -347,10 +387,6 @@ def main(argv):
             cache = Path(out.stdout.strip())
         targets, missing_dirs = collect(root, cache)
         xlc = [t for t in targets.values() if t.kind is not None]
-        present = [t for t in xlc if t.file.exists()]
-        missing = missing_dirs + [
-            (t.path, t.md5, t.file) for t in xlc if not t.file.exists()
-        ]
         if args.reader:
             reader = [args.reader]
         else:
@@ -365,15 +401,27 @@ def main(argv):
             if built.returncode != 0:
                 raise Stop(f"読み手をビルドできない:\n{built.stderr.strip()}")
             reader = ["cargo", "run", *PACKAGE]
-        start = time.monotonic()
-        failed = read(root, reader, present) if present else {}
-        seconds = time.monotonic() - start
+        # HEAD の blob を書いたファイルは、読み終えるまで残す
+        with tempfile.TemporaryDirectory() as tmp:
+            present, missing_files, mismatched = from_head(root, xlc, Path(tmp))
+            start = time.monotonic()
+            failed = read(root, reader, present) if present else {}
+            seconds = time.monotonic() - start
+        missing = [
+            (path, md5, f"DVC のキャッシュに無い（{manifest}）")
+            for path, md5, manifest in missing_dirs
+        ] + missing_files
     except Stop as e:
         print(f"STOP: {e}")
         return 1
-    bad = bool(missing)
-    for path, md5, file in sorted(missing):
-        print(f"MISSING: {path} (md5 {md5}): DVC のキャッシュに無い（{file}）")
+    bad = bool(missing or mismatched)
+    for path, md5, reason in sorted(missing):
+        print(f"MISSING: {path} (md5 {md5}): {reason}")
+    for path, md5, actual in sorted(mismatched):
+        print(
+            f"MISMATCH: {path} (md5 {md5}): DVC のキャッシュに無く、HEAD の git の版の md5 は {actual}。"
+            "lock が古いか、出力の変更をコミットしていない"
+        )
     for t in sorted(present, key=lambda t: t.path):
         if str(t.file) not in failed:
             continue
