@@ -399,10 +399,10 @@ VII.0、VII.1、VIII.1 は Slurm 1006、1007、1008（ca321eef、分岐点 49e30
 バックグラウンド（#0310）の後に VIII.1 の Cu-63、Sr-88（c04be629、分岐点 74a54401）で、どれも通った。通った評価は、
 その後の main のビルドで再実行していない。マージの記録が出力のバイトを確かめたのは一部の評価だけ（#0305 は U-235、Zr-90、VII.1 の Pu-239、
 VIII.1 の Fe-54、#0310 はシフト因子とバックグラウンドの無い LRF=7 の 9 評価）で、ほかの通った評価が今の main でも通るかは確かめていない。
-報告と要約のステージは 9c985a64 で作り直した（2026-11-21）。
+報告と要約のステージは 36de24f5 で作り直した（2026-11-21）。
 
-止まった評価と、宣言を足した評価は、すべてを 2eb57d7d（分岐点 0e4d679a。#0309、#0311、#0264 の後）の `cargo build --release` の xs で手元で再実行した
-（4 並列、1 核種に 2 スレッド、2026-11-21。1 核種の時間は最大 155 秒）: 版ごとに `process-survey/<版>/declarations.toml` の核種と、前の表で止まった
+止まった評価と、宣言を足した評価は、すべてを 36de24f5（分岐点 0f883589。#0309、#0311、#0264、#0326 の後）の `cargo build --release` の xs で手元で再実行した
+（4 並列、1 核種に 2 スレッド、2026-11-21。1 核種の時間は最大 139 秒）: 版ごとに `process-survey/<版>/declarations.toml` の核種と、前の表で止まった
 評価（VII.0 は Y-89 を含めて 19、VII.1 は 11、VIII.0 は 12、VIII.1 は 14）。宣言しない評価の出力が変わらないことは、上の「版ごとのライブラリの非分離共鳴の
 負のバックグラウンド」で 10 評価を確かめた。
 
@@ -463,7 +463,7 @@ VII.0 で 3、VII.1 で 1 違う。
 | xlc_xs::endf::mf6: neutron LAW=N is integrated over the cosines as tabulated; NJOY GROUPR's llNlab thins the outgoing energies with swapped interpolation weights, which smears histogram tables (ADR-N)                                                                                                                                                                         | 1     | 1     | 1      | 1      |
 | xlc_xs::pointwise: N reactions start below their kinematic threshold -Q(A+N)/A and now start at it with a zero cross section; the largest shift is N eV in MTN and the largest relative shift is N of the threshold in MTN; N points below the thresholds were dropped; N reactions had nonzero values below the threshold, now N (the largest N of the reaction maximum in MTN) | 15    | 10    | 10     | 14     |
 | xlc_xs::endf::mf5: corresponding-point interpolation between grids of different sizes; using unit-base interpolation as NJOY does code=N                                                                                                                                                                                                                                         | 20    | 19    | 8      | 4      |
-| xlc_xs::process: the MFN background of MTN in the unresolved range is negative (down to -N b at N eV); the sampled File N part of each reaction with a negative background is scaled by (mean + background)/mean instead, as the input declares (ADR-N)                                                                                                                          | 10    | 5     | 5      | 5      |
+| xlc_xs::process: the MFN background in the unresolved range is negative (MTN down to -N b at N eV); the sampled File N part of each reaction with a negative background is scaled by (mean + background)/mean instead, as the input declares (ADR-N)                                                                                                                             | 10    | 5     | 5      | 5      |
 | xlc_xs::process: N K: the sampled elastic (with the MFN background) is negative at N of N sampled energies in the unresolved range and is raised to N microbarn, as NJOY PURR does                                                                                                                                                                                               | 8     | 5     | 4      | 4      |
 | xlc_xs::process: the MFN multiplicity does not cover all energies where the reaction is nonzero; the state gets none of the reaction there (as NJOY GROUPR) mt=N lfs=N energy=N                                                                                                                                                                                                  | 4     | 4     | 7      | 4      |
 | xlc_xs::process: the final states listed in MFN leave part of the reaction to no channel (b) mt=N group=N missing=N                                                                                                                                                                                                                                                              | 3     | 6     | 30     | 34     |
@@ -1308,8 +1308,29 @@ Pm-149（565 K の 1 点、`process-survey/<版>/` の入力から宣言を除�
   +13.2 %。因子の方法は Eu-154 で 1 b の +0.22 %、Cf-252 で −31 %、Ar-36 で −37 %。Na-22 の今の方法の遮蔽した捕獲は負（群 13 の σ0 = 30 b で
   −0.0053 b、群 11 の 1 b で −0.0011 b）で、縮める方法は 0.0049 b、0.0033 b。表は ADR-0274 の「確認」
 - 宣言しない評価の出力は変わらない: 上の 10 評価の出力は、分岐点の xs の出力とバイトで同じ
-- 本番のライブラリの入力 `p2/xs.toml` の Na-22、Ar-36、Eu-154 は放射化の核種で、遮蔽を求めないので当たらない（宣言を書くと止まる）。#0292 の
-  試行の入力には宣言を足した（下の「データのある全核種を輸送した燃焼と、UFG で解く核種を絞った差と時間（試行）」）
+- 宣言を足した入力（リポジトリの xs の入力の全部を、版の走査の入力の宣言と突き合わせる `examples/depletion/test_input_declarations.py` で数えた。
+  `cargo test` と同じく run-checks.sh が実行する。宣言の前の入力で落ち、足した後に通る）:
+
+  | 入力                                               | 版     | 宣言した輸送する核種                 |
+  | -------------------------------------------------- | ------ | ------------------------------------ |
+  | `examples/vera/xs.toml`                            | VIII.0 | Cd-106、Cd-111                       |
+  | `examples/vera/endfb70/xs.toml`                    | VII.0  | Cd-106、Cd-111                       |
+  | `examples/depletion/p2/xs.toml`                    | VIII.0 | Cd-106、Cd-111                       |
+  | `examples/core/xs.toml`                            | VIII.0 | Cd-106、Cd-111                       |
+  | `examples/m3-nuclides/xs.toml`                     | VIII.0 | Cd-106、Cd-111                       |
+  | `examples/depletion/endfb70/xs.toml`               | VII.0  | Am-241                               |
+  | `issue-0292/trial/library`、`no-pointwise/library` | VIII.0 | Cd-106、Cd-111、Eu-154               |
+  | `issue-0292/all/library`                           | VIII.0 | Na-22、Ar-36、Cd-106、Cd-111、Eu-154 |
+  | `issue-0292/all/control`                           | VIII.0 | Cd-106、Cd-111、Eu-154               |
+
+  `p2/xs.toml` の Na-22、Ar-36、Eu-154 は放射化の核種で、遮蔽を求めないので宣言を取らない（書くと止まる）。宣言で変わる群定数は、上の読み方の差の
+  縮める方法の値（Cd-111 は σ0 = 1000 b で +0.013 %、100 b で +0.12 %、10 b で +0.76 %、1 b で +1.67 %、Cd-106 は +0.086 %、+0.78 %、+4.8 %、+13.2 %、
+  VII.0 の Am-241 は 1 b で +0.011 %。変わるのは非分離共鳴の範囲にかかる群だけ）。ライブラリは作り直していない。`scripts/dvc-repro.py --count-only
+  --max-stages 100000 <yaml>` で数えた走るステージ（このブランチの前からの changed を含む。7458fdb9、2026-11-21）は、vera 86（参照解 3 を除く）、depletion 309（参照解 6
+  を除く）、core 58、m3-nuclides 3、depletion/endfb70 69、vera/endfb70 80。AIC の Cd の吸収のうち非分離共鳴の範囲が占める割合は、既にある出力から
+  出しておらず、KENO との比較と制御棒の価値に効く大きさは確かめていない（#0327）
+- 宣言しない VII.0 の Cf-253 は、#0326（対数の補間則の正でない値の検査）の後も、この節の既定のエラー（非分離共鳴のバックグラウンド）で止まる
+  （36de24f5、2026-11-21）
 
 ## 天然の元素の評価の複数の同位体
 
@@ -11941,7 +11962,7 @@ cd ../u && for c in s17 s17-full; do ../../../../../target/release/lattice $c.to
 - 入力とライブラリの食い違い: 今の入力は、ライブラリを作った後に書き直した（2eb57d7d、2026-11-21）。ライブラリと下流の燃焼、組の計算は作り直して
   いないので、出力は書き直す前の入力のもの。変えたのは次だけ（入力の diff はこの行だけ）: (1) 非分離共鳴の負のバックグラウンドの宣言
   （上の「版ごとのライブラリの非分離共鳴の負のバックグラウンド」、ADR-0274）を、all/library の Na-22、Ar-36、Cd-106、Cd-111、Eu-154、all/control の
-  Cd-106、Cd-111、Eu-154、`issue-0292/trial/library` と `no-pointwise/library` の Eu-154 に足した（宣言なしでは今の xs が止まる）。宣言で変わる
+  Cd-106、Cd-111、Eu-154、`issue-0292/trial/library` と `no-pointwise/library` の Eu-154、Cd-106、Cd-111 に足した（宣言なしでは今の xs が止まる）。宣言で変わる
   遮蔽した捕獲は、範囲にかかる群の最大で、Eu-154 が σ0 = 1 b の +0.027 %、Cd-111 が +1.67 %、Cd-106 が +13.2 %、Na-22 は今の方法の値が負
   （同じ節）。(2) #0311 と #0264 の後に読めるようになった H-2、Be-9、Cl-35、Ca-40 を外さず、all/library で輸送する核種、all/control で放射化の核種
   にした。試行の結論への効きの上限: 全核種の燃焼の組成での吸収の割合（`all/effect-<燃料>.json`）は Eu-154 が 60 MWd/kg で最大 0.49 %、Cd-111 が

@@ -1,4 +1,4 @@
-inputs: process-survey/VII.0/report.json fe6db4ec, read-survey-endfb70.toml b2108c41, endfb70/chain.msgpack 5c4c8194, process-survey/VII.1/report.json 6a96c112, read-survey-endfb71.toml d343cbb1, endfb71/chain.msgpack 32ee4517, process-survey/VIII.0/report.json 46b8374c, read-survey-endfb80.toml 665ba4e9, chain.msgpack 1f1de180, process-survey/VIII.1/report.json 12153b0b, read-survey-endfb81.toml f84c15db, endfb81/chain.msgpack 4b084932
+inputs: process-survey/VII.0/report.json 88fbb304, read-survey-endfb70.toml b2108c41, endfb70/chain.msgpack 5c4c8194, process-survey/VII.1/report.json a65a6410, read-survey-endfb71.toml d343cbb1, endfb71/chain.msgpack 32ee4517, process-survey/VIII.0/report.json e737e097, read-survey-endfb80.toml 665ba4e9, chain.msgpack 1f1de180, process-survey/VIII.1/report.json e1f3f4b7, read-survey-endfb81.toml f84c15db, endfb81/chain.msgpack 4b084932
 
 | 版 | チェーンの評価 | 通った | 止まった | うち走査でも止まる | チェーンの外の評価 | 通した | 通った | 止まった | 入れない |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -34,7 +34,7 @@ inputs: process-survey/VII.0/report.json fe6db4ec, read-survey-endfb70.toml b210
 - xlc_xs::endf::mf6: neutron LAW=N is integrated over the cosines as tabulated; NJOY GROUPR's llNlab thins the outgoing energies with swapped interpolation weights, which smears histogram tables (ADR-N): VII.0 1、VII.1 1、VIII.0 1、VIII.1 1
 - xlc_xs::pointwise: N reactions start below their kinematic threshold -Q(A+N)/A and now start at it with a zero cross section; the largest shift is N eV in MTN and the largest relative shift is N of the threshold in MTN; N points below the thresholds were dropped; N reactions had nonzero values below the threshold, now N (the largest N of the reaction maximum in MTN): VII.0 15、VII.1 10、VIII.0 10、VIII.1 14
 - xlc_xs::endf::mf5: corresponding-point interpolation between grids of different sizes; using unit-base interpolation as NJOY does code=N: VII.0 20、VII.1 19、VIII.0 8、VIII.1 4
-- xlc_xs::process: the MFN background of MTN in the unresolved range is negative (down to -N b at N eV); the sampled File N part of each reaction with a negative background is scaled by (mean + background)/mean instead, as the input declares (ADR-N): VII.0 10、VII.1 5、VIII.0 5、VIII.1 5
+- xlc_xs::process: the MFN background in the unresolved range is negative (MTN down to -N b at N eV); the sampled File N part of each reaction with a negative background is scaled by (mean + background)/mean instead, as the input declares (ADR-N): VII.0 10、VII.1 5、VIII.0 5、VIII.1 5
 - xlc_xs::process: N K: the sampled elastic (with the MFN background) is negative at N of N sampled energies in the unresolved range and is raised to N microbarn, as NJOY PURR does: VII.0 8、VII.1 5、VIII.0 4、VIII.1 4
 - xlc_xs::process: the MFN multiplicity does not cover all energies where the reaction is nonzero; the state gets none of the reaction there (as NJOY GROUPR) mt=N lfs=N energy=N: VII.0 4、VII.1 4、VIII.0 7、VIII.1 4
 - xlc_xs::process: the final states listed in MFN leave part of the reaction to no channel (b) mt=N group=N missing=N: VII.0 3、VII.1 6、VIII.0 30、VIII.1 34
@@ -51,10 +51,10 @@ inputs: process-survey/VII.0/report.json fe6db4ec, read-survey-endfb70.toml b210
 
 ## 時間と常駐の大きい核種
 - VII.0 時間: Am-242m 347.2 s 9608 kB、Cm-245 256.72 s 8940 kB、Cm-243 250.22 s 8348 kB、U-233 213.69 s 23396 kB、Eu-151 203.74 s 10320 kB
-- VII.0 常駐: U-238 182.52 s 278240 kB、U-235 151.76 s 149764 kB、Pu-239 174.85 s 107196 kB、Th-232 28.86 s 104408 kB、Tc-99 50.15 s 67984 kB
+- VII.0 常駐: U-238 182.52 s 278240 kB、U-235 151.76 s 149764 kB、Pu-239 174.85 s 107196 kB、Th-232 29.33 s 105100 kB、Tc-99 50.15 s 67984 kB
 - VII.1 時間: Am-242m 393.16 s 10104 kB、U-238 241.95 s 332904 kB、Np-236 237.53 s 10972 kB、Np-238 232.87 s 13340 kB、Eu-151 231.7 s 10036 kB
-- VII.1 常駐: U-238 241.95 s 332904 kB、U-235 198.08 s 193648 kB、Pu-239 223.24 s 123464 kB、Th-232 30.4 s 105476 kB、Tm-169 31.96 s 96180 kB
-- VIII.0 時間: Am-242m 281.06 s 10396 kB、Eu-151 170.68 s 10684 kB、U-238 167.41 s 344288 kB、Eu-154 154.5 s 7608 kB、Am-242 153.62 s 11268 kB
+- VII.1 常駐: U-238 241.95 s 332904 kB、U-235 198.08 s 193648 kB、Pu-239 223.24 s 123464 kB、Th-232 29.59 s 105792 kB、Tm-169 31.96 s 96180 kB
+- VIII.0 時間: Am-242m 281.06 s 10396 kB、Eu-151 170.68 s 10684 kB、U-238 167.41 s 344288 kB、Am-242 153.62 s 11268 kB、Np-236 152.84 s 11260 kB
 - VIII.0 常駐: U-238 167.41 s 344288 kB、U-235 142.66 s 320720 kB、Pu-240 46.51 s 146832 kB、O-16 1.4 s 123540 kB、Pu-239 147.9 s 113280 kB
 - VIII.1 時間: Am-242m 305.32 s 10092 kB、H-1 230.61 s 272912 kB、U-238 202.86 s 338344 kB、Np-236 194.47 s 10472 kB、Eu-151 192.12 s 11024 kB
 - VIII.1 常駐: U-238 202.86 s 338344 kB、U-235 184.43 s 320252 kB、H-1 230.61 s 272912 kB、Pu-239 179.84 s 165656 kB、Pt-192 59.1 s 162956 kB
@@ -64,11 +64,11 @@ inputs: process-survey/VII.0/report.json fe6db4ec, read-survey-endfb70.toml b210
 - Mn-55: VII.0 2.44 s 16008 kB、VII.1 29.13 s 26412 kB、VIII.0 28.2 s 27128 kB、VIII.1 29.53 s 27236 kB
 - Fe-58: VII.0 1.67 s 11308 kB、VII.1 1.38 s 11368 kB、VIII.0 19.73 s 42556 kB、VIII.1 15.94 s 42036 kB
 - Ni-59: VII.0 1.22 s 7112 kB、VII.1 0.79 s 7416 kB、VIII.0 9.3 s 13936 kB、VIII.1 8.85 s 14848 kB
-- Ta-181: VII.0 3.19 s 11764 kB、VII.1 17.48 s 28340 kB、VIII.0 19.66 s 29616 kB、VIII.1 85.63 s 123372 kB
+- Ta-181: VII.0 3.25 s 11188 kB、VII.1 17.48 s 28340 kB、VIII.0 19.66 s 29616 kB、VIII.1 85.63 s 123372 kB
 - Au-197: VII.0 8.04 s 26392 kB、VII.1 8.35 s 28352 kB、VIII.0 67.42 s 18988 kB、VIII.1 81.09 s 28816 kB
 - Th-229: VII.0 2.48 s 6788 kB、VII.1 81.74 s 12528 kB、VIII.0 79.75 s 13008 kB、VIII.1 76.92 s 12532 kB
 - Pa-232: VII.0 1.44 s 6444 kB、VII.1 183.91 s 11112 kB、VIII.0 130.73 s 11888 kB、VIII.1 163.63 s 11048 kB
 - Np-236: VII.0 1.6 s 6908 kB、VII.1 237.53 s 10972 kB、VIII.0 152.84 s 11260 kB、VIII.1 194.47 s 10472 kB
 - Np-238: VII.0 1.26 s 7032 kB、VII.1 232.87 s 13340 kB、VIII.0 138.56 s 13868 kB、VIII.1 186.82 s 13108 kB
 - Bk-250: VII.0 25.11 s 10200 kB、VII.1 1.34 s 10956 kB、VIII.0 1.27 s 11700 kB、VIII.1 1.4 s 10996 kB
-- Cf-252: VII.0 1.17 s 9636 kB、VII.1 16.03 s 14688 kB、VIII.0 11.01 s 15256 kB、VIII.1 8.15 s 14640 kB
+- Cf-252: VII.0 1.18 s 9624 kB、VII.1 16.03 s 14688 kB、VIII.0 11.01 s 15256 kB、VIII.1 8.15 s 14640 kB

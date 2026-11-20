@@ -16,9 +16,9 @@
   {
    "nuclide": "H-2",
    "endf": "n-001_H_002.endf",
-   "seconds": 3.36,
-   "user_seconds": 3.35,
-   "max_rss_kb": 6108,
+   "seconds": 3.17,
+   "user_seconds": 3.16,
+   "max_rss_kb": 6476,
    "exit": 0,
    "warnings": {
     "xlc_xs::pointwise: N reactions start below their kinematic threshold -Q(A+N)/A and now start at it with a zero cross section; the largest shift is N eV in MTN and the largest relative shift is N of the threshold in MTN; N points below the thresholds were dropped": 1,
@@ -97,7 +97,7 @@
    "endf": "n-004_Be_009.endf",
    "seconds": 1.5,
    "user_seconds": 1.49,
-   "max_rss_kb": 8392,
+   "max_rss_kb": 8208,
    "exit": 0,
    "warnings": {
     "xlc_xs::pointwise: N reactions start below their kinematic threshold -Q(A+N)/A and now start at it with a zero cross section; the largest shift is N eV in MTN and the largest relative shift is N of the threshold in MTN; N points below the thresholds were dropped": 1,
@@ -205,13 +205,13 @@
   {
    "nuclide": "Na-22",
    "endf": "n-011_Na_022.endf",
-   "seconds": 3.26,
-   "user_seconds": 5.15,
-   "max_rss_kb": 7196,
+   "seconds": 3.36,
+   "user_seconds": 5.28,
+   "max_rss_kb": 7132,
    "exit": 0,
    "warnings": {
     "xlc_xs::pointwise: N reactions start below their kinematic threshold -Q(A+N)/A and now start at it with a zero cross section; the largest shift is N eV in MTN and the largest relative shift is N of the threshold in MTN; N points below the thresholds were dropped": 1,
-    "xlc_xs::process: the MFN background of MTN in the unresolved range is negative (down to -N b at N eV); the sampled File N part of each reaction with a negative background is scaled by (mean + background)/mean instead, as the input declares (ADR-N)": 1,
+    "xlc_xs::process: the MFN background in the unresolved range is negative (MTN down to -N b at N eV); the sampled File N part of each reaction with a negative background is scaled by (mean + background)/mean instead, as the input declares (ADR-N)": 1,
     "xlc_xs::process: N K: the sampled elastic (with the MFN background) is negative at N of N sampled energies in the unresolved range and is raised to N microbarn, as NJOY PURR does": 1
    },
    "source": "log",
@@ -383,9 +383,9 @@
   {
    "nuclide": "Cl-35",
    "endf": "n-017_Cl_035.endf",
-   "seconds": 11.17,
-   "user_seconds": 11.14,
-   "max_rss_kb": 31496,
+   "seconds": 10.61,
+   "user_seconds": 10.59,
+   "max_rss_kb": 31520,
    "exit": 0,
    "warnings": {
     "xlc_xs::pointwise: N reactions start below their kinematic threshold -Q(A+N)/A and now start at it with a zero cross section; the largest shift is N eV in MTN and the largest relative shift is N of the threshold in MTN; N points below the thresholds were dropped": 1
@@ -407,13 +407,13 @@
   {
    "nuclide": "Ar-36",
    "endf": "n-018_Ar_036.endf",
-   "seconds": 2.36,
-   "user_seconds": 3.77,
-   "max_rss_kb": 7100,
+   "seconds": 2.46,
+   "user_seconds": 3.88,
+   "max_rss_kb": 7256,
    "exit": 0,
    "warnings": {
     "xlc_xs::pointwise: N reactions start below their kinematic threshold -Q(A+N)/A and now start at it with a zero cross section; the largest shift is N eV in MTN and the largest relative shift is N of the threshold in MTN; N points below the thresholds were dropped": 1,
-    "xlc_xs::process: the MFN background of MTN in the unresolved range is negative (down to -N b at N eV); the sampled File N part of each reaction with a negative background is scaled by (mean + background)/mean instead, as the input declares (ADR-N)": 1
+    "xlc_xs::process: the MFN background in the unresolved range is negative (MTN down to -N b at N eV); the sampled File N part of each reaction with a negative background is scaled by (mean + background)/mean instead, as the input declares (ADR-N)": 1
    },
    "source": "log",
    "declarations": [
@@ -1929,13 +1929,13 @@
   {
    "nuclide": "Cd-106",
    "endf": "n-048_Cd_106.endf",
-   "seconds": 3.1,
-   "user_seconds": 4.48,
-   "max_rss_kb": 12408,
+   "seconds": 3.2,
+   "user_seconds": 4.58,
+   "max_rss_kb": 12948,
    "exit": 0,
    "warnings": {
     "xlc_xs::pointwise: N reactions start below their kinematic threshold -Q(A+N)/A and now start at it with a zero cross section; the largest shift is N eV in MTN and the largest relative shift is N of the threshold in MTN; N points below the thresholds were dropped": 1,
-    "xlc_xs::process: the MFN background of MTN in the unresolved range is negative (down to -N b at N eV); the sampled File N part of each reaction with a negative background is scaled by (mean + background)/mean instead, as the input declares (ADR-N)": 1,
+    "xlc_xs::process: the MFN background in the unresolved range is negative (MTN down to -N b at N eV); the sampled File N part of each reaction with a negative background is scaled by (mean + background)/mean instead, as the input declares (ADR-N)": 1,
     "xlc_xs::process: N K: the sampled elastic (with the MFN background) is negative at N of N sampled energies in the unresolved range and is raised to N microbarn, as NJOY PURR does": 1
    },
    "source": "log",
@@ -1970,13 +1970,13 @@
   {
    "nuclide": "Cd-111",
    "endf": "n-048_Cd_111.endf",
-   "seconds": 9.33,
-   "user_seconds": 15.52,
-   "max_rss_kb": 17972,
+   "seconds": 9.37,
+   "user_seconds": 15.54,
+   "max_rss_kb": 18084,
    "exit": 0,
    "warnings": {
     "xlc_xs::pointwise: N reactions start below their kinematic threshold -Q(A+N)/A and now start at it with a zero cross section; the largest shift is N eV in MTN and the largest relative shift is N of the threshold in MTN; N points below the thresholds were dropped": 1,
-    "xlc_xs::process: the MFN background of MTN in the unresolved range is negative (down to -N b at N eV); the sampled File N part of each reaction with a negative background is scaled by (mean + background)/mean instead, as the input declares (ADR-N)": 1
+    "xlc_xs::process: the MFN background in the unresolved range is negative (MTN down to -N b at N eV); the sampled File N part of each reaction with a negative background is scaled by (mean + background)/mean instead, as the input declares (ADR-N)": 1
    },
    "source": "log",
    "declarations": [
@@ -3274,13 +3274,13 @@
   {
    "nuclide": "Eu-154",
    "endf": "n-063_Eu_154.endf",
-   "seconds": 141.86,
-   "user_seconds": 278.27,
-   "max_rss_kb": 7992,
+   "seconds": 136.28,
+   "user_seconds": 268.57,
+   "max_rss_kb": 7732,
    "exit": 0,
    "warnings": {
     "xlc_xs::pointwise: N reactions start below their kinematic threshold -Q(A+N)/A and now start at it with a zero cross section; the largest shift is N eV in MTN and the largest relative shift is N of the threshold in MTN; N points below the thresholds were dropped": 1,
-    "xlc_xs::process: the MFN background of MTN in the unresolved range is negative (down to -N b at N eV); the sampled File N part of each reaction with a negative background is scaled by (mean + background)/mean instead, as the input declares (ADR-N)": 1
+    "xlc_xs::process: the MFN background in the unresolved range is negative (MTN down to -N b at N eV); the sampled File N part of each reaction with a negative background is scaled by (mean + background)/mean instead, as the input declares (ADR-N)": 1
    },
    "source": "log",
    "declarations": [
@@ -4246,9 +4246,9 @@
   {
    "nuclide": "Th-232",
    "endf": "n-090_Th_232.endf",
-   "seconds": 30.4,
-   "user_seconds": 48.18,
-   "max_rss_kb": 105476,
+   "seconds": 29.59,
+   "user_seconds": 46.88,
+   "max_rss_kb": 105792,
    "exit": 1,
    "warnings": {
     "xlc_xs::pointwise: N reactions start below their kinematic threshold -Q(A+N)/A and now start at it with a zero cross section; the largest shift is N eV in MTN and the largest relative shift is N of the threshold in MTN; N points below the thresholds were dropped": 1
@@ -4311,9 +4311,9 @@
   {
    "nuclide": "Pa-231",
    "endf": "n-091_Pa_231.endf",
-   "seconds": 119.58,
-   "user_seconds": 235.01,
-   "max_rss_kb": 40176,
+   "seconds": 116.52,
+   "user_seconds": 228.89,
+   "max_rss_kb": 40120,
    "exit": 1,
    "warnings": {
     "xlc_xs::pointwise: N reactions start below their kinematic threshold -Q(A+N)/A and now start at it with a zero cross section; the largest shift is N eV in MTN and the largest relative shift is N of the threshold in MTN; N points below the thresholds were dropped": 1
@@ -4337,9 +4337,9 @@
   {
    "nuclide": "Pa-233",
    "endf": "n-091_Pa_233.endf",
-   "seconds": 113.32,
-   "user_seconds": 221.03,
-   "max_rss_kb": 25668,
+   "seconds": 107.0,
+   "user_seconds": 208.97,
+   "max_rss_kb": 25904,
    "exit": 1,
    "warnings": {
     "xlc_xs::pointwise: N reactions start below their kinematic threshold -Q(A+N)/A and now start at it with a zero cross section; the largest shift is N eV in MTN and the largest relative shift is N of the threshold in MTN; N points below the thresholds were dropped": 1

@@ -178,8 +178,8 @@
     },
     {
      "nuclide": "Th-232",
-     "seconds": 28.86,
-     "max_rss_kb": 104408
+     "seconds": 29.33,
+     "max_rss_kb": 105100
     },
     {
      "nuclide": "Tc-99",
@@ -311,8 +311,8 @@
     },
     {
      "nuclide": "Th-232",
-     "seconds": 30.4,
-     "max_rss_kb": 105476
+     "seconds": 29.59,
+     "max_rss_kb": 105792
     },
     {
      "nuclide": "Tm-169",
@@ -416,14 +416,14 @@
      "max_rss_kb": 344288
     },
     {
-     "nuclide": "Eu-154",
-     "seconds": 154.5,
-     "max_rss_kb": 7608
-    },
-    {
      "nuclide": "Am-242",
      "seconds": 153.62,
      "max_rss_kb": 11268
+    },
+    {
+     "nuclide": "Np-236",
+     "seconds": 152.84,
+     "max_rss_kb": 11260
     }
    ],
    "largest": [
@@ -631,7 +631,7 @@
    "VIII.0": 8,
    "VIII.1": 4
   },
-  "xlc_xs::process: the MFN background of MTN in the unresolved range is negative (down to -N b at N eV); the sampled File N part of each reaction with a negative background is scaled by (mean + background)/mean instead, as the input declares (ADR-N)": {
+  "xlc_xs::process: the MFN background in the unresolved range is negative (MTN down to -N b at N eV); the sampled File N part of each reaction with a negative background is scaled by (mean + background)/mean instead, as the input declares (ADR-N)": {
    "VII.0": 10,
    "VII.1": 5,
    "VIII.0": 5,
@@ -763,13 +763,13 @@
   {
    "nuclide": "Ta-181",
    "seconds": {
-    "VII.0": 3.19,
+    "VII.0": 3.25,
     "VII.1": 17.48,
     "VIII.0": 19.66,
     "VIII.1": 85.63
    },
    "max_rss_kb": {
-    "VII.0": 11764,
+    "VII.0": 11188,
     "VII.1": 28340,
     "VIII.0": 29616,
     "VIII.1": 123372
@@ -868,13 +868,13 @@
   {
    "nuclide": "Cf-252",
    "seconds": {
-    "VII.0": 1.17,
+    "VII.0": 1.18,
     "VII.1": 16.03,
     "VIII.0": 11.01,
     "VIII.1": 8.15
    },
    "max_rss_kb": {
-    "VII.0": 9636,
+    "VII.0": 9624,
     "VII.1": 14688,
     "VIII.0": 15256,
     "VIII.1": 14640
@@ -884,7 +884,7 @@
  "inputs": [
   {
    "path": "process-survey/VII.0/report.json",
-   "md5": "fe6db4ec9062ae3a70e6e0a78ae4bf7e"
+   "md5": "88fbb304a1977d43d4e628dbd4464581"
   },
   {
    "path": "read-survey-endfb70.toml",
@@ -896,7 +896,7 @@
   },
   {
    "path": "process-survey/VII.1/report.json",
-   "md5": "6a96c11291bd0fee7652cdc1fdb45cb8"
+   "md5": "a65a64108f9064d9b31c2b65531c9b8b"
   },
   {
    "path": "read-survey-endfb71.toml",
@@ -908,7 +908,7 @@
   },
   {
    "path": "process-survey/VIII.0/report.json",
-   "md5": "46b8374cf4cb609879ecb090742ecfa6"
+   "md5": "e737e09785fd171186a84c40a59c4d71"
   },
   {
    "path": "read-survey-endfb80.toml",
@@ -920,7 +920,7 @@
   },
   {
    "path": "process-survey/VIII.1/report.json",
-   "md5": "12153b0b7980b60144b09cb9c344f901"
+   "md5": "e1f3f4b7bf2dcaa46ba1bf85a0155857"
   },
   {
    "path": "read-survey-endfb81.toml",
