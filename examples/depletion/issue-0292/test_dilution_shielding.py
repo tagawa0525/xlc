@@ -150,5 +150,11 @@ class Report(unittest.TestCase):
         self.assertTrue(ds.report(summary)[-1].endswith("| –"))
 
 
+class Empty(unittest.TestCase):
+    def test_nothing_left_to_rank_is_an_error(self):
+        with self.assertRaises(SystemExit):
+            ds.summarize({}, {}, {}, "t", "a", [], 565.0)
+
+
 if __name__ == "__main__":
     unittest.main()

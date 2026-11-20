@@ -14,6 +14,7 @@ import all_nuclides
 
 GLOBAL = """output = "depletion.msgpack"
 endf-directory = "../e"
+# 書いておく理由
 sigma0 = [1e10, 1]
 """
 BASE = (
@@ -160,6 +161,9 @@ class Render(unittest.TestCase):
         self.assertEqual(data["sigma0"], [1e10, 1])
         self.assertEqual(data["nuclide"], e)
         self.assertTrue(text.startswith("# 見出し\n"))
+        # 共通の項目の間の注釈は残し、ファイルの先頭の注釈は見出しに替える
+        self.assertIn("# 書いておく理由\nsigma0", text)
+        self.assertNotIn("# 注釈", text)
 
     def test_the_lists_of_nuclides_split_by_the_libraries(self):
         p2 = tomllib.loads(BASE)["nuclide"]

@@ -212,13 +212,18 @@ class AllSeries(unittest.TestCase):
         fuel_dir = root / "all-ufg" / "u"
         (fuel_dir / "out").mkdir(parents=True)
         (fuel_dir / "out-timed").mkdir()
-        (root / "ufg-subset" / "u" / "out").mkdir(parents=True)
+        (root / "ufg-subset" / "u" / "out").mkdir(parents=True, exist_ok=True)
         (root / "all" / "u").mkdir(parents=True, exist_ok=True)
         (root / "all" / "library").mkdir()
         for case, kept in ALL_CASES.items():
             listed = None if kept is None else ["U-235", *kept]
             write_case(fuel_dir, case, [1.2, 1.1], ["4s", "8s"], listed)
         (root / "all" / "added-to-p2.txt").parent.mkdir(parents=True, exist_ok=True)
+        (fuel_dir / "control.toml").write_text('library = "c"\n')
+        (root / "ufg-subset" / "u" / "all.toml").parent.mkdir(
+            parents=True, exist_ok=True
+        )
+        (root / "ufg-subset" / "u" / "all.toml").write_text('library = "t"\n')
         (fuel_dir / "out" / "control.msgpack").write_bytes(
             msgpack.packb(one_state_table([0.0, 10.0], [1.2, 1.0]))
         )
@@ -243,6 +248,9 @@ class AllSeries(unittest.TestCase):
             d = ufg_subset.compare("u", root, "all", ALL_CASES)
             self.assertEqual([c["case"] for c in d["cases"]], list(ALL_CASES))
             self.assertEqual([c["ufg_added"] for c in d["cases"]], [None, 0, 1])
+            paths = [i["path"] for i in d["inputs"]]
+            self.assertIn("issue-0292/all-ufg/u/control.toml", paths)
+            self.assertIn("issue-0292/ufg-subset/u/all.toml", paths)
             change = d["library_change_pcm"]
             self.assertAlmostEqual(change[0], 0.0)
             self.assertAlmostEqual(change[1], 1e5 * (1 / 1.1 - 1 / 1.0))
