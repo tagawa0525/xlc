@@ -292,12 +292,13 @@ python3 examples/depletion/read_survey.py --report examples/depletion/read-surve
 <!-- /table -->
 
 理由は `xs check` の文から先頭の行番号を除いたもの。形式ごとの issue: MF6 MT18 の核分裂の中性子は #0312、
-Rb-87 の TAB1 は #0316（入力に修正を宣言すれば読める。走査は宣言を読まないので止まると数える。ADR-0272）、荷電粒子の対は #0264。VIII.1 の Pu-239 の核分裂の対は #0308 で、VII.0 の天然の V と Zn の
+Rb-87 の TAB1 は #0316（入力に修正を宣言すれば読める。走査は宣言を読まないので止まると数える。ADR-0272）。VIII.1 の Pu-239 の核分裂の対は #0308 で、VII.0 の天然の V と Zn の
 複数の同位体（NIS > 1）は #0305 で、VII.0 と VII.1 の U-233 の MF5 の LF=11 は #0313 で、R 行列の制限形のシフト因子（VII.1 の Cl-35 の SHF=−1、
 VIII.1 の Cu-63 の SHF=1）と VIII.1 の Sr-88 のバックグラウンドの R 行列は #0310 で、MF6 の中性子の LAW=6（H-2 の 4 つの版と VIII.1 の
-Li-6）と LAW=7（Be-9 の 4 つの版）は #0311 で読めるようになった（下の「天然の元素の評価の複数の同位体」、「版ごとのライブラリのエネルギーによる
-Watt の核分裂スペクトル」、「版ごとのライブラリの分離共鳴の R 行列の制限形のシフト因子とバックグラウンド」、「MF6 の LAW=6、7 の散乱行列
-（NJOY との比較）」。VII.1 の Cl-35 は、その次の荷電粒子の対で止まる）。
+Li-6）と LAW=7（Be-9 の 4 つの版）は #0311 で、VII.1、VIII.0、VIII.1 の Cl-35 と VIII.0、VIII.1 の Ca-40 の荷電粒子の粒子対は #0264 で読めるように
+なった（下の「天然の元素の評価の複数の同位体」、「版ごとのライブラリのエネルギーによる Watt の核分裂スペクトル」、「版ごとのライブラリの分離共鳴の
+R 行列の制限形のシフト因子とバックグラウンド」、「MF6 の LAW=6、7 の散乱行列（NJOY との比較）」、「版ごとのライブラリの分離共鳴の R 行列の制限形の
+荷電粒子の粒子対」）。
 
 ### #0292 の 9 核種の `xs nuclide`
 
@@ -996,11 +997,97 @@ Sr-88 MT102: compared 44326, max rel diff 1.00e-3 at 1.540038e5 eV, > 2 tol: 0
   版（603ea806）では、その裾の格子の隙間で全断面積が NJOY と 4.0e-3 違ったので、格子点を準位のずれの分だけ動かした（ADR-0055 の
   「変更」）
 - `xs nuclide`: VIII.1 の Cu-63 と Sr-88 は終了コード 0 で終わる（16 秒、11 秒）。VII.0、VII.1、VIII.0 の Cu-63 と Sr-88 も終了コード 0。
-  VII.1 の Cl-35 は、シフト因子（SHF=−1、計算しない）を通り、次の荷電粒子の粒子対で止まる（#0264）。VII.0 の Cl-35 は LRF=7 でなく、
+  VII.1 の Cl-35 は、シフト因子（SHF=−1、計算しない）を通り、次の荷電粒子の粒子対で止まった（下の「版ごとのライブラリの分離共鳴の R 行列の
+  制限形の荷電粒子の粒子対」で通る）。VII.0 の Cl-35 は LRF=7 でなく、
   MF3 の弾性散乱が 1e-5 eV で負で止まる（#0309）
 - 既存の形の出力は変わらない: VIII.0 の Fe-54、Fe-57、Cu-63 と VIII.1 の Cu-65、Pu-239、V-51、Rh-103、Si-29、W-183（どれも LRF=7 で、
   シフト因子とバックグラウンドを持たない）の `xs nuclide` の出力は、main の 51876d5c の bin の出力とバイトで同じ（上と同じ 600 K の
   1 点の入力）
+
+## 版ごとのライブラリの分離共鳴の R 行列の制限形の荷電粒子の粒子対
+
+分離共鳴の R 行列の制限形（LRF=7）の荷電粒子の粒子対（Coulomb の透過因子。#0264、
+[ADR-0273](../../docs/adr/0273-coulomb-penetrability-by-cf2-and-riccati.md)）の 0 K の再構成を、NJOY2016.79 の RECONR（許容誤差 1e-3）の
+PENDF と比べた。評価は 4 つの版でこの形を持つ VII.1、VIII.0、VIII.1 の
+Cl-35（(n,p) の MT600）と VIII.0、VIII.1 の Ca-40（(n,p) の MT600、(n,α) の MT800）。NJOY の入力と出力は
+references/njoy-runs/lrf7-charged/<核種>-<版>/（git で追跡しない。入力は上の「版ごとのライブラリの分離共鳴の R 行列の制限形の核分裂」の
+Pu239-VIII.1 と同じ形で MAT だけが違う）。比べ方は上の「版ごとのライブラリの分離共鳴の R 行列の制限形のシフト因子とバックグラウンド」と同じ
+2 つのツールで、`compare_njoy_rml_points` は `RMatrixLimitedXs` の部分反応（全断面積を除く）を、`compare_njoy_pendf` は MT を挙げて
+線形化した表を比べる。
+
+```sh
+cargo run --release -p xlc-xs --example compare_njoy_rml_points -- \
+  references/njoy-runs/lrf7-charged/Ca40-VIII.1/tape20 references/njoy-runs/lrf7-charged/Ca40-VIII.1/tape25 2025
+cargo run --release -p xlc-xs --example compare_njoy_pendf -- \
+  references/njoy-runs/lrf7-charged/Ca40-VIII.1/tape20 references/njoy-runs/lrf7-charged/Ca40-VIII.1/tape25 2025 1 2 102 600 103 800 107
+```
+
+### 計算
+
+xlc 92557dc7（コードは 5fdb7483 と同じ。分岐点 6af59212、2026-11-20）。手元で 2 つの比べるツールを実行した。`xs nuclide` は 5fdb7483 の
+`cargo build --release` の bin で、600 K の 1 点の入力（`sigma0` と `scattering-order` は examples/depletion/read-survey/sample-VIII.1.toml と同じ）を
+手元の試行に置き、1 スレッドずつ 8 並列で実行した（時間は手元の計算で、記録の測定ではない）。
+
+### 結果
+
+Cl-35 は、線形化しない R 行列が分離共鳴の範囲の NJOY の全点で合い（`compare_njoy_rml_points` の出力。先頭に核種と版を付けた。VIII.0 は
+VIII.1 と同じ値）、線形化した表は許容誤差の 2 倍を超える点が無い（`compare_njoy_pendf` の `resolved` の行の最大は MT1、2、600、103 で 9.99e-4、
+MT102 で 1.10e-3。範囲の外は 6.6e-7 以下）:
+
+```text
+Cl-35 VII.1 MT2: compared 26278, max rel diff 4.90e-7 at 6.713700e4 eV
+Cl-35 VII.1 MT102: compared 26278, max rel diff 4.97e-7 at 2.234652e5 eV
+Cl-35 VII.1 MT600: compared 26278, max rel diff 2.84e-6 at 4.019482e5 eV
+Cl-35 VIII.1 MT2: compared 25788, max rel diff 5.00e-7 at 2.849315e5 eV
+Cl-35 VIII.1 MT102: compared 25788, max rel diff 4.91e-7 at 5.097227e5 eV
+Cl-35 VIII.1 MT600: compared 25788, max rel diff 2.87e-6 at 4.019482e5 eV
+```
+
+MT600 の 2.9e-6 は、NJOY の ρ < 1.02 の級数（`coulx`、許容 1e-6）の大きさ（Cl-35 の陽子は η < 5 で、NJOY の近似の式に入らない）。
+
+Ca-40 は NJOY と違う（VIII.0 は VIII.1 と同じ値。評価の分離共鳴のパラメータが同じ）。線形化しない R 行列:
+
+```text
+Ca-40 VIII.1 MT2: compared 29869, max rel diff 4.45e-3 at 9.648116e5 eV
+Ca-40 VIII.1 MT102: compared 29869, max rel diff 1.68e-3 at 1.045479e6 eV
+Ca-40 VIII.1 MT800: compared 29869, max rel diff 2.65e-2 at 1.280742e5 eV
+Ca-40 VIII.1 MT600: compared 13637, max rel diff 1.05e4 at 1.468385e6 eV
+```
+
+線形化した表（`resolved` の行）:
+
+```text
+Ca-40 VIII.1 MT1: compared 29869, max rel diff 4.90e-3 at 1.081952e6 eV, > 2 tol: 631 (njoy up to 4.35e0 b, |diff| up to 9.71e-3 b)
+Ca-40 VIII.1 MT2: compared 29869, max rel diff 4.45e-3 at 9.647875e5 eV, > 2 tol: 611 (njoy up to 4.64e0 b, |diff| up to 1.07e-2 b)
+Ca-40 VIII.1 MT102: compared 29869, max rel diff 2.09e-3 at 1.098081e6 eV, > 2 tol: 3 (njoy up to 2.17e-2 b, |diff| up to 4.53e-5 b)
+Ca-40 VIII.1 MT600: compared 13637, max rel diff 1.05e4 at 1.468385e6 eV, > 2 tol: 13346 (njoy up to 5.82e-3 b, |diff| up to 5.82e-3 b)
+Ca-40 VIII.1 MT800: compared 29869, max rel diff 2.65e-2 at 1.280124e5 eV, > 2 tol: 19524 (njoy up to 1.25e-1 b, |diff| up to 4.63e-4 b)
+```
+
+MT103 と MT107 は MT600 と MT800 と同じ最大。範囲の外は、どの反応も相対差が 9.8e-4 以下。差は NJOY の透過因子の近似から来る（ADR-0273 の
+案 A）:
+
+- (n,p): NJOY の MT600 は、η = 10ρ（NJOY2016 samm の `coulx` が η > 10ρ の漸近の式 `bigeta` から別の式に切り替える所）になる 822768 eV
+  （xs の定数で求めた値）で、822754.5 eV の 5.47e-9 b から 822768.3 eV の 6.72e-4 b に不連続に跳ぶ。xs の MT600 はそこで連続で（3.77e-9 b、
+  3.83e-9 b）、xs と NJOY の比は 822.8 keV より下で 0.18〜5、上で 1e-7〜1e4。xs の透過因子はこの点（η 5.66、ρ 0.567）でも mpmath と合う
+  （`penetrability_matches_multiprecision_values`）
+- (n,α): α のチャネルは障壁の下（η 5.7〜9.4、ρ 2.3〜3.9 に対して転回点は 2η の桁）で、NJOY は JWKB の近似（`jwkb`）を使う。`jwkb` の式を
+  Python に移した手元の計算では、l = 0 の透過因子が 1e-5 eV、128 keV、1 MeV で厳密な値より 1.3%、1.4%、2.0% 大きく、MT800 の差（最大 2.65e-2）の
+  大きさに合う。MT1、2、102 の 2e-3〜5e-3 の差は、同じ spin group の荷電粒子のチャネルの透過因子が準位の行列を通して入る分が候補（確かめていない）
+- NJOY が共鳴エネルギーで透過因子を 1e-35 以下として 1 に置き換えた 3 つの陽子の幅（569.9、576.9、594.1 keV。NJOY の出力の
+  「p=0 set to 1」）は、差の原因でない。評価のファイルでその幅を 0 にした入力（references/njoy-runs/lrf7-charged/diag-Ca40-VIII.1-zero-deep-widths/）
+  でも、`compare_njoy_rml_points` の出力は上と同じだった
+- xs は Ca-40 で「324 widths of charged particle pairs (MT {600, 800}) lie below the Coulomb barrier with eta >= 5」の警告を出す（ADR-0273）。
+  Cl-35 は出さない
+
+`xs nuclide`（600 K の 1 点）:
+
+- 5 評価は終了コード 0 で終わる（VII.1、VIII.0、VIII.1 の Cl-35 は 11 秒、VIII.0、VIII.1 の Ca-40 は 14 秒）。Ca-40 の 0 K の再構成（7.5 秒）の
+  85% は透過因子（perf、手元）。VIII.0 と VIII.1 の Ca-40 の出力はバイトで同じ
+- 5 評価の出力は、main に rebase する前（分岐点 74a54401 の上の同じコード）の bin の出力とバイトで同じ
+- 既存の形の出力は変わらない: VIII.0 の Fe-54、Fe-57、Cu-63 と VIII.1 の Cu-65、Pu-239、V-51、Rh-103、Si-29、W-183、Cu-63、Sr-88（どれも
+  LRF=7 で荷電粒子の対を持たない）の出力は、分岐点 6af59212 の `cargo build --release` の bin の出力とバイトで同じ（74a54401 の bin とも同じ）
+- VII.0 の Cl-35 は LRF=7 でなく、MF3 の弾性散乱が 1e-5 eV で負で止まる（#0309）
 
 ## 版ごとのライブラリの負の分離共鳴の弾性散乱
 
