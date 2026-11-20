@@ -44,7 +44,7 @@ MF6 の角度のデータは入れない。
 ## 確認
 
 上の調査（2026-10-08）。影響の大きさは測っていない。2体反応の扱いは `two_body_mf6_level_uses_q_value`、
-`two_body_neutron_law_is_marked`、`isotropic_two_body_neutron_law_is_marked`、`lab_frame_two_body_angles_are_error`。重心系で等方な連続的な放出の実験室系の群への振り分けは `centre_of_mass_energy_spreads_in_laboratory`、
+`two_body_neutron_law_is_marked`、`isotropic_two_body_neutron_law_is_marked`、`lab_frame_two_body_angles_are_error`。重心系で等方な連続的な放出の実験室系の群への振り分けは `center_of_mass_energy_spreads_in_laboratory`、
 `centre_of_mass_panel_wider_than_ec_is_split_exactly_into_low_groups`。
 
 ## 帰結

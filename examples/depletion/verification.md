@@ -952,7 +952,7 @@ MF6 の LAW=1 の重心系の分布（LCT=2、3）を実験室系の群に振り
 # NJOY の cm2lab の許容を 1e-4 にした手元のビルド（examples/depletion/issue-0325/njoy-cm2lab-tol.patch を references/NJOY2016 の src に当て、cmake で njoy_executable）
 cd references/njoy-runs/mf6-fission/Th232-VIII.0-cm2lab-tol1e-4 && <手元のビルド>/njoy < input > log
 # 既存の核種の出力の差（main の bin/xs とブランチの bin を同じ入力で）
-cd examples/depletion/issue-0325 && ../../../bin/xs --threads 4 nuclide existing-VIII.0.toml ../xs-range.toml U-235 <出力>
+(cd examples/depletion/issue-0325 && ../../../bin/xs --threads 4 nuclide existing-VIII.0.toml ../xs-range.toml U-235 <出力>)
 python3 examples/depletion/compare_xs_outputs.py <main の出力> <ブランチの出力>
 ```
 
