@@ -896,8 +896,16 @@ fn production_beyond_the_reaction_is_scaled_down_where_it_exceeds() {
         "{} vs {expected}",
         state.cross_section[0]
     );
+    // 状態と残りの和は反応の群の平均のまま
+    let tables = crate::pointwise::reconstruct_at(&tape, 1, 1.0e-3, 293.6).unwrap();
+    let reaction =
+        crate::multigroup::reaction_averages(&settings.groups, &settings.weight, &tables, None)
+            .sigma[&103][0];
     let total = state.cross_section[0] + rest.cross_section[0];
-    assert!(state.cross_section[0] <= total);
+    assert!(
+        (total - reaction).abs() <= 1e-12 * reaction,
+        "{total} vs {reaction}"
+    );
     // 超過は MT103 の 1 つの警告で、最大は群の上端 10 MeV の (生成 − 0.3)/0.3（20 MeV の超過は群に入らない）
     let warnings = excess_warnings(&tape, &settings);
     let [(103, excess)] = warnings[..] else {
