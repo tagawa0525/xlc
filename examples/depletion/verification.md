@@ -257,7 +257,7 @@ python3 examples/depletion/read_survey.py --report examples/depletion/read-surve
 
 ### 計算
 
-`xs check` は 9c0a3968 のもの（分岐点 59d2dc07、2026-11-20。`bin/xs` の正規形は `binary-forms/xs.md5`）で、4 つの版のステージと要約を
+`xs check` は b475dfd6 のもの（分岐点 74a54401、2026-11-20。`bin/xs` の正規形は `binary-forms/xs.md5`）で、4 つの版のステージと要約を
 このコミットで実行した（要約のツールは 74f25be0 から変わっていない）。報告は `read-survey-<版>.toml`、要約の文章は `read-survey.txt`（`--report` と
 同じ）。1 つの版の全部のファイル（393〜558）は、手元の 8 スレッドで 1 秒に満たない（VII.0 の 393 ファイルで 0.4 秒。手元の計算で、時間は記録の
 測定ではない）。
@@ -268,10 +268,10 @@ python3 examples/depletion/read_survey.py --report examples/depletion/read-surve
 
 | 版     | チェーンの評価 | 読めた | 止まった | チェーンの外の評価 | 読めた | 止まった | ファイルの無いチェーンの核種 |
 | ------ | -------------- | ------ | -------- | ------------------ | ------ | -------- | ---------------------------- |
-| VII.0  | 390            | 384    | 6        | 3                  | 3      | 0        | 3447 / 3837                  |
-| VII.1  | 422            | 416    | 6        | 1                  | 1      | 0        | 3398 / 3820                  |
-| VIII.0 | 556            | 549    | 7        | 1                  | 1      | 0        | 3264 / 3820                  |
-| VIII.1 | 557            | 549    | 8        | 1                  | 1      | 0        | 3263 / 3820                  |
+| VII.0  | 390            | 386    | 4        | 3                  | 3      | 0        | 3447 / 3837                  |
+| VII.1  | 422            | 418    | 4        | 1                  | 1      | 0        | 3398 / 3820                  |
+| VIII.0 | 556            | 551    | 5        | 1                  | 1      | 0        | 3264 / 3820                  |
+| VIII.1 | 557            | 552    | 5        | 1                  | 1      | 0        | 3263 / 3820                  |
 
 <!-- /table -->
 
@@ -284,8 +284,6 @@ python3 examples/depletion/read_survey.py --report examples/depletion/read-surve
 
 | 止まった理由                                                | VII.0                  | VII.1                  | VIII.0                 | VIII.1                 |
 | ----------------------------------------------------------- | ---------------------- | ---------------------- | ---------------------- | ---------------------- |
-| neutron LAW=6 is not supported                              | H-2                    | H-2                    | H-2                    | H-2、Li-6              |
-| neutron LAW=7 is not supported                              | Be-9                   | Be-9                   | Be-9                   | Be-9                   |
 | last NBT must equal NP                                      | Rb-87                  | –                      | –                      | –                      |
 | fission needs MF1 MT452 and MF5 MT18                        | Th-232、Pa-231、Pa-233 | Th-232、Pa-231、Pa-233 | Th-232、Pa-231、Pa-233 | Th-232、Pa-231、Pa-233 |
 | particle pair 3: a charged particle (ZA=1) is not supported | –                      | Cl-35                  | Cl-35                  | Cl-35                  |
@@ -293,12 +291,13 @@ python3 examples/depletion/read_survey.py --report examples/depletion/read-surve
 
 <!-- /table -->
 
-理由は `xs check` の文から先頭の行番号を除いたもの。形式ごとの issue: MF6 の LAW=6、7 は #0311、MF6 MT18 の核分裂の中性子は #0312、
+理由は `xs check` の文から先頭の行番号を除いたもの。形式ごとの issue: MF6 MT18 の核分裂の中性子は #0312、
 Rb-87 の TAB1 は #0316（入力に修正を宣言すれば読める。走査は宣言を読まないので止まると数える。ADR-0272）、荷電粒子の対は #0264。VIII.1 の Pu-239 の核分裂の対は #0308 で、VII.0 の天然の V と Zn の
 複数の同位体（NIS > 1）は #0305 で、VII.0 と VII.1 の U-233 の MF5 の LF=11 は #0313 で、R 行列の制限形のシフト因子（VII.1 の Cl-35 の SHF=−1、
-VIII.1 の Cu-63 の SHF=1）と VIII.1 の Sr-88 のバックグラウンドの R 行列は #0310 で読めるようになった（下の「天然の元素の評価の複数の
-同位体」、「版ごとのライブラリのエネルギーによる Watt の核分裂スペクトル」、「版ごとのライブラリの分離共鳴の R 行列の制限形のシフト因子と
-バックグラウンド」。VII.1 の Cl-35 は、その次の荷電粒子の対で止まる）。
+VIII.1 の Cu-63 の SHF=1）と VIII.1 の Sr-88 のバックグラウンドの R 行列は #0310 で、MF6 の中性子の LAW=6（H-2 の 4 つの版と VIII.1 の
+Li-6）と LAW=7（Be-9 の 4 つの版）は #0311 で読めるようになった（下の「天然の元素の評価の複数の同位体」、「版ごとのライブラリのエネルギーによる
+Watt の核分裂スペクトル」、「版ごとのライブラリの分離共鳴の R 行列の制限形のシフト因子とバックグラウンド」、「MF6 の LAW=6、7 の散乱行列
+（NJOY との比較）」。VII.1 の Cl-35 は、その次の荷電粒子の対で止まる）。
 
 ### #0292 の 9 核種の `xs nuclide`
 
@@ -316,8 +315,8 @@ cd examples/depletion/read-survey && ../../../bin/xs --threads 1 nuclide nine-VI
 
 MF6 の LAW=6、7 で止まっていた 9 評価（H-2 と Be-9 の 4 つの版、VIII.1 の Li-6）を、温度 1 点（600 K）の入力
 （`issue-0311/light-<版>.toml`。σ0 と散乱の次数は本番の `xs.toml` と同じ）で `xs nuclide` に最後まで通すと、9 つのすべてが終了コード 0 で
-終わった（65811ac5、分岐点 49e3045c の `build` の `bin/xs`、手元で 1 スレッド、2026-11-20）。既存の核種の出力が変わらないことは、VIII.0 の
-O-16、Zr-90、U-235 の 600 K の 1 点（`issue-0311/existing-VIII.0.toml`）の出力を、main（49e3045c）の `bin/xs` の出力とバイトで比べて
+終わった（b475dfd6、分岐点 74a54401 の `build` の `bin/xs`、手元で 1 スレッド、2026-11-20）。既存の核種の出力が変わらないことは、VIII.0 の
+O-16、Zr-90、U-235 の 600 K の 1 点（`issue-0311/existing-VIII.0.toml`）の出力を、main（74a54401）の `bin/xs` の出力とバイトで比べて
 確かめた（md5 は O-16 d915d683、Zr-90 3ab3f9ac、U-235 00ea03f3 で、どれも同じ）。
 
 ```sh
@@ -505,11 +504,13 @@ MF6 の中性子の LAW=6（位相空間分布）と LAW=7（実験室系の角�
 （WIMS 69 群、iwt=4、Legendre の次数 3、0 K、無限希釈。入力は references/njoy-runs/issue-0311/<評価>/input、git で追跡しない）と
 `compare_njoy_gendf` で比べた。形は examples/m3-nuclides/verification.md の「NJOY との比較」と同じで、散乱行列の差は行の差の絶対値の和 /
 P0 の行の和の、群ごとの最大値。比べたのは H-2 の VIII.0（MT16、LAW=6、3 体）、Li-6 の VIII.1（MT41、LAW=6、4 体）、Be-9 の VII.1（MT16、LAW=7、
-E' は lin-lin）と VIII.0（MT16、LAW=7、E' はヒストグラム）。読み方と NJOY との違いの決定は [ADR-0271](../../docs/adr/0271-group-mf6-law6-and-law7-by-endf-102.md)。
+E' は lin-lin）と VIII.0（MT16、LAW=7、E' はヒストグラム）。読み方と NJOY との違いの決定は [ADR-0271](../../docs/adr/0271-group-mf6-law6-and-law7-by-endf-102.md)
+（式は ENDF-6 Formats Manual の 6.2.8 の式 6.21〜6.24、6.27、6.28 と 6.2.9）。H-2 の差の残りの原因は #0321、P1 以上を 0 にしていること
+（ADR-0082）は #0322。
 
 ### 計算
 
-xs は 65811ac5（分岐点 49e3045c、2026-11-20）の `compare_njoy_gendf`（`cargo build --release -p xlc-xs --example compare_njoy_gendf`）、
+xs は b475dfd6（分岐点 74a54401、2026-11-20）の `compare_njoy_gendf`（`cargo build --release -p xlc-xs --example compare_njoy_gendf`）、
 NJOY は同じ日の references の devShell。差の原因を確かめる ENDF のコピーと GROUPR を真似るスクリプトは `issue-0311/` にある。どれも手元で数秒。
 
 ```sh

@@ -316,3 +316,5 @@
 * [共鳴の線形化の中点の検査が変曲点で止まり、許容誤差の 2 倍を超える点が残る](0318-linearize-past-inflection-points.md)
 * [非分離共鳴のラダーのサンプルの全断面積が正でなく、xs が止まる（ENDF/B-VII.0 の Ta-181、Es-253）](0319-urr-ladder-nonpositive-total.md)
 * [ENDF/B-VII.0 の Cf-253 の σ0 が 10 b 以下の群定数に NaN が出て、xs が止まる](0320-cf253-vii0-nan-group-constants.md)
+* [H-2 の (n,2n) の散乱行列のしきい値の群の出射の分け方が NJOY と 6.95e-1 違う原因が候補のまま](0321-h2-n2n-rows-differ-from-njoy.md)
+* [H-2、Li-6、Be-9 の MF6 の LAW=6、7 の反応の P1 以上を 0 にしている（ADR-0082）](0322-mf6-continuum-p1-left-out-for-light-nuclides.md)

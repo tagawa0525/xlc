@@ -4,7 +4,7 @@ status: accepted
 date: 2026-10-08
 supersedes: [ADR-0056]
 superseded-by:
-issues: []
+issues: ["#0322"]
 requires: []
 ---
 
