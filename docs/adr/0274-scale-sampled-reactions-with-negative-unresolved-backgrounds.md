@@ -145,7 +145,7 @@ ENDF-102（BNL-224854-2023-INRE）の 2.3.1 節と 2.4.17 節は、LSSF=0 の MF
   `declared_scaling_keeps_the_shielded_capture_positive`、`declared_scaling_of_a_negative_dilute_cross_section_is_an_error`、
   `the_declaration_needs_a_negative_capture_or_fission_background`。入力のテスト（crates/xs/src/main/tests.rs）:
   `reads_declared_scaling_of_negative_unresolved_backgrounds`（放射化の核種への宣言が止まることを含む）
-- 読み方の比較（examples/depletion/issue-0319/。今の方法は main 8e2b6c91 の xs、因子の方法（案 B）は 0a86ff20、案 A は df8f1cc2（分岐点
+- 読み方の比較（examples/depletion/issue-0319/。今の方法は main 8e2b6c91 の xs、因子の方法（案 B）は c9720b85、案 A は cb95bf19（分岐点
   8e2b6c91）、手元、2026-11-20）。今の方法に対する遮蔽した捕獲（括弧は全断面積）の相対差の、非分離共鳴の範囲にかかる群の中の最大（565 K）:
 
   | 評価          | σ0 (b) | 因子の方法（案 B）   | 案 A                   |
