@@ -406,4 +406,15 @@ fn law7_cosines_must_span_minus_one_to_one() {
     let tape = Tape::parse(&text).unwrap();
     let err = Mf6::parse(&tape.section(825, 6, 16).unwrap()).unwrap_err();
     assert_eq!(err.line, 7, "{err}");
+    // 最後の余弦が 1 でないとき（E = 2e6 の μ = 1 の表を μ = 0.5 にする）
+    let last = "        0.0        1.0          0          0          1          3";
+    let text = angle_energy("1", "2").replacen(
+        last,
+        "        0.0        0.5          0          0          1          3",
+        1,
+    );
+    assert_ne!(text, angle_energy("1", "2"));
+    let tape = Tape::parse(&text).unwrap();
+    let err = Mf6::parse(&tape.section(825, 6, 16).unwrap()).unwrap_err();
+    assert_eq!(err.line, 7, "{err}");
 }
