@@ -13,11 +13,13 @@
 同じ核種だけを輸送する対照のライブラリ（all/control。範囲と xs のビルドは全核種のライブラリと同じ）で、試行の履歴の組成を
 すべて UFG で解き、上の試行の系列の `all` との差（ライブラリの範囲と xs の版の分）を出す。
 
-- `python3 ufg_subset.py [--series all] inputs` は <置き場>/<燃料>/<組>.toml を書く（置き場は `SERIES`、出力は <置き場>/<燃料>/out/<組>.msgpack）
+- `python3 ufg_subset.py [--series all] inputs [--rankings t]` は <置き場>/<燃料>/<組>.toml を書く（置き場は `SERIES`、出力は
+  <置き場>/<燃料>/out/<組>.msgpack）。`a` の組の目安は `all` を解いたテーブルから出すので、初めは `--rankings t` で書き、目安を出してから
+  すべての順位で書き直す
 - `python3 ufg_subset.py [--series all] compare --json <出力> <燃料>` は、組ごとの k∞（out/<組>.msgpack）と、自己遮蔽の区間の時間を
   `all` と比べる。差は 1/k(all) − 1/k(組)（pcm）。時間は、同じ入力を排他のジョブ（区分 timed）で解いたログ（out-timed/<組>.log）から
   読む（記録に書く時間は排他のジョブのものだけ。スキル verification-record）。`--untimed <組>...` に挙げた組は、まだ排他のジョブで
-  解いていないものとして時間を書かない全核種の系列は、対照の差 1/k(試行の all) − 1/k(対照)
+  解いていないものとして時間を書かない。全核種の系列は、対照の差 1/k(試行の all) − 1/k(対照)
   （`library_change_pcm`）も書く
 - `python3 ufg_subset.py --report <JSON>...` は表を出す
 """
@@ -173,27 +175,32 @@ def threshold_sets(
 RANKINGS = {"t": "dilution-{fuel}.json", "a": "dilution-all-{fuel}.json"}
 
 
-def set_sources(series: str, root: Path) -> list[Path]:
+def ranking_files(root: Path, rankings) -> dict[str, list[Path]]:
+    """順位の頭 → 燃料の順の自己遮蔽の目安の JSON"""
+    unknown = [r for r in rankings if r not in RANKINGS]
+    if unknown:
+        raise SystemExit(f"{unknown} are not rankings ({list(RANKINGS)})")
+    return {
+        r: [root / "all" / RANKINGS[r].format(fuel=fuel) for fuel in FUELS]
+        for r in rankings
+    }
+
+
+def set_sources(series: str, root: Path, rankings=tuple(RANKINGS)) -> list[Path]:
     """系列の組を決めるファイル（自己遮蔽の目安の JSON。順位ごとに燃料の順）"""
     if SERIES[series]["sets"] == "fixed":
         return []
-    return [
-        root / "all" / name.format(fuel=fuel)
-        for name in RANKINGS.values()
-        for fuel in FUELS
-    ]
+    return [p for paths in ranking_files(root, rankings).values() for p in paths]
 
 
-def sets(series: str, root: Path) -> dict:
-    """系列の組: 名前 → UFG で解く足した核種（None はすべて）"""
+def sets(series: str, root: Path, rankings=tuple(RANKINGS)) -> dict:
+    """系列の組: 名前 → UFG で解く足した核種（None はすべて）。`rankings` は組を作る順位の頭（`a` の目安は `t` の系列の
+    `all` を解いた後に出すので、その前の入力は `t` だけで書く）"""
     if SERIES[series]["sets"] == "fixed":
         return SETS
     out = {"all": None, "none": [], "s17": SHIELDED_17}
-    for prefix, name in RANKINGS.items():
-        summaries = [
-            json.loads((root / "all" / name.format(fuel=fuel)).read_text())
-            for fuel in FUELS
-        ]
+    for prefix, paths in ranking_files(root, rankings).items():
+        summaries = [json.loads(p.read_text()) for p in paths]
         out.update(threshold_sets(summaries, THRESHOLDS_PCM, prefix))
     return out
 
@@ -226,10 +233,10 @@ def burnt_transported(root: Path, config: dict, fuel: str) -> list[str]:
     ]
 
 
-def write_inputs(series: str) -> None:
+def write_inputs(series: str, rankings=tuple(RANKINGS)) -> None:
     config = SERIES[series]
     added = (HERE / config["added"]).read_text().split()
-    cases = sets(series, HERE)
+    cases = sets(series, HERE, rankings)
     for fuel in FUELS:
         if "library_input" in config:
             transported = library_transported(HERE / config["library_input"])
@@ -295,6 +302,9 @@ def compare(
             {"path": str(p.relative_to(root.parent)), "md5": md5(p)}
             for p in set_sources(series, root)
         ]
+    stray = sorted(set(untimed) - set(cases_of))
+    if stray:
+        raise SystemExit(f"the untimed {stray} are not sets of the series")
     added = set((root / config["added"]).read_text().split())
     directory = root / config["directory"] / fuel
     cases = {}
@@ -439,7 +449,13 @@ def main() -> None:
     parser.add_argument("--report", nargs="+", type=Path)
     parser.add_argument("--series", choices=list(SERIES), default="trial")
     sub = parser.add_subparsers(dest="command")
-    sub.add_parser("inputs")
+    i = sub.add_parser("inputs")
+    i.add_argument(
+        "--rankings",
+        nargs="+",
+        default=list(RANKINGS),
+        help="組を作る順位の頭（既定はすべて。a の目安を出す前は t だけ）",
+    )
     c = sub.add_parser("compare")
     c.add_argument("--json", type=Path, required=True)
     c.add_argument("fuel", choices=FUELS)
@@ -453,7 +469,7 @@ def main() -> None:
     if args.report:
         report(args.report)
     elif args.command == "inputs":
-        write_inputs(args.series)
+        write_inputs(args.series, tuple(args.rankings))
     elif args.command == "compare":
         summary = compare(args.fuel, HERE, args.series, untimed=frozenset(args.untimed))
         args.json.write_text(json.dumps(summary, indent=1) + "\n")
