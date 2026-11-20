@@ -1,0 +1,11 @@
+# xs check が見逃す種類（後の処理で初めて止まるもの）を、温度 1 点で xs nuclide に最後まで通して探す標本（ENDF/B-VII.0）
+output = "unused.msgpack"
+endf-directory = "../../../references/endf/ENDF-B-VII.0_neutrons"
+sigma0 = [1e10, 1e5, 1e4, 1e3, 300, 100, 30, 10, 1]
+scattering-order = 3
+
+[nuclide]
+Rb-87 = { endf = "n-037_Rb_087.endf", temperatures = [600] }
+U-233 = { endf = "n-092_U_233.endf", temperatures = [600] }
+Li-7 = { endf = "n-003_Li_007.endf", temperatures = [600] }
+Ni-58 = { endf = "n-028_Ni_058.endf", temperatures = [600] }

@@ -1,0 +1,16 @@
+# #0292 の 9 核種を、温度 1 点（600 K）で xs nuclide に最後まで通す試行（ENDF/B-VII.0）
+output = "unused.msgpack"
+endf-directory = "../../../references/endf/ENDF-B-VII.0_neutrons"
+sigma0 = [1e10, 1e5, 1e4, 1e3, 300, 100, 30, 10, 1]
+scattering-order = 3
+
+[nuclide]
+Cm-245 = { endf = "n-096_Cm_245.endf", temperatures = [600] }
+Am-242m = { endf = "n-095_Am_242m1.endf", temperatures = [600] }
+Np-238 = { endf = "n-093_Np_238.endf", temperatures = [600] }
+Cm-243 = { endf = "n-096_Cm_243.endf", temperatures = [600] }
+Am-242 = { endf = "n-095_Am_242.endf", temperatures = [600] }
+U-237 = { endf = "n-092_U_237.endf", temperatures = [600] }
+Pu-243 = { endf = "n-094_Pu_243.endf", temperatures = [600] }
+U-239 = { endf = "n-092_U_239.endf", temperatures = [600] }
+Am-244 = { endf = "n-095_Am_244.endf", temperatures = [600] }

@@ -18,6 +18,7 @@
 | `compare_chain_versions.py`                                   | 版ごとのチェーン（`endfb70/` などと `chain.msgpack`）を値で比べた要約                                                        |
 | `endfb70/` などの `xs.toml`、`lattice-1C-60.toml`、`dvc.yaml` | 版ごとのライブラリと 60 MWd/kg までのピンセルの燃焼（`endfb80/` は VIII.0 の燃焼だけ）                                       |
 | `compare_depletion_versions.py`、`check_natural_isotopes.py`  | 版ごとの燃焼の履歴を VII.1 と比べた要約（`compare-depletion-versions.json`）と、チェーンとライブラリの天然の元素の評価の検査 |
+| `read_survey.py`、`read-survey/`                              | 中性子のファイルの読み込みの走査（`xs check`）の要約と、`xs nuclide` に通した評価の入力                                      |
 | `chain-cases.toml`、`compare_chain_depletion.py`              | 2 つのチェーンに同じ 1 群の反応率を与え、1 ステップを CRAM48 で解いて比べる                                                  |
 | `../../crates/depletion/examples/deplete_chain.rs`            | チェーンと反応率から燃焼行列を組み立てて `deplete` を呼ぶ（`compare_chain_depletion.py` が呼ぶ）                             |
 | `lattice-1C-rings1.toml`、`lattice-1C-rings4.toml`            | xlc の格子計算の燃焼（VERA 1C、燃料 1 リングと 4 リング）。`lattice-2A.toml` は 2A の 1 ステップの時間                       |
@@ -239,6 +240,94 @@ U-235、U-238、Pu-239、Pu-241 と主な核分裂生成物（Xe-135、I-135、S
 
 核分裂の Q 値は出力の規格化に使う（ADR-0173。#0293 の項目 3）。PWR の燃焼で Pu-239 の 0.5 MeV と 14 MeV の収率がどれだけ
 重みを持つかと、I-135 から Xe-135m を経る経路が Xe-135 の量をどれだけ変えるかは、確かめていない。
+
+## 中性子のファイルの読み込みの走査
+
+輸送しない核種の扱い（#0292）で全核種を輸送する案の費用を見積もるため、4 つの版（ENDF/B-VII.0、VII.1、VIII.0、VIII.1）の中性子の
+ファイルの全部を、`xs nuclide` が読むものの読み込みと形式の検査だけ（`xs check`、[ADR-0266](../../docs/adr/0266-check-evaluations-without-reconstruction.md)）に
+通し、止まる評価を版ごと、理由ごとに数える（`read_survey.py`）。評価は、ファイルの名前の (Z, A, 状態) で燃焼チェーン（「版ごとの燃焼チェーン」の
+版ごとのチェーン）の核種に対応させる。`xs check` は線形化、共鳴の再構成、ドップラー拡がり、非分離共鳴のラダー、多群化をしないので、
+それらの中で初めて止まる評価は数えない（下の「走査が見逃す種類」）。
+
+```sh
+dvc repro examples/depletion/dvc.yaml:read-survey-summary   # 4 つの版の xs check と要約
+python3 examples/depletion/read_survey.py --report examples/depletion/read-survey.json
+```
+
+### 計算
+
+`xs check` は 35e57a2d、ステージを実行したのは 7a125cff（分岐点 f6360d71、2026-11-20。`bin/xs` の正規形は md5 3497396e）。報告は
+`read-survey-<版>.toml`、要約の文章は `read-survey.txt`（`--report` と同じ）。1 つの版の全部のファイル（393〜558）は、手元の 8 スレッドで 1 秒に
+満たない（VII.0 の 393 ファイルで 0.4 秒。手元の計算で、時間は記録の測定ではない）。
+
+### 版ごとの数
+
+<!-- table: read-survey -->
+
+| 版     | チェーンの評価 | 読めた | 止まった | チェーンの外の評価 | 読めた | 止まった | ファイルの無いチェーンの核種 |
+| ------ | -------------- | ------ | -------- | ------------------ | ------ | -------- | ---------------------------- |
+| VII.0  | 390            | 383    | 7        | 3                  | 1      | 2        | 3447 / 3837                  |
+| VII.1  | 422            | 415    | 7        | 1                  | 1      | 0        | 3398 / 3820                  |
+| VIII.0 | 556            | 549    | 7        | 1                  | 1      | 0        | 3264 / 3820                  |
+| VIII.1 | 557            | 546    | 11       | 1                  | 1      | 0        | 3263 / 3820                  |
+
+<!-- /table -->
+
+「チェーンの外の評価」は、チェーンに (Z, A, 状態) の無いファイル（VII.0 の天然の C、V、Zn、VII.1 の天然の C、VIII.0 と VIII.1 の中性子 n-000_n_001）。
+「ファイルの無いチェーンの核種」は、チェーンの核種のうち、その版の中性子のファイルが無いもの（分母はチェーンの核種の数）。
+
+### 止まった理由
+
+<!-- table: read-survey-reasons -->
+
+| 止まった理由                                                                 | VII.0                  | VII.1                  | VIII.0                 | VIII.1                 |
+| ---------------------------------------------------------------------------- | ---------------------- | ---------------------- | ---------------------- | ---------------------- |
+| neutron LAW=6 is not supported                                               | H-2                    | H-2                    | H-2                    | H-2、Li-6              |
+| neutron LAW=7 is not supported                                               | Be-9                   | Be-9                   | Be-9                   | Be-9                   |
+| NIS=2 isotopes are not supported                                             | n-023_V_000.endf       | –                      | –                      | –                      |
+| NIS=5 isotopes are not supported                                             | n-030_Zn_000.endf      | –                      | –                      | –                      |
+| last NBT must equal NP                                                       | Rb-87                  | –                      | –                      | –                      |
+| fission needs MF1 MT452 and MF5 MT18                                         | Th-232、Pa-231、Pa-233 | Th-232、Pa-231、Pa-233 | Th-232、Pa-231、Pa-233 | Th-232、Pa-231、Pa-233 |
+| LF=11 is not supported                                                       | U-233                  | U-233                  | –                      | –                      |
+| particle pair 1: the shift factor (SHF=-1) is not supported                  | –                      | Cl-35                  | –                      | –                      |
+| particle pair 3: a charged particle (ZA=1) is not supported                  | –                      | –                      | Cl-35                  | Cl-35                  |
+| particle pair 3: a charged particle (ZA=2) is not supported                  | –                      | –                      | Ca-40                  | Ca-40                  |
+| particle pair 2: the shift factor (SHF=1) is not supported                   | –                      | –                      | –                      | Cu-63                  |
+| background R-matrix (KBK=1) and given phase shifts (KPS=0) are not supported | –                      | –                      | –                      | Sr-88                  |
+| particle pair 3: MA=1 MT=18 is not supported                                 | –                      | –                      | –                      | Pu-239                 |
+
+<!-- /table -->
+
+理由は `xs check` の文から先頭の行番号を除いたもの。形式ごとの issue: MF6 の LAW=6、7 は #0311、MF6 MT18 の核分裂の中性子は #0312、MF5 の
+LF=11 は #0313、Rb-87 の TAB1 は #0316、NIS > 1 と KBK = 1 は #0305、荷電粒子の対は #0264。R 行列の制限形のシフト因子（Cl-35 の VII.1、Cu-63 の
+VIII.1）と核分裂の対（Pu-239 の VIII.1）は、ほかのブランチの issue（まだ main に無い）で扱う。
+
+### #0292 の 9 核種の `xs nuclide`
+
+輸送に足すと高燃焼度の負の差が消えた 9 核種（Cm-245、Am-242m、Np-238、Cm-243、Am-242、U-237、Pu-243、U-239、Am-244。#0292）は、4 つの版の
+どれでも `xs check` で止まらない（上の要約の `watched`）。同じ 36 の評価を、温度 1 点（600 K）の入力（`read-survey/nine-<版>.toml`。σ0 と散乱の
+次数は本番の `xs.toml` と同じ）で `xs nuclide` に最後まで通すと、36 のすべてが終了コード 0 で終わった（35e57a2d の `cargo build --release`、
+手元で 1 スレッドずつ 8 並列、2026-11-20）。本番の 4 温度で止まるかは確かめていない（温度ごとにだけ止まる検査は、非分離共鳴のサンプルの
+全断面積が正でないとき（`UrrError::NonPositiveTotal`）などで、候補）。
+
+```sh
+cd examples/depletion/read-survey && ../../../bin/xs --threads 1 nuclide nine-VIII.0.toml ../xs-range.toml Am-242m <出力>
+```
+
+### 走査が見逃す種類
+
+`xs check` が通し、後の処理で初めて止まる評価の標本として、温度 1 点（600 K）の入力（`read-survey/sample-<版>.toml`）の 31 の評価を
+`xs nuclide` に最後まで通した（上と同じコミットと条件）。
+
+- 後の処理で初めて止まった: VIII.0 の Tm-169（MT107）、W-182（MT103）、W-186（MT16）、Pt-193（MT103）、Pb-207（MT103）が、MF8 の挙げた
+  生成物の状態の経路の和が反応を超えるという温度ごとの処理の検査（`chain_reactions` の許容。#0264）で止まった。群の平均の値で決まるので、
+  `xs check` は確かめない（ADR-0266）
+- `xs check` が止める評価（VII.0 の Rb-87、U-233、VIII.0 の H-2、Th-232、VIII.1 の Cu-63、Sr-88）は、`xs nuclide` も同じ文で止まった
+- ほかの 20（VIII.0 の Li-7、N-14、F-19、Na-23、Mg-24、Al-27、Si-28、P-31、K-39、Ti-48、Mn-55、Co-59、Ni-58、Cu-65、Nb-93、Y-89、VII.0 と VIII.1 の
+  Li-7、Ni-58）は終了コード 0 で終わった
+
+標本の外の評価が後の処理で止まるかは確かめていない。チェーンの反応の経路の和の検査を全部の評価に当てるには、放射化の核種（ADR-0238）の
+経路で全部を処理する（2A のライブラリでは VIII.0 の 465 核種で、#0264 の 10 核種が止まった）。
 
 ## 版ごとのピンセルの燃焼
 
