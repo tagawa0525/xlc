@@ -103,6 +103,35 @@ stages:
           cache: false
       - read-survey.txt:
           cache: false
+  process-survey-summary:
+    # 版ごとの中性子の評価のすべてを xs nuclide に通した報告（process-survey/<版>/report.json。Slurm のジョブの核種ごとのログから
+    # process_survey.py report が書き、git で追跡する）を、チェーンの核種とその外、止まった段と原因ごとに数えた要約（JSON）と、
+    # その文章（#0292）
+    cmd: python3 process_survey.py summary --json process-survey.json
+      VII.0=process-survey/VII.0,read-survey-endfb70.toml,endfb70/chain.msgpack
+      VII.1=process-survey/VII.1,read-survey-endfb71.toml,endfb71/chain.msgpack
+      VIII.0=process-survey/VIII.0,read-survey-endfb80.toml,chain.msgpack
+      VIII.1=process-survey/VIII.1,read-survey-endfb81.toml,endfb81/chain.msgpack > process-survey.txt
+    deps:
+      - ../../python-ast/examples/depletion/process_survey.py.ast
+      - ../../python-ast/examples/depletion/read_survey.py.ast
+      - process-survey/VII.0/report.json
+      - process-survey/VII.1/report.json
+      - process-survey/VIII.0/report.json
+      - process-survey/VIII.1/report.json
+      - read-survey-endfb70.toml
+      - read-survey-endfb71.toml
+      - read-survey-endfb80.toml
+      - read-survey-endfb81.toml
+      - endfb70/chain.msgpack
+      - endfb71/chain.msgpack
+      - chain.msgpack
+      - endfb81/chain.msgpack
+    outs:
+      - process-survey.json:
+          cache: false
+      - process-survey.txt:
+          cache: false
   natural-isotopes:
     # 版ごとのチェーンとライブラリ（VIII.0 は本番の chain.toml と xs.toml、ほかは版のディレクトリの xs.toml。ADR-0138 の形のステージは
     # 版のディレクトリの dvc.yaml）が、天然の元素の評価を当てる核種で揃っていること（ADR-0262 の帰結）。版の比較の deps にする

@@ -1,0 +1,357 @@
+import hashlib
+import json
+import math
+import os
+import re
+import sys
+from pathlib import Path
+import msgpack
+import tomllib
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from read_survey import nuclide_key
+TEMPERATURE = 565
+ACROSS_RATIO = 10
+TOP = 5
+TIMED_OUT = 'timed out'
+FREE_NEUTRON = '中性子（Z = 0）の評価で、輸送する標的の核種でない'
+CAUSES: list[tuple[str, str, str, str]] = [('neutron LAW=[67] is not supported', 'MF6 の中性子の LAW=6、7 を読めない', 'endf/mf6.rs の parse', '#0311'), ('last NBT must equal NP', 'MF5 MT17 の TAB1 の補間の区切りが点の数と食い違う（評価の誤り。入力の `corrections` の宣言で読める。ADR-0272）', 'endf/tape.rs の tab1', '#0316（closed）'), ('fission needs MF1 MT452 and MF5 MT18', '核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない', 'process.rs の at_temperature', '#0312'), ('a charged particle \\(ZA=', 'R 行列の制限形の荷電粒子の対を読めない', 'resonance/r_matrix_limited.rs の role', '#0264'), ('a negative cross section cannot be broadened', '広げる範囲の 0 K の断面積が負（ADR-0267 でエラー）', 'pointwise.rs の reject_negative_broadened', '#0309'), ('the sampled total cross section is not positive', '非分離共鳴のラダーのサンプルの全断面積が正でない', 'resonance/ladder.rs の add_samples', '#0319'), ('non-finite value NaN', 'σ0 が 10 b 以下の群定数に NaN（作る計算は確かめていない）', 'crates/format の library.rs の NuclideData の検査', '#0320')]
+STAGES = {'reading': '走査でも止まる', 'processing': '処理で初めて止まる'}
+FILE_NAME = re.compile('n-\\d{3}_([A-Za-z]+)_(\\d{3})(?:m(\\d+))?\\.endf')
+LINE = re.compile('^line \\d+: ')
+TEMPERATURE_PREFIX = re.compile('^[\\d.]+ K: ')
+TIME = re.compile('(?:(?P<name>\\S+) )?(?P<e>[\\d.]+) s (?P<u>[\\d.]+) user (?P<m>\\d+) kB(?: exit (?P<x>\\d+))?')
+SIGNAL = re.compile('Command terminated by signal (\\d+)')
+LOG = re.compile('\\S+\\s+(?P<level>[A-Z]+) (?:nuclide\\{name=(?P<name>[^}]+)\\}\\S*: )?(?P<target>\\S+): (?P<message>.*)')
+NUMBER = re.compile('\\d+(?:\\.\\d+)?(?:[eE][-+]?\\d+)?')
+
+def name_from_file(file: str) -> str:
+    m = FILE_NAME.fullmatch(Path(file).name)
+    if m is None:
+        raise SystemExit(f'{file}: not a neutron file name')
+    state = int(m[3] or 0)
+    suffix = '' if state == 0 else 'm' if state == 1 else f'm{state}'
+    return f'{m[1]}-{int(m[2])}{suffix}'
+
+def input_entries(survey: dict, chain: dict, natural_isotopes: list[str], base: dict) -> tuple[dict[str, dict], list[tuple[str, str]]]:
+    if chain.get('format') != 'xlc-chain':
+        raise SystemExit('not an xlc chain')
+    names = {(n['z'], n['a'], n['state']): n['name'] for n in chain['nuclides']}
+    z_of = {n['name']: n['z'] for n in chain['nuclides']}
+    entries, left_out = ({}, [])
+    for e in survey['evaluation']:
+        file = Path(e['endf']).name
+        z, a, state = nuclide_key(file)
+        if z == 0:
+            left_out.append((file, FREE_NEUTRON))
+            continue
+        if a == 0:
+            listed = [n for n in natural_isotopes if z_of.get(n) == z]
+            if not listed:
+                raise SystemExit(f'{file}: no natural isotope of Z = {z} is listed')
+            name = listed[0]
+        else:
+            name = names.get((z, a, state)) or name_from_file(file)
+        if name in entries:
+            raise SystemExit(f'{name} has two evaluations in the survey')
+        thermal = base.get(name, {})
+        if 'thermal' in thermal:
+            entries[name] = thermal
+        else:
+            entries[name] = {'endf': file, 'temperatures': [TEMPERATURE]}
+    return (entries, left_out)
+
+def value(v) -> str:
+    if isinstance(v, str):
+        return json.dumps(v, ensure_ascii=False)
+    if isinstance(v, list):
+        return '[' + ', '.join((value(x) for x in v)) + ']'
+    return str(v)
+
+def render_input(head: list[str], common: dict, entries: dict) -> str:
+    rows = [f'{n} = {{ ' + ', '.join((f'{k} = {value(v)}' for k, v in e.items())) + ' }' for n, e in entries.items()]
+    return '\n'.join([*(f'# {h}' for h in head), *(f'{k} = {value(v)}' for k, v in common.items()), '', '[nuclide]', *rows, ''])
+
+def parse_time(text: str, named: bool=False):
+    lines = [line for line in text.splitlines() if line.strip()]
+    m = TIME.fullmatch(lines[-1]) if lines else None
+    if m is None or (m['name'] is not None, m['x'] is None) != (named, named):
+        raise SystemExit(f'not a time record: {text!r}')
+    t = {'seconds': float(m['e']), 'user_seconds': float(m['u']), 'max_rss_kb': int(m['m'])}
+    if named:
+        return (m['name'], t)
+    t['exit'] = int(m['x'])
+    for line in lines[:-1]:
+        s = SIGNAL.fullmatch(line)
+        if s is not None:
+            t['signal'] = int(s[1])
+    return t
+
+def warning_kind(line: str) -> str | None:
+    m = LOG.fullmatch(line)
+    if m is None or m['level'] != 'WARN':
+        return None
+    message = NUMBER.sub('N', LINE.sub('', m['message'], count=1))
+    return f"{m['target']}: {message}"
+
+def count_warnings(lines) -> dict[str, int]:
+    out: dict[str, int] = {}
+    for line in lines:
+        kind = warning_kind(line)
+        if kind is not None:
+            out[kind] = out.get(kind, 0) + 1
+    return out
+
+def error_reason(name: str, error: str) -> str:
+    text = error.removeprefix('error: ').removeprefix(f'{name}: ')
+    return LINE.sub('', text, count=1)
+
+def evaluation(name: str, endf: str, log: str, time: str) -> dict:
+    t = parse_time(time)
+    lines = log.splitlines()
+    e = {'nuclide': name, 'endf': endf, **t, 'warnings': count_warnings(lines)}
+    errors = [line for line in lines if line.startswith('error: ')]
+    if 'signal' in t:
+        first = next((line for line in lines if not LOG.fullmatch(line)), '')
+        e['error'] = f"signal {t['signal']} ({first})"
+    elif t['exit'] == 124:
+        e['error'] = TIMED_OUT
+    elif t['exit'] != 0:
+        if len(errors) != 1:
+            raise SystemExit(f"{name}: exit {t['exit']} with {len(errors)} error lines")
+        e['error'] = error_reason(name, errors[0])
+    return e
+
+def combined_runs(text: str) -> dict[str, dict]:
+    lines = text.splitlines()
+    if any((line.startswith('error: ') for line in lines)):
+        raise SystemExit('the combined log has an error line of an unknown nuclide')
+    spans: dict[str, list[str]] = {}
+    closed, times = (set(), {})
+    for line in lines:
+        m = LOG.fullmatch(line)
+        if m is not None and m['name'] is not None:
+            spans.setdefault(m['name'], []).append(line)
+            if m['target'] == 'xs' and m['message'].startswith('close '):
+                closed.add(m['name'])
+        elif TIME.fullmatch(line):
+            name, t = parse_time(line, named=True)
+            times[name] = t
+    if set(times) != closed:
+        raise SystemExit(f'runs without both a close line and a time line: {sorted(set(times) ^ closed)}')
+    return {n: {'nuclide': n, **t, 'exit': 0, 'warnings': count_warnings(spans.get(n, []))} for n, t in times.items()}
+
+def cause_of(reason: str, causes) -> tuple:
+    for pattern, cause, where, issue in causes:
+        if re.search(pattern, reason):
+            return (cause, where, issue)
+    return (None, None, None)
+
+def top(evaluations: list[dict], key: str) -> list[dict]:
+    ranked = sorted(evaluations, key=lambda e: -e[key])[:TOP]
+    return [{'nuclide': e['nuclide'], 'seconds': e['seconds'], 'max_rss_kb': e['max_rss_kb']} for e in ranked]
+
+def summarize(versions: list, causes) -> dict:
+    summary = {'format': 'xlc-process-survey', 'versions': {}, 'warnings': {}}
+    passed_by: dict[str, dict] = {}
+    for label, report, survey, chain in versions:
+        if report.get('format') != 'xlc-process-survey-report':
+            raise SystemExit(f'{label}: not an xlc-process-survey-report')
+        if chain.get('format') != 'xlc-chain':
+            raise SystemExit(f'{label}: not an xlc chain')
+        names = {(n['z'], n['a'], n['state']): n['name'] for n in chain['nuclides']}
+        runs = {e['endf']: e for e in report['evaluations']}
+        if len(runs) != len(report['evaluations']):
+            raise SystemExit(f'{label}: the report lists a file twice')
+        chain_names = set(names.values())
+        inside = {'evaluations': 0, 'passed': 0, 'stopped': 0, 'stopped_reading': 0}
+        outside = {'evaluations': 0, 'processed': 0, 'passed': 0, 'stopped': 0, 'left_out': 0}
+        stopped = []
+        for s in survey['evaluation']:
+            file = Path(s['endf']).name
+            key = nuclide_key(file)
+            run = runs.pop(file, None)
+            if run is None:
+                if key[0] != 0:
+                    raise SystemExit(f'{label}: {file} is not in the report')
+                outside['evaluations'] += 1
+                outside['left_out'] += 1
+                continue
+            in_chain = key in names or (key[1] == 0 and run['nuclide'] in chain_names)
+            counts = inside if in_chain else outside
+            counts['evaluations'] += 1
+            if not in_chain:
+                outside['processed'] += 1
+            if 'error' not in run:
+                if 'error' in s:
+                    raise SystemExit(f'{label}: {file} stops in the survey but passes xs nuclide')
+                counts['passed'] += 1
+                passed_by.setdefault(run['nuclide'], {})[label] = run
+            else:
+                counts['stopped'] += 1
+                stage = 'reading' if 'error' in s else 'processing'
+                if 'error' in s and TEMPERATURE_PREFIX.sub('', run['error']) != LINE.sub('', s['error'], count=1):
+                    raise SystemExit(f"{label}: {file} stops in the survey with another reason ({s['error']})")
+                if in_chain and stage == 'reading':
+                    inside['stopped_reading'] += 1
+                cause, where, issue = cause_of(run['error'], causes)
+                stopped.append({'nuclide': run['nuclide'], 'file': file, 'chain': in_chain, 'stage': stage, 'reason': run['error'], 'cause': cause, 'where': where, 'issue': issue})
+            for kind in run['warnings']:
+                by = summary['warnings'].setdefault(kind, {})
+                by[label] = by.get(label, 0) + 1
+        if runs:
+            raise SystemExit(f'{label}: {sorted(runs)} are not in the survey')
+        summary['versions'][label] = {'in_chain': inside, 'outside_chain': outside, 'stopped': stopped, 'slowest': top(report['evaluations'], 'seconds'), 'largest': top(report['evaluations'], 'max_rss_kb')}
+    across = []
+    for name, by in passed_by.items():
+        if len(by) < 2:
+            continue
+        seconds = {v: e['seconds'] for v, e in by.items()}
+        rss = {v: e['max_rss_kb'] for v, e in by.items()}
+
+        def ratio(values):
+            low, high = (min(values.values()), max(values.values()))
+            return math.inf if low <= 0 else high / low
+        slow = max(seconds.values()) >= 1 and ratio(seconds) >= ACROSS_RATIO
+        if slow or ratio(rss) >= ACROSS_RATIO:
+            across.append({'nuclide': name, 'seconds': seconds, 'max_rss_kb': rss})
+    summary['across'] = across
+    return summary
+
+def report_text(summary: dict) -> list[str]:
+    lines = []
+    if summary.get('inputs'):
+        lines.append('inputs: ' + ', '.join((f"{i['path']} {i['md5'][:8]}" for i in summary['inputs'])))
+        lines.append('')
+    lines.append('| 版 | チェーンの評価 | 通った | 止まった | うち走査でも止まる | チェーンの外の評価 | 通した | 通った | 止まった | 入れない |')
+    lines.append('| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |')
+    for label, v in summary['versions'].items():
+        i, o = (v['in_chain'], v['outside_chain'])
+        lines.append(f"| {label} | {i['evaluations']} | {i['passed']} | {i['stopped']} | {i['stopped_reading']} | {o['evaluations']} | {o['processed']} | {o['passed']} | {o['stopped']} | {o['left_out']} |")
+    lines.append('')
+    lines.append('## 止まった評価')
+    for label, v in summary['versions'].items():
+        for s in v['stopped']:
+            lines.append(f"- {label} {s['nuclide']}（{s['file']}、{('チェーン' if s['chain'] else 'チェーンの外')}、{STAGES[s['stage']]}）: {s['reason']} — {s['cause'] or '–'}、{s['where'] or '–'}、{s['issue'] or '–'}")
+    lines.append('')
+    lines.append('## 警告の種類（版ごとの評価の数）')
+    labels = list(summary['versions'])
+    for kind, by in summary['warnings'].items():
+        lines.append(f'- {kind}: ' + '、'.join((f'{v} {by.get(v, 0)}' for v in labels)))
+    lines.append('')
+    lines.append('## 時間と常駐の大きい核種')
+    for label, v in summary['versions'].items():
+        for key, title in (('slowest', '時間'), ('largest', '常駐')):
+            lines.append(f'- {label} {title}: ' + '、'.join((f"{e['nuclide']} {e['seconds']} s {e['max_rss_kb']} kB" for e in v[key])))
+    lines.append('')
+    lines.append(f'## 版の間で時間か常駐が {ACROSS_RATIO} 倍以上違う核種')
+    for a in summary['across']:
+        lines.append(f"- {a['nuclide']}: " + '、'.join((f"{v} {a['seconds'][v]} s {a['max_rss_kb'][v]} kB" for v in a['seconds'])))
+    return lines
+
+def reusable(entries: dict, earlier: dict, done: set[str]) -> set[str]:
+    unknown = done - set(entries)
+    if unknown:
+        raise SystemExit(f'{sorted(unknown)} of the reused run are not in the input')
+    return {n for n in done if earlier.get(n) == entries[n]}
+
+def range_entries(entries: dict, survey: dict) -> dict:
+    stopped = {Path(e['endf']).name for e in survey['evaluation'] if 'error' in e}
+    return {n: e for n, e in entries.items() if e['endf'] not in stopped}
+
+def read_reuse(place: Path, reuse: Path) -> tuple[dict, set[str]]:
+    text = (reuse / 'xs.toml').read_text()
+    earlier, now = (tomllib.loads(text), tomllib.loads((place / 'xs.toml').read_text()))
+    for key in ('sigma0', 'scattering-order'):
+        if earlier.get(key) != now.get(key):
+            raise SystemExit(f'the reused input has another {key}')
+    if (reuse / earlier['endf-directory']).resolve() != (place / now['endf-directory']).resolve():
+        raise SystemExit('the reused input reads another ENDF directory')
+    runs = combined_runs((reuse / 'xs.log').read_text())
+    return (runs, reusable(now['nuclide'], earlier['nuclide'], set(runs)))
+
+def write_input(args: list[str]) -> None:
+    reuse = None
+    if len(args) == 8 and args[6] == '--reuse':
+        reuse, args = (Path(args[7]), args[:6])
+    if len(args) != 6:
+        raise SystemExit(__doc__)
+    place, survey_path, chain_toml, chain_path, base_path = map(Path, args[1:])
+    survey = tomllib.loads(survey_path.read_text())
+    chain = msgpack.unpackb(chain_path.read_bytes(), strict_map_key=False)
+    natural = tomllib.loads(chain_toml.read_text()).get('natural-isotopes', [])
+    base = tomllib.loads(base_path.read_text())
+    entries, left_out = input_entries(survey, chain, natural, base['nuclide'])
+    directories = {Path(e['endf']).parent for e in survey['evaluation']}
+    if len(directories) != 1:
+        raise SystemExit(f'the survey reads files of {len(directories)} directories')
+    directory, = directories
+    common = {'output': 'unused.msgpack', 'endf-directory': os.path.relpath(survey_path.parent / directory, place), 'thermal-directory': os.path.relpath(base_path.parent / base['thermal-directory'], place), 'sigma0': base['sigma0'], 'scattering-order': base['scattering-order']}
+    head = [f'#0292: {survey_path.name} の評価のすべてを {TEMPERATURE} K の 1 点で輸送する核種にした、`xs nuclide` の走査の入力。', f'process_survey.py が書く。手で直さない。S(α, β) の核種の項目、σ0、散乱の次数は {base_path.name}（{base_path.parent.name}）と同じ。', *(f'入れない評価: {f}（{why}）' for f, why in left_out)]
+    if reuse is not None:
+        head.append(f'nuclides.txt は、{reuse} の実行で同じ項目のまま終わった核種を除く（report の --reuse）')
+    range_head = [f'#0292: xs.toml のうち、走査（{survey_path.name}）で止まらない評価だけの、`xs range` の入力。process_survey.py が書く。']
+    place.mkdir(parents=True, exist_ok=True)
+    (place / 'xs.toml').write_text(render_input(head, common, entries))
+    (place / 'range.toml').write_text(render_input(range_head, common, range_entries(entries, survey)))
+    done = read_reuse(place, reuse)[1] if reuse is not None else set()
+    (place / 'nuclides.txt').write_text(''.join((f'{n}\n' for n in entries if n not in done)))
+
+def write_report(args: list[str]) -> None:
+    reuse = None
+    if len(args) == 4 and args[2] == '--reuse':
+        reuse, args = (Path(args[3]), args[:2])
+    if len(args) != 2:
+        raise SystemExit(__doc__)
+    place = Path(args[1])
+    entries = tomllib.loads((place / 'xs.toml').read_text())['nuclide']
+    runs, usable = read_reuse(place, reuse) if reuse is not None else ({}, set())
+    if reuse is not None and (place / 'xs-range.toml').read_text() != (reuse / 'xs-range.toml').read_text():
+        raise SystemExit('the reused run has another pointwise range')
+    evaluations = []
+    for name, entry in entries.items():
+        log, time = (place / 'log' / f'{name}.log', place / 'log' / f'{name}.time')
+        if log.exists():
+            e = evaluation(name, entry['endf'], log.read_text(), time.read_text())
+            e['source'] = 'log'
+        elif name in usable:
+            e = {**runs[name], 'endf': entry['endf'], 'source': 'reused'}
+        else:
+            raise SystemExit(f'{name} has no log')
+        evaluations.append(e)
+    report = {'format': 'xlc-process-survey-report', 'evaluations': evaluations}
+    if reuse is not None:
+        report['reused'] = [{'path': str(f), 'md5': hashlib.md5(f.read_bytes()).hexdigest()} for f in (reuse / 'xs.toml', reuse / 'xs-range.toml', reuse / 'xs.log')]
+    (place / 'report.json').write_text(json.dumps(report, indent=1, ensure_ascii=False) + '\n')
+
+def write_summary(args: list[str]) -> None:
+    if len(args) < 4 or args[1] != '--json':
+        raise SystemExit(__doc__)
+    versions, inputs = ([], [])
+    for arg in args[3:]:
+        label, sep, paths = arg.partition('=')
+        parts = [Path(p) for p in paths.split(',')]
+        if not sep or len(parts) != 3:
+            raise SystemExit(f'{arg}: expected <version>=<place>,<survey>,<chain>')
+        files = [parts[0] / 'report.json', parts[1], parts[2]]
+        data = [f.read_bytes() for f in files]
+        versions.append((label, json.loads(data[0]), tomllib.loads(data[1].decode()), msgpack.unpackb(data[2], strict_map_key=False)))
+        inputs += [{'path': str(f), 'md5': hashlib.md5(d).hexdigest()} for f, d in zip(files, data)]
+    summary = summarize(versions, CAUSES)
+    summary['inputs'] = inputs
+    Path(args[2]).write_text(json.dumps(summary, indent=1, ensure_ascii=False) + '\n')
+    print('\n'.join(report_text(summary)))
+
+def main() -> None:
+    args = sys.argv[1:]
+    if args[:1] == ['input']:
+        write_input(args)
+    elif args[:1] == ['report']:
+        write_report(args)
+    elif args[:1] == ['summary']:
+        write_summary(args)
+    elif len(args) == 2 and args[0] == '--report':
+        print('\n'.join(report_text(json.loads(Path(args[1]).read_text()))))
+    else:
+        raise SystemExit(__doc__)
+if __name__ == '__main__':
+    main()

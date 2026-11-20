@@ -17,8 +17,8 @@ stages:
       size: 1422
     - path: crates
       hash: md5
-      md5: 65a848028d7361926996a645541e1bb0.dir
-      size: 5892572
+      md5: aff87cfe1b0cc0e74fae3a2fe8d9c9d4.dir
+      size: 5903383
       nfiles: 281
     - path: flake.lock
       hash: md5
@@ -40,8 +40,8 @@ stages:
     outs:
     - path: bin/chain
       hash: md5
-      md5: edf204e37609d7f1934d200fa8d1650e
-      size: 2025600
+      md5: b4cea5c27ddb1ded45bf0adbcb3bcb1e
+      size: 2025152
       isexec: true
     - path: bin/core
       hash: md5
@@ -55,8 +55,8 @@ stages:
       isexec: true
     - path: bin/xs
       hash: md5
-      md5: 805d95ad0a2b8cbcde617e6b27ff2620
-      size: 3291808
+      md5: 83921afb4bddf7fb90fe77b01aa33fdb
+      size: 3334648
       isexec: true
   python-ast@examples/c5g7/compare.py:
     cmd: python3 scripts/normalize_python.py examples/c5g7/compare.py 
@@ -8446,8 +8446,8 @@ stages:
     deps:
     - path: bin/xs
       hash: md5
-      md5: 805d95ad0a2b8cbcde617e6b27ff2620
-      size: 3291808
+      md5: 83921afb4bddf7fb90fe77b01aa33fdb
+      size: 3334648
       isexec: true
     - path: python-ast/scripts/normalize_binary.py.ast
       hash: md5
@@ -8456,15 +8456,15 @@ stages:
     outs:
     - path: binary-forms/xs.md5
       hash: md5
-      md5: b4c7efed07032b0663a636230466eb43
+      md5: ce6bf760f55c246584891008457358b9
       size: 33
   binary-forms@chain:
     cmd: python3 scripts/normalize_binary.py bin/chain binary-forms/chain.md5
     deps:
     - path: bin/chain
       hash: md5
-      md5: edf204e37609d7f1934d200fa8d1650e
-      size: 2025600
+      md5: b4cea5c27ddb1ded45bf0adbcb3bcb1e
+      size: 2025152
       isexec: true
     - path: python-ast/scripts/normalize_binary.py.ast
       hash: md5
@@ -8473,7 +8473,7 @@ stages:
     outs:
     - path: binary-forms/chain.md5
       hash: md5
-      md5: 06f422935479fd23f0b4b37e69a5b7d2
+      md5: 9c63423abbc094549dbcd97bce8def88
       size: 33
   toml-values@examples/vera/endfb70/openmc/openmc-1D.toml:
     cmd: python3 scripts/normalize_toml.py 
@@ -8738,3 +8738,21 @@ stages:
       hash: md5
       md5: 6d5d9c56df1eaac963bdda66a352c3f0
       size: 7550
+  python-ast@examples/depletion/process_survey.py:
+    cmd: python3 scripts/normalize_python.py 
+      examples/depletion/process_survey.py 
+      python-ast/examples/depletion/process_survey.py.ast
+    deps:
+    - path: examples/depletion/process_survey.py
+      hash: md5
+      md5: 48878efdf325e11d98252efd0fad8269
+      size: 27374
+    - path: scripts/normalize_python.py
+      hash: md5
+      md5: fd9af7824aa61cfbfdf49a801a2b4ab4
+      size: 1978
+    outs:
+    - path: python-ast/examples/depletion/process_survey.py.ast
+      hash: md5
+      md5: be3d5011299730932496d0399d58f10a
+      size: 19542

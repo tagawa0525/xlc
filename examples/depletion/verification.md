@@ -19,6 +19,7 @@
 | `endfb70/` などの `xs.toml`、`dvc.yaml`、`lattice-1C-60.toml` | 版ごとのライブラリのステージと、60 MWd/kg までのピンセルの燃焼の入力（`endfb80/` は VIII.0 の燃焼の入力だけ）                |
 | `compare_depletion_versions.py`、`check_natural_isotopes.py`  | 版ごとの燃焼の履歴を VII.1 と比べた要約（`compare-depletion-versions.json`）と、チェーンとライブラリの天然の元素の評価の検査 |
 | `read_survey.py`、`read-survey/`                              | 中性子のファイルの読み込みの走査（`xs check`）の要約と、`xs nuclide` に通した評価の入力                                      |
+| `process_survey.py`、`process-survey/`                        | 中性子の評価のすべての `xs nuclide` の入力、報告、要約                                                                       |
 | `chain-cases.toml`、`compare_chain_depletion.py`              | 2 つのチェーンに同じ 1 群の反応率を与え、1 ステップを CRAM48 で解いて比べる                                                  |
 | `../../crates/depletion/examples/deplete_chain.rs`            | チェーンと反応率から燃焼行列を組み立てて `deplete` を呼ぶ（`compare_chain_depletion.py` が呼ぶ）                             |
 | `lattice-1C-rings1.toml`、`lattice-1C-rings4.toml`            | xlc の格子計算の燃焼（VERA 1C、燃料 1 リングと 4 リング）。`lattice-2A.toml` は 2A の 1 ステップの時間                       |
@@ -332,8 +333,158 @@ cd examples/depletion/read-survey && ../../../bin/xs --threads 1 nuclide nine-VI
   Li-7、Ni-58）は終了コード 0 で終わった
 
 `xs check` は反応ごとの条件を MF3 にある反応にだけ当て、分離共鳴の再構成だけが足す反応（MF3 に無い MT）には当てない（ADR-0266）。4 つの版の
-全部のファイルが MF3 MT2 を持つ（2026-11-20 にファイルの制御欄で数えた）ので、弾性散乱の無い評価は無い。標本の外の評価が後の処理で止まるかは確かめていない。チェーンの反応の経路の和の検査を全部の評価に当てるには、放射化の核種（ADR-0238）の
-経路で全部を処理する（2A のライブラリでは VIII.0 の 465 核種で、#0264 の 10 核種が止まった）。
+全部のファイルが MF3 MT2 を持つ（2026-11-20 にファイルの制御欄で数えた）ので、弾性散乱の無い評価は無い。標本の外の評価は、下の
+「中性子の評価のすべての `xs nuclide`」で全部を後の処理まで通した。
+
+## 中性子の評価のすべての `xs nuclide`
+
+4 つの版（ENDF/B-VII.0、VII.1、VIII.0、VIII.1）の全核種を xs で処理できるようにする（#0292）最初の段として、各版の中性子のファイルの
+評価のすべてを、温度 1 点の `xs nuclide` に輸送する核種として最後まで通し、止まる評価と止まる場所、原因、issue を洗い出す
+（`process_survey.py`）。読み込みの走査（上の「中性子のファイルの読み込みの走査」、`xs check`）が確かめない処理（再構成、ドップラー拡がり、
+非分離共鳴、群定数、MF8 の経路の和）を埋める。
+
+- 入力: `process-survey/<版>/xs.toml`（`process_survey.py input` が走査の報告、版のチェーン、版の xs の入力から書く）。走査の評価のすべて
+  （走査で止まる評価を含む）を 565 K の 1 点で輸送する核種にする。565 K は、VIII.0 を Slurm 999（#0292 の全核種の試行のライブラリ
+  `issue-0292/all/library`）の結果で済ませるため、その温度にそろえた。S(α, β) の核種（H-1）、σ0、散乱の次数は版の xs の入力（`endfb70/xs.toml`、
+  `endfb71/xs.toml`、`xs.toml`、`endfb81/xs.toml`）と同じ。名前はチェーンの名前で、天然の元素の評価（VII.0 の C、V、Zn、VII.1 の C）はチェーンの
+  `natural-isotopes` の同じ元素の最初の核種（C-12、V-50、Zn-64）の名前で 1 度だけ入れる（ADR-0262 で同じ元素の核種は同じ評価を使う）。
+  VIII.0 と VIII.1 の中性子の評価 `n-000_n_001.endf` は、輸送する標的の核種でないので入れない
+- 範囲: `process-survey/<版>/xs-range.toml` は、走査で止まる評価を除いた `range.toml` の `xs range`（`xs range` は MF2 を読み、走査で止まる
+  VIII.1 の Sr-88 などで止まる）。VII.0、VII.1、VIII.1 は [4, 1.353e6] eV、VIII.0 は [4, 2.231e6] eV で Slurm 999 と同じ
+- VIII.0: Slurm 999（main の 51876d5cd の release の xs、2026-11-20）で同じ項目、同じ範囲のまま終わった 548 核種は、そのログ（`issue-0292/all/library/xs.log`、
+  md5 50946851）から読む。項目の違う 8 つ（H-1 は試行で 4 温度、走査で止まる 7 つは試行で放射化の核種か外した核種）だけを流した
+- 報告: `process-survey/<版>/report.json`（`process_survey.py report` が核種ごとの標準エラーと GNU time の記録 `process-survey/<版>/log/` から書く。
+  ログは `dvc add` で追う）。要約はステージ `process-survey-summary`（`process-survey.json`、`process-survey.txt`）
+
+```sh
+cd examples/depletion
+python3 process_survey.py input process-survey/VII.0 read-survey-endfb70.toml endfb70/chain.toml endfb70/chain.msgpack endfb70/xs.toml
+python3 process_survey.py input process-survey/VIII.0 read-survey-endfb80.toml chain.toml chain.msgpack xs.toml --reuse issue-0292/all/library
+(cd process-survey/VII.0 && ../../../../bin/xs range range.toml xs-range.toml)
+# 版ごとに process-survey/<版> で（Slurm の排他のジョブ。VIII.0 は手元で -P 8）
+xargs -a nuclides.txt -P 16 -I{} sh -c 'ulimit -c 0; ulimit -v 5242880; /run/current-system/sw/bin/time -o log/{}.time \
+  -f "%e s %U user %M kB exit %x" timeout 1200 ../../../../bin/xs --threads 2 nuclide xs.toml xs-range.toml {} <出力の置き場>/{}.msgpack 2> log/{}.log'
+python3 process_survey.py report process-survey/VII.0
+python3 process_survey.py report process-survey/VIII.0 --reuse issue-0292/all/library
+cd ../..
+python3 scripts/dvc-repro.py -s examples/depletion/dvc.yaml:process-survey-summary
+python3 examples/depletion/process_survey.py --report examples/depletion/process-survey.json
+```
+
+### 計算
+
+VII.0、VII.1、VIII.1 は Slurm 1006、1007、1008（ca321eef、分岐点 49e3045c の `bin/xs`、2026-11-20）、VIII.0 の 8 つは手元（678608d5、同じ `bin/xs`、
+2026-11-20）。どれも 1 核種に 2 スレッド（`--threads 2`）で、1 核種のアドレス空間を 5 GiB、時間を 20 分で打ち切る（16 並列でメモリの搭載量に
+収めるため）。打ち切りに当たった核種は無い。
+
+その後に main が読み込みを直した評価は、そのときの main のビルド（`cargo build --release` の xs、手元、2026-11-20）で再実行した: MF2 の複数の
+同位体（#0305）と LF=11（#0313）の後に VII.0 の V-50、Zn-64、U-233 と VII.1 の U-233（dde155b0、分岐点 59d2dc07）、LRF=7 のシフト因子と
+バックグラウンド（#0310）の後に VIII.1 の Cu-63、Sr-88（c04be629、分岐点 74a54401）で、どれも通った。止まった評価は、すべてを 79486bc7
+（分岐点 6af59212。#0316 の後）のビルドで再実行し、表の止まった文はこのビルドのもの（前のビルドと同じ場所、同じ文で止まった）。通った評価は、
+その後の main のビルドで再実行していない。マージの記録が出力のバイトを確かめたのは一部の評価だけ（#0305 は U-235、Zr-90、VII.1 の Pu-239、
+VIII.1 の Fe-54、#0310 はシフト因子とバックグラウンドの無い LRF=7 の 9 評価）で、ほかの通った評価が今の main でも通るかは確かめていない。
+報告と要約のステージは e1e9c70f で作った。
+
+その後に直ったもの: VII.0 の Rb-87 は、xs の入力の核種の項目 `corrections` で TAB1 の修正を宣言すると読める（#0316 は閉じた。ADR-0272、6af59212。
+宣言の例は `read-survey/sample-VII.0.toml`）。この走査の入力は宣言を持たないので、表では止まる。
+
+### 版ごとの数
+
+<!-- table: process-survey -->
+
+| 版     | チェーンの評価 | 通った | 止まった | うち走査でも止まる | チェーンの外の評価 | 通した | 通った | 止まった | 入れない |
+| ------ | -------------- | ------ | -------- | ------------------ | ------------------ | ------ | ------ | -------- | -------- |
+| VII.0  | 393            | 382    | 11       | 6                  | 0                  | 0      | 0      | 0        | 0        |
+| VII.1  | 423            | 417    | 6        | 6                  | 0                  | 0      | 0      | 0        | 0        |
+| VIII.0 | 556            | 549    | 7        | 7                  | 1                  | 0      | 0      | 0        | 1        |
+| VIII.1 | 557            | 549    | 8        | 8                  | 1                  | 0      | 0      | 0        | 1        |
+
+<!-- /table -->
+
+「うち走査でも止まる」は、読み込みの走査（`xs check`）でも止まる評価で、`xs nuclide` も同じ文で止まった（核分裂の 3 つは、温度の前置き「565 K: 」のほかは同じ）。ほかは処理で初めて止まった。
+天然の元素の評価（VII.0 の C、V、Zn、VII.1 の C）は、それを使うチェーンの核種（ADR-0262）の名前で通したので、チェーンの評価に数える（どれも
+通った）。「チェーンの外の評価」は VIII.0、VIII.1 の中性子の評価（入れない）だけ。上の読み込みの走査の表は天然の元素の評価をチェーンの外に数えるので、チェーンの評価の数が
+VII.0 で 3、VII.1 で 1 違う。
+
+### 止まった評価
+
+<!-- table: process-survey-stopped -->
+
+| 版     | 評価   | 段                 | 止まった文                                                                                                                                                                  | 原因                                                                                                           | 場所                                              | issue           |
+| ------ | ------ | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- | --------------- |
+| VII.0  | H-2    | 走査でも止まる     | neutron LAW=6 is not supported                                                                                                                                              | MF6 の中性子の LAW=6、7 を読めない                                                                             | endf/mf6.rs の parse                              | #0311           |
+| VII.0  | Be-9   | 走査でも止まる     | neutron LAW=7 is not supported                                                                                                                                              | MF6 の中性子の LAW=6、7 を読めない                                                                             | endf/mf6.rs の parse                              | #0311           |
+| VII.0  | Cl-35  | 処理で初めて止まる | MT2 is negative at 2 points up to the Doppler broadening limit 217643.623542 eV (1.0000e-5..1.2260e-5 eV, down to -2.218e3 b); a negative cross section cannot be broadened | 広げる範囲の 0 K の断面積が負（ADR-0267 でエラー）                                                             | pointwise.rs の reject_negative_broadened         | #0309           |
+| VII.0  | Co-58  | 処理で初めて止まる | MT102 is negative at 42 points up to the Doppler broadening limit 596.41 eV (8.4925e0..9.5433e0 eV, down to -3.742e3 b); a negative cross section cannot be broadened       | 広げる範囲の 0 K の断面積が負（ADR-0267 でエラー）                                                             | pointwise.rs の reject_negative_broadened         | #0309           |
+| VII.0  | Rb-87  | 走査でも止まる     | last NBT must equal NP                                                                                                                                                      | MF5 MT17 の TAB1 の補間の区切りが点の数と食い違う（評価の誤り。入力の `corrections` の宣言で読める。ADR-0272） | endf/tape.rs の tab1                              | #0316（closed） |
+| VII.0  | Ta-181 | 処理で初めて止まる | 565 K: the sampled total cross section is not positive -251.8341136002381 eV from 330 eV                                                                                    | 非分離共鳴のラダーのサンプルの全断面積が正でない                                                               | resonance/ladder.rs の add_samples                | #0319           |
+| VII.0  | Th-232 | 走査でも止まる     | 565 K: fission needs MF1 MT452 and MF5 MT18                                                                                                                                 | 核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない                                             | process.rs の at_temperature                      | #0312           |
+| VII.0  | Pa-231 | 走査でも止まる     | 565 K: fission needs MF1 MT452 and MF5 MT18                                                                                                                                 | 核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない                                             | process.rs の at_temperature                      | #0312           |
+| VII.0  | Pa-233 | 走査でも止まる     | 565 K: fission needs MF1 MT452 and MF5 MT18                                                                                                                                 | 核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない                                             | process.rs の at_temperature                      | #0312           |
+| VII.0  | Cf-253 | 処理で初めて止まる | Cf-253 at 565 K: non-finite value NaN                                                                                                                                       | σ0 が 10 b 以下の群定数に NaN（作る計算は確かめていない）                                                      | crates/format の library.rs の NuclideData の検査 | #0320           |
+| VII.0  | Es-253 | 処理で初めて止まる | 565 K: the sampled total cross section is not positive 5.060674332312416 eV from 8500 eV                                                                                    | 非分離共鳴のラダーのサンプルの全断面積が正でない                                                               | resonance/ladder.rs の add_samples                | #0319           |
+| VII.1  | H-2    | 走査でも止まる     | neutron LAW=6 is not supported                                                                                                                                              | MF6 の中性子の LAW=6、7 を読めない                                                                             | endf/mf6.rs の parse                              | #0311           |
+| VII.1  | Be-9   | 走査でも止まる     | neutron LAW=7 is not supported                                                                                                                                              | MF6 の中性子の LAW=6、7 を読めない                                                                             | endf/mf6.rs の parse                              | #0311           |
+| VII.1  | Cl-35  | 走査でも止まる     | particle pair 3: a charged particle (ZA=1) is not supported                                                                                                                 | R 行列の制限形の荷電粒子の対を読めない                                                                         | resonance/r_matrix_limited.rs の role             | #0264           |
+| VII.1  | Th-232 | 走査でも止まる     | 565 K: fission needs MF1 MT452 and MF5 MT18                                                                                                                                 | 核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない                                             | process.rs の at_temperature                      | #0312           |
+| VII.1  | Pa-231 | 走査でも止まる     | 565 K: fission needs MF1 MT452 and MF5 MT18                                                                                                                                 | 核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない                                             | process.rs の at_temperature                      | #0312           |
+| VII.1  | Pa-233 | 走査でも止まる     | 565 K: fission needs MF1 MT452 and MF5 MT18                                                                                                                                 | 核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない                                             | process.rs の at_temperature                      | #0312           |
+| VIII.0 | H-2    | 走査でも止まる     | neutron LAW=6 is not supported                                                                                                                                              | MF6 の中性子の LAW=6、7 を読めない                                                                             | endf/mf6.rs の parse                              | #0311           |
+| VIII.0 | Be-9   | 走査でも止まる     | neutron LAW=7 is not supported                                                                                                                                              | MF6 の中性子の LAW=6、7 を読めない                                                                             | endf/mf6.rs の parse                              | #0311           |
+| VIII.0 | Cl-35  | 走査でも止まる     | particle pair 3: a charged particle (ZA=1) is not supported                                                                                                                 | R 行列の制限形の荷電粒子の対を読めない                                                                         | resonance/r_matrix_limited.rs の role             | #0264           |
+| VIII.0 | Ca-40  | 走査でも止まる     | particle pair 3: a charged particle (ZA=2) is not supported                                                                                                                 | R 行列の制限形の荷電粒子の対を読めない                                                                         | resonance/r_matrix_limited.rs の role             | #0264           |
+| VIII.0 | Th-232 | 走査でも止まる     | 565 K: fission needs MF1 MT452 and MF5 MT18                                                                                                                                 | 核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない                                             | process.rs の at_temperature                      | #0312           |
+| VIII.0 | Pa-231 | 走査でも止まる     | 565 K: fission needs MF1 MT452 and MF5 MT18                                                                                                                                 | 核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない                                             | process.rs の at_temperature                      | #0312           |
+| VIII.0 | Pa-233 | 走査でも止まる     | 565 K: fission needs MF1 MT452 and MF5 MT18                                                                                                                                 | 核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない                                             | process.rs の at_temperature                      | #0312           |
+| VIII.1 | H-2    | 走査でも止まる     | neutron LAW=6 is not supported                                                                                                                                              | MF6 の中性子の LAW=6、7 を読めない                                                                             | endf/mf6.rs の parse                              | #0311           |
+| VIII.1 | Li-6   | 走査でも止まる     | neutron LAW=6 is not supported                                                                                                                                              | MF6 の中性子の LAW=6、7 を読めない                                                                             | endf/mf6.rs の parse                              | #0311           |
+| VIII.1 | Be-9   | 走査でも止まる     | neutron LAW=7 is not supported                                                                                                                                              | MF6 の中性子の LAW=6、7 を読めない                                                                             | endf/mf6.rs の parse                              | #0311           |
+| VIII.1 | Cl-35  | 走査でも止まる     | particle pair 3: a charged particle (ZA=1) is not supported                                                                                                                 | R 行列の制限形の荷電粒子の対を読めない                                                                         | resonance/r_matrix_limited.rs の role             | #0264           |
+| VIII.1 | Ca-40  | 走査でも止まる     | particle pair 3: a charged particle (ZA=2) is not supported                                                                                                                 | R 行列の制限形の荷電粒子の対を読めない                                                                         | resonance/r_matrix_limited.rs の role             | #0264           |
+| VIII.1 | Th-232 | 走査でも止まる     | 565 K: fission needs MF1 MT452 and MF5 MT18                                                                                                                                 | 核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない                                             | process.rs の at_temperature                      | #0312           |
+| VIII.1 | Pa-231 | 走査でも止まる     | 565 K: fission needs MF1 MT452 and MF5 MT18                                                                                                                                 | 核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない                                             | process.rs の at_temperature                      | #0312           |
+| VIII.1 | Pa-233 | 走査でも止まる     | 565 K: fission needs MF1 MT452 and MF5 MT18                                                                                                                                 | 核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない                                             | process.rs の at_temperature                      | #0312           |
+
+<!-- /table -->
+
+場所は止まった文を出す関数（crates/xs/src から）。処理で初めて止まるのは VII.0 の 5 つだけで、Cl-35 と Co-58 は ADR-0267 が負の 0 K の断面積を
+エラーにする（#0309）。Ta-181 と Es-253（#0319）、Cf-253（#0320）は、どの issue にも無かった欠陥で、1 核種の入力で切り分けた（各 issue の「問題」）。
+VII.1、VIII.0、VIII.1 は、走査で止まる評価だけが止まる。核分裂の中性子の分布が MF6 MT18 の Th-232、Pa-231、Pa-233（#0312）は、走査と同じ
+文で、温度ごとの群定数（`process.rs` の `at_temperature`）で止まる。止まった評価のほかの欠陥は、止まった後の処理を通していないので分からない。
+
+### 警告の種類
+
+<!-- table: process-survey-warnings -->
+
+| 警告の種類                                                                                                                                                                                                                                                                                                                                                                       | VII.0 | VII.1 | VIII.0 | VIII.1 |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----- | ------ | ------ |
+| xlc_xs::process: S(α, β) follows the ENDF interpolation law (ln S linear); NJOY THERMR interpolates ln S quadratically, so its scattering cross section differs (ADR-N) nuclide="H-N"                                                                                                                                                                                            | 1     | 1     | 1      | 1      |
+| xlc_xs::pointwise: N reactions start below their kinematic threshold -Q(A+N)/A and now start at it with a zero cross section; the largest shift is N eV in MTN and the largest relative shift is N of the threshold in MTN; N points below the thresholds were dropped                                                                                                           | 372   | 409   | 542    | 539    |
+| xlc_xs::pointwise: N reactions start below their kinematic threshold -Q(A+N)/A and now start at it with a zero cross section; the largest shift is N eV in MTN and the largest relative shift is N of the threshold in MTN; N points below the thresholds were dropped; N reactions had nonzero values below the threshold, now N (the largest N of the reaction maximum in MTN) | 15    | 10    | 10     | 14     |
+| xlc_xs::endf::mf5: corresponding-point interpolation between grids of different sizes; using unit-base interpolation as NJOY does code=N                                                                                                                                                                                                                                         | 20    | 19    | 8      | 4      |
+| xlc_xs::process: N K: the sampled elastic (with the MFN background) is negative at N of N sampled energies in the unresolved range and is raised to N microbarn, as NJOY PURR does                                                                                                                                                                                               | 6     | 5     | 4      | 4      |
+| xlc_xs::process: the MFN multiplicity does not cover all energies where the reaction is nonzero; the state gets none of the reaction there (as NJOY GROUPR) mt=N lfs=N energy=N                                                                                                                                                                                                  | 4     | 4     | 7      | 4      |
+| xlc_xs::process: the final states listed in MFN leave part of the reaction to no channel (b) mt=N group=N missing=N                                                                                                                                                                                                                                                              | 3     | 6     | 30     | 34     |
+| xlc_xs::pointwise: resolved range N..N eV: the elastic with the MFN background is negative at N of N points (down to -N b, at N..N eV) and is raised to N (NJOY RECONR raises it to N b, ADR-N)                                                                                                                                                                                  | 3     | 3     | 0      | 2      |
+| xlc_xs::pointwise: SLBW range N..N eV: the resonance elastic is negative at N of N points; the sum with the MFN background is negative at N of them (down to -N b) and is raised to N, and the background compensates the other N (NJOY RECONR raises the resonance part alone to N before adding the background, ADR-N)                                                         | 10    | 2     | 0      | 0      |
+| xlc_xs::endf::mf2: N of N SLBW resonances with L=N have J [N], not allowed for the target spin N; using their statistical factor g = (NJ+N)/(N(NI+N)) as NJOY does                                                                                                                                                                                                               | 11    | 3     | 0      | 0      |
+| xlc_xs::process: the final states listed in MFN sum to more than the reaction by this relative excess at most; they are scaled down to the reaction wherever they exceed it mt=N energy=N excess=N                                                                                                                                                                               | 1     | 6     | 9      | 14     |
+| xlc_xs::process: MFN MTN has no spectrum in MFN MTN; the delayed neutrons get the MFN MTN spectrum mat=N                                                                                                                                                                                                                                                                         | 28    | 50    | 52     | 53     |
+| xlc_xs::endf::mf2: unresolved range has L=N beyond the ENDF limit of N; using the hard-sphere factors for that L (NJOY uses those of L=N)                                                                                                                                                                                                                                        | 0     | 0     | 1      | 1      |
+
+<!-- /table -->
+
+数は版ごとの、その種類の警告を出した評価の数（文の数を N にした種類。`process_survey.py` の `warning_kind`）。どの種類も xs のコードが
+決めた扱いの警告で、VIII.0 に無い種類は、分離共鳴の範囲の弾性散乱の和が負（ADR-0267。VII.0 と VII.1 の Ar-40、Gd-152、Dy-160、VIII.1 の Fe-54、
+Ni-60）、SLBW の共鳴の弾性散乱が負（ADR-0265）、SLBW の J が標的のスピンと合わない（VII.0 と VII.1 の Am-241、U-237 など）の 3 つ。
+
+### 時間と常駐
+
+1 核種の最大の常駐は VIII.0 の U-238 の 344 MB（`process-survey.txt` の「時間と常駐の大きい核種」）で、VIII.1 の Fe-54 は 78 MB（#0309 の
+77.6 GB は直った）。1 核種の時間は最大で VII.1 の Am-242m の 393 秒。時間は割り込まれうるジョブの GNU time の値で、記録の測定ではない。
+版の間で時間か常駐が 10 倍以上違う核種は 10（同じ節の「版の間で時間か常駐が 10 倍以上違う核種」。H-1、Mn-55、Fe-58、Ni-59、Au-197、
+Th-229、Pa-232、Np-236、Np-238、Bk-250）で、どれも 400 秒、300 MB に満たない。原因の候補は版ごとの評価の違い（非分離共鳴の有無など。
+確かめていない）。
 
 ## 版ごとのピンセルの燃焼
 
