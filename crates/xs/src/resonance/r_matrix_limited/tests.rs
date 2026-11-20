@@ -484,3 +484,28 @@ fn rejects_two_fission_pairs() {
     let error = RMatrixLimitedXs::new(&data).unwrap_err().to_string();
     assert!(error.contains("MT18"), "{error}");
 }
+
+#[test]
+fn peaks_of_shifted_levels_sit_at_the_observed_energy() {
+    // p 波の幅の広い準位（ρ ≈ 0.55）は、シフト因子で −γ²(S − B) ≈ −4.5 eV だけ動き、半値幅（約 3 eV）を超える
+    let mut data = one_channel_level(OrbitalL::P, 1, -1.0, 5.0, 1.0);
+    data.spin_groups[0].resonances[0].er = 7.0e4;
+    let xs = RMatrixLimitedXs::new(&data).unwrap();
+    let [(peak, half_width)] = xs.peaks().collect::<Vec<_>>()[..] else {
+        panic!("expected one peak");
+    };
+    let capture = |e: f64| xs.cross_sections(e).unwrap()[2];
+    let maximum = (-4000..=4000)
+        .map(|i| 7.0e4 + f64::from(i) * 5.0e-3)
+        .max_by(|a, b| capture(*a).total_cmp(&capture(*b)))
+        .unwrap();
+    assert!(
+        (maximum - 7.0e4).abs() > half_width,
+        "the level moves by {} eV",
+        maximum - 7.0e4
+    );
+    assert!(
+        (peak - maximum).abs() < 0.1 * half_width,
+        "peak {peak} eV, capture maximum {maximum} eV, half width {half_width} eV"
+    );
+}
