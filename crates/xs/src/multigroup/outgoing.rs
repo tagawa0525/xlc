@@ -57,6 +57,10 @@ pub fn outgoing_group_integrals(groups: &GroupStructure, density: &Tab1) -> Vec<
 /// 区間ごとに、実験室系の範囲の届く群だけを、その群の 2 つの境界の折れ目で分けて 4 点の Gauss-Legendre（7 次まで厳密）を u に
 /// ついて当てれば、丸めの誤差を除いて厳密で、届かない群はちょうど 0、どの群も負にならない。群構造の外は端の群に入る
 fn laboratory_group_integrals(groups: &GroupStructure, density: &Tab1, ec: f64) -> Vec<f64> {
+    if ec == 0.0 {
+        // 重心の運動が無ければ実験室系も E'
+        return outgoing_group_integrals(groups, density);
+    }
     let linear = linearize(density, DENSITY_TOLERANCE);
     let bounds = groups.bounds();
     let ng = groups.len();
@@ -71,10 +75,6 @@ fn laboratory_group_integrals(groups: &GroupStructure, density: &Tab1, ec: f64) 
         let bottom = if g == ng - 1 { 0.0 } else { bounds[g + 1] };
         (bottom, top)
     };
-    if ec == 0.0 {
-        // 重心の運動が無ければ実験室系も E'
-        return outgoing_group_integrals(groups, density);
-    }
     let c = ec.sqrt();
     let mut integrals = vec![0.0; ng];
     for k in 0..linear.x.len().saturating_sub(1) {
@@ -119,13 +119,10 @@ fn laboratory_group_integrals(groups: &GroupStructure, density: &Tab1, ec: f64) 
                 for &(t, weight) in &GAUSS_LEGENDRE_4 {
                     let u = mid + half * t;
                     let (lo, hi) = ((u - c).powi(2), (u + c).powi(2));
-                    // 範囲の全体が群に入るなら幅は 4uc。両端の差で求めると、Ec が E' の丸めの桁に近い（入射が熱の重い標的）とき
-                    // 相対 1e-8 ほど狂い、群の和が密度の積分からずれる
-                    let overlap = if bottom <= lo && hi <= top {
-                        4.0 * u * c
-                    } else {
-                        (top.min(hi) - bottom.max(lo)).max(0.0)
-                    };
+                    // 重なりは幅 4uc から群の外にはみ出す分を引く。両端の差 hi − lo で幅を求めると、Ec が E' の丸めの桁に近い
+                    // （入射が熱の重い標的）とき相対 1e-8 ほど狂い、群の和が密度の積分からずれる
+                    let overlap =
+                        (4.0 * u * c - (bottom - lo).max(0.0) - (hi - top).max(0.0)).max(0.0);
                     *value += f(u * u) * overlap / (2.0 * c) * weight * half;
                 }
             }
