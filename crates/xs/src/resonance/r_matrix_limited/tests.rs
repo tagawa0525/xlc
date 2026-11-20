@@ -180,7 +180,8 @@ fn one_channel_level(l: OrbitalL, shf: i64, bnd: f64, gn: f64, gg: f64) -> RMatr
 }
 
 /// 1 チャネルの R 行列 R(E) = γ²/(E_λ − E − iΓγ/2) + R_bkg(E) の、ENDF-102 の式 (D.42)〜(D.45) による
-/// 全断面積、弾性散乱、捕獲。X = P R / (1 − R L)、L = (S − B) + iP、U = e^{−2iφ}(1 + 2iX)。
+/// 全断面積、弾性散乱、捕獲。X = P R / (1 − R L)、L = (S − B) + iP、U = e^{−2iφ}(1 + 2iX)、
+/// σ_t = 2πg/k² Re(1 − U)、σ_el = πg/k² |1 − U|²。
 /// `shift` がなければ S − B = 0。
 fn one_channel_exact(
     data: &RMatrixLimited,
@@ -206,12 +207,16 @@ fn one_channel_exact(
     let l = Complex64::new(s_minus_b, p(e));
     let x = p(e) * r / (1.0 - r * l);
     let phi = phase_shift(channel.l, k(e) * channel.ape);
-    let u = Complex64::from_polar(1.0, -2.0 * phi) * (1.0 + 2.0 * Complex64::I * x);
+    // 1 − U = 2i sin φ e^{−iφ} − 2iX e^{−2iφ}（低いエネルギーで 1 − Re U の桁落ちを避ける）
+    let one_minus_u = 2.0 * Complex64::I * phi.sin() * Complex64::from_polar(1.0, -phi)
+        - 2.0 * Complex64::I * x * Complex64::from_polar(1.0, -2.0 * phi);
     let g = (2.0 * group.aj + 1.0) / 2.0;
     let pifac = PI * g / (k(e) * k(e));
-    let total = 2.0 * pifac * (1.0 - u.re);
-    let elastic = pifac * (1.0 - u).norm_sqr();
-    [total, elastic, total - elastic]
+    let total = 2.0 * pifac * one_minus_u.re;
+    let elastic = pifac * one_minus_u.norm_sqr();
+    // 1 − |U|² = 4(Im X − |X|²)
+    let capture = 4.0 * pifac * (x.im - x.norm_sqr());
+    [total, elastic, capture]
 }
 
 fn assert_matches_one_channel(data: &RMatrixLimited, shift_on: bool, bkg: impl Fn(f64) -> f64) {
@@ -221,9 +226,16 @@ fn assert_matches_one_channel(data: &RMatrixLimited, shift_on: bool, bkg: impl F
     ] {
         let expected = one_channel_exact(data, e, shift_on, &bkg);
         let actual = xs.cross_sections(e).unwrap();
-        for (i, what) in ["total", "elastic", "capture"].iter().enumerate() {
-            assert_close(actual[i], expected[i], &format!("{what} at {e}"));
-        }
+        assert_close(actual[0], expected[0], &format!("total at {e}"));
+        assert_close(actual[1], expected[1], &format!("elastic at {e}"));
+        // xs は捕獲を全断面積から引いて出すので、全断面積の丸め（数 ulp）の分だけずれうる
+        let capture = (actual[2] - expected[2]).abs();
+        assert!(
+            capture <= 1e-9 * expected[2] + 8.0 * f64::EPSILON * expected[0],
+            "capture at {e}: actual {}, expected {}",
+            actual[2],
+            expected[2]
+        );
     }
 }
 
