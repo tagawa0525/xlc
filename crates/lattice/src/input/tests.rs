@@ -402,6 +402,44 @@ fn ufg_cp_points_default_to_six_and_keep_sixteen_selectable() {
 }
 
 #[test]
+fn ufg_nuclides_list_distinct_nuclides_of_a_shielded_input() {
+    // ADR-0268: 省略するとすべての核種を UFG で解く。一覧は空でなく、同じ核種を 2 度書かない。自己遮蔽しない入力と、UFG の 1 次の
+    // 変化（[sensitivity.ufg-tangent]）には書けない
+    let listed = |line: &str, input: &str| {
+        replaced(
+            input,
+            "library = \"m1.msgpack\"",
+            &format!("library = \"m1.msgpack\"\n{line}"),
+        )
+        .map(|input| input.shielding_options().ufg_nuclides)
+    };
+    assert_eq!(
+        LatticeInput::parse(PIN_CELL)
+            .unwrap()
+            .shielding_options()
+            .ufg_nuclides,
+        None
+    );
+    assert_eq!(
+        listed("ufg-nuclides = [\"U-238\", \"H-1\"]", PIN_CELL).unwrap(),
+        Some(vec!["U-238".to_string(), "H-1".to_string()])
+    );
+    for bad in [
+        "ufg-nuclides = []",
+        "ufg-nuclides = [\"U-238\", \"U-238\"]",
+        "ufg-nuclides = \"U-238\"",
+        "self-shielding = false\nufg-nuclides = [\"U-238\"]",
+    ] {
+        assert!(listed(bad, PIN_CELL).is_err(), "{bad}");
+    }
+    let tangent = format!(
+        "{PIN_CELL}\n[sensitivity]\nnuclides = [\"U-238\"]\noutput = \"k.toml\"\n[sensitivity.ufg-tangent]\n"
+    );
+    assert!(LatticeInput::parse(&tangent).is_ok());
+    assert!(listed("ufg-nuclides = [\"U-238\"]", &tangent).is_err());
+}
+
+#[test]
 fn track_table_needs_self_shielding() {
     // 飛程の表は自己遮蔽の減速計算でだけ使うので、自己遮蔽しない入力に書くと止める
     let off = replaced(
@@ -831,6 +869,7 @@ fn static_targets_and_infinite_dilution_reproduce_the_former_defaults() {
             hold_memory: None,
             scattering: Scattering::Static,
             transfer: UfgTransfer::InfiniteDilution,
+            ufg_nuclides: None,
         }
     );
 }

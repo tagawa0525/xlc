@@ -68,6 +68,13 @@ const THIN_POINTS: usize = 4096;
 pub enum UfgError {
     #[error("{given} ring materials for {rings} rings")]
     Rings { given: usize, rings: usize },
+    /// 段の断面積の核種（[`slowing_down_stepped`]）の群定数の群の数がライブラリと違う
+    #[error("stepped nuclide {name}: {given} groups for the {groups} groups of the library")]
+    SteppedGroups {
+        name: String,
+        given: usize,
+        groups: usize,
+    },
     #[error("range {range:?} must be two group bounds inside the pointwise range {pointwise:?}")]
     Range {
         range: [f64; 2],
@@ -509,6 +516,41 @@ pub fn slowing_down_transfers(
         hold,
     )?;
     Ok((spectrum, transfers))
+}
+
+/// [`slowing_down_with`] と同じ減速計算を、`stepped` の核種（名前と、ライブラリのすべての群の群定数）を、ポイントワイズの断面積の
+/// 代わりにその群定数を群ごとに一定の断面積（群の境界で不連続）として持つ静止した標的にして解く（ADR-0268）。`shares` を与えれば、
+/// [`slowing_down_transfers`] と同じく移行も数える。`stepped` が空なら [`slowing_down_with`]、[`slowing_down_transfers`] と同じ
+#[allow(clippy::too_many_arguments)]
+pub fn slowing_down_stepped(
+    library: &Library,
+    cell: &Cylinder,
+    rings: &[Option<&MaterialInput>],
+    range: [f64; 2],
+    collision: Collision,
+    thinning: Option<f64>,
+    scattering: Scattering,
+    shares: Option<&ShareCellCache>,
+    hold: usize,
+    stepped: &[(&str, &Shielded)],
+) -> Result<(CellSpectrum, Option<Vec<Vec<NuclideTransfer>>>), UfgError> {
+    let _ = stepped;
+    let mut transfers = Vec::new();
+    let spectrum = solve_cell(
+        library,
+        cell,
+        rings,
+        range,
+        collision,
+        thinning,
+        scattering,
+        None,
+        shares.map(|shares| (&mut transfers, shares)),
+        None,
+        None,
+        hold,
+    )?;
+    Ok((spectrum, shares.map(|_| transfers)))
 }
 
 /// 減速計算の格子点ごとのリングの中性子束（[`slowing_down_fine`]）。

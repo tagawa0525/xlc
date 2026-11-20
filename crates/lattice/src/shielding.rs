@@ -58,7 +58,7 @@ const RING_CAPTURES: [&str; 5] = ["U-238", "Pu-239", "Pu-240", "Gd-155", "Gd-157
 pub const UFG_CP_POINTS: usize = 6;
 
 /// 格子の燃料の自己遮蔽の反復の条件。
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ShieldingOptions {
     /// 燃料の各核種の全断面積の相対変化の上限
     pub tolerance: f64,
@@ -79,6 +79,9 @@ pub struct ShieldingOptions {
     pub scattering: Scattering,
     /// 等価なセルのリングの物質の、UFG の範囲の群の散乱行列の移行の形（ADR-0207）
     pub transfer: UfgTransfer,
+    /// UFG の減速計算でポイントワイズの断面積で解く核種（`None` はすべて）。挙げない中心の物質の核種は、等価原理の群定数の段の
+    /// 断面積を持つ静止した標的として解く（ADR-0268）
+    pub ufg_nuclides: Option<Vec<String>>,
 }
 
 impl Default for ShieldingOptions {
@@ -93,6 +96,7 @@ impl Default for ShieldingOptions {
             hold_memory: None,
             scattering: Scattering::default(),
             transfer: UfgTransfer::default(),
+            ufg_nuclides: None,
         }
     }
 }
@@ -316,6 +320,14 @@ enum PinMethod<'a> {
 pub enum SelfShieldingError {
     #[error("material `{0}` is not defined")]
     UnknownMaterial(String),
+    /// UFG で解く核種（`ufg-nuclides`。ADR-0268）がライブラリに無い
+    #[error("ufg-nuclides: `{0}` is not a nuclide of the library")]
+    UnknownUfgNuclide(String),
+    /// UFG で解く核種に挙げない核種が、中心の物質（燃料か棒）でないリングにある（段の断面積で解くのは中心の物質の核種だけ。ADR-0268）
+    #[error(
+        "cell {cell}: `{name}` is outside the centre material of the UFG cell, so it must be in ufg-nuclides"
+    )]
+    UnlistedOutsideCentre { cell: usize, name: String },
     #[error("{given} region materials for {regions} regions")]
     Regions { given: usize, regions: usize },
     #[error("cell {0}: fuel must fill the innermost rings of a ring cell")]

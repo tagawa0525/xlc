@@ -3610,3 +3610,172 @@ fn exact_tangents_follow_rings_of_one_composition_changed_unevenly() {
         solve(&rings, None).0
     });
 }
+
+/// 範囲 [4 eV, 10 keV] の群（[`BOUNDS`] の 2〜4）で、群ごとに `steps[g]` の [全, 弾性散乱] を持ち、群の境界で不連続な
+/// ポイントワイズの断面積（エネルギーの昇順。境界は低い側と高い側の 2 点）
+fn stepped_points(steps: &[[f64; 2]]) -> Vec<[f64; 4]> {
+    (2..5)
+        .rev()
+        .flat_map(|g| {
+            let [total, elastic] = steps[g];
+            [BOUNDS[g + 1], BOUNDS[g]].map(|e| [e, total, elastic, 0.0])
+        })
+        .collect()
+}
+
+#[test]
+fn stepped_nuclides_are_static_targets_with_their_steps() {
+    // 段の断面積で解く核種（ADR-0268）は、自分のポイントワイズの断面積（ここでは 500 eV の共鳴）と自由ガスの核を使わず、群ごとに
+    // 一定の断面積を持つ静止した標的として散乱する。同じ段をポイントワイズの断面積に持ち、静止した標的で散乱する核種（分離共鳴を
+    // 持つ核種は `heavy` がなければ静止した標的）と、中性子束、群定数、移行が同じ
+    let resonance = |e: f64| 2.0e3 / (1.0 + ((e - 500.0) / 0.5).powi(2));
+    let mut energies: Vec<f64> = (0..=200).map(|k| 490.0 + 0.1 * k as f64).collect();
+    energies.splice(0..0, [4.0, 100.0]);
+    energies.extend([1.0e3, 2.0e4]);
+    let resonant = energies
+        .iter()
+        .map(|&e| [e, 8.0 + resonance(e), 6.0, 0.0])
+        .collect();
+    let steps: Vec<[f64; 2]> = (0..BOUNDS.len() - 1)
+        .map(|g| [30.0 + 3.0 * g as f64, 6.0 + 0.5 * g as f64])
+        .collect();
+    let shielded = Shielded {
+        total: steps.iter().map(|s| s[0]).collect(),
+        elastic: steps.iter().map(|s| s[1]).collect(),
+        fission: vec![0.0; steps.len()],
+        nu_fission: vec![0.0; steps.len()],
+        capture: steps.iter().map(|s| s[0] - s[1]).collect(),
+    };
+    let others = || {
+        vec![
+            constant("U-238", 236.0, 11.0, 11.0, 0.0),
+            constant("U-235", 233.0, 10.0, 8.0, 1.0),
+            constant("H-1", 0.99917, 20.0, 20.0, 0.0),
+            constant("O-16", 15.86, 3.8, 3.8, 0.0),
+        ]
+    };
+    let with = |xe: Spec| {
+        let mut specs = others();
+        specs.push(xe);
+        library(specs)
+    };
+    let own = with(Spec {
+        name: "Xe-131",
+        awr: 129.9,
+        top: None,
+        points: resonant,
+    });
+    let reference = with(Spec {
+        name: "Xe-131",
+        awr: 129.9,
+        top: Some(1.0e3),
+        points: stepped_points(&steps),
+    });
+    let fuel = material(&[
+        ("U-238", 0.022),
+        ("U-235", 0.0005),
+        ("O-16", 0.045),
+        ("Xe-131", 0.002),
+    ]);
+    let water = material(&[("H-1", 0.05), ("O-16", 0.025)]);
+    let cell = Cylinder::new(vec![0.2, 0.4096, 0.418, 0.711]).unwrap();
+    let rings = [Some(&fuel), Some(&fuel), None, Some(&water)];
+    let solve = |lib: &Library, stepped: &[(&str, &Shielded)]| {
+        slowing_down_stepped(
+            lib,
+            &cell,
+            &rings,
+            [4.0, 1.0e4],
+            Collision::Exact,
+            None,
+            free_gas(UNCAPPED, 4, None),
+            Some(&ShareCellCache::default()),
+            held_cells(1 << 30, 1),
+            stepped,
+        )
+        .unwrap()
+    };
+    let (stepped, stepped_transfers) = solve(&own, &[("Xe-131", &shielded)]);
+    let (expected, expected_transfers) = solve(&reference, &[]);
+    let (stepped_transfers, expected_transfers) =
+        (stepped_transfers.unwrap(), expected_transfers.unwrap());
+    let close = |a: f64, b: f64| (a - b).abs() <= 1e-12 * b.abs().max(1e-30);
+    for (a, b) in stepped
+        .flux
+        .iter()
+        .flatten()
+        .zip(expected.flux.iter().flatten())
+    {
+        assert!(close(*a, *b), "flux {a} vs {b}");
+    }
+    for (ring, (a, b)) in stepped.nuclides.iter().zip(&expected.nuclides).enumerate() {
+        for (k, (a, b)) in a.iter().zip(b).enumerate() {
+            for (x, y) in [(&a.total, &b.total), (&a.elastic, &b.elastic)] {
+                for (x, y) in x.iter().zip(y) {
+                    assert!(close(*x, *y), "ring {ring} nuclide {k}: {x} vs {y}");
+                }
+            }
+        }
+    }
+    for (a, b) in stepped_transfers
+        .iter()
+        .flatten()
+        .zip(expected_transfers.iter().flatten())
+    {
+        assert_eq!(a.groups, b.groups);
+        for (x, y) in a.rows.iter().flatten().zip(b.rows.iter().flatten()) {
+            assert!(close(*x, *y), "transfer {x} vs {y}");
+        }
+    }
+    // 群定数は段の値そのもの（群の中で一定）
+    let k = 3;
+    for ring in [0, 1] {
+        let xe = &stepped.nuclides[ring][k];
+        for (h, g) in stepped.groups.clone().enumerate() {
+            assert!(close(xe.total[h], shielded.total[g]), "{ring} {g}");
+            assert!(close(xe.elastic[h], shielded.elastic[g]), "{ring} {g}");
+            assert!(close(xe.capture[h], shielded.capture[g]), "{ring} {g}");
+        }
+    }
+}
+
+#[test]
+fn stepped_nuclides_need_the_groups_of_the_library() {
+    let lib = library(vec![
+        constant("U-235", 233.0, 10.0, 8.0, 1.0),
+        constant("H-1", 0.99917, 20.0, 20.0, 0.0),
+    ]);
+    let fuel = material(&[("U-235", 0.01)]);
+    let water = material(&[("H-1", 0.05)]);
+    let cell = Cylinder::new(vec![0.4096, 0.711]).unwrap();
+    let short = Shielded {
+        total: vec![1.0; 2],
+        elastic: vec![1.0; 2],
+        fission: vec![0.0; 2],
+        nu_fission: vec![0.0; 2],
+        capture: vec![0.0; 2],
+    };
+    let result = slowing_down_stepped(
+        &lib,
+        &cell,
+        &[Some(&fuel), Some(&water)],
+        [4.0, 1.0e4],
+        Collision::Exact,
+        None,
+        Scattering::Static,
+        None,
+        held_cells(1 << 30, 1),
+        &[("U-235", &short)],
+    );
+    assert!(
+        matches!(
+            result,
+            Err(UfgError::SteppedGroups {
+                given: 2,
+                groups: 6,
+                ..
+            })
+        ),
+        "{result:?}"
+    );
+}
