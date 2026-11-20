@@ -1055,8 +1055,8 @@ python3 references/njoy-runs/negative/tools/groups.py references/njoy-runs/negat
 
 ### 計算
 
-xlc fb1b59bc（分岐点 6af59212、2026-11-20）の `cargo build --release` の `survey_negative`（手元で 6 並列）と bin で、`xs nuclide` は手元で
-1 スレッドで実行した。宣言しない核種の出力は、同じ bin と分岐点 6af59212 の `cargo build --release` の bin で `read-survey/keep-VIII.0.toml`、
+xlc fb19145b（分岐点 8e2b6c91、2026-11-20）の `cargo build --release` の `survey_negative`（手元で 6 並列）と bin で、`xs nuclide` は手元で
+1 スレッドで実行した。宣言しない核種の出力は、同じ bin と分岐点 8e2b6c91 の `cargo build --release` の bin で `read-survey/keep-VIII.0.toml`、
 `sample-VIII.0.toml`、`keep-VIII.1.toml` を実行して比べた。
 
 ### 結果
@@ -1092,9 +1092,11 @@ VIII.1 の Cl-35 と VIII.0、VIII.1 の Ca-40。#0264）。分離共鳴の範�
   宣言を外した VII.0 の 3 つは、負の反応と範囲を示すエラーで止まる
 - 宣言しない核種の出力は変わらない: VIII.0 の U-235、Zr-90、Ni-58 と VIII.1 の Fe-54（分離共鳴の弾性散乱を 0 にする）の出力は、分岐点の
   bin の出力とバイトで同じ
-- 本番と検証のライブラリの入力（`examples/depletion/xs.toml`、`endfb70`、`endfb71`、`endfb81` の `xs.toml`、`p2/xs.toml`、
-  `examples/vera/endfb70/xs.toml` など、main の examples の TOML の全部）には、宣言の要る評価が無い（2026-11-20 に入力の ENDF の
-  ディレクトリとファイル名で数えた）
+- 入力の ENDF のディレクトリとファイル名で examples の TOML の全部を数えた（fb19145b、2026-11-20）。本番と検証のライブラリの入力
+  （`examples/depletion/xs.toml`、`endfb70`、`endfb71`、`endfb81` の `xs.toml`、`p2/xs.toml`、`issue-0292/` の入力、`examples/vera/endfb70/xs.toml`
+  など）には、宣言の要る評価が無い。上の「中性子の評価のすべての `xs nuclide`」の入力 `process-survey/VII.0/xs.toml` と `range.toml` の
+  Cl-35、Co-58、Y-89 と、`process-survey/VIII.1/xs.toml` と `range.toml` の Ni-60 は宣言を持たないので、宣言を足すまで 4 つとも
+  `xs nuclide` が止まる（Y-89 と Ni-60 は、その節の走査では通った）
 
 ## 天然の元素の評価の複数の同位体
 
