@@ -4,25 +4,27 @@
 //!
 //! 群構造は WIMS 69群、重み関数は iwt=4（軽水炉向けの値）とする。GENDF は同じ条件で
 //! 0 K、無限希釈（σ0 = 1e10）として作っておくこと。MT452 は ν̄ を比べる。
-//! MF5 MT18 があれば、GENDF の MF6 MT18 から求めた核分裂スペクトル χ も比べる。
+//! 即発の核分裂中性子の分布（MF5 MT18 か、JPN=0 の MF6 MT18。`prompt_fission_spectrum`）があれば、GENDF の MF6 MT18 から
+//! 求めた核分裂スペクトル χ も比べる（入射エネルギーの重みは GROUPR と同じ ν_p σf w）。
 //! NJOY は核分裂スペクトルを、θ や分布の表の2点目の入射エネルギー（econst）まで一定とみなす。
 //! 解析式（LF=7）の U-236 では econst が 15 MeV になり、1e-5 eV の θ のスペクトルを全入射エネルギーに
 //! 使うので、θ(E) の変化を積分するこちらの χ とずれる（高エネルギーの群で十数 %）。
 //! GENDF の MF6（MT18 以外）は、散乱行列を Legendre の次数ごと・行ごとに比べる（行の差の絶対値の和 / P0 の行の和）。
 //! 次数は GENDF にある分（GROUPR の lord）まで。
 //! ENDF に MF6 がなく MF5 がある反応は、MF5 の出射エネルギー分布を使う。
-//! 散乱行列はどちらも MF4 の角度分布を使う。`--rows` を付けると、全群の値と、散乱行列の差が最も大きい行の
+//! 散乱行列はどちらも MF4 の角度分布を使う。`--rows` を付けると、全群の値（χ を含む）と、散乱行列の差が最も大きい行の
 //! 出射の群ごとの値を表示する。
 
 use std::collections::BTreeMap;
 
 use xlc_format::group::GroupStructure;
-use xlc_xs::endf::{Mf3, Mf4, Mf5, Mf6, Tape, total_nubar};
+use xlc_xs::endf::{Mf3, Mf4, Mf5, Mf6, Tape, parse_nubar, total_nubar};
 use xlc_xs::multigroup::{
     Emission, FissionNeutrons, Reactions, Weight, fission_spectrum, reaction_averages,
     scattering_moments, uses_angular,
 };
 use xlc_xs::pointwise::{DEFAULT_TOLERANCE, reconstruct};
+use xlc_xs::process::prompt_fission_spectrum;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (flags, args): (Vec<String>, Vec<String>) =
@@ -93,20 +95,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
 
-    if let (Some(fission), Some(nu), Some(section), Some(gendf)) = (
-        tables.get(&18),
-        &nubar,
-        tape.section(mat, 5, 18),
-        reference.section(mat, 6, 18),
-    ) {
-        // GROUPR の MF6 MT18 は MF5 MT18 の分布だけを使うので、遅発中性子の分布（MF5 MT455）は混ぜない
+    if let (Some(fission), Some(nu), Some(gendf)) =
+        (tables.get(&18), &nubar, reference.section(mat, 6, 18))
+        && let Some(spectrum) = prompt_fission_spectrum(&tape, mat)?
+    {
+        // GROUPR の MF6 MT18 は即発の分布（MF5 か MF6 の MT18）だけを使うので、遅発中性子の分布（MF5 MT455）は混ぜない。
+        // 入射エネルギーの重みも GROUPR と同じ ν_p（MF1 MT456。`getff` の `getyld`。MT456 がなければ GROUPR の `conver` が
+        // MT452 をコピーする）にする。分布が入射エネルギーで変わる評価では、ν の全数の重みとの差が χ に出る
         let ours = fission_spectrum(
             &groups,
             &Weight::lwr(),
             fission,
             &[FissionNeutrons {
-                nubar: nu.clone(),
-                spectrum: Mf5::parse(&section)?,
+                nubar: match tape.section(mat, 1, 456) {
+                    Some(section) => parse_nubar(&section)?,
+                    None => nu.clone(),
+                },
+                spectrum,
             }],
         );
         let njoy = read_gendf_chi(&gendf, ng)?;
@@ -132,6 +137,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .map(|(a, b)| (a - b).abs())
                 .sum::<f64>()
         );
+        if rows {
+            for (g, (a, b)) in ours.iter().zip(&njoy).enumerate() {
+                let (lo, hi) = groups.range(g);
+                println!("  chi group {g:2} [{lo:.4e}, {hi:.4e}] eV: ours {a:.6e}, njoy {b:.6e}");
+            }
+        }
     }
 
     let awr = Mf3::parse(&tape.section(mat, 3, 2).ok_or("no MT2")?)?.awr;

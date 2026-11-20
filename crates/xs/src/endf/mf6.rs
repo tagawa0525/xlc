@@ -181,6 +181,22 @@ impl Mf6 {
     }
 }
 
+/// 節の中性子の生成粒子ごとの LAW（分布は読み飛ばす）。
+pub fn neutron_laws(section: &Section<'_>) -> Result<Vec<i64>, Error> {
+    let mut r = section.reader();
+    let head = r.cont()?;
+    let mut laws = Vec::new();
+    for _ in 0..head.n1 {
+        let start = r.line() + 1;
+        let product = r.tab1()?;
+        skip_law(&mut r, product.l2, start)?;
+        if product.c1 == NEUTRON {
+            laws.push(product.l2);
+        }
+    }
+    Ok(laws)
+}
+
 /// 生成粒子の ZAP（中性子は 1）
 const NEUTRON: f64 = 1.0;
 

@@ -4,8 +4,8 @@
   "VII.0": {
    "in_chain": {
     "evaluations": 390,
-    "readable": 386,
-    "stopped": 4
+    "readable": 389,
+    "stopped": 1
    },
    "outside_chain": {
     "evaluations": 3,
@@ -19,29 +19,14 @@
      "file": "n-037_Rb_087.endf",
      "nuclide": "Rb-87",
      "reason": "last NBT must equal NP"
-    },
-    {
-     "file": "n-090_Th_232.endf",
-     "nuclide": "Th-232",
-     "reason": "fission needs MF1 MT452 and MF5 MT18"
-    },
-    {
-     "file": "n-091_Pa_231.endf",
-     "nuclide": "Pa-231",
-     "reason": "fission needs MF1 MT452 and MF5 MT18"
-    },
-    {
-     "file": "n-091_Pa_233.endf",
-     "nuclide": "Pa-233",
-     "reason": "fission needs MF1 MT452 and MF5 MT18"
     }
    ]
   },
   "VII.1": {
    "in_chain": {
     "evaluations": 422,
-    "readable": 419,
-    "stopped": 3
+    "readable": 422,
+    "stopped": 0
    },
    "outside_chain": {
     "evaluations": 1,
@@ -50,29 +35,13 @@
    },
    "chain_nuclides": 3820,
    "chain_without_file": 3398,
-   "stopped": [
-    {
-     "file": "n-090_Th_232.endf",
-     "nuclide": "Th-232",
-     "reason": "fission needs MF1 MT452 and MF5 MT18"
-    },
-    {
-     "file": "n-091_Pa_231.endf",
-     "nuclide": "Pa-231",
-     "reason": "fission needs MF1 MT452 and MF5 MT18"
-    },
-    {
-     "file": "n-091_Pa_233.endf",
-     "nuclide": "Pa-233",
-     "reason": "fission needs MF1 MT452 and MF5 MT18"
-    }
-   ]
+   "stopped": []
   },
   "VIII.0": {
    "in_chain": {
     "evaluations": 556,
-    "readable": 553,
-    "stopped": 3
+    "readable": 556,
+    "stopped": 0
    },
    "outside_chain": {
     "evaluations": 1,
@@ -81,29 +50,13 @@
    },
    "chain_nuclides": 3820,
    "chain_without_file": 3264,
-   "stopped": [
-    {
-     "file": "n-090_Th_232.endf",
-     "nuclide": "Th-232",
-     "reason": "fission needs MF1 MT452 and MF5 MT18"
-    },
-    {
-     "file": "n-091_Pa_231.endf",
-     "nuclide": "Pa-231",
-     "reason": "fission needs MF1 MT452 and MF5 MT18"
-    },
-    {
-     "file": "n-091_Pa_233.endf",
-     "nuclide": "Pa-233",
-     "reason": "fission needs MF1 MT452 and MF5 MT18"
-    }
-   ]
+   "stopped": []
   },
   "VIII.1": {
    "in_chain": {
     "evaluations": 557,
-    "readable": 554,
-    "stopped": 3
+    "readable": 557,
+    "stopped": 0
    },
    "outside_chain": {
     "evaluations": 1,
@@ -112,51 +65,13 @@
    },
    "chain_nuclides": 3820,
    "chain_without_file": 3263,
-   "stopped": [
-    {
-     "file": "n-090_Th_232.endf",
-     "nuclide": "Th-232",
-     "reason": "fission needs MF1 MT452 and MF5 MT18"
-    },
-    {
-     "file": "n-091_Pa_231.endf",
-     "nuclide": "Pa-231",
-     "reason": "fission needs MF1 MT452 and MF5 MT18"
-    },
-    {
-     "file": "n-091_Pa_233.endf",
-     "nuclide": "Pa-233",
-     "reason": "fission needs MF1 MT452 and MF5 MT18"
-    }
-   ]
+   "stopped": []
   }
  },
  "reasons": {
   "last NBT must equal NP": {
    "VII.0": [
     "Rb-87"
-   ]
-  },
-  "fission needs MF1 MT452 and MF5 MT18": {
-   "VII.0": [
-    "Th-232",
-    "Pa-231",
-    "Pa-233"
-   ],
-   "VII.1": [
-    "Th-232",
-    "Pa-231",
-    "Pa-233"
-   ],
-   "VIII.0": [
-    "Th-232",
-    "Pa-231",
-    "Pa-233"
-   ],
-   "VIII.1": [
-    "Th-232",
-    "Pa-231",
-    "Pa-233"
    ]
   }
  },
@@ -246,7 +161,7 @@
  "inputs": [
   {
    "path": "read-survey-endfb70.toml",
-   "md5": "b2108c41a71b588766dea217bb9f2d8e"
+   "md5": "f4550979d486933f24cd1f374a62645a"
   },
   {
    "path": "endfb70/chain.msgpack",
@@ -254,7 +169,7 @@
   },
   {
    "path": "read-survey-endfb71.toml",
-   "md5": "d343cbb1521cbf5d16d39a6dbdd60045"
+   "md5": "289632b78ccb19d0fc1a8196bbbf8082"
   },
   {
    "path": "endfb71/chain.msgpack",
@@ -262,7 +177,7 @@
   },
   {
    "path": "read-survey-endfb80.toml",
-   "md5": "665ba4e9f314799f4c5a2ac5354506af"
+   "md5": "ea0c63f65bd9c1afda9c17169b9e78c3"
   },
   {
    "path": "chain.msgpack",
@@ -270,7 +185,7 @@
   },
   {
    "path": "read-survey-endfb81.toml",
-   "md5": "f84c15db015cf7091f340d81e15f72d5"
+   "md5": "2813847c97b786c48ff89ea51a9a2595"
   },
   {
    "path": "endfb81/chain.msgpack",
