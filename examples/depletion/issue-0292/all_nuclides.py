@@ -103,6 +103,9 @@ def chain_evaluations(
             if name in out:
                 raise SystemExit(f"{name} has two evaluations in the survey")
             out[name] = (Path(e["endf"]).name, e.get("error"))
+    outside = [n for n in natural if n not in z_of]
+    if outside:
+        raise SystemExit(f"the natural isotopes {outside} are not in the chain")
     ungiven = [n for n in natural if n not in given]
     if ungiven:
         raise SystemExit(
@@ -119,7 +122,8 @@ def library_entries(
     natural: list[str] = (),
     resolved=frozenset(),
     thermal_temperatures: list | None = None,
-    trial_version: bool = True,
+    *,
+    trial_version: bool,
 ) -> dict[str, dict]:
     """全核種のライブラリの核種の項目（試行の入力 `base` の核種のうち評価のあるものを `base` の順、続いて `base` に無い評価を
     走査の順）。ファイルは版の評価のもの。`resolved` は、走査で止まるが宣言（`corrections`）で読める核種。`thermal_temperatures` は
@@ -285,8 +289,12 @@ def library_head(
 ) -> list[str]:
     """全核種のライブラリの入力の注釈。`notes` は外した核種、`extra` は版のチェーンと評価の注記（VIII.0 は無い）。S(α, β) の点の数は
     書く核種の項目 `entries` から数える"""
-    (thermal,) = [e for e in entries.values() if "thermal" in e]
-    points = len(thermal["temperatures"])
+    thermal = [n for n, e in entries.items() if "thermal" in e]
+    if thermal != ["H-1"]:
+        raise SystemExit(
+            f"the head expects H-1 as the only thermal scatterer, got {thermal}"
+        )
+    points = len(entries["H-1"]["temperatures"])
     return [
         f"#0292 の試行: 燃焼チェーンにあって {version['label']} の中性子のファイルがある核種を、すべて輸送する核種にしたライブラリ。",
         f"all_nuclides.py が ../../trial/library/xs.toml と ../../../read-survey-{version['key']}.toml から書く。手で直さない。",

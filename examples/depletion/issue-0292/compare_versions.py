@@ -235,6 +235,18 @@ def check_inputs(history: Path, table: Path, table_input: Path) -> None:
         raise SystemExit(
             f"{table_input} writes {data['few-group']['output']}, not {table}"
         )
+    # 版の置き場は <置き場>/library と <置き場>/<燃料>（all_nuclides.py）。チェーンは履歴を書いた燃焼の入力（履歴の隣の .toml）のもの
+    library = (place / data["library"]).resolve()
+    if library.parent.parent != history.resolve().parent.parent:
+        raise SystemExit(
+            f"{table_input} reads the library {data['library']}, not that of {history}"
+        )
+    burn = history.with_suffix(".toml")
+    chain = burn.parent / tomllib.loads(burn.read_text())["depletion"]["chain"]
+    if (place / data["history"]["chain"]).resolve() != chain.resolve():
+        raise SystemExit(
+            f"{table_input} reads the chain {data['history']['chain']}, not that of {burn}"
+        )
 
 
 def md5(path: Path) -> str:
@@ -282,6 +294,7 @@ def main() -> None:
         parser.add_argument("files", nargs=4, type=Path)
         a = parser.parse_args(args[1:])
         history, table, table_input, names = a.files
+        check_inputs(history, table, table_input)
         out = version_shares(
             read(history),
             read(table),
