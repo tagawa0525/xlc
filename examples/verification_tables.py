@@ -4775,12 +4775,59 @@ def chain_versions(sources: list[dict]) -> str:
     return markdown_table(header, rows)
 
 
+def read_survey_versions(sources: list[dict]) -> dict:
+    """read_survey.py の要約（1 つ）の版ごとの結果"""
+    if len(sources) != 1 or sources[0].get("format") != "xlc-read-survey":
+        raise TableError("not one xlc-read-survey summary")
+    return sources[0]
+
+
 def read_survey(sources: list[dict]) -> str:
-    return ""
+    """中性子のファイルの読み込みの走査（ADR-0266）: 版ごとの、チェーンの中と外の評価、読めた数、止まった数"""
+    summary = read_survey_versions(sources)
+    rows = []
+    try:
+        for label, v in summary["versions"].items():
+            i, o = v["in_chain"], v["outside_chain"]
+            rows.append(
+                [
+                    label,
+                    str(i["evaluations"]),
+                    str(i["readable"]),
+                    str(i["stopped"]),
+                    str(o["evaluations"]),
+                    str(o["readable"]),
+                    str(o["stopped"]),
+                    f"{v['chain_without_file']} / {v['chain_nuclides']}",
+                ]
+            )
+    except KeyError as e:
+        raise TableError(f"the summary has no {e}; rerun the stage") from None
+    header = [
+        "版",
+        "チェーンの評価",
+        "読めた",
+        "止まった",
+        "チェーンの外の評価",
+        "読めた",
+        "止まった",
+        "ファイルの無いチェーンの核種",
+    ]
+    return markdown_table(header, rows)
 
 
 def read_survey_reasons(sources: list[dict]) -> str:
-    return ""
+    """中性子のファイルの読み込みの走査（ADR-0266）: 止まった理由ごとの、版ごとの評価（チェーンの名前、なければファイル）"""
+    summary = read_survey_versions(sources)
+    try:
+        versions = list(summary["versions"])
+        rows = [
+            [why, *("、".join(by.get(label, [])) or "–" for label in versions)]
+            for why, by in summary["reasons"].items()
+        ]
+    except KeyError as e:
+        raise TableError(f"the summary has no {e}; rerun the stage") from None
+    return markdown_table(["止まった理由", *versions], rows)
 
 
 # 表の名前 → (JSON（リポジトリの直下から）, 描く関数)。JSON は dvc.yaml のステージの outs で、同じ場所の dvc.lock が md5 を持つ
@@ -4859,6 +4906,11 @@ TABLES = {
             "examples/depletion/compare-chain-versions-80-81.json",
         ],
         chain_versions,
+    ),
+    "read-survey": (["examples/depletion/read-survey.json"], read_survey),
+    "read-survey-reasons": (
+        ["examples/depletion/read-survey.json"],
+        read_survey_reasons,
     ),
     "depletion-1c-k": (
         [
