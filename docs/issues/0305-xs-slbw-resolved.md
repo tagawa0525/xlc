@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [xs, depletion]
 opened: 2026-11-20
-closed:
+closed: 2026-11-21
 milestone:
 blocked-by: []
-resolution:
+resolution: コミット 8bed7fc7d
 ---
 
 # xs が読めない MF2 の形式（ENDF/B-VII.0 の NIS > 1、VIII.1 の KBK = 1）が、燃焼チェーンの中性子のファイルに残る
@@ -14,15 +14,18 @@ resolution:
 ## 問題
 
 - 中性子のファイルの全部を 1 つずつ `xs range` に通すと（1 核種だけの入力。2026-11-20、xlc a15e0a0f）、止まるファイルは次の 3 つで、
-  分離共鳴の SLBW（LRF=1）で止まるファイルは無い（ADR-0265）。ファイルの数は VII.0 が 393、VII.1 が 423、VIII.0 が 557、VIII.1 が 558
+  分離共鳴の SLBW（LRF=1）で止まるファイルは無かった（ADR-0265）。ファイルの数は VII.0 が 393、VII.1 が 423、VIII.0 が 557、VIII.1 が 558
   - VII.0 の天然の V と Zn: 複数の同位体（NIS = 2、5）の MF2 で、「NIS=2 isotopes are not supported」
-  - VIII.1 の Sr-88: 分離共鳴のバックグラウンドの R 行列（KBK = 1）で、「background R-matrix (KBK=1) ... are not supported」
+  - VIII.1 の Sr-88: 7 つの spin group がどれも分離共鳴のバックグラウンドの R 行列（KBK = 1。中性子のチャネルに LBK = 2）を持ち（KPS = 0）、
+    「background R-matrix (KBK=1) ... are not supported」
   - 「no group bounds」で止まるファイル（VII.0 の 5、VII.1 の 8、VIII.0 の 9、VIII.1 の 9）は、1 核種だけの入力で分離共鳴の上端が熱の
     打ち切りより低いためで、読めないのではない
   - 再現: 1 核種だけを書いた入力（`[nuclide.X-1]` に `endf` と `temperatures`）で `xs range` を実行する
 - `xs range` は MF2 の分離共鳴の上端までしか読まない。`xs nuclide` が読むもの（MF1〜MF8）の読み込みと形式の検査（`xs check`、ADR-0266）に
-  全部のファイルを通しても、上の 3 つは同じ文で止まる。ほかの形式で止まるファイルと形式ごとの issue は、examples/depletion/verification.md の
-  「中性子のファイルの読み込みの走査」。上の 3 つは #0292 の 9 核種に当たらない
+  全部のファイルを通しても、上の 3 つは同じ文で止まった。3 つとも今は読める: V と Zn は複数の同位体の和（main 31700f277）、Sr-88 は
+  LBK = 2 のバックグラウンド（#0310、main 74a544017）で、読み込みの走査で「読めた」に数えられ、565 K の `xs nuclide` を通る
+  （examples/depletion/verification.md の「中性子のファイルの読み込みの走査」と「中性子の評価のすべての `xs nuclide`」）。上の 3 つは
+  #0292 の 9 核種に当たらない
 - 3 つのファイルは、燃焼のライブラリの 65 核種に入らない
 
 関係する ADR: ADR-0264、ADR-0265
@@ -35,7 +38,8 @@ resolution:
   セッションが伝えた）、読むと決まった。断面積は同位体の断面積を存在比 ABN で重み付けした和（ENDF-102 の 2.1）。0 K の再構成は NJOY の
   RECONR と許容誤差の中で合い、`xs check` の走査で「読めた」に移り、600 K の `xs nuclide` が終了コード 0 で終わる
   （examples/depletion/verification.md の「天然の元素の評価の複数の同位体」）
-- [ ] VIII.1 の Sr-88 の分離共鳴のバックグラウンドの R 行列（KBK = 1）を扱う: #0310 で扱う
+- [x] VIII.1 の Sr-88 の分離共鳴のバックグラウンドの R 行列（KBK = 1）を扱う: #0310 で LBK = 2 のバックグラウンドを読むようにした
+  （main 74a544017。ADR-0055 の「変更」）
 
 ## 複数の同位体の評価の数え方
 
@@ -51,3 +55,4 @@ MLBW、Reich-Moore、R 行列の制限形で上端が揃うものに限り、ほ
 - 2026-11-20: 版ごとのピンセルの燃焼の準備（#0303）で、VII.0 と VII.1 のライブラリの `xs range` が SLBW で止まり、起こした
 - 2026-11-20: SLBW を ENDF-102 の式で読むようにし（ADR-0265）、中性子のファイルの全部を通し直して、残る形式を今の姿にした
 - 2026-11-20: 天然の V と Zn の複数の同位体を、存在比で重み付けした和として読むようにした
+- 2026-11-21: VIII.1 の Sr-88 が #0310（main 74a544017）で読めるようになり、完了の条件がすべて済んだので閉じた
