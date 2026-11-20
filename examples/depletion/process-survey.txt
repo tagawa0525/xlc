@@ -1,11 +1,11 @@
-inputs: process-survey/VII.0/report.json b7af8f2c, read-survey-endfb70.toml 37c30609, endfb70/chain.msgpack 5c4c8194, process-survey/VII.1/report.json 762212d2, read-survey-endfb71.toml 982aa65d, endfb71/chain.msgpack 32ee4517, process-survey/VIII.0/report.json fef6d6ba, read-survey-endfb80.toml 5b469fe4, chain.msgpack 1f1de180, process-survey/VIII.1/report.json 0e8f0966, read-survey-endfb81.toml 48090184, endfb81/chain.msgpack 4b084932
+inputs: process-survey/VII.0/report.json b7af8f2c, read-survey-endfb70.toml 37c30609, endfb70/chain.msgpack 5c4c8194, process-survey/VII.1/report.json f4b2935d, read-survey-endfb71.toml 8cc9ff01, endfb71/chain.msgpack 32ee4517, process-survey/VIII.0/report.json fef6d6ba, read-survey-endfb80.toml 5b469fe4, chain.msgpack 1f1de180, process-survey/VIII.1/report.json feb0510a, read-survey-endfb81.toml adc307a6, endfb81/chain.msgpack 4b084932
 
 | 版 | チェーンの評価 | 通った | 止まった | うち走査でも止まる | チェーンの外の評価 | 通した | 通った | 止まった | 入れない |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| VII.0 | 390 | 379 | 11 | 6 | 3 | 3 | 3 | 0 | 0 |
-| VII.1 | 422 | 416 | 6 | 6 | 1 | 1 | 1 | 0 | 0 |
+| VII.0 | 393 | 382 | 11 | 6 | 0 | 0 | 0 | 0 | 0 |
+| VII.1 | 423 | 417 | 6 | 6 | 0 | 0 | 0 | 0 | 0 |
 | VIII.0 | 556 | 549 | 7 | 7 | 1 | 0 | 0 | 0 | 1 |
-| VIII.1 | 557 | 547 | 10 | 10 | 1 | 0 | 0 | 0 | 1 |
+| VIII.1 | 557 | 549 | 8 | 8 | 1 | 0 | 0 | 0 | 1 |
 
 ## 止まった評価
 - VII.0 H-2（n-001_H_002.endf、チェーン、走査でも止まる）: neutron LAW=6 is not supported — MF6 の中性子の LAW=6、7 を読めない、endf/mf6.rs の parse、#0311
@@ -21,7 +21,7 @@ inputs: process-survey/VII.0/report.json b7af8f2c, read-survey-endfb70.toml 37c3
 - VII.0 Es-253（n-099_Es_253.endf、チェーン、処理で初めて止まる）: 565 K: the sampled total cross section is not positive 5.060674332312416 eV from 8500 eV — 非分離共鳴のラダーのサンプルの全断面積が正でない、resonance/ladder.rs の add_samples、#0319
 - VII.1 H-2（n-001_H_002.endf、チェーン、走査でも止まる）: neutron LAW=6 is not supported — MF6 の中性子の LAW=6、7 を読めない、endf/mf6.rs の parse、#0311
 - VII.1 Be-9（n-004_Be_009.endf、チェーン、走査でも止まる）: neutron LAW=7 is not supported — MF6 の中性子の LAW=6、7 を読めない、endf/mf6.rs の parse、#0311
-- VII.1 Cl-35（n-017_Cl_035.endf、チェーン、走査でも止まる）: particle pair 1: the shift factor (SHF=-1) is not supported — R 行列の制限形のシフト因子を読めない、resonance/r_matrix_limited.rs の role、#0310
+- VII.1 Cl-35（n-017_Cl_035.endf、チェーン、走査でも止まる）: particle pair 3: a charged particle (ZA=1) is not supported — R 行列の制限形の荷電粒子の対を読めない、resonance/r_matrix_limited.rs の role、#0264
 - VII.1 Th-232（n-090_Th_232.endf、チェーン、走査でも止まる）: 565 K: fission needs MF1 MT452 and MF5 MT18 — 核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない、process.rs の at_temperature、#0312
 - VII.1 Pa-231（n-091_Pa_231.endf、チェーン、走査でも止まる）: 565 K: fission needs MF1 MT452 and MF5 MT18 — 核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない、process.rs の at_temperature、#0312
 - VII.1 Pa-233（n-091_Pa_233.endf、チェーン、走査でも止まる）: 565 K: fission needs MF1 MT452 and MF5 MT18 — 核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない、process.rs の at_temperature、#0312
@@ -37,8 +37,6 @@ inputs: process-survey/VII.0/report.json b7af8f2c, read-survey-endfb70.toml 37c3
 - VIII.1 Be-9（n-004_Be_009.endf、チェーン、走査でも止まる）: neutron LAW=7 is not supported — MF6 の中性子の LAW=6、7 を読めない、endf/mf6.rs の parse、#0311
 - VIII.1 Cl-35（n-017_Cl_035.endf、チェーン、走査でも止まる）: particle pair 3: a charged particle (ZA=1) is not supported — R 行列の制限形の荷電粒子の対を読めない、resonance/r_matrix_limited.rs の role、#0264
 - VIII.1 Ca-40（n-020_Ca_040.endf、チェーン、走査でも止まる）: particle pair 3: a charged particle (ZA=2) is not supported — R 行列の制限形の荷電粒子の対を読めない、resonance/r_matrix_limited.rs の role、#0264
-- VIII.1 Cu-63（n-029_Cu_063.endf、チェーン、走査でも止まる）: particle pair 2: the shift factor (SHF=1) is not supported — R 行列の制限形のシフト因子を読めない、resonance/r_matrix_limited.rs の role、#0310
-- VIII.1 Sr-88（n-038_Sr_088.endf、チェーン、走査でも止まる）: background R-matrix (KBK=1) and given phase shifts (KPS=0) are not supported — R 行列の制限形のバックグラウンドの R 行列を読めない、endf/mf2.rs の read_r_matrix_limited、#0310、#0305
 - VIII.1 Th-232（n-090_Th_232.endf、チェーン、走査でも止まる）: 565 K: fission needs MF1 MT452 and MF5 MT18 — 核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない、process.rs の at_temperature、#0312
 - VIII.1 Pa-231（n-091_Pa_231.endf、チェーン、走査でも止まる）: 565 K: fission needs MF1 MT452 and MF5 MT18 — 核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない、process.rs の at_temperature、#0312
 - VIII.1 Pa-233（n-091_Pa_233.endf、チェーン、走査でも止まる）: 565 K: fission needs MF1 MT452 and MF5 MT18 — 核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない、process.rs の at_temperature、#0312

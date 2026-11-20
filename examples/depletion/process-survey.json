@@ -3,15 +3,15 @@
  "versions": {
   "VII.0": {
    "in_chain": {
-    "evaluations": 390,
-    "passed": 379,
+    "evaluations": 393,
+    "passed": 382,
     "stopped": 11,
     "stopped_reading": 6
    },
    "outside_chain": {
-    "evaluations": 3,
-    "processed": 3,
-    "passed": 3,
+    "evaluations": 0,
+    "processed": 0,
+    "passed": 0,
     "stopped": 0,
     "left_out": 0
    },
@@ -184,15 +184,15 @@
   },
   "VII.1": {
    "in_chain": {
-    "evaluations": 422,
-    "passed": 416,
+    "evaluations": 423,
+    "passed": 417,
     "stopped": 6,
     "stopped_reading": 6
    },
    "outside_chain": {
-    "evaluations": 1,
-    "processed": 1,
-    "passed": 1,
+    "evaluations": 0,
+    "processed": 0,
+    "passed": 0,
     "stopped": 0,
     "left_out": 0
    },
@@ -222,10 +222,10 @@
      "file": "n-017_Cl_035.endf",
      "chain": true,
      "stage": "reading",
-     "reason": "particle pair 1: the shift factor (SHF=-1) is not supported",
-     "cause": "R 行列の制限形のシフト因子を読めない",
+     "reason": "particle pair 3: a charged particle (ZA=1) is not supported",
+     "cause": "R 行列の制限形の荷電粒子の対を読めない",
      "where": "resonance/r_matrix_limited.rs の role",
-     "issue": "#0310"
+     "issue": "#0264"
     },
     {
      "nuclide": "Th-232",
@@ -457,9 +457,9 @@
   "VIII.1": {
    "in_chain": {
     "evaluations": 557,
-    "passed": 547,
-    "stopped": 10,
-    "stopped_reading": 10
+    "passed": 549,
+    "stopped": 8,
+    "stopped_reading": 8
    },
    "outside_chain": {
     "evaluations": 1,
@@ -518,26 +518,6 @@
      "cause": "R 行列の制限形の荷電粒子の対を読めない",
      "where": "resonance/r_matrix_limited.rs の role",
      "issue": "#0264"
-    },
-    {
-     "nuclide": "Cu-63",
-     "file": "n-029_Cu_063.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "particle pair 2: the shift factor (SHF=1) is not supported",
-     "cause": "R 行列の制限形のシフト因子を読めない",
-     "where": "resonance/r_matrix_limited.rs の role",
-     "issue": "#0310"
-    },
-    {
-     "nuclide": "Sr-88",
-     "file": "n-038_Sr_088.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "background R-matrix (KBK=1) and given phase shifts (KPS=0) are not supported",
-     "cause": "R 行列の制限形のバックグラウンドの R 行列を読めない",
-     "where": "endf/mf2.rs の read_r_matrix_limited",
-     "issue": "#0310、#0305"
     },
     {
      "nuclide": "Th-232",
@@ -866,11 +846,11 @@
   },
   {
    "path": "process-survey/VII.1/report.json",
-   "md5": "762212d2aa7d33e37d56d9f73ac6f087"
+   "md5": "f4b2935d6456e2f96e3a97cef93d42df"
   },
   {
    "path": "read-survey-endfb71.toml",
-   "md5": "982aa65d97932b8aaed7f1689a902f20"
+   "md5": "8cc9ff014c729dc671621ae04ea4397a"
   },
   {
    "path": "endfb71/chain.msgpack",
@@ -890,11 +870,11 @@
   },
   {
    "path": "process-survey/VIII.1/report.json",
-   "md5": "0e8f096660f623055b24556301c5ce8b"
+   "md5": "feb0510ad2b07cc3b050b53920d300ff"
   },
   {
    "path": "read-survey-endfb81.toml",
-   "md5": "48090184d2bf88ae6537112a15869f96"
+   "md5": "adc307a648cb0b3d6e9ffeab04e15771"
   },
   {
    "path": "endfb81/chain.msgpack",
