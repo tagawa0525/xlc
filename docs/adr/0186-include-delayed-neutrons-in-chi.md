@@ -5,7 +5,7 @@ date: 2026-10-22
 requires: [ADR-0039]
 supersedes: [ADR-0042]
 superseded-by:
-issues: ["#0133", "#0148", "#0149"]
+issues: ["#0133", "#0148", "#0149", "#0312", "#0325"]
 ---
 
 # ADR-0186: χ に遅発中性子を含め、即発と遅発の分布を ν_p と ν_d で重み付けして 1 本にする
@@ -59,9 +59,14 @@ MF5 MT455 のない評価（Np-239、Am-242m、Cm-244）の扱い:
 案 C2 と案 D3 にする。ν は MF1 MT452 のまま（ADR-0042 と同じ）。χ は、核分裂で生まれる中性子の成分ごとに ν_c(E)σf(E)w(E)
 （w は [ADR-0039](0039-weight-with-njoy-iwt4.md) の重み関数）で重み付けし、和が 1 になるように正規化した 1 本のベクトルにする。
 
-- 成分は、MF5 MT455 があれば即発（MT456、MF5 MT18）と遅発（MT455、MF5 MT455）、遅発中性子のデータがなければ全数（MT452、
-  MF5 MT18）。MT455 はあるが MF5 MT455 がない評価は全数を MF5 MT18 で数え、warn を出す。MF5 MT455 があるのに MF1 MT455 か
+- 成分は、MF5 MT455 があれば即発（MT456、即発の分布）と遅発（MT455、MF5 MT455）、遅発中性子のデータがなければ全数（MT452、
+  即発の分布）。MT455 はあるが MF5 MT455 がない評価は全数を即発の分布で数え、warn を出す。MF5 MT455 があるのに MF1 MT455 か
   MT456 がない評価はエラーにする（評価が欠けている）
+- 即発の分布は MF5 MT18 か、MF5 MT18 がなければ JPN=0 の MF6 MT18 の中性子（ENDF-102 の 6.3.9.3。y(E) = 1 の平均の分布で、数は
+  MF1 が与える）。JPN が 0 でない MF6 MT18 は多重度の確率 P(ν, E) なので、平均の分布は MF5 MT18 から取り、MF5 MT18 が無ければ
+  エラーにする。MF5 MT18 と、中性子の分布（LAW > 0）を持つ JPN=0 の MF6 MT18 の両方がある評価、JPN=0 の MF6 MT18 の y(E) が 1 で
+  ない評価（MF1 の ν と二重に数える）もエラーにする。重心系の表（LCT=2）は、MF6 のほかの反応と同じく重心系で等方として実験室系に
+  変換する
 - 遅発中性子の分布は評価にあり、k の固有値の計算で遅発中性子はその分布で生まれる。案 C2 は評価のとおりに数え、参照解の
   OpenMC とも同じ数え方になる
 - 案 C3 は、今の使い方（定常）に要らない形式を先に作る。別々の値は ADR-0033 の項目を作るときに足す
@@ -74,7 +79,11 @@ MF5 MT455 のない評価（Np-239、Am-242m、Cm-244）の扱い:
   （5-2D の炉心の記録と、同じ vera.msgpack を使う examples/colorset と examples/split は、まだ解き直していない）。examples/depletion/p2 の
   ライブラリと 2A の記録は、まだ作り直していない
 - Np-239、Am-242m、Cm-244 は、ν が OpenMC と遅発中性子の分（Np-239 で 0.8%）だけ違う
-- NJOY GROUPR との比較（`compare_njoy_gendf` の例）は、GROUPR の MF6 MT18 が MF5 MT18 の分布なので、即発の分布だけで比較する
+- NJOY GROUPR との比較（`compare_njoy_gendf` の例）は、GROUPR の MF6 MT18 が即発の分布だけを使うので、即発の分布だけで比較し、
+  入射エネルギーの重みも GROUPR と同じ ν_p σf w にする
+- MF6 MT18 で即発の分布を与える評価（Th-232、Pa-231、Pa-233 の 4 つの版）の χ は、GROUPR と差の絶対値の和で 7.1e-4〜9.9e-4 違い、
+  差は重心系から実験室系への変換にある（examples/depletion/verification.md の「版ごとのライブラリの MF6 MT18 の核分裂スペクトル」）。
+  xs の側の候補は低い群の積分（#0325）
 - ENDF/B-VIII.0 の MF5 MT455 は族ごとに LF=5（一般の蒸発スペクトル。θ = 1 で g(x) がヒストグラムの表）なので、MF5 の読み込みと
   群への振り分けに LF=5 を足した
 - 1C のピンセルの U-238 の高速の核分裂の差は、χ を直しても +2.08% 残る。高速の群の群定数（散乱の移行と U-238 の群定数）にあり、
@@ -93,3 +102,11 @@ MF5 MT455 のない評価（Np-239、Am-242m、Cm-244）の扱い:
   `delayed_spectrum_without_delayed_nubar_is_an_error`、`reads_delayed_nubar_after_the_decay_constants`、
   `reads_general_evaporation`、`general_evaporation_splits_the_tabulated_shape_by_group`、
   `general_evaporation_scales_the_outgoing_energy_by_theta`、`general_evaporation_is_cut_at_e_minus_u`
+
+## 変更
+
+- 2026-11-20: 「決定と理由」の成分の項の分布を「即発の分布」にし、その出どころの項を足した。前は「成分は、MF5 MT455 があれば
+  即発（MT456、MF5 MT18）と遅発（MT455、MF5 MT455）、遅発中性子のデータがなければ全数（MT452、MF5 MT18）。MT455 はあるが MF5 MT455 が
+  ない評価は全数を MF5 MT18 で数え、warn を出す。」。Th-232、Pa-231、Pa-233 は 4 つの版のどれでも即発の分布を MF6 MT18（JP=0）で与え、
+  MF5 MT18 を持たないので、4 つの版の全部の核種を流すために読む（ユーザー 2026-11-20。別のセッションが伝えたもの。#0312）。成分と重みは
+  変えず、分布の出どころだけを足すので、新しい ADR は書かない
