@@ -1121,14 +1121,13 @@
   {
    "nuclide": "Cu-63",
    "endf": "n-029_Cu_063.endf",
-   "seconds": 0.02,
-   "user_seconds": 0.01,
-   "max_rss_kb": 16872,
-   "exit": 1,
+   "seconds": 6.37,
+   "user_seconds": 6.35,
+   "max_rss_kb": 54448,
+   "exit": 0,
    "warnings": {
     "xlc_xs::pointwise: N reactions start below their kinematic threshold -Q(A+N)/A and now start at it with a zero cross section; the largest shift is N eV in MTN and the largest relative shift is N of the threshold in MTN; N points below the thresholds were dropped": 1
    },
-   "error": "particle pair 2: the shift factor (SHF=1) is not supported",
    "source": "log"
   },
   {
@@ -1736,14 +1735,13 @@
   {
    "nuclide": "Sr-88",
    "endf": "n-038_Sr_088.endf",
-   "seconds": 0.0,
-   "user_seconds": 0.0,
-   "max_rss_kb": 6300,
-   "exit": 1,
+   "seconds": 4.46,
+   "user_seconds": 4.45,
+   "max_rss_kb": 28348,
+   "exit": 0,
    "warnings": {
     "xlc_xs::pointwise: N reactions start below their kinematic threshold -Q(A+N)/A and now start at it with a zero cross section; the largest shift is N eV in MTN and the largest relative shift is N of the threshold in MTN; N points below the thresholds were dropped": 1
    },
-   "error": "background R-matrix (KBK=1) and given phase shifts (KPS=0) are not supported",
    "source": "log"
   },
   {

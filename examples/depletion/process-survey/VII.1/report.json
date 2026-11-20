@@ -381,12 +381,12 @@
    "endf": "n-017_Cl_035.endf",
    "seconds": 0.0,
    "user_seconds": 0.0,
-   "max_rss_kb": 12316,
+   "max_rss_kb": 13212,
    "exit": 1,
    "warnings": {
     "xlc_xs::pointwise: N reactions start below their kinematic threshold -Q(A+N)/A and now start at it with a zero cross section; the largest shift is N eV in MTN and the largest relative shift is N of the threshold in MTN; N points below the thresholds were dropped": 1
    },
-   "error": "particle pair 1: the shift factor (SHF=-1) is not supported",
+   "error": "particle pair 3: a charged particle (ZA=1) is not supported",
    "source": "log"
   },
   {
