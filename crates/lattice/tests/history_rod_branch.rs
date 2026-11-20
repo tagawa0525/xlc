@@ -86,7 +86,7 @@ fn plain_library() -> Library {
                     })
                     .collect(),
                 shielded: vec![table.clone(), table.clone(), table],
-                pointwise: Pointwise::default(),
+                pointwise: Some(Pointwise::default()),
                 reactions: vec![GroupReaction {
                     mt: 102,
                     channels: vec![GroupChannel {

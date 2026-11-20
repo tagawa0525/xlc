@@ -87,6 +87,13 @@ pub enum UfgError {
     NoPointwise,
     #[error("{name}: atomic weight ratio {awr} must be positive")]
     Mass { name: String, awr: f64 },
+    /// UFG で解く核種が、ライブラリにポイントワイズの断面積を持たない（xs の `pointwise = false`。ADR-0269）
+    #[error(
+        "{name}: the library has no pointwise cross sections of this nuclide (xs `pointwise = false`), so the UFG \
+         cannot solve it; leave it out of ufg-nuclides to solve it by its group constants in the centre material \
+         (ADR-0268, ADR-0269)"
+    )]
+    NoNuclidePointwise { name: String },
     #[error("{name}: pointwise data are not defined at {energy} eV")]
     Undefined { name: String, energy: f64 },
     #[error("the slowing-down equations are singular at {0} eV")]
@@ -333,6 +340,25 @@ fn stepped_pointwise(
     Ok(pointwise)
 }
 
+/// 温度の表 `t` を、群定数の表とポイントワイズの断面積に分ける（借りた表は借りたまま、内挿した表からは取り出す）。
+/// ポイントワイズの断面積を持たない核種（xs の `pointwise = false`）はエラー
+fn split_pointwise<'a>(
+    name: &str,
+    t: Cow<'a, TemperatureData>,
+) -> Result<(Cow<'a, TemperatureData>, Cow<'a, Pointwise>), UfgError> {
+    let missing = || UfgError::NoNuclidePointwise { name: name.into() };
+    match t {
+        Cow::Borrowed(table) => {
+            let pointwise = table.pointwise.as_ref().ok_or_else(missing)?;
+            Ok((Cow::Borrowed(table), Cow::Borrowed(pointwise)))
+        }
+        Cow::Owned(mut table) => {
+            let pointwise = table.pointwise.take().ok_or_else(missing)?;
+            Ok((Cow::Owned(table), Cow::Owned(pointwise)))
+        }
+    }
+}
+
 /// UFG の減速計算の散乱核の、標的の扱い（ADR-0203）。
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Scattering {
@@ -433,9 +459,10 @@ struct Data<'a> {
     gain: f64,
     /// 窓の幅 Δ = ln(1/α)（α = 0 なら無限）
     width: f64,
-    /// その温度の群定数とポイントワイズの断面積（S(α, β) の核種は内挿したもの。段の断面積の核種は、無限希釈の群定数と段。
-    /// [`slowing_down_stepped`]）
+    /// その温度の群定数（S(α, β) の核種は内挿したもの。段の断面積の核種は、無限希釈の群定数。[`slowing_down_stepped`]）
     table: Cow<'a, TemperatureData>,
+    /// その温度のポイントワイズの断面積（段の断面積の核種は段）
+    pointwise: Cow<'a, Pointwise>,
     /// 自由ガスの核で散乱するときの核（[`Scattering::FreeGas`] の、分離共鳴を持たない核種と、[`FreeGas::heavy`] を選んだときの
     /// 分離共鳴を持つ核種）
     gas: Option<Gas>,
@@ -443,7 +470,7 @@ struct Data<'a> {
 
 impl Data<'_> {
     fn pointwise(&self) -> &Pointwise {
-        &self.table.pointwise
+        &self.pointwise
     }
 
     /// 範囲の上で使う無限希釈の弾性散乱の群定数
@@ -821,7 +848,7 @@ fn solve_cell(
                             chi: Vec::new(),
                             scatter: Vec::new(),
                             shielded: t.shielded.first().cloned().into_iter().collect(),
-                            pointwise: stepped_pointwise(name, steps, bounds, top..bottom)?,
+                            pointwise: None,
                             reactions: Vec::new(),
                             sab_transfer: None,
                             delayed: None,
@@ -831,6 +858,12 @@ fn solve_cell(
                             gain: 1.0 / (1.0 - alpha),
                             width: -alpha.ln(),
                             table: Cow::Owned(table),
+                            pointwise: Cow::Owned(stepped_pointwise(
+                                name,
+                                steps,
+                                bounds,
+                                top..bottom,
+                            )?),
                             gas: None,
                         });
                         keys.push((name, temperature));
@@ -868,11 +901,13 @@ fn solve_cell(
                         }
                         Scattering::Static => None,
                     };
+                    let (table, pointwise) = split_pointwise(name, t)?;
                     data.push(Data {
                         name: &d.name,
                         gain: 1.0 / (1.0 - alpha),
                         width: -alpha.ln(),
-                        table: t,
+                        table,
+                        pointwise,
                         gas,
                     });
                     keys.push((name, temperature));

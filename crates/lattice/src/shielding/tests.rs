@@ -30,7 +30,7 @@ fn library() -> Library {
                 sab_transfer: None,
                 delayed: None,
                 reactions: Vec::new(),
-                pointwise: Default::default(),
+                pointwise: Some(Default::default()),
                 temperature: T,
                 chi: vec![0.0, 0.0],
                 scatter: vec![vec![vec![6.0, 2.0], vec![0.5, 15.0]]],
@@ -209,7 +209,7 @@ pub(crate) mod lattice {
                 sab_transfer: None,
                 delayed: None,
                 reactions: Vec::new(),
-                pointwise: Default::default(),
+                pointwise: Some(Default::default()),
                 temperature: T,
                 chi: if fissile {
                     vec![1.0, 0.0]
@@ -980,7 +980,7 @@ pub(crate) mod lattice {
                             .collect(),
                     ],
                     shielded: vec![table(1.0), table(0.9), table(0.8)],
-                    pointwise: xlc_format::library::Pointwise {
+                    pointwise: Some(xlc_format::library::Pointwise {
                         energy: column(0),
                         total: column(1),
                         elastic: column(2),
@@ -989,7 +989,7 @@ pub(crate) mod lattice {
                         capture: (0..points.len())
                             .map(|i| points[i][1] - points[i][2] - points[i][3])
                             .collect(),
-                    },
+                    }),
                 }],
             }
         };

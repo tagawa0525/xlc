@@ -185,7 +185,8 @@ pub struct TemperatureData {
     pub scatter: Vec<Vec<Vec<f64>>>,
     pub shielded: Vec<Shielded>,
     /// 超微細群の減速計算に使うポイントワイズの断面積
-    pub pointwise: Pointwise,
+    #[serde(deserialize_with = "crate::msgpack::nil_or")]
+    pub pointwise: Option<Pointwise>,
     /// 燃焼チェーンの反応の群の断面積（代表の MT の昇順）
     pub reactions: Vec<GroupReaction>,
     /// S(α, β) による P0 の散乱の移行（熱中性子散乱を S(α, β) で作り、ポイントワイズの範囲のあるライブラリだけ。ほかは nil で、
@@ -747,7 +748,25 @@ fn interpolate(
         }),
         _ => return Err("the two temperatures have different delayed neutron families".into()),
     };
-    let (p, q) = (&low.pointwise, &high.pointwise);
+    let pointwise = match (&low.pointwise, &high.pointwise) {
+        (Some(p), Some(q)) => Some(interpolate_pointwise(p, q, f)?),
+        (None, None) => None,
+        _ => return Err("only one of the two temperatures has pointwise data".into()),
+    };
+    Ok(TemperatureData {
+        temperature,
+        chi: mix(&low.chi, &high.chi),
+        scatter,
+        shielded,
+        pointwise,
+        reactions,
+        sab_transfer,
+        delayed,
+    })
+}
+
+/// 2つの温度のポイントワイズの断面積 `p`, `q` を、両方のエネルギーの点を合わせた格子で、`q` の側への割合 `f` で内挿する
+fn interpolate_pointwise(p: &Pointwise, q: &Pointwise, f: f64) -> Result<Pointwise, String> {
     let repeated = |e: &[f64]| e.windows(2).any(|w| w[0] == w[1]);
     if repeated(&p.energy) || repeated(&q.energy) {
         return Err("pointwise data have discontinuities".into());
@@ -768,23 +787,13 @@ fn interpolate(
             })
             .collect()
     };
-    let pointwise = Pointwise {
+    Ok(Pointwise {
         total: column(&p.total, &q.total),
         elastic: column(&p.elastic, &q.elastic),
         fission: column(&p.fission, &q.fission),
         nu_fission: column(&p.nu_fission, &q.nu_fission),
         capture: column(&p.capture, &q.capture),
         energy,
-    };
-    Ok(TemperatureData {
-        temperature,
-        chi: mix(&low.chi, &high.chi),
-        scatter,
-        shielded,
-        pointwise,
-        reactions,
-        sab_transfer,
-        delayed,
     })
 }
 
@@ -1235,7 +1244,9 @@ impl NuclideData {
                     ));
                 }
             }
-            let p = &t.pointwise;
+            let Some(p) = &t.pointwise else {
+                return Err(at("no pointwise data".into()));
+            };
             let columns = [&p.total, &p.elastic, &p.fission, &p.nu_fission, &p.capture];
             if columns.iter().any(|c| c.len() != p.energy.len()) {
                 return Err(at("pointwise columns must match the energies".into()));

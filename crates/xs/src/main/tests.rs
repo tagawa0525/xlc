@@ -190,7 +190,7 @@ fn part_of(name: &str, temperatures: &[f64]) -> Library {
                     chi: Vec::new(),
                     scatter: Vec::new(),
                     shielded: Vec::new(),
-                    pointwise: Default::default(),
+                    pointwise: Some(Default::default()),
                     reactions: Vec::new(),
                     sab_transfer: None,
                     delayed: None,

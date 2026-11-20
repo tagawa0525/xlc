@@ -1172,8 +1172,12 @@ impl Common<'_> {
             })
             .collect();
         let pointwise = match settings.pointwise_range {
-            Some(range) => pointwise_within(&tables, self.evaluation.nubar.as_ref(), range)?,
-            None => Pointwise::default(),
+            Some(range) => Some(pointwise_within(
+                &tables,
+                self.evaluation.nubar.as_ref(),
+                range,
+            )?),
+            None => Some(Pointwise::default()),
         };
         let reactions = chain_reactions(
             self.tape,

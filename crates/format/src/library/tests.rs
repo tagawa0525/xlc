@@ -1,5 +1,10 @@
 use super::*;
 
+/// 温度の表のポイントワイズの断面積（持つ表だけに使う）
+fn pointwise(t: &TemperatureData) -> &Pointwise {
+    t.pointwise.as_ref().unwrap()
+}
+
 fn shielded(scale: f64, fissile: bool) -> Shielded {
     Shielded {
         // 1.7929089665572825e-9 は、10 進表記を経ると最下位のビットがずれやすい値
@@ -51,14 +56,14 @@ fn reactions() -> Vec<GroupReaction> {
 fn temperature(t: f64, fissile: bool) -> TemperatureData {
     TemperatureData {
         // sample() の範囲 [4, 1e4] eV を覆う
-        pointwise: Pointwise {
+        pointwise: Some(Pointwise {
             energy: vec![4.0, 1.0e4],
             total: vec![11.0, 10.0],
             elastic: vec![9.0, 9.0],
             fission: vec![0.0, 0.0],
             nu_fission: vec![0.0, 0.0],
             capture: vec![0.5, 0.4],
-        },
+        }),
         temperature: t,
         chi: if fissile {
             vec![1.0, 0.0]
@@ -194,7 +199,7 @@ fn resolved_resonances_need_a_pointwise_range() {
     library.nuclides[0].resolved = resolved.clone();
     for n in &mut library.nuclides {
         for t in &mut n.temperatures {
-            t.pointwise = Pointwise::default();
+            t.pointwise = Some(Pointwise::default());
         }
     }
     assert!(library.to_msgpack().is_err());
@@ -203,7 +208,7 @@ fn resolved_resonances_need_a_pointwise_range() {
     file.nuclides[0].resolved = resolved;
     for n in &mut file.nuclides {
         for t in &mut n.temperatures {
-            t.pointwise = Pointwise::default();
+            t.pointwise = Some(Pointwise::default());
         }
     }
     let bytes = rmp_serde::to_vec_named(&file).unwrap();
@@ -287,7 +292,7 @@ fn interpolation_refuses_what_it_cannot_do() {
         .is_err()
     );
     // ポイントワイズの断面積の範囲が違う
-    assert!(lookup(&|n| n.temperatures[1].pointwise = Pointwise::default()).is_err());
+    assert!(lookup(&|n| n.temperatures[1].pointwise = Some(Pointwise::default())).is_err());
 }
 
 #[test]
@@ -304,7 +309,7 @@ fn library_without_pointwise_range_round_trips() {
     for n in &mut library.nuclides {
         n.resolved = None;
         for t in &mut n.temperatures {
-            t.pointwise = Pointwise::default();
+            t.pointwise = Some(Pointwise::default());
         }
     }
     let bytes = library.to_msgpack().unwrap();
@@ -341,19 +346,19 @@ fn pointwise_data_must_cover_the_range() {
     let mut library = sample();
     let pointwise = &mut library.nuclides[0].temperatures[0].pointwise;
     // 上端 1e4 eV に届かない
-    *pointwise = Pointwise {
+    *pointwise = Some(Pointwise {
         energy: vec![4.0, 100.0],
         total: vec![11.0, 12.0],
         elastic: vec![9.0, 10.0],
         fission: vec![0.5, 0.4],
         nu_fission: vec![1.2, 1.0],
         capture: vec![0.3, 0.2],
-    };
+    });
     assert!(matches!(
         library.to_msgpack(),
         Err(LibraryError::Invalid(_))
     ));
-    library.nuclides[0].temperatures[0].pointwise = Pointwise::default();
+    library.nuclides[0].temperatures[0].pointwise = Some(Pointwise::default());
     assert!(matches!(
         library.to_msgpack(),
         Err(LibraryError::Invalid(_))
@@ -364,14 +369,14 @@ fn pointwise_data_must_cover_the_range() {
 fn keeps_the_pointwise_data() {
     let mut library = sample();
     library.pointwise_range = Some([4.0, 1.0e4]);
-    library.nuclides[0].temperatures[0].pointwise = Pointwise {
+    library.nuclides[0].temperatures[0].pointwise = Some(Pointwise {
         energy: vec![4.0, 1.0e4],
         total: vec![11.0, 12.0],
         elastic: vec![9.0, 10.0],
         fission: vec![0.5, 0.4],
         nu_fission: vec![1.2, 1.0],
         capture: vec![0.3, 0.2],
-    };
+    });
     let read = Library::from_msgpack(&library.to_msgpack().unwrap()).unwrap();
     assert_eq!(read, library);
 }
@@ -461,7 +466,7 @@ fn keeps_the_chain_reactions_and_the_capture() {
     let t = &read.nuclides[0].temperatures[0];
     assert_eq!(t.reactions, reactions());
     assert_eq!(t.shielded[1].capture, vec![0.35, 98.3]);
-    assert_eq!(t.pointwise.capture, vec![0.5, 0.4]);
+    assert_eq!(pointwise(t).capture, vec![0.5, 0.4]);
 }
 
 #[test]
@@ -491,14 +496,14 @@ fn interpolation_mixes_the_capture_and_the_reactions() {
     let mut library = two_temperatures(true);
     let h1 = library.nuclides.last_mut().unwrap();
     h1.temperatures[1].shielded[0].capture[0] *= 2.0;
-    h1.temperatures[1].pointwise.capture = vec![1.0, 0.8];
+    h1.temperatures[1].pointwise.as_mut().unwrap().capture = vec![1.0, 0.8];
     h1.temperatures[1].reactions[1].channels[0].cross_section[0] *= 2.0;
     let (_, low) = library.lookup("H-1", 550.0).unwrap();
     let low = low.into_owned();
     let (_, t) = library.lookup("H-1", 565.0).unwrap();
     let f = 1.0 + (565.0 - 550.0) / (573.6 - 550.0);
     assert!((t.shielded[0].capture[0] - f * low.shielded[0].capture[0]).abs() < 1e-12);
-    assert!((t.pointwise.capture[0] - f * low.pointwise.capture[0]).abs() < 1e-12);
+    assert!((pointwise(&t).capture[0] - f * pointwise(&low).capture[0]).abs() < 1e-12);
     let r = |d: &TemperatureData| d.reactions[1].channels[0].cross_section[0];
     assert!((r(&t) - f * r(&low)).abs() < 1e-15);
 }
@@ -933,7 +938,7 @@ fn sab_transfer_must_be_a_table_of_cumulative_shares() {
     library.pointwise_range = None;
     for n in &mut library.nuclides {
         for t in &mut n.temperatures {
-            t.pointwise = Pointwise::default();
+            t.pointwise = Some(Pointwise::default());
         }
     }
     assert!(library.to_msgpack().is_err());
