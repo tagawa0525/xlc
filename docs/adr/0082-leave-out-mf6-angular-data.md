@@ -45,7 +45,8 @@ MF6 の角度のデータは入れない。
 
 上の調査（2026-10-08）。影響の大きさは測っていない。2体反応の扱いは `two_body_mf6_level_uses_q_value`、
 `two_body_neutron_law_is_marked`、`isotropic_two_body_neutron_law_is_marked`、`lab_frame_two_body_angles_are_error`。重心系で等方な連続的な放出の実験室系の群への振り分けは `center_of_mass_energy_spreads_in_laboratory`、
-`centre_of_mass_panel_wider_than_ec_is_split_exactly_into_low_groups`。
+`center_of_mass_panel_wider_than_ec_is_split_exactly_into_low_groups`、`center_of_mass_groups_out_of_reach_stay_exactly_zero`、
+`center_of_mass_motion_far_smaller_than_the_outgoing_energy_keeps_the_total`。
 
 ## 帰結
 
@@ -53,6 +54,7 @@ MF6 の連続的な放出の P1 以上は 0 である（`crates/xs/src/multigrou
 読み飛ばすことは `crates/xs/src/endf/mf6.rs`）。
 
 重心系の連続的な放出（LAW=1 の LCT=2、3）は、角度を使わず重心系で等方として、実験室系の一様な範囲 [(√E' − √Ec)², (√E' + √Ec)²] に振り分ける
-（`crates/xs/src/multigroup/outgoing.rs` の `laboratory_group_integrals`。範囲の端が群境界を横切る点で分けた厳密な積分。#0325）。角度を使わない分の
+（`crates/xs/src/multigroup/outgoing.rs` の `laboratory_group_integrals`。範囲の届く群ごとに、範囲の端がその群の境界を横切る点で分けた
+厳密な積分で、届かない群はちょうど 0、どの群も負にならない。#0325）。角度を使わない分の
 大きさは、Th-232 の MF6 MT18 の χ で、GROUPR の χ が Legendre 係数の有無で差の絶対値の和 5.5e-5 動く程度（examples/depletion/verification.md の
 「重心系の分布の実験室系の群への振り分け」）。

@@ -945,8 +945,8 @@ Pa233 VIII.1 chi  : max rel diff 3.88e-1 in group 19 (ours 1.428718e-6, njoy 1.0
 
 MF6 の LAW=1 の重心系の分布（LCT=2、3）を実験室系の群に振り分ける積分（`laboratory_group_integrals`。#0325）は、線形化した区間ごとに、実験室系の
 範囲の届く群だけを、範囲の端がその群の境界を横切る点で分けて積分する（式と導出の要点はコードの注釈）。合成の分布のテスト
-（`centre_of_mass_panel_wider_than_ec_is_split_exactly_into_low_groups`）では、√E' についての細かい中点則と 1e-7 で合う。前の積分（E' の区間を
-16 等分して 4 点の Gauss-Legendre）は、同じテストの最上位の群で 1e-4 違った。届かない群がちょうど 0 で負の群が無いことは `centre_of_mass_groups_out_of_reach_stay_exactly_zero`。
+（`center_of_mass_panel_wider_than_ec_is_split_exactly_into_low_groups`）では、√E' についての細かい中点則と 1e-7 で合う。前の積分（E' の区間を
+16 等分して 4 点の Gauss-Legendre）は、同じテストの最上位の群で 1e-4 違った。届かない群がちょうど 0 で負の群が無いことは `center_of_mass_groups_out_of_reach_stay_exactly_zero`。
 
 ```sh
 # NJOY の cm2lab の許容を 1e-4 にした手元のビルド（examples/depletion/issue-0325/njoy-cm2lab-tol.patch を references/NJOY2016 の src に当て、cmake で njoy_executable）
@@ -1002,7 +1002,8 @@ Th232-VIII.0-isotropic-cm2lab-tol1e-4 chi  : max rel diff 1.72e-3 in group 19 (o
   | Pa-231 | 5.66e-6（群 2 → 4）              | 差の最大 1.97e-4（群 4）、和 5.26e-4 |
   | Pa-233 | 8.86e-6（群 1 → 4）              | 差の最大 5.97e-5（群 4）、和 1.55e-4 |
 
-  P1 以上と自己遮蔽した群定数は、どの核種でも変わらない（MF6 の連続的な放出の P1 以上は 0。ADR-0082）。U-235、U-238、Pu-239 の χ は MF5 MT18 から
+  P1 以上と自己遮蔽した群定数は、どの核種でも変わらない（MF6 の連続的な放出の P1 以上は 0。ADR-0082）。遅発中性子の族の量とチェーンの反応は
+  このツールで比べていない（どちらも重心系の変換を通らない）。U-235、U-238、Pu-239 の χ は MF5 MT18 から
   作るので変わらない。H-1 は MF6 に中性子の分布を持たない（MT102 の光子だけ）
 - 本番の結果への影響の見積もり（確かめていない）: 散乱行列の変わる量は行の和の 1e-5 以下で、χ が変わるのは MF6 MT18 の 3 核種（燃焼の
   チェーンで微量の核種）だけなので、格子計算の k への効きは 1 pcm に満たない程度と見込む
