@@ -22,7 +22,7 @@ resolution:
 - NJOY2016 の GROUPR は LAW=6 と LAW=7 を扱う（references/NJOY2016/src/groupr.f90 の `getsix` の周り。式は読んでいない）
 - 再現: `bin/xs check <報告> references/endf/ENDF-B-VIII.0_neutrons/n-001_H_002.endf`
 
-関係する ADR: なし
+関係する ADR: [ADR-0271](../adr/0271-group-mf6-law6-and-law7-by-endf-102.md)
 
 ## 完了の条件
 

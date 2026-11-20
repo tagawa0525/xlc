@@ -3,7 +3,8 @@
 //! 中性子の分布は LAW=1（連続エネルギー・角度分布）のエネルギー分布だけを扱い、角度は無視する
 //! （M0 の近似）。重心系の分布は、群に振り分けるときに重心系で等方として実験室系に変換する。
 //! LAW=6（N 体の位相空間分布）は重心系で等方な解析式の分布として持ち、LAW=7（実験室系の角度と
-//! エネルギーの表）は角度で積分したエネルギー分布だけを持つ（角度のデータは使わない。ADR-0082）。
+//! エネルギーの表）は角度で積分したエネルギー分布だけを持つ（角度のデータは使わない。ADR-0082）。どちらも ENDF-102 の
+//! 定義のとおりで、NJOY GROUPR の表の作り方は真似ない（ADR-0271）。
 //! LAW=2（2体反応の角度分布）と LAW=3（等方の2体反応）は、出射エネルギーが角度と Q 値で決まる
 //! 2体反応であることだけを記録し、MF4 の離散準位と同じく重心系で等方の2体反応として扱う
 //! （角度分布は使わない）。
@@ -122,11 +123,18 @@ impl Mf6 {
                     frame,
                 }),
                 // LAW=6 は LCT によらず重心系（ENDF-102 の 6.2.8）
-                6 => neutrons.push(NeutronEmission {
-                    multiplicity: product.table,
-                    spectrum: NeutronSpectrum::PhaseSpace(read_law6(&mut r)?),
-                    frame: Frame::CenterOfMass,
-                }),
+                6 => {
+                    xlc_log::warn!(
+                        "neutron LAW=6 phase space is grouped at each incident energy; NJOY GROUPR \
+                         tabulates it 1.2 apart in incident energy and interpolates the laboratory \
+                         spectra by unit base (ADR-0271)"
+                    );
+                    neutrons.push(NeutronEmission {
+                        multiplicity: product.table,
+                        spectrum: NeutronSpectrum::PhaseSpace(read_law6(&mut r)?),
+                        frame: Frame::CenterOfMass,
+                    });
+                }
                 // LAW=7 は実験室系の分布なので、重心系の LCT とは食い違う
                 7 if frame != Frame::Laboratory => {
                     return Err(Error::new(
@@ -134,11 +142,18 @@ impl Mf6 {
                         format!("neutron LAW=7 (laboratory) with LCT={}", head.l2),
                     ));
                 }
-                7 => neutrons.push(NeutronEmission {
-                    multiplicity: product.table,
-                    spectrum: NeutronSpectrum::Tabulated(read_law7(&mut r)?),
-                    frame,
-                }),
+                7 => {
+                    xlc_log::warn!(
+                        "neutron LAW=7 is integrated over the cosines as tabulated; NJOY GROUPR's \
+                         ll2lab thins the outgoing energies with swapped interpolation weights, \
+                         which smears histogram tables (ADR-0271)"
+                    );
+                    neutrons.push(NeutronEmission {
+                        multiplicity: product.table,
+                        spectrum: NeutronSpectrum::Tabulated(read_law7(&mut r)?),
+                        frame,
+                    });
+                }
                 // LAW=2 は角度分布つき、LAW=3 は等方の2体反応（どちらも角度分布は使わない）
                 2 | 3 => {
                     skip_law(&mut r, law, start)?;
