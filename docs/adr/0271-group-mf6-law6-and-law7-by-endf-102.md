@@ -39,11 +39,12 @@ ENDF-102 の定義のとおりに群に振り分け、NJOY の表の作り方は
 - LAW=6 は、重心系で等方な密度 C_n √E' (E_max − E')^(3n/2 − 4)、E_max = (A_p − 1)/A_p (A/(A + 1) E + Q) を、入射エネルギーの
   積分点ごとに実験室系の群に振り分ける。Q は MF3 の QI。LCT によらず重心系とする（ENDF-102 の 6.2.8）。n は ENDF-102 が係数を
   与える 3〜5 に限る。重心系の E' = E_max sin²θ について積分すると密度の両端の √ の特異性が消えるので、実験室系の範囲が群の境界を
-  横切るところで θ を分けて Gauss-Legendre で積分する。入射エネルギーの格子を置かないので、NJOY の 1.2 倍の格子とその補間の誤差が無い
+  横切るところで θ を分けて Gauss-Legendre で積分する。入射エネルギーの積分は、しきい値と、実験室系の範囲の端が群の境界を横切る
+  入射エネルギーで区切る。入射エネルギーの格子を置かないので、NJOY の 1.2 倍の格子とその補間の誤差が無い
 - LAW=7 は、同じ E' での値を余弦の補間則（lin-lin かヒストグラム）で補間して −1〜1 で積分したエネルギー分布 g(E') にする
   （NJOY の `ll2lab` の P0 と同じ積分）。E' の表は lin-lin かヒストグラムに限る。そのとき g は全部の表の点の間で線形なので、
   ヒストグラムの段を同じ E' の 2 点として残した lin-lin の表で厳密に表せる。LAW=7 は実験室系の分布なので、重心系の LCT と組んだら
-  エラーにする
+  エラーにする。余弦が −1 から 1 までを覆わない分布（積分の和が 1 に足りない）もエラーにする
 - 入射エネルギーの間の補間は、LAW=1 と同じくファイルのとおり（ADR-0057。NJOY は INT=2 を単位基底に替える）
 - P1 以上は、LAW=1 と同じく 0 とする（ADR-0082）。H-2、Li-6、Be-9 は軽く、重心の運動による実験室系の P1 は小さくない
   （NJOY の P1 の行の和は P0 の 4〜9 割。examples/depletion/verification.md）が、どれも 1.7 MeV 以上のしきい反応である
@@ -62,6 +63,8 @@ ENDF-102 の定義のとおりに群に振り分け、NJOY の表の作り方は
 - テスト: `law6_neutrons_are_phase_space_in_the_centre_of_mass`、`phase_space_max_energy_follows_endf_102`、
   `phase_space_density_integrates_to_one`、`phase_space_spreads_by_the_centre_of_mass_motion`（実験室系の群ごとの割合を、
   重心系のエネルギーの細かい中点則と 2e-7 で比べる）、`law7_neutrons_integrate_the_cosines_into_a_laboratory_spectrum`、
-  `law7_histogram_cosines_weight_the_left_tables`、`phase_space_rows_carry_the_neutrons_above_threshold`、
+  `law7_histogram_cosines_weight_the_left_tables`、`law7_cosines_must_span_minus_one_to_one`、
+  `phase_space_rows_carry_the_neutrons_above_threshold`、`phase_space_rows_follow_the_kinks_above_threshold`（しきい値の群の行を、
+  入射エネルギーの細かい中点則と 1e-5 で比べる）、
   `a_phase_space_emission_takes_its_q_value_from_mf3`
 - NJOY2016 GROUPR との比較と差の原因は、examples/depletion/verification.md の「MF6 の LAW=6、7 の散乱行列（NJOY との比較）」
