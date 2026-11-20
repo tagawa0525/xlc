@@ -25,5 +25,5 @@ e967629e459298971ec2429d879064e0a5be0c098140329c3cf9359938565ca8  references/pap
 # https://www.osti.gov/servlets/purl/1408006
 cd4bd638dfc7045218af9ee1f7a7650de91ba3894b98434335293a64f6d72729  references/papers/mc21-ctf-vera-problems-6-7.pdf
 # 以下は xs の ENDF の読み方の ADR（ADR-0265、ADR-0271、ADR-0273、ADR-0274 など）が引く ENDF-6 Formats Manual
-# URL 不明（CSEWG Document ENDF-102、BNL-224854-2023-INRE、2023-09-28）
+# URL 不明（CSEWG Document ENDF-102、BNL-224854-2023-INRE、2023-09-28。NNDC の公開の報告だが、取得の記録が無い）
 6da0d63d42d477eb8e832249e032112a3b4a226a9c4acffe1d7ffb4abb41e06b  references/papers/endf-102-bnl-224854-2023-inre.pdf

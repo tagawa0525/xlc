@@ -162,7 +162,8 @@ sha256sum -c docs/specs.sha256
 ENDF-6 の形式の定義（ENDF-102。CSEWG Document ENDF-102、ENDF-6 Formats Manual、BNL-224854-2023-INRE、2023-09-28、Git Revision 3576914）は
 `references/papers/endf-102-bnl-224854-2023-inre.pdf` にあり、xs の ENDF の読み方の ADR（ADR-0265、ADR-0271、ADR-0273、ADR-0274 など）と
 issue が節と式の番号で引く。本文を検索するためのテキスト版 `references/papers/endf-102-bnl-224854-2023-inre.txt` は、PDF から
-`pdftotext -layout` で作り直せる（2026-11-21 に作り直してバイトが同じことを確かめた）。
+`pdftotext -layout` で作り直せる（2026-11-21 に手元の poppler-utils 26.09.0 の `pdftotext` で作り直し、バイトが同じことを確かめた。
+版が変わると出力のバイトは変わりうる）。ENDF-102 の PDF は取得の記録が無く、URL が分からない。
 
 ## NJOY2016（2016.79）
 
