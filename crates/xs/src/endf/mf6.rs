@@ -63,7 +63,7 @@ impl PhaseSpace {
     }
 
     /// u = E'/E_max の密度 √u (1 − u)^(3n/2 − 4) を 0〜1 で 1 にする係数 1/B(3/2, 3n/2 − 3)（ENDF-102 の C_n に
-    /// E_max^(3n/2 − 2) と、余弦の範囲の幅 2 を掛けたもの）
+    /// E_max^(3n/2 − 5/2)（dE' = E_max du の分を含む）と、余弦の範囲の幅 2 を掛けたもの）
     pub fn normalization(&self) -> f64 {
         use std::f64::consts::PI;
         // B(3/2, 3/2) = π/8、B(3/2, 3) = 16/105、B(3/2, 9/2) = 7π/256。`parse` が n を 3〜5 に限る
