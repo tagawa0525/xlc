@@ -569,6 +569,9 @@ pub fn slowing_down_transfers(
     Ok((spectrum, transfers))
 }
 
+/// [`slowing_down_stepped`] の結果: 減速計算と、移行（`shares` を与えたときだけ）
+pub type SteppedSolution = (CellSpectrum, Option<Vec<Vec<NuclideTransfer>>>);
+
 /// [`slowing_down_with`] と同じ減速計算を、`stepped` の核種（名前と、ライブラリのすべての群の群定数）を、ポイントワイズの断面積の
 /// 代わりにその群定数を群ごとに一定の断面積（群の境界で不連続）として持つ静止した標的にして解く（ADR-0268）。`shares` を与えれば、
 /// [`slowing_down_transfers`] と同じく移行も数える。`stepped` が空なら [`slowing_down_with`]、[`slowing_down_transfers`] と同じ
@@ -584,7 +587,7 @@ pub fn slowing_down_stepped(
     shares: Option<&ShareCellCache>,
     hold: usize,
     stepped: &[(&str, &Shielded)],
-) -> Result<(CellSpectrum, Option<Vec<Vec<NuclideTransfer>>>), UfgError> {
+) -> Result<SteppedSolution, UfgError> {
     let mut transfers = Vec::new();
     let spectrum = solve_cell(
         library,
