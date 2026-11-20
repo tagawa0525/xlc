@@ -85,7 +85,7 @@ def report(summary):
         "inputs: " + ", ".join(f"{i['path']} {i['md5'][:8]}" for i in summary["inputs"])
     ]
     lines.append(
-        f"足した核種 {len(summary['added'])}（目安に入れない {len(summary.get('unestimated', []))}）"
+        f"足した核種 {len(summary['added'])}（目安に入れない {len(summary['unestimated'])}）"
     )
     lines.append(
         "燃焼度 (MWd/kg) | k∞ 前 | k∞ 後 | 直接 (pcm) | 目安 崩壊だけ (pcm) | 目安 自分の吸収で減らす (pcm)"
