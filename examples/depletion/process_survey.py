@@ -19,7 +19,7 @@
   無い核種は `--reuse` の置き場のログ（範囲が同じときだけ）から、評価ごとの成否、止まった文、時間、最大の常駐、警告の種類の数を
   `report.json` に書く
 - `summary`: 版ごとに、チェーンの中と外の成否、止まった評価の段（走査でも止まれば reading、ほかは processing）と原因（`CAUSES`）、
-  宣言（`DECLARATION_KEYS`）で読み替えた評価（走査で止まっても、宣言した `xs nuclide` が通れば通ったと数える）、
+  宣言（`DECLARATION_KEYS`）で読み替えた評価（走査で止まっても、`corrections` を宣言した `xs nuclide` が通れば通ったと数える）、
   警告の種類ごとの評価の数、時間と常駐の大きい核種、版の間で時間か常駐が 10 倍以上違う核種を JSON に書き、文章を標準出力に書く
 - `--report`: 要約の JSON を文章で描く
 """
@@ -364,8 +364,9 @@ def summarize(versions: list, causes) -> dict:
                     {"nuclide": run["nuclide"], "items": run["declarations"]}
                 )
             if "error" not in run:
-                # 読み込みの走査は宣言を持たないので、宣言で読める評価は走査で止まっても通る
-                if "error" in s and not run.get("declarations"):
+                # 読み込みの走査は宣言を持たないので、読む前にテープを直す `corrections` を宣言した評価は、走査で止まっても
+                # 通る（ほかの宣言は読んだ後に当てるので、走査の止まりを通せない）
+                if "error" in s and "corrections" not in run.get("declarations", []):
                     raise SystemExit(
                         f"{label}: {file} stops in the survey but passes xs nuclide"
                     )

@@ -203,7 +203,7 @@ def summarize(versions: list, causes) -> dict:
             if run.get('declarations'):
                 declared.append({'nuclide': run['nuclide'], 'items': run['declarations']})
             if 'error' not in run:
-                if 'error' in s and (not run.get('declarations')):
+                if 'error' in s and 'corrections' not in run.get('declarations', []):
                     raise SystemExit(f'{label}: {file} stops in the survey but passes xs nuclide')
                 counts['passed'] += 1
                 passed_by.setdefault(run['nuclide'], {})[label] = run
