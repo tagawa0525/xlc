@@ -28,21 +28,8 @@ FUELS = ("u", "mox", "gd")
 # 試行のセル（inputs.py）の燃料、被覆管、減速材の温度 (K)。lattice は S(α, β) の核種のほかは表の温度と一致する温度だけを
 # 引く（crates/format/src/library.rs の `lookup`）ので、この 1 点で試行のセルの計算は 13 温度のライブラリと同じになる
 TEMPERATURE = 565
-# 走査（../read-survey-endfb80.toml）で xs が止まる、チェーンの評価
-EXCLUDED = {
-    "Th-232": (
-        "#0312",
-        "核分裂の中性子の分布が MF6 MT18 で、輸送する核種として処理できない",
-    ),
-    "Pa-231": (
-        "#0312",
-        "核分裂の中性子の分布が MF6 MT18 で、輸送する核種として処理できない",
-    ),
-    "Pa-233": (
-        "#0312",
-        "核分裂の中性子の分布が MF6 MT18 で、輸送する核種として処理できない",
-    ),
-}
+# 走査（../read-survey-endfb80.toml）で xs が止まる、チェーンの評価（核種 → (issue, 理由)）
+EXCLUDED: dict[str, tuple[str, str]] = {}
 SURVEY = HERE.parent / "read-survey-endfb80.toml"
 CHAIN = HERE.parent / "chain.msgpack"
 TRIAL = HERE / "trial" / "library" / "xs.toml"
