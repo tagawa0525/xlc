@@ -42,6 +42,12 @@ pub enum EnergyLaw {
         restriction: f64,
         theta: ClampedTab1,
     },
+    /// LF=11: エネルギーによる Watt の分布
+    Watt {
+        restriction: f64,
+        a: ClampedTab1,
+        b: ClampedTab1,
+    },
     /// LF=12: Madland-Nix の核分裂スペクトル f(E') = (g(E', E_F(L)) + g(E', E_F(H)))/2（ENDF-102 の 5.1.1.6）。
     /// E' は 0〜∞ で、U で切らない
     MadlandNix {

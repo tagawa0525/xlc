@@ -485,6 +485,7 @@ impl GroupedLaw {
                 Some(*restriction),
                 Theta::Table(theta.clone()),
             ),
+            EnergyLaw::Watt { .. } => unimplemented!("LF=11"),
             EnergyLaw::MadlandNix {
                 light,
                 heavy,
