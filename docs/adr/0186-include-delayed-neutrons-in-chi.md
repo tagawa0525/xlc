@@ -70,7 +70,7 @@ MF5 MT455 のない評価（Np-239、Am-242m、Cm-244）の扱い:
 - 遅発中性子の分布は評価にあり、k の固有値の計算で遅発中性子はその分布で生まれる。案 C2 は評価のとおりに数え、参照解の
   OpenMC とも同じ数え方になる
 - 案 C3 は、今の使い方（定常）に要らない形式を先に作る。別々の値は ADR-0033 の項目を作るときに足す
-- 案 D3 は、評価が与えるもの（ν の全数と、MF5 MT18 の分布）だけを使う。D2 は ν を評価の全数から変える
+- 案 D3 は、評価が与えるもの（ν の全数と、即発の分布）だけを使う。D2 は ν を評価の全数から変える
 
 ## 帰結
 
@@ -102,6 +102,13 @@ MF5 MT455 のない評価（Np-239、Am-242m、Cm-244）の扱い:
   `delayed_spectrum_without_delayed_nubar_is_an_error`、`reads_delayed_nubar_after_the_decay_constants`、
   `reads_general_evaporation`、`general_evaporation_splits_the_tabulated_shape_by_group`、
   `general_evaporation_scales_the_outgoing_energy_by_theta`、`general_evaporation_is_cut_at_e_minus_u`
+- MF6 MT18 の即発の分布（#0312）: `mf6_prompt_spectrum_without_delayed_data_carries_all_neutrons`、
+  `mf6_prompt_neutrons_take_the_mt456_nubar_beside_the_delayed_ones`、`mf6_centre_of_mass_spectrum_is_spread_in_the_laboratory`、
+  `mf5_and_mf6_average_prompt_spectra_together_are_an_error`、`mf5_with_a_jpn0_mf6_without_neutron_distributions_keeps_mf5`、
+  `mf6_multiplicity_probabilities_leave_the_average_spectrum_to_mf5`、`mf6_multiplicity_probabilities_without_mf5_are_an_error`、
+  `mf6_without_a_neutron_distribution_and_without_mf5_is_an_error`、`mf6_with_two_neutron_distributions_is_an_error`、
+  `mf6_fission_neutron_yield_other_than_one_is_an_error`。NJOY との比較は examples/depletion/verification.md の「版ごとのライブラリの MF6 MT18 の
+  核分裂スペクトル」
 
 ## 変更
 
@@ -109,4 +116,4 @@ MF5 MT455 のない評価（Np-239、Am-242m、Cm-244）の扱い:
   即発（MT456、MF5 MT18）と遅発（MT455、MF5 MT455）、遅発中性子のデータがなければ全数（MT452、MF5 MT18）。MT455 はあるが MF5 MT455 が
   ない評価は全数を MF5 MT18 で数え、warn を出す。」。Th-232、Pa-231、Pa-233 は 4 つの版のどれでも即発の分布を MF6 MT18（JP=0）で与え、
   MF5 MT18 を持たないので、4 つの版の全部の核種を流すために読む（ユーザー 2026-11-20。別のセッションが伝えたもの。#0312）。成分と重みは
-  変えず、分布の出どころだけを足すので、新しい ADR は書かない
+  変えず、分布の出どころだけを足すので、新しい ADR は書かない。同じ理由で、案 D3 の理由の項の「MF5 MT18 の分布」を「即発の分布」にした
