@@ -3035,6 +3035,7 @@ fn tangent_with(
         Some((directions, &mut tangent)),
         frozen.as_mut(),
         hold,
+        &[],
     )?;
     Ok((spectrum, tangent))
 }
@@ -3122,6 +3123,7 @@ fn check_tangents(
         None,
         Some(&mut frozen),
         hold,
+        &[],
     )
     .unwrap();
     widen(&mut frozen);
@@ -3157,6 +3159,7 @@ fn check_tangents(
                 None,
                 Some(&mut frozen.clone()),
                 hold,
+                &[],
             )
             .unwrap()
         });
@@ -3598,6 +3601,7 @@ fn exact_tangents_follow_rings_of_one_composition_changed_unevenly() {
             directions.map(|d| (d, &mut tangent)),
             None,
             hold,
+            &[],
         )
         .unwrap();
         (spectrum, tangent)
@@ -3634,8 +3638,10 @@ fn stepped_nuclides_are_static_targets_with_their_steps() {
     energies.extend([1.0e3, 2.0e4]);
     let resonant = energies
         .iter()
-        .map(|&e| [e, 8.0 + resonance(e), 6.0, 0.0])
+        .map(|&e| [e, 8.0 + resonance(e), 8.0, 0.0])
         .collect();
+    // 範囲の上の群の散乱の線源は、どちらのライブラリでも無限希釈の群定数（[`library`] はポイントワイズの断面積の最初の点の値）の
+    // 弾性散乱 8 b（段の最後の群の値）
     let steps: Vec<[f64; 2]> = (0..BOUNDS.len() - 1)
         .map(|g| [30.0 + 3.0 * g as f64, 6.0 + 0.5 * g as f64])
         .collect();

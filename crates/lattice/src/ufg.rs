@@ -296,6 +296,43 @@ fn range_below(library: &Library, top: f64) -> Result<[f64; 2], UfgError> {
     Ok([low, high])
 }
 
+/// 段の断面積の核種 `name` の、ライブラリのすべての群（境界は `bounds`、降順）の群定数 `steps` を、範囲の群 `top..bottom` で
+/// 群ごとに一定にしたポイントワイズの断面積（エネルギーの昇順。内側の群の境界は、低い側と高い側の極限の 2 点。ADR-0268）
+fn stepped_pointwise(
+    name: &str,
+    steps: &Shielded,
+    bounds: &[f64],
+    groups: Range<usize>,
+) -> Result<Pointwise, UfgError> {
+    let all = bounds.len() - 1;
+    let columns = [
+        &steps.total,
+        &steps.elastic,
+        &steps.fission,
+        &steps.nu_fission,
+        &steps.capture,
+    ];
+    if let Some(given) = columns.iter().map(|c| c.len()).find(|&n| n != all) {
+        return Err(UfgError::SteppedGroups {
+            name: name.into(),
+            given,
+            groups: all,
+        });
+    }
+    let mut pointwise = Pointwise::default();
+    for g in groups.rev() {
+        for e in [bounds[g + 1], bounds[g]] {
+            pointwise.energy.push(e);
+            pointwise.total.push(steps.total[g]);
+            pointwise.elastic.push(steps.elastic[g]);
+            pointwise.fission.push(steps.fission[g]);
+            pointwise.nu_fission.push(steps.nu_fission[g]);
+            pointwise.capture.push(steps.capture[g]);
+        }
+    }
+    Ok(pointwise)
+}
+
 /// UFG の減速計算の散乱核の、標的の扱い（ADR-0203）。
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Scattering {
@@ -396,7 +433,8 @@ struct Data<'a> {
     gain: f64,
     /// 窓の幅 Δ = ln(1/α)（α = 0 なら無限）
     width: f64,
-    /// その温度の群定数とポイントワイズの断面積（S(α, β) の核種は内挿したもの）
+    /// その温度の群定数とポイントワイズの断面積（S(α, β) の核種は内挿したもの。段の断面積の核種は、無限希釈の群定数と段。
+    /// [`slowing_down_stepped`]）
     table: Cow<'a, TemperatureData>,
     /// 自由ガスの核で散乱するときの核（[`Scattering::FreeGas`] の、分離共鳴を持たない核種と、[`FreeGas::heavy`] を選んだときの
     /// 分離共鳴を持つ核種）
@@ -473,7 +511,19 @@ pub fn slowing_down_with(
     hold: usize,
 ) -> Result<CellSpectrum, UfgError> {
     solve_cell(
-        library, cell, rings, range, collision, thinning, scattering, None, None, None, None, hold,
+        library,
+        cell,
+        rings,
+        range,
+        collision,
+        thinning,
+        scattering,
+        None,
+        None,
+        None,
+        None,
+        hold,
+        &[],
     )
 }
 
@@ -514,6 +564,7 @@ pub fn slowing_down_transfers(
         None,
         None,
         hold,
+        &[],
     )?;
     Ok((spectrum, transfers))
 }
@@ -534,7 +585,6 @@ pub fn slowing_down_stepped(
     hold: usize,
     stepped: &[(&str, &Shielded)],
 ) -> Result<(CellSpectrum, Option<Vec<Vec<NuclideTransfer>>>), UfgError> {
-    let _ = stepped;
     let mut transfers = Vec::new();
     let spectrum = solve_cell(
         library,
@@ -549,6 +599,7 @@ pub fn slowing_down_stepped(
         None,
         None,
         hold,
+        stepped,
     )?;
     Ok((spectrum, shares.map(|_| transfers)))
 }
@@ -590,6 +641,7 @@ pub fn slowing_down_fine(
         None,
         None,
         hold,
+        &[],
     )?;
     Ok((spectrum, fine))
 }
@@ -672,6 +724,7 @@ pub fn slowing_down_tangent(
         Some((directions, &mut tangent)),
         None,
         hold,
+        &[],
     )?;
     Ok((spectrum, shares.map(|_| transfers), tangent))
 }
@@ -710,6 +763,7 @@ fn solve_cell(
     tangent: Option<(&[Vec<Vec<f64>>], &mut CellTangent)>,
     mut frozen: Option<&mut Frozen>,
     hold: usize,
+    stepped: &[(&str, &Shielded)],
 ) -> Result<CellSpectrum, UfgError> {
     let volumes = cell.volumes();
     let n = volumes.len();
@@ -757,6 +811,30 @@ fn solve_cell(
                         });
                     }
                     let alpha = ((d.awr - 1.0) / (d.awr + 1.0)).powi(2);
+                    // 段の断面積の核種は、ポイントワイズの断面積の代わりに段を持つ静止した標的（ADR-0268）
+                    if let Some(&(_, steps)) = stepped.iter().find(|(n, _)| *n == name) {
+                        let table = TemperatureData {
+                            temperature: t.temperature,
+                            chi: Vec::new(),
+                            scatter: Vec::new(),
+                            shielded: t.shielded.first().cloned().into_iter().collect(),
+                            pointwise: stepped_pointwise(name, steps, bounds, top..bottom)?,
+                            reactions: Vec::new(),
+                            sab_transfer: None,
+                            delayed: None,
+                        };
+                        data.push(Data {
+                            name: &d.name,
+                            gain: 1.0 / (1.0 - alpha),
+                            width: -alpha.ln(),
+                            table: Cow::Owned(table),
+                            gas: None,
+                        });
+                        keys.push((name, temperature));
+                        actinides.push((d.za / 1000.0).floor() >= 89.0);
+                        ring.push((data.len() - 1, *density));
+                        continue;
+                    }
                     // 分離共鳴を持つ核種は `heavy` を選んだときだけ、その上限で自由ガスにする（ADR-0204）。`sab` を選べば、
                     // S(α, β) の核種はその上限より下で S(α, β) の移行で散乱する（ADR-0205）
                     let gas = match scattering {
