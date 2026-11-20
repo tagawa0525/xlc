@@ -19,8 +19,8 @@ resolution:
 - VII.0 が、燃焼の反応度で VII.1 と同じ側にいるか。読んだ文献に VII.0 を燃焼で比べた記述が無い。1C のピンセルの xlc の燃焼の版ごとの差は
   examples/depletion/verification.md の「版ごとのピンセルの燃焼」（ADR-0264 の背景の表）。VII.0 の差が燃焼とともに負に広がる原因は分けて
   いない。この差で ADR-0264 の「VII.0 と VII.1 の差が VII.1 と VIII.0 の差より十分小さい」に当たるかは、ユーザーが判断する
-- 同じ記録で、VIII.1 と VII.1 の差は燃焼とともに広がり、同じ 1C のピンを Shift で解いた VIII.1 の論文（差が縮む）と向きが合わない。候補は
-  同じ節にあり、どれも確かめていない
+- 同じ記録で、VIII.1 と VII.1 の k の差は、同じ 1C のピンを Shift で解いた VIII.1 の論文の値と 30 MWd/kg と 60 MWd/kg で向きが同じで大きさが
+  近いが、燃焼度 0 で負に大きい（VIII.0 も同じ）。候補は同じ節にあり、どれも確かめていない
 - VIII.0 と VII.1 の差の燃焼度への依り方は体系で違う（ADR-0264 の背景）。実測と比べる Problem 9 のサイクル 1 は 16.939 GWd/MT まで
   （docs/plans/m4-depletion.md）。1C のピンセルの 17 MWd/kg の差は examples/depletion/verification.md の「版ごとのピンセルの燃焼」にある。
   集合体と炉心での大きさは測っていない
