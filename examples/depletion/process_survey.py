@@ -66,22 +66,10 @@ CAUSES: list[tuple[str, str, str, str]] = [
         "#0312",
     ),
     (
-        r"the shift factor \(SHF=",
-        "R 行列の制限形のシフト因子を読めない",
-        "resonance/r_matrix_limited.rs の role",
-        "#0310",
-    ),
-    (
         r"a charged particle \(ZA=",
         "R 行列の制限形の荷電粒子の対を読めない",
         "resonance/r_matrix_limited.rs の role",
         "#0264",
-    ),
-    (
-        r"background R-matrix \(KBK=1\)",
-        "R 行列の制限形のバックグラウンドの R 行列を読めない",
-        "endf/mf2.rs の read_r_matrix_limited",
-        "#0310、#0305",
     ),
     (
         r"a negative cross section cannot be broadened",
