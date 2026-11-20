@@ -256,7 +256,7 @@ python3 examples/depletion/read_survey.py --report examples/depletion/read-surve
 
 ### 計算
 
-`xs check` は 35e57a2d、ステージを実行したのは 7a125cff（分岐点 f6360d71、2026-11-20。`bin/xs` の正規形は md5 3497396e）。報告は
+`xs check` は 5b63048e、ステージを実行したのは 8809a4ff（分岐点 f6360d71、2026-11-20。`bin/xs` の正規形は md5 3497396e）。報告は
 `read-survey-<版>.toml`、要約の文章は `read-survey.txt`（`--report` と同じ）。1 つの版の全部のファイル（393〜558）は、手元の 8 スレッドで 1 秒に
 満たない（VII.0 の 393 ファイルで 0.4 秒。手元の計算で、時間は記録の測定ではない）。
 
@@ -306,7 +306,7 @@ VIII.1）と核分裂の対（Pu-239 の VIII.1）は、ほかのブランチの
 
 輸送に足すと高燃焼度の負の差が消えた 9 核種（Cm-245、Am-242m、Np-238、Cm-243、Am-242、U-237、Pu-243、U-239、Am-244。#0292）は、4 つの版の
 どれでも `xs check` で止まらない（上の要約の `watched`）。同じ 36 の評価を、温度 1 点（600 K）の入力（`read-survey/nine-<版>.toml`。σ0 と散乱の
-次数は本番の `xs.toml` と同じ）で `xs nuclide` に最後まで通すと、36 のすべてが終了コード 0 で終わった（35e57a2d の `cargo build --release`、
+次数は本番の `xs.toml` と同じ）で `xs nuclide` に最後まで通すと、36 のすべてが終了コード 0 で終わった（5b63048e の `cargo build --release`、
 手元で 1 スレッドずつ 8 並列、2026-11-20）。本番の 4 温度で止まるかは確かめていない（温度ごとにだけ止まる検査は、非分離共鳴のサンプルの
 全断面積が正でないとき（`UrrError::NonPositiveTotal`）などで、候補）。
 
