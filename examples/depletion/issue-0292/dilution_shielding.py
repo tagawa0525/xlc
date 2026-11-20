@@ -242,7 +242,8 @@ def report(summary):
     for r in summary["nuclides"]:
         at = next(p for p in r["points"] if p["burnup"] == r["burnup"])
         lines.append(
-            f"{r['nuclide']} | {r['max_pcm']:+.2f} | {r['burnup']:g} | {at['ratio']:.4f} | {at['weight_check']:.3f}"
+            f"{r['nuclide']} | {r['max_pcm']:+.2f} | {r['burnup']:g} | {at['ratio']:.4f} | "
+            + ("–" if at["weight_check"] is None else f"{at['weight_check']:.3f}")
         )
     return lines
 
