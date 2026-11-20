@@ -4246,14 +4246,13 @@
   {
    "nuclide": "Th-232",
    "endf": "n-090_Th_232.endf",
-   "seconds": 29.59,
-   "user_seconds": 46.88,
-   "max_rss_kb": 105792,
-   "exit": 1,
+   "seconds": 30.6,
+   "user_seconds": 47.27,
+   "max_rss_kb": 106004,
+   "exit": 0,
    "warnings": {
     "xlc_xs::pointwise: N reactions start below their kinematic threshold -Q(A+N)/A and now start at it with a zero cross section; the largest shift is N eV in MTN and the largest relative shift is N of the threshold in MTN; N points below the thresholds were dropped": 1
    },
-   "error": "565 K: fission needs MF1 MT452 and MF5 MT18",
    "source": "log"
   },
   {
@@ -4311,14 +4310,13 @@
   {
    "nuclide": "Pa-231",
    "endf": "n-091_Pa_231.endf",
-   "seconds": 116.52,
-   "user_seconds": 228.89,
-   "max_rss_kb": 40120,
-   "exit": 1,
+   "seconds": 126.62,
+   "user_seconds": 237.89,
+   "max_rss_kb": 40476,
+   "exit": 0,
    "warnings": {
     "xlc_xs::pointwise: N reactions start below their kinematic threshold -Q(A+N)/A and now start at it with a zero cross section; the largest shift is N eV in MTN and the largest relative shift is N of the threshold in MTN; N points below the thresholds were dropped": 1
    },
-   "error": "565 K: fission needs MF1 MT452 and MF5 MT18",
    "source": "log"
   },
   {
@@ -4337,14 +4335,13 @@
   {
    "nuclide": "Pa-233",
    "endf": "n-091_Pa_233.endf",
-   "seconds": 107.0,
-   "user_seconds": 208.97,
-   "max_rss_kb": 25904,
-   "exit": 1,
+   "seconds": 109.24,
+   "user_seconds": 210.14,
+   "max_rss_kb": 25300,
+   "exit": 0,
    "warnings": {
     "xlc_xs::pointwise: N reactions start below their kinematic threshold -Q(A+N)/A and now start at it with a zero cross section; the largest shift is N eV in MTN and the largest relative shift is N of the threshold in MTN; N points below the thresholds were dropped": 1
    },
-   "error": "565 K: fission needs MF1 MT452 and MF5 MT18",
    "source": "log"
   },
   {

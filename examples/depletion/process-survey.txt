@@ -1,25 +1,13 @@
-inputs: process-survey/VII.0/report.json 88fbb304, read-survey-endfb70.toml b2108c41, endfb70/chain.msgpack 5c4c8194, process-survey/VII.1/report.json a65a6410, read-survey-endfb71.toml d343cbb1, endfb71/chain.msgpack 32ee4517, process-survey/VIII.0/report.json e737e097, read-survey-endfb80.toml 665ba4e9, chain.msgpack 1f1de180, process-survey/VIII.1/report.json e1f3f4b7, read-survey-endfb81.toml f84c15db, endfb81/chain.msgpack 4b084932
+inputs: process-survey/VII.0/report.json 15fb3212, read-survey-endfb70.toml f4550979, endfb70/chain.msgpack 5c4c8194, process-survey/VII.1/report.json a4977022, read-survey-endfb71.toml 289632b7, endfb71/chain.msgpack 32ee4517, process-survey/VIII.0/report.json 6ef82ad9, read-survey-endfb80.toml ea0c63f6, chain.msgpack 1f1de180, process-survey/VIII.1/report.json 140485f8, read-survey-endfb81.toml 2813847c, endfb81/chain.msgpack 4b084932
 
 | 版 | チェーンの評価 | 通った | 止まった | うち走査でも止まる | チェーンの外の評価 | 通した | 通った | 止まった | 入れない |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| VII.0 | 393 | 390 | 3 | 3 | 0 | 0 | 0 | 0 | 0 |
-| VII.1 | 423 | 420 | 3 | 3 | 0 | 0 | 0 | 0 | 0 |
-| VIII.0 | 556 | 553 | 3 | 3 | 1 | 0 | 0 | 0 | 1 |
-| VIII.1 | 557 | 554 | 3 | 3 | 1 | 0 | 0 | 0 | 1 |
+| VII.0 | 393 | 393 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| VII.1 | 423 | 423 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| VIII.0 | 556 | 556 | 0 | 0 | 1 | 0 | 0 | 0 | 1 |
+| VIII.1 | 557 | 557 | 0 | 0 | 1 | 0 | 0 | 0 | 1 |
 
 ## 止まった評価
-- VII.0 Th-232（n-090_Th_232.endf、チェーン、走査でも止まる）: 565 K: fission needs MF1 MT452 and MF5 MT18 — 核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない、process.rs の at_temperature、#0312
-- VII.0 Pa-231（n-091_Pa_231.endf、チェーン、走査でも止まる）: 565 K: fission needs MF1 MT452 and MF5 MT18 — 核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない、process.rs の at_temperature、#0312
-- VII.0 Pa-233（n-091_Pa_233.endf、チェーン、走査でも止まる）: 565 K: fission needs MF1 MT452 and MF5 MT18 — 核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない、process.rs の at_temperature、#0312
-- VII.1 Th-232（n-090_Th_232.endf、チェーン、走査でも止まる）: 565 K: fission needs MF1 MT452 and MF5 MT18 — 核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない、process.rs の at_temperature、#0312
-- VII.1 Pa-231（n-091_Pa_231.endf、チェーン、走査でも止まる）: 565 K: fission needs MF1 MT452 and MF5 MT18 — 核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない、process.rs の at_temperature、#0312
-- VII.1 Pa-233（n-091_Pa_233.endf、チェーン、走査でも止まる）: 565 K: fission needs MF1 MT452 and MF5 MT18 — 核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない、process.rs の at_temperature、#0312
-- VIII.0 Th-232（n-090_Th_232.endf、チェーン、走査でも止まる）: 565 K: fission needs MF1 MT452 and MF5 MT18 — 核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない、process.rs の at_temperature、#0312
-- VIII.0 Pa-231（n-091_Pa_231.endf、チェーン、走査でも止まる）: 565 K: fission needs MF1 MT452 and MF5 MT18 — 核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない、process.rs の at_temperature、#0312
-- VIII.0 Pa-233（n-091_Pa_233.endf、チェーン、走査でも止まる）: 565 K: fission needs MF1 MT452 and MF5 MT18 — 核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない、process.rs の at_temperature、#0312
-- VIII.1 Th-232（n-090_Th_232.endf、チェーン、走査でも止まる）: 565 K: fission needs MF1 MT452 and MF5 MT18 — 核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない、process.rs の at_temperature、#0312
-- VIII.1 Pa-231（n-091_Pa_231.endf、チェーン、走査でも止まる）: 565 K: fission needs MF1 MT452 and MF5 MT18 — 核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない、process.rs の at_temperature、#0312
-- VIII.1 Pa-233（n-091_Pa_233.endf、チェーン、走査でも止まる）: 565 K: fission needs MF1 MT452 and MF5 MT18 — 核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない、process.rs の at_temperature、#0312
 
 ## 宣言で読み替えた評価
 - VII.0: Na-22（unresolved-negative-background）、Cl-35（negative-to-zero）、Ar-36（unresolved-negative-background）、Co-58（negative-to-zero）、Rb-87（corrections）、Y-89（negative-to-zero）、Cd-106（unresolved-negative-background）、Cd-111（unresolved-negative-background）、Eu-154（unresolved-negative-background）、Ta-181（unresolved-negative-background）、Am-241（unresolved-negative-background）、Cf-252（unresolved-negative-background）、Cf-253（unresolved-negative-background）、Es-253（unresolved-negative-background）
@@ -51,9 +39,9 @@ inputs: process-survey/VII.0/report.json 88fbb304, read-survey-endfb70.toml b210
 
 ## 時間と常駐の大きい核種
 - VII.0 時間: Am-242m 347.2 s 9608 kB、Cm-245 256.72 s 8940 kB、Cm-243 250.22 s 8348 kB、U-233 213.69 s 23396 kB、Eu-151 203.74 s 10320 kB
-- VII.0 常駐: U-238 182.52 s 278240 kB、U-235 151.76 s 149764 kB、Pu-239 174.85 s 107196 kB、Th-232 29.33 s 105100 kB、Tc-99 50.15 s 67984 kB
+- VII.0 常駐: U-238 182.52 s 278240 kB、U-235 151.76 s 149764 kB、Pu-239 174.85 s 107196 kB、Th-232 31.13 s 103824 kB、Tc-99 50.15 s 67984 kB
 - VII.1 時間: Am-242m 393.16 s 10104 kB、U-238 241.95 s 332904 kB、Np-236 237.53 s 10972 kB、Np-238 232.87 s 13340 kB、Eu-151 231.7 s 10036 kB
-- VII.1 常駐: U-238 241.95 s 332904 kB、U-235 198.08 s 193648 kB、Pu-239 223.24 s 123464 kB、Th-232 29.59 s 105792 kB、Tm-169 31.96 s 96180 kB
+- VII.1 常駐: U-238 241.95 s 332904 kB、U-235 198.08 s 193648 kB、Pu-239 223.24 s 123464 kB、Th-232 30.6 s 106004 kB、Tm-169 31.96 s 96180 kB
 - VIII.0 時間: Am-242m 281.06 s 10396 kB、Eu-151 170.68 s 10684 kB、U-238 167.41 s 344288 kB、Am-242 153.62 s 11268 kB、Np-236 152.84 s 11260 kB
 - VIII.0 常駐: U-238 167.41 s 344288 kB、U-235 142.66 s 320720 kB、Pu-240 46.51 s 146832 kB、O-16 1.4 s 123540 kB、Pu-239 147.9 s 113280 kB
 - VIII.1 時間: Am-242m 305.32 s 10092 kB、H-1 230.61 s 272912 kB、U-238 202.86 s 338344 kB、Np-236 194.47 s 10472 kB、Eu-151 192.12 s 11024 kB

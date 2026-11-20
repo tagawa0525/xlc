@@ -4,9 +4,9 @@
   "VII.0": {
    "in_chain": {
     "evaluations": 393,
-    "passed": 390,
-    "stopped": 3,
-    "stopped_reading": 3
+    "passed": 393,
+    "stopped": 0,
+    "stopped_reading": 0
    },
    "outside_chain": {
     "evaluations": 0,
@@ -15,38 +15,7 @@
     "stopped": 0,
     "left_out": 0
    },
-   "stopped": [
-    {
-     "nuclide": "Th-232",
-     "file": "n-090_Th_232.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "565 K: fission needs MF1 MT452 and MF5 MT18",
-     "cause": "核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない",
-     "where": "process.rs の at_temperature",
-     "issue": "#0312"
-    },
-    {
-     "nuclide": "Pa-231",
-     "file": "n-091_Pa_231.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "565 K: fission needs MF1 MT452 and MF5 MT18",
-     "cause": "核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない",
-     "where": "process.rs の at_temperature",
-     "issue": "#0312"
-    },
-    {
-     "nuclide": "Pa-233",
-     "file": "n-091_Pa_233.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "565 K: fission needs MF1 MT452 and MF5 MT18",
-     "cause": "核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない",
-     "where": "process.rs の at_temperature",
-     "issue": "#0312"
-    }
-   ],
+   "stopped": [],
    "declared": [
     {
      "nuclide": "Na-22",
@@ -178,8 +147,8 @@
     },
     {
      "nuclide": "Th-232",
-     "seconds": 29.33,
-     "max_rss_kb": 105100
+     "seconds": 31.13,
+     "max_rss_kb": 103824
     },
     {
      "nuclide": "Tc-99",
@@ -191,9 +160,9 @@
   "VII.1": {
    "in_chain": {
     "evaluations": 423,
-    "passed": 420,
-    "stopped": 3,
-    "stopped_reading": 3
+    "passed": 423,
+    "stopped": 0,
+    "stopped_reading": 0
    },
    "outside_chain": {
     "evaluations": 0,
@@ -202,38 +171,7 @@
     "stopped": 0,
     "left_out": 0
    },
-   "stopped": [
-    {
-     "nuclide": "Th-232",
-     "file": "n-090_Th_232.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "565 K: fission needs MF1 MT452 and MF5 MT18",
-     "cause": "核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない",
-     "where": "process.rs の at_temperature",
-     "issue": "#0312"
-    },
-    {
-     "nuclide": "Pa-231",
-     "file": "n-091_Pa_231.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "565 K: fission needs MF1 MT452 and MF5 MT18",
-     "cause": "核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない",
-     "where": "process.rs の at_temperature",
-     "issue": "#0312"
-    },
-    {
-     "nuclide": "Pa-233",
-     "file": "n-091_Pa_233.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "565 K: fission needs MF1 MT452 and MF5 MT18",
-     "cause": "核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない",
-     "where": "process.rs の at_temperature",
-     "issue": "#0312"
-    }
-   ],
+   "stopped": [],
    "declared": [
     {
      "nuclide": "Na-22",
@@ -311,8 +249,8 @@
     },
     {
      "nuclide": "Th-232",
-     "seconds": 29.59,
-     "max_rss_kb": 105792
+     "seconds": 30.6,
+     "max_rss_kb": 106004
     },
     {
      "nuclide": "Tm-169",
@@ -324,9 +262,9 @@
   "VIII.0": {
    "in_chain": {
     "evaluations": 556,
-    "passed": 553,
-    "stopped": 3,
-    "stopped_reading": 3
+    "passed": 556,
+    "stopped": 0,
+    "stopped_reading": 0
    },
    "outside_chain": {
     "evaluations": 1,
@@ -335,38 +273,7 @@
     "stopped": 0,
     "left_out": 1
    },
-   "stopped": [
-    {
-     "nuclide": "Th-232",
-     "file": "n-090_Th_232.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "565 K: fission needs MF1 MT452 and MF5 MT18",
-     "cause": "核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない",
-     "where": "process.rs の at_temperature",
-     "issue": "#0312"
-    },
-    {
-     "nuclide": "Pa-231",
-     "file": "n-091_Pa_231.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "565 K: fission needs MF1 MT452 and MF5 MT18",
-     "cause": "核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない",
-     "where": "process.rs の at_temperature",
-     "issue": "#0312"
-    },
-    {
-     "nuclide": "Pa-233",
-     "file": "n-091_Pa_233.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "565 K: fission needs MF1 MT452 and MF5 MT18",
-     "cause": "核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない",
-     "where": "process.rs の at_temperature",
-     "issue": "#0312"
-    }
-   ],
+   "stopped": [],
    "declared": [
     {
      "nuclide": "Na-22",
@@ -457,9 +364,9 @@
   "VIII.1": {
    "in_chain": {
     "evaluations": 557,
-    "passed": 554,
-    "stopped": 3,
-    "stopped_reading": 3
+    "passed": 557,
+    "stopped": 0,
+    "stopped_reading": 0
    },
    "outside_chain": {
     "evaluations": 1,
@@ -468,38 +375,7 @@
     "stopped": 0,
     "left_out": 1
    },
-   "stopped": [
-    {
-     "nuclide": "Th-232",
-     "file": "n-090_Th_232.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "565 K: fission needs MF1 MT452 and MF5 MT18",
-     "cause": "核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない",
-     "where": "process.rs の at_temperature",
-     "issue": "#0312"
-    },
-    {
-     "nuclide": "Pa-231",
-     "file": "n-091_Pa_231.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "565 K: fission needs MF1 MT452 and MF5 MT18",
-     "cause": "核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない",
-     "where": "process.rs の at_temperature",
-     "issue": "#0312"
-    },
-    {
-     "nuclide": "Pa-233",
-     "file": "n-091_Pa_233.endf",
-     "chain": true,
-     "stage": "reading",
-     "reason": "565 K: fission needs MF1 MT452 and MF5 MT18",
-     "cause": "核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない",
-     "where": "process.rs の at_temperature",
-     "issue": "#0312"
-    }
-   ],
+   "stopped": [],
    "declared": [
     {
      "nuclide": "Na-22",
@@ -884,11 +760,11 @@
  "inputs": [
   {
    "path": "process-survey/VII.0/report.json",
-   "md5": "88fbb304a1977d43d4e628dbd4464581"
+   "md5": "15fb32127456651d7b576241e90fa9b5"
   },
   {
    "path": "read-survey-endfb70.toml",
-   "md5": "b2108c41a71b588766dea217bb9f2d8e"
+   "md5": "f4550979d486933f24cd1f374a62645a"
   },
   {
    "path": "endfb70/chain.msgpack",
@@ -896,11 +772,11 @@
   },
   {
    "path": "process-survey/VII.1/report.json",
-   "md5": "a65a64108f9064d9b31c2b65531c9b8b"
+   "md5": "a49770221fd46d96cda5d604a0dfffc3"
   },
   {
    "path": "read-survey-endfb71.toml",
-   "md5": "d343cbb1521cbf5d16d39a6dbdd60045"
+   "md5": "289632b78ccb19d0fc1a8196bbbf8082"
   },
   {
    "path": "endfb71/chain.msgpack",
@@ -908,11 +784,11 @@
   },
   {
    "path": "process-survey/VIII.0/report.json",
-   "md5": "e737e09785fd171186a84c40a59c4d71"
+   "md5": "6ef82ad942dd6e2a88d09cbc4155da90"
   },
   {
    "path": "read-survey-endfb80.toml",
-   "md5": "665ba4e9f314799f4c5a2ac5354506af"
+   "md5": "ea0c63f65bd9c1afda9c17169b9e78c3"
   },
   {
    "path": "chain.msgpack",
@@ -920,11 +796,11 @@
   },
   {
    "path": "process-survey/VIII.1/report.json",
-   "md5": "e1f3f4b7bf2dcaa46ba1bf85a0155857"
+   "md5": "140485f85ce43ac8e1bdcf46589915a4"
   },
   {
    "path": "read-survey-endfb81.toml",
-   "md5": "f84c15db015cf7091f340d81e15f72d5"
+   "md5": "2813847c97b786c48ff89ea51a9a2595"
   },
   {
    "path": "endfb81/chain.msgpack",
