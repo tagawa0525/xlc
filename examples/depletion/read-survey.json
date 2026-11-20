@@ -4,8 +4,8 @@
   "VII.0": {
    "in_chain": {
     "evaluations": 390,
-    "readable": 384,
-    "stopped": 6
+    "readable": 386,
+    "stopped": 4
    },
    "outside_chain": {
     "evaluations": 3,
@@ -15,16 +15,6 @@
    "chain_nuclides": 3837,
    "chain_without_file": 3447,
    "stopped": [
-    {
-     "file": "n-001_H_002.endf",
-     "nuclide": "H-2",
-     "reason": "neutron LAW=6 is not supported"
-    },
-    {
-     "file": "n-004_Be_009.endf",
-     "nuclide": "Be-9",
-     "reason": "neutron LAW=7 is not supported"
-    },
     {
      "file": "n-037_Rb_087.endf",
      "nuclide": "Rb-87",
@@ -50,8 +40,8 @@
   "VII.1": {
    "in_chain": {
     "evaluations": 422,
-    "readable": 416,
-    "stopped": 6
+    "readable": 418,
+    "stopped": 4
    },
    "outside_chain": {
     "evaluations": 1,
@@ -61,16 +51,6 @@
    "chain_nuclides": 3820,
    "chain_without_file": 3398,
    "stopped": [
-    {
-     "file": "n-001_H_002.endf",
-     "nuclide": "H-2",
-     "reason": "neutron LAW=6 is not supported"
-    },
-    {
-     "file": "n-004_Be_009.endf",
-     "nuclide": "Be-9",
-     "reason": "neutron LAW=7 is not supported"
-    },
     {
      "file": "n-017_Cl_035.endf",
      "nuclide": "Cl-35",
@@ -96,8 +76,8 @@
   "VIII.0": {
    "in_chain": {
     "evaluations": 556,
-    "readable": 549,
-    "stopped": 7
+    "readable": 551,
+    "stopped": 5
    },
    "outside_chain": {
     "evaluations": 1,
@@ -107,16 +87,6 @@
    "chain_nuclides": 3820,
    "chain_without_file": 3264,
    "stopped": [
-    {
-     "file": "n-001_H_002.endf",
-     "nuclide": "H-2",
-     "reason": "neutron LAW=6 is not supported"
-    },
-    {
-     "file": "n-004_Be_009.endf",
-     "nuclide": "Be-9",
-     "reason": "neutron LAW=7 is not supported"
-    },
     {
      "file": "n-017_Cl_035.endf",
      "nuclide": "Cl-35",
@@ -147,8 +117,8 @@
   "VIII.1": {
    "in_chain": {
     "evaluations": 557,
-    "readable": 549,
-    "stopped": 8
+    "readable": 552,
+    "stopped": 5
    },
    "outside_chain": {
     "evaluations": 1,
@@ -158,21 +128,6 @@
    "chain_nuclides": 3820,
    "chain_without_file": 3263,
    "stopped": [
-    {
-     "file": "n-001_H_002.endf",
-     "nuclide": "H-2",
-     "reason": "neutron LAW=6 is not supported"
-    },
-    {
-     "file": "n-003_Li_006.endf",
-     "nuclide": "Li-6",
-     "reason": "neutron LAW=6 is not supported"
-    },
-    {
-     "file": "n-004_Be_009.endf",
-     "nuclide": "Be-9",
-     "reason": "neutron LAW=7 is not supported"
-    },
     {
      "file": "n-017_Cl_035.endf",
      "nuclide": "Cl-35",
@@ -202,35 +157,6 @@
   }
  },
  "reasons": {
-  "neutron LAW=6 is not supported": {
-   "VII.0": [
-    "H-2"
-   ],
-   "VII.1": [
-    "H-2"
-   ],
-   "VIII.0": [
-    "H-2"
-   ],
-   "VIII.1": [
-    "H-2",
-    "Li-6"
-   ]
-  },
-  "neutron LAW=7 is not supported": {
-   "VII.0": [
-    "Be-9"
-   ],
-   "VII.1": [
-    "Be-9"
-   ],
-   "VIII.0": [
-    "Be-9"
-   ],
-   "VIII.1": [
-    "Be-9"
-   ]
-  },
   "last NBT must equal NP": {
    "VII.0": [
     "Rb-87"
@@ -364,7 +290,7 @@
  "inputs": [
   {
    "path": "read-survey-endfb70.toml",
-   "md5": "37c306096b13b590937e042294a6d78b"
+   "md5": "b2108c41a71b588766dea217bb9f2d8e"
   },
   {
    "path": "endfb70/chain.msgpack",
@@ -372,7 +298,7 @@
   },
   {
    "path": "read-survey-endfb71.toml",
-   "md5": "8cc9ff014c729dc671621ae04ea4397a"
+   "md5": "bee35d291ab45d6979480bffc9f75372"
   },
   {
    "path": "endfb71/chain.msgpack",
@@ -380,7 +306,7 @@
   },
   {
    "path": "read-survey-endfb80.toml",
-   "md5": "5b469fe4cc44068c53fc44c2e0cad63c"
+   "md5": "2b875fbbcbf68a2e90c25cfad18b3837"
   },
   {
    "path": "chain.msgpack",
@@ -388,7 +314,7 @@
   },
   {
    "path": "read-survey-endfb81.toml",
-   "md5": "adc307a648cb0b3d6e9ffeab04e15771"
+   "md5": "e5cae847834baeb24a979e4fa4450594"
   },
   {
    "path": "endfb81/chain.msgpack",
