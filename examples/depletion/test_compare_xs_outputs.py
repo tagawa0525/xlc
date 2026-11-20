@@ -60,6 +60,16 @@ class CompareTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 cxo.compare(output(), b)
 
+    def test_different_group_bounds_or_sigma0_stop(self):
+        # 群の数が同じでも、群境界か σ0 が違う出力は比べない
+        for key, value in (("group_bounds", [2.0e7, 1.0, 1.0e-5]), ("sigma0", [1.0e5])):
+            a, b = output(), output()
+            a[key], b[key] = [2.0e7, 1.0e3, 1.0e-5], value
+            if key == "sigma0":
+                a[key] = [1.0e10]
+            with self.assertRaises(ValueError):
+                cxo.compare(a, b)
+
     def test_different_nuclides_stop(self):
         b = copy.deepcopy(output())
         b["nuclides"][0]["name"] = "U-238"

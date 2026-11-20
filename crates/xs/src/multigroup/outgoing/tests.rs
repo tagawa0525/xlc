@@ -209,6 +209,27 @@ fn center_of_mass_motion_far_smaller_than_the_outgoing_energy_keeps_the_total() 
         "{}",
         actual.iter().sum::<f64>() / total - 1.0
     );
+    // 重心の運動がほとんど無いので、群ごとの値も実験室系の分布として群に分けた値と合う（差は Ec の程度の広がりの分）
+    let laboratory = outgoing_group_integrals(&groups, &density);
+    for (g, (a, l)) in actual.iter().zip(&laboratory).enumerate() {
+        assert!(
+            (a - l).abs() <= 1e-6 * l + 1e-15,
+            "group {g}: {a:e} vs {l:e}"
+        );
+    }
+}
+
+#[test]
+fn no_center_of_mass_motion_groups_the_outgoing_energies_as_given() {
+    // 入射 0 では Ec = 0 で、実験室系の出射エネルギーは重心系と同じ
+    let density = Tab1::linear(vec![5.0e5, 1.5e6], vec![1.0e-6, 1.0e-6]);
+    let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e-5]).unwrap();
+    let actual = laboratory_group_integrals(&groups, &density, 0.0);
+    assert_eq!(actual, outgoing_group_integrals(&groups, &density));
+    assert!(
+        (actual[0] - 0.5).abs() < 1e-12 && (actual[1] - 0.5).abs() < 1e-12,
+        "{actual:?}"
+    );
 }
 
 /// 入射エネルギー 10 と 20 で、[0, 1] と [0, 3] の一様分布
