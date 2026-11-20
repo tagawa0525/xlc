@@ -338,12 +338,17 @@ fn read_law7(r: &mut Reader<'_>) -> Result<OutgoingDistributions, Error> {
 }
 
 /// 余弦 μ_i の表を余弦の補間則で補間して −1〜1 で積分するときの、各表の重み（lin-lin は台形、ヒストグラムは左の表）。
+/// 余弦は昇順で −1 から 1 までであること。
 fn cosine_weights(mu: &[f64], breaks: &[usize], codes: &[i64]) -> Result<Vec<f64>, String> {
     if mu
         .windows(2)
         .any(|w| w[0].partial_cmp(&w[1]).is_none_or(|o| o.is_ge()))
     {
         return Err(format!("LAW=7 cosines {mu:?} must ascend"));
+    }
+    // −1〜1 を覆わない分布は、積分すると和が 1 に足りない
+    if mu.first() != Some(&-1.0) || mu.last() != Some(&1.0) {
+        return Err(format!("LAW=7 cosines {mu:?} must run from -1 to 1"));
     }
     let mut weights = vec![0.0; mu.len()];
     for k in 0..mu.len().saturating_sub(1) {
