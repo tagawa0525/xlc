@@ -133,6 +133,9 @@ def ratio(added, background, density, sigma0, w, temperature):
         shielded.append(interpolate(sigma0, [t[g] for t in tables], value))
     infinite = tables[0]
     one = sum(a * x for a, x in zip(infinite, w))
+    if one == 0.0:
+        # 捕獲も核分裂も無い核種（H-3 の (n,2n)、Be-7 の (n,p) だけで中性子を失う）。表はその反応を持たないので、遮蔽しない
+        return 1.0, 0.0
     return sum(a * x for a, x in zip(shielded, w)) / one, one / sum(w)
 
 
