@@ -74,22 +74,19 @@ CAUSES: list[tuple[str, str, str, str]] = [
         "#0264",
     ),
     (
-        r"a negative cross section cannot be broadened",
-        "広げる範囲の 0 K の断面積が負（ADR-0267 でエラー）",
-        "pointwise.rs の reject_negative_broadened",
-        "#0309",
+        r"the 0 K cross sections are negative",
+        "0 K の断面積が負（ADR-0267 でエラー。入力の `negative-to-zero` の宣言で読める）",
+        "pointwise.rs の reject_negative",
+        "#0309（closed）",
     ),
     (
-        r"the sampled total cross section is not positive",
-        "非分離共鳴のラダーのサンプルの全断面積が正でない",
-        "resonance/ladder.rs の add_samples",
-        "#0319",
-    ),
-    (
-        r"non-finite value NaN",
-        "σ0 が 10 b 以下の群定数に NaN（作る計算は確かめていない）",
-        "crates/format の library.rs の NuclideData の検査",
-        "#0320",
+        r"the MF3 background of MT\d+ in the unresolved range",
+        (
+            "非分離共鳴（LSSF=0）の MF3 の捕獲か核分裂のバックグラウンドが負（ADR-0274 でエラー。入力の "
+            "`unresolved-negative-background` の宣言で読める）"
+        ),
+        "process.rs の unresolved_shielding",
+        "#0319（closed）",
     ),
 ]
 # 止まった段の表示: 読み込みの走査（`xs check`）でも止まるもの、処理で初めて止まるもの
