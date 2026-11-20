@@ -6,7 +6,7 @@ opened: 2026-11-20
 closed: 2026-11-20
 milestone:
 blocked-by: []
-resolution: コミット 2b00c47bc
+resolution: コミット 967431abe
 ---
 
 # xs が核分裂の中性子の分布を MF6 MT18 で与えた評価（Th-232、Pa-231、Pa-233）を輸送する核種として処理できない
