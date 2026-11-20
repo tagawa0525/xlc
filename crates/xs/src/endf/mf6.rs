@@ -131,7 +131,7 @@ impl Mf6 {
                     );
                     neutrons.push(NeutronEmission {
                         multiplicity: product.table,
-                        spectrum: NeutronSpectrum::PhaseSpace(read_law6(&mut r)?),
+                        spectrum: NeutronSpectrum::PhaseSpace(read_law6(&mut r, head.c2)?),
                         frame: Frame::CenterOfMass,
                     });
                 }
@@ -245,8 +245,8 @@ fn read_law1(r: &mut Reader<'_>) -> Result<OutgoingDistributions, Error> {
     })
 }
 
-/// LAW=6 の CONT（APSX、NPSX）を読む。
-fn read_law6(r: &mut Reader<'_>) -> Result<PhaseSpace, Error> {
+/// LAW=6 の CONT（APSX、NPSX）を読む。`awr` は標的の質量比。
+fn read_law6(r: &mut Reader<'_>, awr: f64) -> Result<PhaseSpace, Error> {
     let cont = r.cont()?;
     let particles = match cont.n2 {
         3 => 3,
@@ -267,6 +267,20 @@ fn read_law6(r: &mut Reader<'_>) -> Result<PhaseSpace, Error> {
             format!(
                 "phase-space mass APSX={} must exceed the neutron mass",
                 cont.c1
+            ),
+        ));
+    }
+    // APSX が生成粒子の質量の和（およそ A + 1）より小さいのは 2 段の反応の 2 段目で、E_a は 1 段目の反跳のエネルギー
+    // （ENDF-102 の 6.2.8）。式 6.28 の 1 段の E_a は使えない。1 段の H-2 と Li-6 の APSX は A + 1 との差が Q/(m_n c²) ほど
+    // （0.002〜0.004）なので、中性子の質量の半分を境にする
+    if cont.c1 < awr + 1.0 - 0.5 {
+        return Err(Error::new(
+            r.line(),
+            format!(
+                "phase-space mass APSX={} below the products' mass {} is a two-step reaction, \
+                 which is not supported",
+                cont.c1,
+                awr + 1.0
             ),
         ));
     }
