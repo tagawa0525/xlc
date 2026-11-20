@@ -154,6 +154,9 @@ fn logarithmic_intervals_outside_their_domain_are_rejected() {
         (Interpolation::LogLin, (1.0, -1.0), (2.0, 1.0)),
         (Interpolation::LinLog, (0.0, 1.0), (1.0, 2.0)),
         (Interpolation::LogLog, (-1.0, 1.0), (1.0, 2.0)),
+        // NaN は定義域の中にない
+        (Interpolation::LogLog, (1.0, f64::NAN), (2.0, 1.0)),
+        (Interpolation::LinLog, (f64::NAN, 1.0), (2.0, 1.0)),
     ];
     for (law, p0, p1) in undefined {
         assert!(law.check_interval(p0, p1).is_err(), "{law:?} {p0:?} {p1:?}");

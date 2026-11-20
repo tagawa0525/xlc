@@ -319,6 +319,11 @@ fn general_evaporation_shape_must_start_with_mass_at_zero() {
 /// 入射エネルギー `e0` と 2e7 eV の 2 つの出射分布（lin-lin）を、入射エネルギーの間を補間則 `code` で結ぶ MF5。
 /// 最初の分布の密度は 1 MeV で `density`。
 fn incident_law_mf5(code: &str, e0: &str, density: &str) -> String {
+    incident_law_mf5_from(code, e0, density, "0.0")
+}
+
+/// `incident_law_mf5` の、最初の分布の出射エネルギーの下端を `lower` にしたもの
+fn incident_law_mf5_from(code: &str, e0: &str, density: &str, lower: &str) -> String {
     let r = |f: [&str; 6]| rec(f, 1, 5, 18);
     [
         r(["9.223500+4", "2.330248+2", "0", "0", "1", "0"]),
@@ -329,7 +334,7 @@ fn incident_law_mf5(code: &str, e0: &str, density: &str) -> String {
         r(["2", code, "", "", "", ""]),
         r(["0.0", e0, "0", "0", "1", "3"]),
         r(["3", "2", "", "", "", ""]),
-        r(["0.0", "1.0-6", "1.0+6", density, "2.0+6", "0.0"]),
+        r([lower, "1.0-6", "1.0+6", density, "2.0+6", "0.0"]),
         r(["0.0", "2.0+7", "0", "0", "1", "2"]),
         r(["2", "2", "", "", "", ""]),
         r(["0.0", "1.0-6", "1.0+6", "0.0", "", ""]),
@@ -360,4 +365,18 @@ fn log_incident_laws_need_their_domain() {
     // lin-lin なら負の密度も補間できる
     assert!(parse(incident_law_mf5("2", "0.0", "-1.0-7")).is_ok());
     assert!(parse(incident_law_mf5("4", "1.0-5", "1.0-7")).is_ok());
+}
+
+#[test]
+fn outgoing_range_ends_are_checked_only_for_unit_base() {
+    let parse = |text: String| {
+        let tape = Tape::parse(&text).unwrap();
+        Mf5::parse(&tape.section(1, 5, 18).unwrap()).map(|_| ())
+    };
+    // 出射エネルギーの範囲の両端を入射エネルギーの間で補間するのは単位基底（INT=21〜25）だけ
+    assert!(parse(incident_law_mf5_from("4", "1.0-5", "1.0-7", "-1.0")).is_ok());
+    let message = parse(incident_law_mf5_from("24", "1.0-5", "1.0-7", "-1.0"))
+        .unwrap_err()
+        .to_string();
+    assert!(message.contains("LogLin"), "{message}");
 }
