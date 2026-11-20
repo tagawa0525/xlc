@@ -93,7 +93,6 @@ endf = "../../references/endf/ENDF-B-VII.1_neutrons/n-016_S_036.endf"
 
 [[evaluation]]
 endf = "../../references/endf/ENDF-B-VII.1_neutrons/n-017_Cl_035.endf"
-error = "line 821: particle pair 3: a charged particle (ZA=1) is not supported"
 
 [[evaluation]]
 endf = "../../references/endf/ENDF-B-VII.1_neutrons/n-017_Cl_037.endf"

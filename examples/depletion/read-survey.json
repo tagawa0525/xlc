@@ -40,8 +40,8 @@
   "VII.1": {
    "in_chain": {
     "evaluations": 422,
-    "readable": 418,
-    "stopped": 4
+    "readable": 419,
+    "stopped": 3
    },
    "outside_chain": {
     "evaluations": 1,
@@ -51,11 +51,6 @@
    "chain_nuclides": 3820,
    "chain_without_file": 3398,
    "stopped": [
-    {
-     "file": "n-017_Cl_035.endf",
-     "nuclide": "Cl-35",
-     "reason": "particle pair 3: a charged particle (ZA=1) is not supported"
-    },
     {
      "file": "n-090_Th_232.endf",
      "nuclide": "Th-232",
@@ -76,8 +71,8 @@
   "VIII.0": {
    "in_chain": {
     "evaluations": 556,
-    "readable": 551,
-    "stopped": 5
+    "readable": 553,
+    "stopped": 3
    },
    "outside_chain": {
     "evaluations": 1,
@@ -87,16 +82,6 @@
    "chain_nuclides": 3820,
    "chain_without_file": 3264,
    "stopped": [
-    {
-     "file": "n-017_Cl_035.endf",
-     "nuclide": "Cl-35",
-     "reason": "particle pair 3: a charged particle (ZA=1) is not supported"
-    },
-    {
-     "file": "n-020_Ca_040.endf",
-     "nuclide": "Ca-40",
-     "reason": "particle pair 3: a charged particle (ZA=2) is not supported"
-    },
     {
      "file": "n-090_Th_232.endf",
      "nuclide": "Th-232",
@@ -117,8 +102,8 @@
   "VIII.1": {
    "in_chain": {
     "evaluations": 557,
-    "readable": 552,
-    "stopped": 5
+    "readable": 554,
+    "stopped": 3
    },
    "outside_chain": {
     "evaluations": 1,
@@ -128,16 +113,6 @@
    "chain_nuclides": 3820,
    "chain_without_file": 3263,
    "stopped": [
-    {
-     "file": "n-017_Cl_035.endf",
-     "nuclide": "Cl-35",
-     "reason": "particle pair 3: a charged particle (ZA=1) is not supported"
-    },
-    {
-     "file": "n-020_Ca_040.endf",
-     "nuclide": "Ca-40",
-     "reason": "particle pair 3: a charged particle (ZA=2) is not supported"
-    },
     {
      "file": "n-090_Th_232.endf",
      "nuclide": "Th-232",
@@ -182,25 +157,6 @@
     "Th-232",
     "Pa-231",
     "Pa-233"
-   ]
-  },
-  "particle pair 3: a charged particle (ZA=1) is not supported": {
-   "VII.1": [
-    "Cl-35"
-   ],
-   "VIII.0": [
-    "Cl-35"
-   ],
-   "VIII.1": [
-    "Cl-35"
-   ]
-  },
-  "particle pair 3: a charged particle (ZA=2) is not supported": {
-   "VIII.0": [
-    "Ca-40"
-   ],
-   "VIII.1": [
-    "Ca-40"
    ]
   }
  },
@@ -298,7 +254,7 @@
   },
   {
    "path": "read-survey-endfb71.toml",
-   "md5": "bee35d291ab45d6979480bffc9f75372"
+   "md5": "d343cbb1521cbf5d16d39a6dbdd60045"
   },
   {
    "path": "endfb71/chain.msgpack",
@@ -306,7 +262,7 @@
   },
   {
    "path": "read-survey-endfb80.toml",
-   "md5": "2b875fbbcbf68a2e90c25cfad18b3837"
+   "md5": "665ba4e9f314799f4c5a2ac5354506af"
   },
   {
    "path": "chain.msgpack",
@@ -314,7 +270,7 @@
   },
   {
    "path": "read-survey-endfb81.toml",
-   "md5": "e5cae847834baeb24a979e4fa4450594"
+   "md5": "f84c15db015cf7091f340d81e15f72d5"
   },
   {
    "path": "endfb81/chain.msgpack",

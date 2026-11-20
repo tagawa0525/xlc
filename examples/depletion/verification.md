@@ -257,7 +257,7 @@ python3 examples/depletion/read_survey.py --report examples/depletion/read-surve
 
 ### 計算
 
-`xs check` は 54421219 のもの（分岐点 2dc2899a、2026-11-20。`bin/xs` の正規形は `binary-forms/xs.md5`）で、4 つの版のステージと要約を
+`xs check` は 5cc1d11d のもの（分岐点 8e2b6c91、2026-11-20。`bin/xs` の正規形は `binary-forms/xs.md5`）で、4 つの版のステージと要約を
 このコミットで実行した（要約のツールは 74f25be0 から変わっていない）。報告は `read-survey-<版>.toml`、要約の文章は `read-survey.txt`（`--report` と
 同じ）。1 つの版の全部のファイル（393〜558）は、手元の 8 スレッドで 1 秒に満たない（VII.0 の 393 ファイルで 0.4 秒。手元の計算で、時間は記録の
 測定ではない）。
@@ -269,9 +269,9 @@ python3 examples/depletion/read_survey.py --report examples/depletion/read-surve
 | 版     | チェーンの評価 | 読めた | 止まった | チェーンの外の評価 | 読めた | 止まった | ファイルの無いチェーンの核種 |
 | ------ | -------------- | ------ | -------- | ------------------ | ------ | -------- | ---------------------------- |
 | VII.0  | 390            | 386    | 4        | 3                  | 3      | 0        | 3447 / 3837                  |
-| VII.1  | 422            | 418    | 4        | 1                  | 1      | 0        | 3398 / 3820                  |
-| VIII.0 | 556            | 551    | 5        | 1                  | 1      | 0        | 3264 / 3820                  |
-| VIII.1 | 557            | 552    | 5        | 1                  | 1      | 0        | 3263 / 3820                  |
+| VII.1  | 422            | 419    | 3        | 1                  | 1      | 0        | 3398 / 3820                  |
+| VIII.0 | 556            | 553    | 3        | 1                  | 1      | 0        | 3264 / 3820                  |
+| VIII.1 | 557            | 554    | 3        | 1                  | 1      | 0        | 3263 / 3820                  |
 
 <!-- /table -->
 
@@ -282,12 +282,10 @@ python3 examples/depletion/read_survey.py --report examples/depletion/read-surve
 
 <!-- table: read-survey-reasons -->
 
-| 止まった理由                                                | VII.0                  | VII.1                  | VIII.0                 | VIII.1                 |
-| ----------------------------------------------------------- | ---------------------- | ---------------------- | ---------------------- | ---------------------- |
-| last NBT must equal NP                                      | Rb-87                  | –                      | –                      | –                      |
-| fission needs MF1 MT452 and MF5 MT18                        | Th-232、Pa-231、Pa-233 | Th-232、Pa-231、Pa-233 | Th-232、Pa-231、Pa-233 | Th-232、Pa-231、Pa-233 |
-| particle pair 3: a charged particle (ZA=1) is not supported | –                      | Cl-35                  | Cl-35                  | Cl-35                  |
-| particle pair 3: a charged particle (ZA=2) is not supported | –                      | –                      | Ca-40                  | Ca-40                  |
+| 止まった理由                         | VII.0                  | VII.1                  | VIII.0                 | VIII.1                 |
+| ------------------------------------ | ---------------------- | ---------------------- | ---------------------- | ---------------------- |
+| last NBT must equal NP               | Rb-87                  | –                      | –                      | –                      |
+| fission needs MF1 MT452 and MF5 MT18 | Th-232、Pa-231、Pa-233 | Th-232、Pa-231、Pa-233 | Th-232、Pa-231、Pa-233 | Th-232、Pa-231、Pa-233 |
 
 <!-- /table -->
 
@@ -1024,7 +1022,7 @@ cargo run --release -p xlc-xs --example compare_njoy_pendf -- \
 
 ### 計算
 
-xlc 92557dc7（コードは 5fdb7483 と同じ。分岐点 6af59212、2026-11-20）。手元で 2 つの比べるツールを実行した。`xs nuclide` は 5fdb7483 の
+xlc 5cc1d11d（分岐点 8e2b6c91、2026-11-20）。手元で 2 つの比べるツールを実行した。`xs nuclide` は同じコミットの
 `cargo build --release` の bin で、600 K の 1 点の入力（`sigma0` と `scattering-order` は examples/depletion/read-survey/sample-VIII.1.toml と同じ）を
 手元の試行に置き、1 スレッドずつ 8 並列で実行した（時間は手元の計算で、記録の測定ではない）。
 
@@ -1084,9 +1082,9 @@ MT103 と MT107 は MT600 と MT800 と同じ最大。範囲の外は、どの�
 
 - 5 評価は終了コード 0 で終わる（VII.1、VIII.0、VIII.1 の Cl-35 は 11 秒、VIII.0、VIII.1 の Ca-40 は 14 秒）。Ca-40 の 0 K の再構成（7.5 秒）の
   85% は透過因子（perf、手元）。VIII.0 と VIII.1 の Ca-40 の出力はバイトで同じ
-- 5 評価の出力は、main に rebase する前（分岐点 74a54401 の上の同じコード）の bin の出力とバイトで同じ
+- 5 評価の出力と 2 つの比べるツールの出力は、main に rebase する前（分岐点 74a54401 と 6af59212 の上の同じコード）とバイトで同じ
 - 既存の形の出力は変わらない: VIII.0 の Fe-54、Fe-57、Cu-63 と VIII.1 の Cu-65、Pu-239、V-51、Rh-103、Si-29、W-183、Cu-63、Sr-88（どれも
-  LRF=7 で荷電粒子の対を持たない）の出力は、分岐点 6af59212 の `cargo build --release` の bin の出力とバイトで同じ（74a54401 の bin とも同じ）
+  LRF=7 で荷電粒子の対を持たない）の出力は、分岐点 8e2b6c91 の `cargo build --release` の bin の出力とバイトで同じ（74a54401、6af59212 の bin とも同じ）
 - VII.0 の Cl-35 は LRF=7 でなく、MF3 の弾性散乱が 1e-5 eV で負で止まる（#0309）
 
 ## 版ごとのライブラリの負の分離共鳴の弾性散乱
