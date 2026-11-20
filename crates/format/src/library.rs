@@ -24,7 +24,7 @@
 //! ```
 //!
 //! `pointwise` の nil は、UFG で解かない核種（xs の `pointwise = false`）がポイントワイズの断面積を持たないこと（ADR-0269）で、核種の
-//! すべての温度で nil か、すべてで持つ。
+//! すべての温度で nil か、すべてで持つ。S(α, β) の核種（減速材の核種で UFG で解く）は nil にしない。
 //!
 //! 遅発中性子の族のデータ（ADR-0238）は、ENDF の MF1 MT455 と MF5 MT455 の両方を持つ評価だけが持つ。`activation` は輸送しない
 //! 核種（放射化の核種）の、チェーンの反応と核分裂の無限希釈の群の断面積で、格子計算は輸送せず、冷却計算の 1 群の微視的断面積に使う。
@@ -752,11 +752,11 @@ fn interpolate(
         }),
         _ => return Err("the two temperatures have different delayed neutron families".into()),
     };
-    let pointwise = match (&low.pointwise, &high.pointwise) {
-        (Some(p), Some(q)) => Some(interpolate_pointwise(p, q, f)?),
-        (None, None) => None,
-        _ => return Err("only one of the two temperatures has pointwise data".into()),
+    // 内挿するのは S(α, β) の核種だけで、それはポイントワイズの断面積を持つ（`NuclideData::check`）
+    let (Some(p), Some(q)) = (&low.pointwise, &high.pointwise) else {
+        return Err("S(α, β) temperatures need their pointwise data".into());
     };
+    let pointwise = Some(interpolate_pointwise(p, q, f)?);
     Ok(TemperatureData {
         temperature,
         chi: mix(&low.chi, &high.chi),
@@ -1302,15 +1302,10 @@ impl NuclideData {
             }
             match &t.pointwise {
                 Some(p) => p.check(range).map_err(at)?,
-                // 持たない核種は UFG で解かない核種（ADR-0269）で、UFG だけが読む S(α, β) の移行も持たない。S(α, β) の核種は
-                // 減速材の核種で UFG で解く（ADR-0268）ので、範囲のあるライブラリでは持つ
+                // 持たない核種は UFG で解かない核種（ADR-0269）。S(α, β) の核種は減速材の核種で UFG で解く（ADR-0268）ので持つ
+                // （範囲の無いライブラリでは空の表）。S(α, β) の移行は S(α, β) の核種だけが持つ（下）ので、持たない核種は持たない
                 None => {
-                    if t.sab_transfer.is_some() {
-                        return Err(at(
-                            "an S(α, β) transfer needs the pointwise data of the nuclide".into(),
-                        ));
-                    }
-                    if self.thermal_scattering && range.is_some() {
+                    if self.thermal_scattering {
                         return Err(at(
                             "S(α, β) nuclides are solved by the UFG and need their pointwise data"
                                 .into(),
