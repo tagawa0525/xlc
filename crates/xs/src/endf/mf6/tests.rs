@@ -317,7 +317,7 @@ fn angle_energy(lct: &str, mu_int: &str) -> String {
         r(["0.0", "4.0e-7", "1.0e6", "4.0e-7", "", ""]),
         r(["0.0", "1.0", "0", "0", "1", "3"]),
         r(["3", "2", "", "", "", ""]),
-        r(["0.0", "0.0", "5.0e5", "8.0e-7", "8.0e5", "0.0"]),
+        r(["0.0", "0.0", "5.0e5", "2.5e-6", "8.0e5", "0.0"]),
         // E = 3e6: 余弦 2 点、E' はヒストグラム
         r(["0.0", "3.0e6", "0", "0", "1", "2"]),
         r(["2", mu_int, "", "", "", ""]),
@@ -326,7 +326,7 @@ fn angle_energy(lct: &str, mu_int: &str) -> String {
         r(["0.0", "1.0e-7", "1.0e6", "3.0e-7", "2.0e6", "0.0"]),
         r(["0.0", "1.0", "0", "0", "1", "3"]),
         r(["3", "1", "", "", "", ""]),
-        r(["0.0", "5.0e-7", "5.0e5", "2.0e-7", "2.0e6", "0.0"]),
+        r(["0.0", "6.0e-7", "5.0e5", "2.0e-7", "2.0e6", "0.0"]),
     ]
     .concat()
 }
@@ -359,43 +359,40 @@ fn law7_neutrons_integrate_the_cosines_into_a_laboratory_spectrum() {
     };
     let low = &d.spectra[0];
     close(low, 0.0, 5.0e-7);
-    close(low, 2.5e5, 5.0e-7 + 0.5 * 4.0e-7);
-    close(low, 5.0e5, 5.0e-7 + 0.5 * 8.0e-7);
-    close(low, 6.5e5, 5.0e-7 + 0.5 * 4.0e-7);
+    close(low, 2.5e5, 5.0e-7 + 0.5 * 1.25e-6);
+    close(low, 5.0e5, 5.0e-7 + 0.5 * 2.5e-6);
+    close(low, 6.5e5, 5.0e-7 + 0.5 * 1.25e-6);
     close(low, 9.0e5, 5.0e-7);
     close(low, 1.0e6, 5.0e-7);
     // E = 3e6: 重みは 1、1。ヒストグラムの段は E' の両方の表の区切りで変わる
     let high = &d.spectra[1];
-    close(high, 0.0, 6.0e-7);
-    close(high, 2.5e5, 6.0e-7);
+    close(high, 0.0, 7.0e-7);
+    close(high, 2.5e5, 7.0e-7);
     close(high, 7.5e5, 3.0e-7);
     close(high, 1.5e6, 5.0e-7);
     // 段の値は右の値（Tab1 の不連続点の規約）で、左の値は段の手前に残る
     close(high, 5.0e5, 3.0e-7);
     close(high, 1.0e6, 5.0e-7);
-    close(high, 5.0e5 * (1.0 - 1e-12), 6.0e-7);
+    close(high, 5.0e5 * (1.0 - 1e-12), 7.0e-7);
     close(high, 1.0e6 * (1.0 - 1e-12), 3.0e-7);
-    // 和（台形で厳密）: 0.5e6 × 6e-7 + 0.5e6 × 3e-7 + 1e6 × 5e-7
     let integral: f64 = high
         .x
         .windows(2)
         .zip(high.y.windows(2))
         .map(|(x, y)| 0.5 * (x[1] - x[0]) * (y[0] + y[1]))
         .sum();
-    assert!((integral - 0.95).abs() < 1e-12, "{integral}");
+    // 和（台形で厳密）: 0.5e6 × 7e-7 + 0.5e6 × 3e-7 + 1e6 × 5e-7 = 1（ENDF-102 の式 6.2 の規格化）
+    assert!((integral - 1.0).abs() < 1e-12, "{integral}");
 }
 
 #[test]
 fn law7_histogram_cosines_weight_the_left_tables() {
-    // 余弦のヒストグラムでは、区間 [μ_i, μ_(i+1)) の値は左の表。E = 2e6 の重みは 1、1、0
+    // 余弦のヒストグラムでは、区間 [μ_i, μ_(i+1)) の値は左の表。E = 2e6 の重みは 1、1、0 で、
+    // ∫∫ f = 2e-7 × 1e6 + 4e-7 × 1e6 = 0.6（台形なら 1）。規格化に足りないのでエラーになり、その値を示す
     let tape = Tape::parse(&angle_energy("1", "1")).unwrap();
-    let mf6 = Mf6::parse(&tape.section(825, 6, 16).unwrap()).unwrap();
-    let NeutronSpectrum::Tabulated(d) = &mf6.neutrons[0].spectrum else {
-        panic!("LAW=7 becomes a table");
-    };
-    assert!((d.spectra[0].eval(5.0e5).unwrap() - 6.0e-7).abs() < 1e-18);
-    // E = 3e6 の重みは 2、0
-    assert!((d.spectra[1].eval(2.5e5).unwrap() - 2.0e-7).abs() < 1e-18);
+    let err = Mf6::parse(&tape.section(825, 6, 16).unwrap()).unwrap_err();
+    assert_eq!(err.line, 7, "{err}");
+    assert!(err.message.contains("integrates to 0.600000"), "{err}");
 }
 
 #[test]
@@ -417,21 +414,59 @@ fn law7_cosine_interpolation_other_than_histogram_or_linear_is_error() {
     assert_eq!(err.line, 7, "{err}");
 }
 
+/// 中性子が LAW=7 で、入射エネルギー 2e6 と 3e6 のどちらも余弦が `mu0` と 1 の 2 つ、E' の表は 0〜1e6 eV で一定の `value` の節。
+/// ∫∫ f = (1 − mu0) × value × 1e6
+fn cosine_pair(mu0: &str, value: &str) -> String {
+    let energy = |e: &str| {
+        let table = |mu: &str| {
+            [
+                r(["0.0", mu, "0", "0", "1", "2"]),
+                r(["2", "2", "", "", "", ""]),
+                r(["0.0", value, "1.0e6", value, "", ""]),
+            ]
+            .concat()
+        };
+        [
+            r(["0.0", e, "0", "0", "1", "2"]),
+            r(["2", "2", "", "", "", ""]),
+            table(mu0),
+            table("1.0"),
+        ]
+        .concat()
+    };
+    [
+        r(["4009.0", "8.93478", "0", "1", "1", "0"]),
+        r(["1.0", "1.0", "0", "7", "1", "2"]),
+        r(["2", "2", "", "", "", ""]),
+        r(["2.0e6", "2.0", "3.0e6", "2.0", "", ""]),
+        r(["0.0", "0.0", "0", "0", "1", "2"]),
+        r(["2", "2", "", "", "", ""]),
+        energy("2.0e6"),
+        energy("3.0e6"),
+    ]
+    .concat()
+}
+
 #[test]
-fn law7_cosines_over_part_of_the_range_integrate_what_is_given() {
-    // ENDF-102 の 6.2.9 は、余弦が出射の粒子に開いた範囲（重心が速いと前方の円錐 μ_min〜1）を覆うことだけを求める。
-    // E = 2e6 の余弦を −0.5、0、1 にすると、台形の重みは 0.25、0.75、0.5
-    let text = angle_energy("1", "2").replacen("       -1.0", "       -0.5", 1);
-    let tape = Tape::parse(&text).unwrap();
+fn law7_forward_cone_normalized_to_one_passes() {
+    // ENDF-102 の 6.2.9 は、余弦が出射の粒子に開いた範囲（前方の円錐 μ_min〜1 でもよい）を覆うことを求める。
+    // 0〜1 の円錐で f = 1e-6 なら ∫∫ f = 1 で、式 6.2 の規格化を満たす
+    let tape = Tape::parse(&cosine_pair("0.0", "1.0e-6")).unwrap();
     let mf6 = Mf6::parse(&tape.section(825, 6, 16).unwrap()).unwrap();
     let NeutronSpectrum::Tabulated(d) = &mf6.neutrons[0].spectrum else {
         panic!("LAW=7 becomes a table");
     };
-    let expected = 0.25 * 2.0e-7 + 0.75 * 4.0e-7;
-    assert!((d.spectra[0].eval(0.0).unwrap() - expected).abs() < 1e-18);
-    // E' = 5e5 では μ = 1 の表が 8e-7 で、最後の余弦の重み 0.5 も効く
-    let expected = 0.25 * 2.0e-7 + 0.75 * 4.0e-7 + 0.5 * 8.0e-7;
-    assert!((d.spectra[0].eval(5.0e5).unwrap() - expected).abs() < 1e-18);
+    assert!((d.spectra[0].eval(5.0e5).unwrap() - 1.0e-6).abs() < 1e-18);
+}
+
+#[test]
+fn law7_distribution_short_of_one_is_error() {
+    // 開いた範囲の一部を欠いた分布は和が 1 に足りず、中性子を黙って失うので、入射エネルギーと積分の値を示して止める
+    let tape = Tape::parse(&cosine_pair("0.5", "1.0e-6")).unwrap();
+    let err = Mf6::parse(&tape.section(825, 6, 16).unwrap()).unwrap_err();
+    assert_eq!(err.line, 7, "{err}");
+    assert!(err.message.contains("integrates to 0.500000"), "{err}");
+    assert!(err.message.contains("2e6"), "{err}");
 }
 
 #[test]
