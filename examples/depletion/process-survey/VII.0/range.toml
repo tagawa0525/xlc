@@ -55,6 +55,7 @@ Ti-47 = { endf = "n-022_Ti_047.endf", temperatures = [565] }
 Ti-48 = { endf = "n-022_Ti_048.endf", temperatures = [565] }
 Ti-49 = { endf = "n-022_Ti_049.endf", temperatures = [565] }
 Ti-50 = { endf = "n-022_Ti_050.endf", temperatures = [565] }
+V-50 = { endf = "n-023_V_000.endf", temperatures = [565] }
 Cr-50 = { endf = "n-024_Cr_050.endf", temperatures = [565] }
 Cr-52 = { endf = "n-024_Cr_052.endf", temperatures = [565] }
 Cr-53 = { endf = "n-024_Cr_053.endf", temperatures = [565] }
@@ -75,6 +76,7 @@ Ni-62 = { endf = "n-028_Ni_062.endf", temperatures = [565] }
 Ni-64 = { endf = "n-028_Ni_064.endf", temperatures = [565] }
 Cu-63 = { endf = "n-029_Cu_063.endf", temperatures = [565] }
 Cu-65 = { endf = "n-029_Cu_065.endf", temperatures = [565] }
+Zn-64 = { endf = "n-030_Zn_000.endf", temperatures = [565] }
 Ga-69 = { endf = "n-031_Ga_069.endf", temperatures = [565] }
 Ga-71 = { endf = "n-031_Ga_071.endf", temperatures = [565] }
 Ge-70 = { endf = "n-032_Ge_070.endf", temperatures = [565] }
@@ -339,6 +341,7 @@ Th-233 = { endf = "n-090_Th_233.endf", temperatures = [565] }
 Th-234 = { endf = "n-090_Th_234.endf", temperatures = [565] }
 Pa-232 = { endf = "n-091_Pa_232.endf", temperatures = [565] }
 U-232 = { endf = "n-092_U_232.endf", temperatures = [565] }
+U-233 = { endf = "n-092_U_233.endf", temperatures = [565] }
 U-234 = { endf = "n-092_U_234.endf", temperatures = [565] }
 U-235 = { endf = "n-092_U_235.endf", temperatures = [565] }
 U-236 = { endf = "n-092_U_236.endf", temperatures = [565] }
