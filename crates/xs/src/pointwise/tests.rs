@@ -198,19 +198,33 @@ fn nonzero_values_below_q_are_an_error() {
 #[test]
 fn negative_broadened_cross_sections_are_an_error() {
     // ドップラー拡がりの格子の判定は正の値を前提にし、負の区間を際限なく分ける。広げる上限（分離共鳴の無い核種では 6.5 MeV）より
-    // 下の負の値は、0 K の再構成で止める。上限より上の値は広げないので、ここでは止めない
-    let full = ["1.0-5", "2.0+7"];
-    let tape = |capture: [&str; 2]| {
+    // 下の負の値は、表の点の値でも、上限の点をまたぐ区間の補間の値でも、0 K の再構成で止める。上限より上の値は広げないので、
+    // ここでは止めない（#0309）
+    let tape = |capture: ([&str; 2], [&str; 2])| {
         let text = [
-            mf3_section(2, full, ["10.0", "10.0"]),
-            mf3_section(102, full, capture),
+            mf3_section(2, ["1.0-5", "2.0+7"], ["10.0", "10.0"]),
+            mf3_section(102, capture.0, capture.1),
         ]
         .concat();
         Tape::parse(&text).unwrap()
     };
-    let error = ColdParts::read(&tape(["-1.0", "1.0"]), 1, 1.0e-3).unwrap_err();
+    let below = tape((["1.0-5", "2.0+7"], ["-1.0", "1.0"]));
+    let error = ColdParts::read(&below, 1, 1.0e-3).unwrap_err();
     assert!(error.message.contains("MT102"), "{error}");
-    assert!(ColdParts::read(&tape(["1.0", "-1.0"]), 1, 1.0e-3).is_ok());
+    // 0 になる 5.25 MeV から上限の 6.5 MeV までは、表の点の間の補間の値が負（上限より下の表の点はどれも正）
+    let across = tape((["1.0-5", "7.0+6"], ["3.0", "-1.0"]));
+    assert!(ColdParts::read(&across, 1, 1.0e-3).is_err());
+    // 0 になる 10 MeV が上限より上なら、広げる値はどれも正で、拡がりの格子は止まる
+    let above = tape((["1.0-5", "2.0+7"], ["1.0", "-1.0"]));
+    let hot = ColdParts::read(&above, 1, 1.0e-3).unwrap().at(565.0);
+    let capture = &hot[&102];
+    assert!(
+        capture
+            .x
+            .iter()
+            .zip(&capture.y)
+            .all(|(e, v)| *e >= crate::doppler::MAX_LIMIT || *v >= 0.0)
+    );
 }
 
 #[test]
