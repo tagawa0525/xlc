@@ -2,7 +2,7 @@
 //!
 //! 使い方: compare_njoy_rml_points <ENDF> <PENDF> <MAT>
 //!
-//! LRF=7 の範囲の中の PENDF の各エネルギー点で、`RMatrixLimitedXs` の値に MF3 のバックグラウンドを足したものと
+//! LRF=7 の範囲の中の PENDF の各エネルギー点で、`RMatrixLimitedXs` の値に MF3 のバックグラウンド（無いか点を覆わなければエラー）を足したものと
 //! NJOY の値の相対差を求め、反応（MT1、2、102）ごとに最大値を表示する。`compare_njoy_pendf` は線形化した表を比べるので、
 //! 差が R 行列の式から来るか、線形化の格子から来るかをこれで分ける。
 
@@ -29,17 +29,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let reference = Tape::parse(&std::fs::read_to_string(pendf)?)?;
     // `cross_sections` の並び（全断面積、弾性散乱、捕獲）
     for (column, mt) in [1, 2, 102].into_iter().enumerate() {
-        let background = match tape.section(mat, 3, mt) {
-            Some(s) => Some(Mf3::parse(&s)?.sigma),
-            None => None,
-        };
+        let background =
+            Mf3::parse(&tape.section(mat, 3, mt).ok_or("no MT in the ENDF MF3")?)?.sigma;
         let njoy = Mf3::parse(&reference.section(mat, 3, mt).ok_or("no MT in PENDF")?)?.sigma;
         let (mut compared, mut worst, mut at) = (0, 0.0_f64, 0.0);
         for (&e, &expected) in njoy.x.iter().zip(&njoy.y) {
             if e < range.el || e >= range.eh || expected <= 0.0 {
                 continue;
             }
-            let bkg = background.as_ref().and_then(|b| b.eval(e)).unwrap_or(0.0);
+            let bkg = background
+                .eval(e)
+                .ok_or_else(|| format!("MF3 MT{mt} does not cover {e} eV"))?;
             let actual = xs.cross_sections(e)?[column] + bkg;
             let rel = ((actual - expected) / expected).abs();
             compared += 1;
