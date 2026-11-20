@@ -9,8 +9,8 @@
    },
    "outside_chain": {
     "evaluations": 3,
-    "readable": 1,
-    "stopped": 2
+    "readable": 3,
+    "stopped": 0
    },
    "chain_nuclides": 3837,
    "chain_without_file": 3447,
@@ -24,16 +24,6 @@
      "file": "n-004_Be_009.endf",
      "nuclide": "Be-9",
      "reason": "neutron LAW=7 is not supported"
-    },
-    {
-     "file": "n-023_V_000.endf",
-     "nuclide": null,
-     "reason": "NIS=2 isotopes are not supported"
-    },
-    {
-     "file": "n-030_Zn_000.endf",
-     "nuclide": null,
-     "reason": "NIS=5 isotopes are not supported"
     },
     {
      "file": "n-037_Rb_087.endf",
@@ -261,16 +251,6 @@
     "Be-9"
    ]
   },
-  "NIS=2 isotopes are not supported": {
-   "VII.0": [
-    "n-023_V_000.endf"
-   ]
-  },
-  "NIS=5 isotopes are not supported": {
-   "VII.0": [
-    "n-030_Zn_000.endf"
-   ]
-  },
   "last NBT must equal NP": {
    "VII.0": [
     "Rb-87"
@@ -424,7 +404,7 @@
  "inputs": [
   {
    "path": "read-survey-endfb70.toml",
-   "md5": "d38b4dd07e57807bd699e1b961584167"
+   "md5": "19cc1c83a1be615317bd96847f58caba"
   },
   {
    "path": "endfb70/chain.msgpack",

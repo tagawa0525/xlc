@@ -267,7 +267,7 @@ python3 examples/depletion/read_survey.py --report examples/depletion/read-surve
 
 | 版     | チェーンの評価 | 読めた | 止まった | チェーンの外の評価 | 読めた | 止まった | ファイルの無いチェーンの核種 |
 | ------ | -------------- | ------ | -------- | ------------------ | ------ | -------- | ---------------------------- |
-| VII.0  | 390            | 383    | 7        | 3                  | 1      | 2        | 3447 / 3837                  |
+| VII.0  | 390            | 383    | 7        | 3                  | 3      | 0        | 3447 / 3837                  |
 | VII.1  | 422            | 415    | 7        | 1                  | 1      | 0        | 3398 / 3820                  |
 | VIII.0 | 556            | 549    | 7        | 1                  | 1      | 0        | 3264 / 3820                  |
 | VIII.1 | 557            | 547    | 10       | 1                  | 1      | 0        | 3263 / 3820                  |
@@ -285,8 +285,6 @@ python3 examples/depletion/read_survey.py --report examples/depletion/read-surve
 | ---------------------------------------------------------------------------- | ---------------------- | ---------------------- | ---------------------- | ---------------------- |
 | neutron LAW=6 is not supported                                               | H-2                    | H-2                    | H-2                    | H-2、Li-6              |
 | neutron LAW=7 is not supported                                               | Be-9                   | Be-9                   | Be-9                   | Be-9                   |
-| NIS=2 isotopes are not supported                                             | n-023_V_000.endf       | –                      | –                      | –                      |
-| NIS=5 isotopes are not supported                                             | n-030_Zn_000.endf      | –                      | –                      | –                      |
 | last NBT must equal NP                                                       | Rb-87                  | –                      | –                      | –                      |
 | fission needs MF1 MT452 and MF5 MT18                                         | Th-232、Pa-231、Pa-233 | Th-232、Pa-231、Pa-233 | Th-232、Pa-231、Pa-233 | Th-232、Pa-231、Pa-233 |
 | LF=11 is not supported                                                       | U-233                  | U-233                  | –                      | –                      |
