@@ -304,8 +304,12 @@ def from_index(root, xlc, tmp):
         if t.file.exists():
             present.append(t)
             continue
-        entries = git_bytes(root, "ls-files", "-s", "-z", "--", t.path).split(b"\0")[
-            :-1
+        # パスの指定はその名前のディレクトリの下の項にも当たるので、パスが同じ項だけを取る
+        listed = git_bytes(root, "ls-files", "-s", "-z", "--", t.path).split(b"\0")
+        entries = [
+            info.split()
+            for info, _, path in (e.partition(b"\t") for e in listed)
+            if path == t.path.encode()
         ]
         if not entries:
             missing.append(
@@ -316,7 +320,7 @@ def from_index(root, xlc, tmp):
                 )
             )
             continue
-        mode, oid, stage = entries[0].split(b"\t", 1)[0].decode().split()
+        mode, oid, stage = (field.decode() for field in entries[0])
         if len(entries) != 1 or stage != "0":
             raise Stop(f"{t.path} は git の index で衝突している（マージを解いてから）")
         if mode not in ("100644", "100755"):
