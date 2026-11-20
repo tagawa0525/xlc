@@ -44,8 +44,78 @@ TOP = 5
 TIMED_OUT = "timed out"
 FREE_NEUTRON = "中性子（Z = 0）の評価で、輸送する標的の核種でない"
 
-# 止まった文（行番号と核種の名前を除いたもの）の正規表現 → (原因の分類, 止まる場所, issue)。最初に合うもの
-CAUSES: list[tuple[str, str, str, str]] = []
+# 止まった文（行番号と核種の名前を除いたもの）の正規表現 → (原因の分類, 止まる場所（crates/xs/src から）, issue)。最初に合うもの。
+# 場所は止まった文を出す関数（2026-11-20 の xs のコード）
+CAUSES: list[tuple[str, str, str, str]] = [
+    (
+        r"neutron LAW=[67] is not supported",
+        "MF6 の中性子の LAW=6、7 を読めない",
+        "endf/mf6.rs の parse",
+        "#0311",
+    ),
+    (
+        r"NIS=\d+ isotopes are not supported",
+        "MF2 の複数の同位体（NIS > 1）を読めない",
+        "endf/mf2.rs の parse",
+        "#0305",
+    ),
+    (
+        r"last NBT must equal NP",
+        "MF5 MT17 の TAB1 の補間の区切りが点の数と食い違う（評価の誤り）",
+        "endf/tape.rs の tab1",
+        "#0316",
+    ),
+    (
+        r"fission needs MF1 MT452 and MF5 MT18",
+        "核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない",
+        "process.rs の at_temperature",
+        "#0312",
+    ),
+    (
+        r"LF=11 is not supported",
+        "MF5 の LF=11（エネルギーによる Watt 分布）を読めない",
+        "endf/mf5.rs の parse",
+        "#0313",
+    ),
+    (
+        r"the shift factor \(SHF=",
+        "R 行列の制限形のシフト因子を読めない",
+        "resonance/r_matrix_limited.rs の role",
+        "#0310",
+    ),
+    (
+        r"a charged particle \(ZA=",
+        "R 行列の制限形の荷電粒子の対を読めない",
+        "resonance/r_matrix_limited.rs の role",
+        "#0264",
+    ),
+    (
+        r"background R-matrix \(KBK=1\)",
+        "R 行列の制限形のバックグラウンドの R 行列を読めない",
+        "endf/mf2.rs の read_r_matrix_limited",
+        "#0310、#0305",
+    ),
+    (
+        r"a negative cross section cannot be broadened",
+        "広げる範囲の 0 K の断面積が負（ADR-0267 でエラー）",
+        "pointwise.rs の reject_negative_broadened",
+        "#0309",
+    ),
+    (
+        r"the sampled total cross section is not positive",
+        "非分離共鳴のラダーのサンプルの全断面積が正でない",
+        "resonance/ladder.rs の add_samples",
+        "#0319",
+    ),
+    (
+        r"non-finite value NaN",
+        "σ0 が 10 b 以下の群定数に NaN（作る計算は確かめていない）",
+        "crates/format の library.rs の NuclideData の検査",
+        "#0320",
+    ),
+]
+# 止まった段の表示: 読み込みの走査（`xs check`）でも止まるもの、処理で初めて止まるもの
+STAGES = {"reading": "走査でも止まる", "processing": "処理で初めて止まる"}
 
 FILE_NAME = re.compile(r"n-\d{3}_([A-Za-z]+)_(\d{3})(?:m(\d+))?\.endf")
 LINE = re.compile(r"^line \d+: ")
@@ -359,7 +429,7 @@ def report_text(summary: dict) -> list[str]:
     for label, v in summary["versions"].items():
         for s in v["stopped"]:
             lines.append(
-                f"- {label} {s['nuclide']}（{s['file']}、{'チェーン' if s['chain'] else 'チェーンの外'}、{s['stage']}）: "
+                f"- {label} {s['nuclide']}（{s['file']}、{'チェーン' if s['chain'] else 'チェーンの外'}、{STAGES[s['stage']]}）: "
                 f"{s['reason']} — {s['cause'] or '–'}、{s['where'] or '–'}、{s['issue'] or '–'}"
             )
     lines.append("")
