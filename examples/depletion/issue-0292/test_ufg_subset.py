@@ -150,6 +150,14 @@ class Report(unittest.TestCase):
         summary["fuel"] = "gd"
         self.assertIn("Gd s4", ufg_subset.k_table([summary]))
 
+    def test_an_untimed_set_has_a_dash_in_the_time_table(self):
+        summary = self.summary()
+        summary["cases"][1]["seconds"] = None
+        summary["cases"][1]["ratio"] = None
+        rows = ufg_subset.time_table([summary]).splitlines()[2:]
+        self.assertIn("U s4", rows[1])
+        self.assertIn("—", rows[1])
+
     def test_the_time_table_gives_seconds_and_the_ratio_to_all(self):
         text = ufg_subset.time_table([self.summary()])
         rows = text.splitlines()[2:]
@@ -175,6 +183,10 @@ class ThresholdSets(unittest.TestCase):
         self.assertEqual(sets["t1"], ["A", "B"])
         # 燃料を通じた最大の絶対値の大きい順
         self.assertEqual(sets["t0.1"], ["A", "B", "C"])
+
+    def test_the_sets_of_another_ranking_take_its_prefix(self):
+        sets = ufg_subset.threshold_sets([self.dilution([("A", 5.0)])], (1.0,), "a")
+        self.assertEqual(sets, {"a1": ["A"]})
 
     def test_the_trial_series_keeps_its_fixed_sets(self):
         self.assertIs(ufg_subset.sets("trial", Path("unused")), ufg_subset.SETS)
@@ -262,6 +274,27 @@ class AllSeries(unittest.TestCase):
             self.assertAlmostEqual(change[0], 0.0)
             self.assertAlmostEqual(change[1], 1e5 * (1 / 1.1 - 1 / 1.0))
 
+    def test_an_untimed_set_reads_no_timed_log(self):
+        # 排他のジョブでまだ解いていない組（区分 decision の k だけ）は、時間を書かず、ログを入力に挙げない
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "issue-0292"
+            self.write_series(root, ["A", "U-235"])
+            (root / "all-ufg" / "u" / "out-timed" / "t1.log").unlink()
+            d = ufg_subset.compare("u", root, "all", ALL_CASES, untimed={"t1"})
+            t1 = next(c for c in d["cases"] if c["case"] == "t1")
+            self.assertIsNone(t1["seconds"])
+            self.assertIsNone(t1["ratio"])
+            paths = [i["path"] for i in d["inputs"]]
+            self.assertNotIn("issue-0292/all-ufg/u/out-timed/t1.log", paths)
+            self.assertIn("issue-0292/all-ufg/u/out/t1.msgpack", paths)
+
+    def test_the_reference_set_must_be_timed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "issue-0292"
+            self.write_series(root, ["A", "U-235"])
+            with self.assertRaises(SystemExit):
+                ufg_subset.compare("u", root, "all", ALL_CASES, untimed={"all"})
+
     def test_a_history_transporting_other_nuclides_than_the_library_stops(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "issue-0292"
@@ -296,7 +329,8 @@ class Sources(unittest.TestCase):
         self.assertEqual(ufg_subset.set_sources("trial", root), [])
         self.assertEqual(
             ufg_subset.set_sources("all", root),
-            [root / "all" / f"dilution-{f}.json" for f in ufg_subset.FUELS],
+            [root / "all" / f"dilution-{f}.json" for f in ufg_subset.FUELS]
+            + [root / "all" / f"dilution-all-{f}.json" for f in ufg_subset.FUELS],
         )
 
 
