@@ -54,12 +54,6 @@ CAUSES: list[tuple[str, str, str, str]] = [
         "#0311",
     ),
     (
-        r"NIS=\d+ isotopes are not supported",
-        "MF2 の複数の同位体（NIS > 1）を読めない",
-        "endf/mf2.rs の parse",
-        "#0305",
-    ),
-    (
         r"last NBT must equal NP",
         "MF5 MT17 の TAB1 の補間の区切りが点の数と食い違う（評価の誤り）",
         "endf/tape.rs の tab1",
@@ -70,12 +64,6 @@ CAUSES: list[tuple[str, str, str, str]] = [
         "核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない",
         "process.rs の at_temperature",
         "#0312",
-    ),
-    (
-        r"LF=11 is not supported",
-        "MF5 の LF=11（エネルギーによる Watt 分布）を読めない",
-        "endf/mf5.rs の parse",
-        "#0313",
     ),
     (
         r"the shift factor \(SHF=",
