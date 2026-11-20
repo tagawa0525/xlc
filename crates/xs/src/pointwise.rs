@@ -534,7 +534,27 @@ impl ColdParts {
                 .or_else(|| tape.section(mat, 2, 151));
             section.map_or(0, |s| s.reader().line())
         };
-        // 引かない宣言を先に当て、引く宣言が引く先の 0 にした後の値を見るようにする（並べた順によらない）
+        // 引かない宣言を先に当て、引く宣言が引く先の 0 にした後の値を見るようにする。引く先が別の引く宣言の反応なら、当てる順で
+        // 引く先の値が変わるので止める。どちらもあって、結果は並べた順によらない
+        if let Some(chained) = negatives.iter().find(|d| {
+            // 同じ反応から引く宣言は、`raise_declared` が止める
+            d.take_from.is_some_and(|source| {
+                source != d.mt
+                    && negatives
+                        .iter()
+                        .any(|o| o.mt == source && o.take_from.is_some())
+            })
+        }) {
+            let source = chained.take_from.unwrap_or_default();
+            return Err(Error::new(
+                line(chained.mt),
+                format!(
+                    "`negative-to-zero` for MT{}: the reaction to take from, MT{source}, is also declared with \
+                     `take-from`, so the result would depend on the order",
+                    chained.mt
+                ),
+            ));
+        }
         let (plain, taking): (Vec<_>, Vec<_>) =
             negatives.iter().partition(|d| d.take_from.is_none());
         for declared in plain.into_iter().chain(taking) {
@@ -617,7 +637,7 @@ fn parts_broadening_limit(tables: &BTreeMap<u32, Tab1>, mf2: Option<&Mf2>) -> f6
 
 /// 宣言（`NegativeToZero`）の範囲の負の値を 0 にし、warn を出す。範囲に負の点が無い、表が無い、範囲が有限でないか逆転して
 /// いる宣言は、評価と合わないので文を返す（評価が替わって古くなった宣言を黙って当てない）。`take-from` は、両方の反応が全断面積に
-/// 入り、引いた後も引いた先が負にならないときだけ当てる。
+/// 入り、引く先が引く範囲で負でなく、引いた後も負にならないときだけ当てる。
 ///
 /// LSSF=0 の非分離共鳴の範囲に重なる宣言は、反応によらず止める。その範囲の自己遮蔽（`process::unresolved_shielding`）は、テープの
 /// MF3 の全断面積、弾性散乱、核分裂、捕獲をバックグラウンドに読むので、宣言が届かず、部分反応の和とも食い違う。
@@ -681,8 +701,8 @@ fn raise_declared(
                 .reduce(f64::min);
             if let Some(lowest) = already {
                 return Err(format!(
-                    "{name}: MT{source} is negative before the subtraction (down to {lowest:.3e} b); declare its \
-                     negative values too"
+                    "{name}: MT{source} is negative where the raised amount is taken (down to {lowest:.3e} b), so it \
+                     cannot give it; take it from another reaction"
                 ));
             }
             let taken = add(source_table, &subtracted);
