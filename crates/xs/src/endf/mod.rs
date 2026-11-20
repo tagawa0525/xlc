@@ -27,7 +27,7 @@ pub use mf2::{
 pub use mf3::Mf3;
 pub use mf4::{AngleTables, Angular, Distribution, LegendreTable, Mf4};
 pub use mf5::{EnergyLaw, IncidentLaw, Mf5, OutgoingDistributions, parse_outgoing};
-pub use mf6::{Frame, Mf6, NeutronEmission, NeutronSpectrum, PhaseSpace};
+pub use mf6::{Frame, Mf6, NeutronEmission, NeutronSpectrum, PhaseSpace, neutron_laws};
 pub use mf7::Mf7Incoherent;
 pub use mf8::{FinalStateEntry, final_state_table, final_states, za};
 pub use tab1::{ClampedTab1, Interpolation, Tab1};

@@ -5,7 +5,8 @@ use std::convert::Infallible;
 
 use crate::endf::{
     FinalStateEntry, Mf2, Mf3, Mf4, Mf5, Mf6, Mf7Incoherent, NeutronSpectrum, OrbitalL, RangeKind,
-    Tab1, Tape, final_state_table, final_states, parse_delayed, parse_nubar, total_nubar,
+    Tab1, Tape, final_state_table, final_states, neutron_laws, parse_delayed, parse_nubar,
+    total_nubar,
 };
 use crate::multigroup::{
     Emission, FissionNeutrons, FissionSpectrum, FreeGas, ReactionAverages, Reactions, SabError,
@@ -133,8 +134,26 @@ pub enum ProcessError {
     NoMf3,
     #[error("fission needs MF1 MT452 and MF5 or MF6 MT18")]
     FissionData,
-    #[error("prompt fission spectrum: {0}")]
-    PromptFissionSpectrum(String),
+    #[error(
+        "MF5 MT18 and the neutrons of a JPN=0 MF6 MT18 both give the average prompt fission spectrum"
+    )]
+    TwoPromptFissionSpectra,
+    #[error(
+        "MF6 MT18 with JPN={jpn} gives multiplicity probabilities and no average prompt fission spectrum, and MF5 MT18 is missing"
+    )]
+    NoAveragePromptFissionSpectrum { jpn: i64 },
+    #[error(
+        "MF6 MT18 gives {continuum} continuum neutron distributions (two-body ones: {two_body}), not one average prompt fission spectrum"
+    )]
+    PromptFissionNeutrons { continuum: usize, two_body: bool },
+    #[error(
+        "MF6 MT18 neutrons are a phase-space law, not a tabulated prompt fission spectrum (LAW=1, 7)"
+    )]
+    PromptFissionPhaseSpace,
+    #[error(
+        "MF6 MT18 neutron yield is not 1 with JPN=0 (MF1 gives the number of fission neutrons)"
+    )]
+    PromptFissionYield,
     #[error("the delayed neutron spectrum (MF5 MT455) needs MF1 {missing}")]
     DelayedFission { missing: &'static str },
     #[error("MF1 MT455 has {constants} decay constants for {spectra} family spectra in MF5 MT455")]
@@ -994,7 +1013,7 @@ pub fn fission_parts(
         if delayed.is_some() {
             xlc_log::warn!(
                 mat,
-                "MF1 MT455 has no spectrum in MF5 MT455; the delayed neutrons get the MF5 MT18 spectrum"
+                "MF1 MT455 has no spectrum in MF5 MT455; the delayed neutrons get the prompt spectrum"
             );
         }
         return Ok(nubar
@@ -1022,71 +1041,55 @@ pub fn fission_parts(
 }
 
 /// 物質 `mat` の即発の核分裂中性子の平均の分布。MF5 MT18 か、MF6 MT18 の中性子（ENDF-102 の 6.3.9.3 の JPN=0。y(E) = 1 で、数は
-/// MF1 が与える）のどちらか 1 つ。どちらもなければ `None`。
+/// MF1 が与える）のどちらか 1 つ。どちらもなければ `None`（ADR-0186）。
 ///
-/// MF6 MT18 の JPN（JP の 1 の位）が 0 でなければ、MF6 は多重度の確率 P(ν, E) で、平均の分布は MF5 MT18 にある（ENDF/B-VIII.0
-/// の U-235 は JP=11）。MF5 MT18 と、中性子を持つ JPN=0 の MF6 MT18 が両方あるとき、MF6 MT18 の中性子が表の分布（LAW=1、7）
-/// 1 つでないとき、y(E) が 1 でないとき（MF1 の ν と二重に数える）はエラー
+/// MF6 MT18 の JPN（JP の 1 の位。ENDF-102 の JPX=JPN）が 0 でなければ、MF6 は多重度の確率 P(ν, E) で、平均の分布は MF5 MT18 にある
+/// （ENDF/B-VIII.0 の U-235 は JP=11）。MF5 MT18 があるとき、JPN=0 の MF6 MT18 は中性子の分布（LAW > 0）を持つかだけを見る
+/// （分布は読まないので、MF5 MT18 で処理できる評価を MF6 の読めない形で止めない）
 pub fn prompt_fission_spectrum(
     tape: &Tape,
     mat: i32,
 ) -> Result<Option<FissionSpectrum>, ProcessError> {
     let mf5 = tape.section(mat, 5, 18);
-    let average_mf6 = match tape.section(mat, 6, 18) {
-        Some(section) => {
-            let jpn = section.reader().cont()?.l1 % 10;
-            match (jpn, &mf5) {
-                // 中性子のない（光子だけの）MF6 MT18 は分布を与えない
-                (0, _) => Some(Mf6::parse(&section)?)
-                    .filter(|mf6| !mf6.neutrons.is_empty() || mf6.two_body),
-                (_, Some(_)) => None,
-                (jpn, None) => {
-                    return Err(ProcessError::PromptFissionSpectrum(format!(
-                        "MF6 MT18 with JPN={jpn} gives multiplicity probabilities and no average \
-                         spectrum, and MF5 MT18 is missing"
-                    )));
-                }
-            }
-        }
-        None => None,
+    let Some(mf6) = tape.section(mat, 6, 18) else {
+        return mf5
+            .map(|section| Ok(FissionSpectrum::Mf5(Mf5::parse(&section)?)))
+            .transpose();
     };
-    match (mf5, average_mf6) {
-        (None, None) => Ok(None),
-        (Some(section), None) => Ok(Some(FissionSpectrum::Mf5(Mf5::parse(&section)?))),
-        (Some(_), Some(_)) => Err(ProcessError::PromptFissionSpectrum(
-            "MF5 MT18 and the neutrons of a JPN=0 MF6 MT18 both give the average spectrum".into(),
-        )),
-        (None, Some(mf6)) => {
-            let Mf6 {
-                awr,
-                neutrons,
-                two_body,
-            } = mf6;
-            let [neutron] = &neutrons[..] else {
-                return Err(ProcessError::PromptFissionSpectrum(format!(
-                    "MF6 MT18 has {} continuum neutron distributions{}, not one",
-                    neutrons.len(),
-                    if two_body { " and two-body ones" } else { "" }
-                )));
-            };
-            let NeutronSpectrum::Tabulated(distributions) = &neutron.spectrum else {
-                return Err(ProcessError::PromptFissionSpectrum(
-                    "MF6 MT18 neutrons are not a tabulated distribution (LAW=1, 7)".into(),
-                ));
-            };
-            if neutron.multiplicity.y.iter().any(|&y| y != 1.0) {
-                return Err(ProcessError::PromptFissionSpectrum(
-                    "MF6 MT18 neutron yield is not 1 with JPN=0 (MF1 gives the number)".into(),
-                ));
-            }
-            Ok(Some(FissionSpectrum::Mf6 {
-                multiplicity: neutron.multiplicity.clone(),
-                distributions: distributions.clone(),
-                frame: neutron.frame,
-                awr,
-            }))
+    let jpn = mf6.reader().cont()?.l1 % 10;
+    if let Some(section) = mf5 {
+        if jpn == 0 && neutron_laws(&mf6)?.iter().any(|&law| law > 0) {
+            return Err(ProcessError::TwoPromptFissionSpectra);
         }
+        return Ok(Some(FissionSpectrum::Mf5(Mf5::parse(&section)?)));
     }
+    if jpn != 0 {
+        return Err(ProcessError::NoAveragePromptFissionSpectrum { jpn });
+    }
+    let Mf6 {
+        awr,
+        mut neutrons,
+        two_body,
+    } = Mf6::parse(&mf6)?;
+    if neutrons.len() != 1 || two_body {
+        return Err(ProcessError::PromptFissionNeutrons {
+            continuum: neutrons.len(),
+            two_body,
+        });
+    }
+    let neutron = neutrons.remove(0);
+    let NeutronSpectrum::Tabulated(distributions) = neutron.spectrum else {
+        return Err(ProcessError::PromptFissionPhaseSpace);
+    };
+    if neutron.multiplicity.y.iter().any(|&y| y != 1.0) {
+        return Err(ProcessError::PromptFissionYield);
+    }
+    Ok(Some(FissionSpectrum::Mf6 {
+        multiplicity: neutron.multiplicity,
+        distributions,
+        frame: neutron.frame,
+        awr,
+    }))
 }
 
 /// 遅発中性子の族（ADR-0238）: MF1 MT455 の崩壊定数と ν_d(E)、MF5 MT455 の族ごとの割合と分布。

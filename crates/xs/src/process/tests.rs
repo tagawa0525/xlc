@@ -1185,7 +1185,10 @@ fn mf5_and_mf6_average_prompt_spectra_together_are_an_error() {
         &mf6_fission_section("0", "1", "1.0"),
     );
     let error = parts(&tape).unwrap_err();
-    assert!(error.to_string().contains("MF6 MT18"), "{error}");
+    assert!(
+        matches!(error, ProcessError::TwoPromptFissionSpectra),
+        "{error}"
+    );
 }
 
 #[test]
@@ -1206,7 +1209,13 @@ fn mf6_multiplicity_probabilities_without_mf5_are_an_error() {
     // JPN≠0 の MF6 MT18 は平均の分布を持たない（ENDF-102 の 6.3.9.3。平均は MF5 MT18 か JPN=0 の MF6 MT18 に要る）
     let tape = mf6_fission_tape(&[(452, "2.43")], &[], &mf6_fission_section("1", "0", "0.1"));
     let error = parts(&tape).unwrap_err();
-    assert!(error.to_string().contains("MF6 MT18"), "{error}");
+    assert!(
+        matches!(
+            error,
+            ProcessError::NoAveragePromptFissionSpectrum { jpn: 1 }
+        ),
+        "{error}"
+    );
 }
 
 #[test]
@@ -1218,7 +1227,7 @@ fn mf6_fission_neutron_yield_other_than_one_is_an_error() {
         &mf6_fission_section("0", "1", "2.43"),
     );
     let error = parts(&tape).unwrap_err();
-    assert!(error.to_string().contains("MF6 MT18"), "{error}");
+    assert!(matches!(error, ProcessError::PromptFissionYield), "{error}");
 }
 
 #[test]
