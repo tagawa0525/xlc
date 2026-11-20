@@ -1,11 +1,11 @@
-inputs: read-survey-endfb70.toml b2108c41, endfb70/chain.msgpack 5c4c8194, read-survey-endfb71.toml bee35d29, endfb71/chain.msgpack 32ee4517, read-survey-endfb80.toml 2b875fbb, chain.msgpack 1f1de180, read-survey-endfb81.toml e5cae847, endfb81/chain.msgpack 4b084932
+inputs: read-survey-endfb70.toml b2108c41, endfb70/chain.msgpack 5c4c8194, read-survey-endfb71.toml d343cbb1, endfb71/chain.msgpack 32ee4517, read-survey-endfb80.toml 665ba4e9, chain.msgpack 1f1de180, read-survey-endfb81.toml f84c15db, endfb81/chain.msgpack 4b084932
 
 | 版 | チェーンの評価 | 読めた | 止まった | チェーンの外の評価 | 読めた | 止まった | ファイルの無いチェーンの核種 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | VII.0 | 390 | 386 | 4 | 3 | 3 | 0 | 3447 / 3837 |
-| VII.1 | 422 | 418 | 4 | 1 | 1 | 0 | 3398 / 3820 |
-| VIII.0 | 556 | 551 | 5 | 1 | 1 | 0 | 3264 / 3820 |
-| VIII.1 | 557 | 552 | 5 | 1 | 1 | 0 | 3263 / 3820 |
+| VII.1 | 422 | 419 | 3 | 1 | 1 | 0 | 3398 / 3820 |
+| VIII.0 | 556 | 553 | 3 | 1 | 1 | 0 | 3264 / 3820 |
+| VIII.1 | 557 | 554 | 3 | 1 | 1 | 0 | 3263 / 3820 |
 
 ## 止まった理由（版ごとの評価）
 - last NBT must equal NP
@@ -15,13 +15,6 @@ inputs: read-survey-endfb70.toml b2108c41, endfb70/chain.msgpack 5c4c8194, read-
   - VII.1: 3（Th-232 Pa-231 Pa-233）
   - VIII.0: 3（Th-232 Pa-231 Pa-233）
   - VIII.1: 3（Th-232 Pa-231 Pa-233）
-- particle pair 3: a charged particle (ZA=1) is not supported
-  - VII.1: 1（Cl-35）
-  - VIII.0: 1（Cl-35）
-  - VIII.1: 1（Cl-35）
-- particle pair 3: a charged particle (ZA=2) is not supported
-  - VIII.0: 1（Ca-40）
-  - VIII.1: 1（Ca-40）
 
 ## 注目する 9 核種（#0292）
 - Cm-245: VII.0 readable、VII.1 readable、VIII.0 readable、VIII.1 readable

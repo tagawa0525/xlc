@@ -1,6 +1,7 @@
 //! 共鳴パラメータからの断面積の計算。
 
 mod breit_wigner;
+mod coulomb;
 mod factors;
 mod fluctuation;
 mod ladder;

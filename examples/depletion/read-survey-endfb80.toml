@@ -123,7 +123,6 @@ endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-016_S_036.endf"
 
 [[evaluation]]
 endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-017_Cl_035.endf"
-error = "line 846: particle pair 3: a charged particle (ZA=1) is not supported"
 
 [[evaluation]]
 endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-017_Cl_036.endf"
@@ -160,7 +159,6 @@ endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-019_K_041.endf"
 
 [[evaluation]]
 endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-020_Ca_040.endf"
-error = "line 828: particle pair 3: a charged particle (ZA=2) is not supported"
 
 [[evaluation]]
 endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-020_Ca_041.endf"

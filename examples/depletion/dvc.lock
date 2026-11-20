@@ -5791,7 +5791,7 @@ stages:
     deps:
     - path: ../../binary-forms/xs.md5
       hash: md5
-      md5: 65b531310541d7a4a211b9cdf2e9bd54
+      md5: ead09556377a4653c0f67bc37829eb69
       size: 33
     - path: ../../references/endf/ENDF-B-VII.0_neutrons
       hash: md5
@@ -5809,7 +5809,7 @@ stages:
     deps:
     - path: ../../binary-forms/xs.md5
       hash: md5
-      md5: 65b531310541d7a4a211b9cdf2e9bd54
+      md5: ead09556377a4653c0f67bc37829eb69
       size: 33
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons
       hash: md5
@@ -5819,15 +5819,15 @@ stages:
     outs:
     - path: read-survey-endfb80.toml
       hash: md5
-      md5: 2b875fbbcbf68a2e90c25cfad18b3837
-      size: 49302
+      md5: 665ba4e9f314799f4c5a2ac5354506af
+      size: 49142
   read-survey@endfb81:
     cmd: ../../bin/xs check read-survey-endfb81.toml 
       ../../references/endf/ENDF-B-VIII.1_neutrons/*.endf
     deps:
     - path: ../../binary-forms/xs.md5
       hash: md5
-      md5: 65b531310541d7a4a211b9cdf2e9bd54
+      md5: ead09556377a4653c0f67bc37829eb69
       size: 33
     - path: ../../references/endf/ENDF-B-VIII.1_neutrons
       hash: md5
@@ -5837,15 +5837,15 @@ stages:
     outs:
     - path: read-survey-endfb81.toml
       hash: md5
-      md5: e5cae847834baeb24a979e4fa4450594
-      size: 49392
+      md5: f84c15db015cf7091f340d81e15f72d5
+      size: 49232
   read-survey@endfb71:
     cmd: ../../bin/xs check read-survey-endfb71.toml 
       ../../references/endf/ENDF-B-VII.1_neutrons/*.endf
     deps:
     - path: ../../binary-forms/xs.md5
       hash: md5
-      md5: 65b531310541d7a4a211b9cdf2e9bd54
+      md5: ead09556377a4653c0f67bc37829eb69
       size: 33
     - path: ../../references/endf/ENDF-B-VII.1_neutrons
       hash: md5
@@ -5855,8 +5855,8 @@ stages:
     outs:
     - path: read-survey-endfb71.toml
       hash: md5
-      md5: bee35d291ab45d6979480bffc9f75372
-      size: 36995
+      md5: d343cbb1521cbf5d16d39a6dbdd60045
+      size: 36915
   read-survey-summary:
     cmd: python3 read_survey.py --json read-survey.json 
       VII.0=read-survey-endfb70.toml,endfb70/chain.msgpack 
@@ -5890,25 +5890,25 @@ stages:
       size: 34351
     - path: read-survey-endfb71.toml
       hash: md5
-      md5: bee35d291ab45d6979480bffc9f75372
-      size: 36995
+      md5: d343cbb1521cbf5d16d39a6dbdd60045
+      size: 36915
     - path: read-survey-endfb80.toml
       hash: md5
-      md5: 2b875fbbcbf68a2e90c25cfad18b3837
-      size: 49302
+      md5: 665ba4e9f314799f4c5a2ac5354506af
+      size: 49142
     - path: read-survey-endfb81.toml
       hash: md5
-      md5: e5cae847834baeb24a979e4fa4450594
-      size: 49392
+      md5: f84c15db015cf7091f340d81e15f72d5
+      size: 49232
     outs:
     - path: read-survey.json
       hash: md5
-      md5: 36810e78ed01cd08a7ccc18a99d02aaa
-      size: 6345
+      md5: 5d3335f429077d7f0e139f2729e286fd
+      size: 5294
     - path: read-survey.txt
       hash: md5
-      md5: a4a0ac4e796618a9e8e7288cd79ec524
-      size: 1968
+      md5: f9d0b306c3b9fb0d01995075ce1c3af8
+      size: 1720
   natural-isotopes@endfb70:
     cmd: python3 check_natural_isotopes.py endfb70/chain.toml 
       endfb70/chain.msgpack endfb70/xs.toml > endfb70/natural-isotopes.txt
