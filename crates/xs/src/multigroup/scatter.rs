@@ -604,7 +604,9 @@ fn emission_rows(
                 Grouped::Table(grouped)
             }
             NeutronSpectrum::PhaseSpace(space) => {
-                Grouped::PhaseSpace(*space, q.ok_or(ScatterError::QValue(mt))?)
+                let q = q.ok_or(ScatterError::QValue(mt))?;
+                breakpoints.extend(phase_space_kinks(groups, space, data.awr, q));
+                Grouped::PhaseSpace(*space, q)
             }
         };
         let part = group_integrals_multi(groups, weight, &breakpoints, ng, |e, out| {
@@ -629,6 +631,50 @@ fn emission_rows(
         }
     }
     Ok(rows)
+}
+
+/// 位相空間分布の実験室系の出射エネルギーの範囲の端 (√E_max ± √Ec)² が群境界を横切る入射エネルギーと、しきい値
+/// −Q (A+1)/A（E_max = 0）。群ごとの割合はここで折れ曲がるので、積分区間の境界に入れる。
+fn phase_space_kinks(groups: &GroupStructure, space: &PhaseSpace, awr: f64, q: f64) -> Vec<f64> {
+    let bounds = groups.bounds();
+    let (lowest, highest) = (bounds[groups.len()], bounds[0]);
+    let threshold = if q < 0.0 { -q * (awr + 1.0) / awr } else { 0.0 };
+    let start = threshold.max(lowest);
+    if start >= highest {
+        return vec![];
+    }
+    let mut kinks = vec![start];
+    let ends = |e: f64| {
+        let (top, c) = (
+            space.max_energy(e, awr, q).max(0.0).sqrt(),
+            (e / (awr + 1.0).powi(2)).sqrt(),
+        );
+        ((top - c).powi(2), (top + c).powi(2))
+    };
+    // 下端は E について単調とは限らない（E_max が Ec を超えるところで 0 に触れる）ので、標本点で符号の変化を探す
+    const SAMPLES: usize = 400;
+    let energy = |i: usize| start * (highest / start).powf(i as f64 / SAMPLES as f64);
+    for &b in bounds {
+        for end in [|r: (f64, f64)| r.0, |r: (f64, f64)| r.1] {
+            let f = |e: f64| end(ends(e)) - b;
+            for i in 0..SAMPLES {
+                let (mut a, mut c) = (energy(i), energy(i + 1));
+                if f(a).signum() == f(c).signum() {
+                    continue;
+                }
+                for _ in 0..60 {
+                    let m = 0.5 * (a + c);
+                    if f(m).signum() == f(a).signum() {
+                        a = m;
+                    } else {
+                        c = m;
+                    }
+                }
+                kinks.push(0.5 * (a + c));
+            }
+        }
+    }
+    kinks
 }
 
 /// MF6 の中性子の出射分布を群に振り分けるもの
