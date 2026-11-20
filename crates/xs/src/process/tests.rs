@@ -1058,6 +1058,126 @@ fn delayed_nubar_is_not_read_without_its_spectrum() {
     assert_eq!(nubar_values(&parts(&tape).unwrap()), vec![2.72]);
 }
 
+/// MF6 MT18 の節（実験室系、中性子 1 つ）。`jp` は JP、`law` は中性子の LAW、`multiplicity` は y(E)（一定）。LAW=1 の分布は、
+/// 入射エネルギー 1e-5 eV と 2e7 eV のどちらでも 0.5〜1.5 MeV の一様な密度（積分がちょうど 1）
+fn mf6_fission_section(jp: &str, law: &str, multiplicity: &str) -> String {
+    use crate::endf::rec;
+    let r = |f: [&str; 6]| rec(f, 1, 6, 18);
+    let mut lines = vec![
+        r(["9.223500+4", "2.330248+2", jp, "1", "1", "0"]),
+        r(["1.0", "1.0", "0", law, "1", "2"]),
+        r(["2", "2", "", "", "", ""]),
+        r(["1.0-5", multiplicity, "2.0+7", multiplicity, "", ""]),
+    ];
+    if law == "1" {
+        lines.push(r(["0.0", "0.0", "1", "2", "1", "2"]));
+        lines.push(r(["2", "22", "", "", "", ""]));
+        for e in ["1.0-5", "2.0+7"] {
+            lines.push(r(["0.0", e, "0", "0", "4", "2"]));
+            lines.push(r(["5.0+5", "1.0-6", "1.5+6", "1.0-6", "", ""]));
+        }
+    }
+    lines.concat()
+}
+
+/// MF1 の `nubar` の MT、MF5 の `spectra` の MT（`fission_tape` と同じ分布）と、MF6 MT18 の節 `mf6` のテープ。
+fn mf6_fission_tape(nubar: &[(u32, &str)], spectra: &[u32], mf6: &str) -> Tape {
+    use crate::endf::mf5_tests::two_point_mf5_for;
+    let mut text: String = nubar
+        .iter()
+        .map(|&(mt, nu)| nubar_section(mt, nu))
+        .collect();
+    for &mt in spectra {
+        text += &two_point_mf5_for(
+            mt,
+            "1",
+            ("1.0+6", "2.0+7", "5.263158-8"),
+            ("1.0+6", "2.0+7", "5.263158-8"),
+        );
+    }
+    text += mf6;
+    Tape::parse(&text).unwrap()
+}
+
+/// 群 [2e7, 1e6, 1e-5] eV、σf = 1 の χ
+fn chi_of(parts: &[FissionNeutrons]) -> Vec<f64> {
+    let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e-5]).unwrap();
+    let fission = Tab1::linear(vec![1.0e-5, 2.0e7], vec![1.0, 1.0]);
+    fission_spectrum(&groups, &Weight::lwr(), &fission, parts)
+}
+
+#[test]
+fn mf6_prompt_spectrum_without_delayed_data_carries_all_neutrons() {
+    // ENDF-102 の 6.3.9.3（JPN=0）: MF6 MT18 は y(E) = 1 の平均の分布で、数は MF1 が与える
+    let tape = mf6_fission_tape(&[(452, "2.43")], &[], &mf6_fission_section("0", "1", "1.0"));
+    let parts = parts(&tape).unwrap();
+    assert_eq!(nubar_values(&parts), vec![2.43]);
+    let chi = chi_of(&parts);
+    assert!((chi[0] - 0.5).abs() < 1e-9, "{chi:?}");
+    assert!((chi[1] - 0.5).abs() < 1e-9, "{chi:?}");
+}
+
+#[test]
+fn mf6_prompt_neutrons_take_the_mt456_nubar_beside_the_delayed_ones() {
+    // Th-232、Pa-231、Pa-233 の形: MF1 MT452、455、456 と MF5 MT455、MF6 MT18。遅発（MF5 MT455）はすべて高い群に生まれる
+    let tape = mf6_fission_tape(
+        &[(452, "2.43"), (455, "1.6-2"), (456, "2.414")],
+        &[455],
+        &mf6_fission_section("0", "1", "1.0"),
+    );
+    let parts = parts(&tape).unwrap();
+    assert_eq!(nubar_values(&parts), vec![2.414, 1.6e-2]);
+    let chi = chi_of(&parts);
+    let high = (0.5 * 2.414 + 1.6e-2) / 2.43;
+    assert!((chi[0] - high).abs() < 1e-9, "{chi:?}");
+    assert!((chi.iter().sum::<f64>() - 1.0).abs() < 1e-12, "{chi:?}");
+}
+
+#[test]
+fn mf5_and_mf6_average_prompt_spectra_together_are_an_error() {
+    // JPN=0 の MF6 MT18 の中性子と MF5 MT18 は、どちらも即発の平均の分布で、どちらを使うかが決まらない
+    let tape = mf6_fission_tape(
+        &[(452, "2.43")],
+        &[18],
+        &mf6_fission_section("0", "1", "1.0"),
+    );
+    let error = parts(&tape).unwrap_err();
+    assert!(error.to_string().contains("MF6 MT18"), "{error}");
+}
+
+#[test]
+fn mf6_multiplicity_probabilities_leave_the_average_spectrum_to_mf5() {
+    // ENDF/B-VIII.0 の U-235 の形: JP=11 の MF6 MT18 は P(ν, E) を持ち（中性子は LAW=0）、平均の分布は MF5 MT18
+    let tape = mf6_fission_tape(
+        &[(452, "2.43")],
+        &[18],
+        &mf6_fission_section("11", "0", "0.1"),
+    );
+    let parts = parts(&tape).unwrap();
+    assert_eq!(nubar_values(&parts), vec![2.43]);
+    assert!((chi_of(&parts)[0] - 1.0).abs() < 1e-9);
+}
+
+#[test]
+fn mf6_multiplicity_probabilities_without_mf5_are_an_error() {
+    // JPN≠0 の MF6 MT18 は平均の分布を持たない（ENDF-102 の 6.3.9.3。平均は MF5 MT18 か JPN=0 の MF6 MT18 に要る）
+    let tape = mf6_fission_tape(&[(452, "2.43")], &[], &mf6_fission_section("1", "0", "0.1"));
+    let error = parts(&tape).unwrap_err();
+    assert!(error.to_string().contains("MF6 MT18"), "{error}");
+}
+
+#[test]
+fn mf6_fission_neutron_yield_other_than_one_is_an_error() {
+    // JPN=0 の y(E) は 1（ENDF-102 の 6.3.9.3。MF1 の ν と二重に数えない）
+    let tape = mf6_fission_tape(
+        &[(452, "2.43")],
+        &[],
+        &mf6_fission_section("0", "1", "2.43"),
+    );
+    let error = parts(&tape).unwrap_err();
+    assert!(error.to_string().contains("MF6 MT18"), "{error}");
+}
+
 #[test]
 fn sab_nuclides_carry_the_ufg_transfer_with_a_pointwise_range() {
     // S(α, β) で熱中性子散乱を作る核種は、ポイントワイズの範囲があれば温度ごとに UFG の S(α, β) の移行の表を持つ（ADR-0205）
