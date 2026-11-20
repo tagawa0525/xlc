@@ -51,9 +51,9 @@ ADR-0268 で、入力 `ufg-nuclides` に挙げない中心の物質の核種は�
 
 形式:
 
-- 案 F1（採る）: 温度の表の `pointwise` を nil にできる（nil は持たない）。核種のすべての温度で nil か、すべてで持つ。nil の表は
-  S(α, β) の移行を持たない。既存のライブラリは map を持つので読め、持たせる核種は今とバイトで同じに書く。既存の値の意味は変えないので
-  形式の名前（`xlc-multigroup`）は変えない
+- 案 F1（採る）: 温度の表の `pointwise` を nil にできる（nil は持たない）。核種のすべての温度で nil か、すべてで持つ。S(α, β) の
+  核種は nil にしない（減速材の核種で、UFG で解く）。既存のライブラリは map を持つので読め、持たせる核種は今とバイトで同じに書く。
+  既存の値の意味は変えないので形式の名前（`xlc-multigroup`）は変えない
 - 案 F2: 空の配列（`energy` が空）で持たないことを表す。今の検査は、範囲のあるライブラリで範囲を覆わない表を止めるので、それを緩める
   ことになり、壊れた表と持たない表を区別できない
 - 案 F3: 核種に新しい項目（`pointwise: bool` など）を足す。項目を欠かせない形にすると既存のライブラリが読めなくなり、省けば既定に
@@ -75,9 +75,9 @@ xs の処理:
 - xs: `pointwise = false` は、`activation = true`（放射化の核種はもともと持たない）と `thermal`（S(α, β) の核種は減速材の核種で、
   ADR-0268 により UFG で解く）と組めばエラーで止める。`assemble` は、核種ごとの結果がポイントワイズの断面積を持つかが入力の項目と
   合うことを確かめる（古い結果を黙って組み立てない）
-- 形式（crates/format）: 温度の表の `pointwise` を `Option<Pointwise>` にする。nil の核種は、温度の間の内挿でも nil のまま（片方だけが
-  nil なら止める）。範囲のあるライブラリの S(α, β) の核種は nil にできない（xs の入力と同じ理由。別の経路で書いたライブラリでも、UFG が
-  S(α, β) の移行の欠けとして止まる前に、読み書きで止める）
+- 形式（crates/format）: 温度の表の `pointwise` を `Option<Pointwise>` にする。S(α, β) の核種は nil にできない（xs の入力と同じ理由。
+  別の経路で書いたライブラリでも、UFG が S(α, β) の移行の欠けとして止まる前に、読み書きで止める）。温度の間で内挿するのは S(α, β) の
+  核種だけなので、内挿は持つ表だけを扱い、nil なら止める
 - lattice: `ufg-nuclides` に挙げた核種がポイントワイズの断面積を持たなければ、自己遮蔽の前にエラーで止める。UFG の減速計算は、
   ポイントワイズの断面積で解く核種（`ufg-nuclides` を省いた入力では、すべての核種）が持たなければエラーで止め、`ufg-nuclides` から
   外して等価原理の群定数で解くこと（ADR-0268）を示す。中心でないリングの核種はもともと挙げる必要がある（ADR-0268）ので、持たない
@@ -94,10 +94,10 @@ xs の処理:
 
 テスト（2026-11-20、すべて通る）:
 
-- 形式: nil の核種が読み書きで変わらない、一部の温度だけ nil の核種と、nil で S(α, β) の移行を持つ核種はエラー、S(α, β) の温度の
-  内挿は nil を保つ、S(α, β) の核種は nil にできない（crates/format/src/library/tests.rs の `nuclides_may_leave_out_the_pointwise_data`、
-  `pointwise_data_are_left_out_at_every_temperature_or_none`、`nuclides_without_pointwise_data_take_no_sab_transfer`、
-  `s_alpha_beta_nuclides_keep_their_pointwise_data`、`interpolation_keeps_the_pointwise_data_left_out`）
+- 形式: nil の核種が読み書きで変わらない、一部の温度だけ nil の核種と、nil の S(α, β) の核種（範囲の有無によらない）はエラー、
+  内挿は nil の表で止まる（crates/format/src/library/tests.rs の `nuclides_may_leave_out_the_pointwise_data`、
+  `pointwise_data_are_left_out_at_every_temperature_or_none`、`s_alpha_beta_nuclides_keep_their_pointwise_data`、
+  `interpolation_needs_the_pointwise_data`）
 - xs: 項目を読み、`thermal` と `activation` と組めばエラー、結果から外し、組み立てが結果と項目の食い違いを止める
   （crates/xs/src/main/tests.rs の `reads_nuclides_without_pointwise_data`、`results_leave_out_the_pointwise_data_the_input_leaves_out`）
 - lattice: 持たない核種は挙げない経路で持つときと同じに解け、挙げた入力と一覧を省いた入力はエラー（crates/lattice/src/shielding/tests.rs の
