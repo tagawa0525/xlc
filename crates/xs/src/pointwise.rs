@@ -535,7 +535,7 @@ impl ColdParts {
             section.map_or(0, |s| s.reader().line())
         };
         for declared in negatives {
-            raise_declared(&mut tables, declared)
+            raise_declared(&mut tables, mf2.as_ref(), declared)
                 .map_err(|message| Error::new(line(declared.mt), message))?;
         }
         reject_negative(&tables).map_err(|(mt, message)| Error::new(line(mt), message))?;
@@ -613,9 +613,14 @@ fn parts_broadening_limit(tables: &BTreeMap<u32, Tab1>, mf2: Option<&Mf2>) -> f6
 }
 
 /// 宣言（`NegativeToZero`）の範囲の負の値を 0 にし、warn を出す。範囲に負の点が無い、表が無い、範囲が有限でないか逆転して
-/// いる宣言は、評価と合わないので文を返す（評価が替わって古くなった宣言を黙って当てない）。
+/// いる宣言は、評価と合わないので文を返す（評価が替わって古くなった宣言を黙って当てない）。`take-from` は、両方の反応が全断面積に
+/// 入り、引いた後も引いた先が負にならないときだけ当てる。
+///
+/// LSSF=0 の非分離共鳴の範囲に重なる、共鳴の反応（`RESONANCE_MTS` と第 1 チャンスの核分裂）の宣言は止める。その範囲の自己遮蔽
+/// （`process::unresolved_shielding`）は、テープの MF3 のバックグラウンドを読むので、宣言が届かない。
 fn raise_declared(
     tables: &mut BTreeMap<u32, Tab1>,
+    mf2: Option<&Mf2>,
     declared: &NegativeToZero,
 ) -> Result<(), String> {
     let NegativeToZero {
@@ -627,6 +632,19 @@ fn raise_declared(
     let name = format!("`negative-to-zero` for MT{mt} at {from}..{to} eV");
     if !(from.is_finite() && to.is_finite() && from <= to) {
         return Err(format!("{name}: the range must be finite with from <= to"));
+    }
+    let shielded = |m: u32| RESONANCE_MTS.contains(&m) || m == 19;
+    if shielded(mt) || take_from.is_some_and(shielded) {
+        let lssf0 = mf2.into_iter().flat_map(Mf2::ranges).find(|r| {
+            matches!(&r.kind, RangeKind::Unresolved(u) if u.lssf == 0) && from < r.eh && r.el < to
+        });
+        if let Some(range) = lssf0 {
+            return Err(format!(
+                "{name}: the range overlaps the unresolved range {}..{} eV (LSSF=0), whose shielding reads the MF3 \
+                 background from the tape, so the declaration cannot reach it",
+                range.el, range.eh
+            ));
+        }
     }
     let table = tables
         .get(&mt)
@@ -643,16 +661,36 @@ fn raise_declared(
             return Err(format!("{name}: `take-from` must name another reaction"));
         }
         Some(source) => {
+            if !(is_part_of_total(mt) && is_part_of_total(source)) {
+                return Err(format!(
+                    "{name}: `take-from` keeps the total only if MT{mt} and MT{source} are both part of the total"
+                ));
+            }
             let source_table = tables
                 .get(&source)
                 .ok_or_else(|| format!("{name}: the evaluation has no MT{source} to take from"))?;
-            Some((source, add(source_table, &raised.subtracted())))
+            let subtracted = raised.subtracted();
+            let taken = add(source_table, &subtracted);
+            let (low, high) = (subtracted.x[0], subtracted.x[subtracted.x.len() - 1]);
+            let lowest = taken
+                .x
+                .iter()
+                .zip(&taken.y)
+                .filter(|(e, v)| low <= **e && **e <= high && **v < 0.0)
+                .map(|(_, v)| *v)
+                .reduce(f64::min);
+            if let Some(lowest) = lowest {
+                return Err(format!(
+                    "{name}: taking the raised amount makes MT{source} negative (down to {lowest:.3e} b)"
+                ));
+            }
+            Some((source, taken))
         }
     };
     let taking = taken.as_ref().map_or(String::new(), |(source, _)| {
         format!(
             "; the raised amount (up to {:.3e} b) is taken from MT{source}, keeping the total",
-            raised.added.iter().copied().fold(0.0, f64::max)
+            -raised.lowest
         )
     });
     xlc_log::warn!(

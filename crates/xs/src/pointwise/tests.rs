@@ -412,8 +412,7 @@ fn declarations_cannot_reach_the_background_of_an_lssf0_unresolved_range() {
     let tape = Tape::parse(&text).unwrap();
     let message = declaration_error(&tape, &[declared(102, 1.0e-5, 2.0e3, None)]);
     assert!(message.contains("unresolved range"), "{message}");
-    let message = declaration_error(&tape, &[declared(102, 1.0e-5, 10.0, Some(2))]);
-    assert!(!message.contains("unresolved range"), "{message}");
+    // 範囲の外の宣言は当てる
     assert!(ColdParts::read(&tape, 1, 1.0e-3, &[declared(102, 1.0e-5, 10.0, Some(2))]).is_ok());
 }
 
