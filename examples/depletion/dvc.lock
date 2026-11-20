@@ -6094,3 +6094,69 @@ stages:
       hash: md5
       md5: edb946068900bd77097ccacfd3af88b7
       size: 749
+  lattice-1C-version@endfb70:
+    cmd: ../../bin/lattice endfb70/lattice-1C-60.toml > 
+      endfb70/lattice-1C-60.out 2> endfb70/lattice-1C-60.log
+    deps:
+    - path: ../../binary-forms/lattice.md5
+      hash: md5
+      md5: b6ae1a925e1dba4ff625d91160dcc62a
+      size: 33
+    - path: ../../toml-values/examples/depletion/endfb70/lattice-1C-60.toml.json
+      hash: md5
+      md5: 78cfce537a048be0025731046efe27b4
+      size: 2120
+    - path: endfb70/chain.msgpack
+      hash: md5
+      md5: 5c4c81940ae00f9e9cdcd561ac4610a3
+      size: 3650797
+    - path: endfb70/depletion.msgpack
+      hash: md5
+      md5: e52faa332967d17df308fa82512c41d1
+      size: 288087662
+    outs:
+    - path: endfb70/lattice-1C-60.log
+      hash: md5
+      md5: 88fa7b2d2ae982029593f03442b4d29e
+      size: 138363
+    - path: endfb70/lattice-1C-60.msgpack
+      hash: md5
+      md5: 67680b208af9883bfc7697a36fdf3572
+      size: 1290739
+    - path: endfb70/lattice-1C-60.out
+      hash: md5
+      md5: afbe000d928e9853bf077bd321d418b7
+      size: 749
+  lattice-1C-version@endfb71:
+    cmd: ../../bin/lattice endfb71/lattice-1C-60.toml > 
+      endfb71/lattice-1C-60.out 2> endfb71/lattice-1C-60.log
+    deps:
+    - path: ../../binary-forms/lattice.md5
+      hash: md5
+      md5: b6ae1a925e1dba4ff625d91160dcc62a
+      size: 33
+    - path: ../../toml-values/examples/depletion/endfb71/lattice-1C-60.toml.json
+      hash: md5
+      md5: 78cfce537a048be0025731046efe27b4
+      size: 2120
+    - path: endfb71/chain.msgpack
+      hash: md5
+      md5: 32ee4517036e5333f7c38a69b34adeed
+      size: 4380622
+    - path: endfb71/depletion.msgpack
+      hash: md5
+      md5: e800cf5c33a8cd6305fe29b2449c48da
+      size: 293215602
+    outs:
+    - path: endfb71/lattice-1C-60.log
+      hash: md5
+      md5: 70c110d60abf8a8ef936ad6d9fb0cedc
+      size: 138355
+    - path: endfb71/lattice-1C-60.msgpack
+      hash: md5
+      md5: f93e4331dba56f8b67c62a49ba4c00f6
+      size: 1285089
+    - path: endfb71/lattice-1C-60.out
+      hash: md5
+      md5: 63fd68bb886234e84663bf21f6c83934
+      size: 749
