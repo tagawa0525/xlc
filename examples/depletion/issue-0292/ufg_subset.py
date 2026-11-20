@@ -6,8 +6,9 @@
 核種はどの組でも UFG で解く。`all` は `ufg-nuclides` を書かない（すべてを UFG で解く既定）。
 
 - `python3 ufg_subset.py inputs` は ufg-subset/<燃料>/<組>.toml を書く（出力は ufg-subset/<燃料>/out/<組>.msgpack）
-- `python3 ufg_subset.py compare --json ufg-subset-<燃料>.json <燃料>` は、組ごとの k∞ と、ログ（out/<組>.log）の自己遮蔽の区間の時間を
-  `all` と比べる。差は 1/k(all) − 1/k(組)（pcm）
+- `python3 ufg_subset.py compare --json ufg-subset-<燃料>.json <燃料>` は、組ごとの k∞（out/<組>.msgpack）と、自己遮蔽の区間の時間を
+  `all` と比べる。差は 1/k(all) − 1/k(組)（pcm）。時間は、同じ入力を排他のジョブ（区分 timed）で解いたログ（out-timed/<組>.log）から
+  読む（記録に書く時間は排他のジョブのものだけ。スキル verification-record）
 - `python3 ufg_subset.py --report <JSON>...` は表を出す
 """
 
@@ -127,11 +128,12 @@ def md5(path: Path) -> str:
 
 
 def compare(fuel: str, root: Path) -> dict:
-    out = root / "ufg-subset" / fuel / "out"
+    directory = root / "ufg-subset" / fuel
     cases = {}
     inputs = []
     for case in SETS:
-        table_path, log_path = out / f"{case}.msgpack", out / f"{case}.log"
+        table_path = directory / "out" / f"{case}.msgpack"
+        log_path = directory / "out-timed" / f"{case}.log"
         k = k_by_burnup(read(table_path))
         seconds = shielding_seconds(log_path.read_text())
         if len(seconds) != len(k):
@@ -139,9 +141,10 @@ def compare(fuel: str, root: Path) -> dict:
                 f"{log_path}: {len(seconds)} shieldings for {len(k)} states"
             )
         cases[case] = {"k": k, "seconds": seconds}
-        inputs.append(
-            {"path": str(table_path.relative_to(root.parent)), "md5": md5(table_path)}
-        )
+        for path in (table_path, log_path):
+            inputs.append(
+                {"path": str(path.relative_to(root.parent)), "md5": md5(path)}
+            )
     reference = cases["all"]
     burnup = sorted(reference["k"])
     rows = []
