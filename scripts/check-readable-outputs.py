@@ -13,9 +13,10 @@ dvc.lock の指す古い上流の出力をまだ読めるか（changed をため
   `.dvc` の生成物であるもののうち、xlc の形式のもの（`.msgpack` と、`xs range` の書く範囲の TOML）。
   直下の dvc.lock（build と正規形）の出力、md5 の無い（流していない）出力、xlc の形式でない出力は読まない
 - 中身は作業ツリーでなく DVC のキャッシュから md5 で読む。出力を戻していない worktree でも同じ結果になり、走っている
-  ジョブが書いている途中の出力には当たらない。キャッシュに無く、HEAD の git が追う出力（`cache: false` の出力。DVC は
-  git が追う出力をキャッシュに入れない（`dvc repro` が OutputAlreadyTrackedError で止まる））は、HEAD の blob の md5 が lock の
-  md5 と同じならその blob を読み、違えば `MISMATCH:` で止める（lock が古いか、出力の変更をコミットしていない）。どちらにも
+  ジョブが書いている途中の出力には当たらない。キャッシュに無く、git の index が追う出力（`cache: false` の出力。DVC は
+  git が追う出力をキャッシュに入れない（`dvc repro` が OutputAlreadyTrackedError で止まる））は、index の blob の md5 が lock の
+  md5 と同じならその blob を読み、違えば `MISMATCH:` で止める（lock が古いか、出力の変更をステージしていない）。HEAD でなく
+  index を読むのは、マージの hook の中では HEAD が既定ブランチのままで、index と lock がマージの結果になるため。どちらにも
   無い出力は `MISSING:` で止める
 - 実行ファイルを変えうるブランチ（`--base` との差分（移動の元と先、追跡していないファイルを含む）が直下の dvc.yaml の `build` の deps、この script、下の一覧に当たる）
   だけを読み、ほかは `SKIP:` で終わる（`--all` は差分によらず読む）。`--base` の既定は HEAD と main の分岐点。
@@ -189,7 +190,7 @@ def expand(out, cache, inside, targets, missing):
         return
     manifest = cache_file(cache, out.md5, out.hash)
     if not manifest.exists():
-        missing.append((out.path, out.md5, manifest))
+        missing.append((out.path, out.md5, f"DVC のキャッシュに無い（{manifest}）"))
         return
     for entry in json.loads(manifest.read_text()):
         relpath = entry["relpath"]
@@ -201,7 +202,7 @@ def expand(out, cache, inside, targets, missing):
 
 
 def collect(root, cache):
-    """読むファイル（パスごと）と、キャッシュに無いディレクトリの一覧"""
+    """読むファイル（パスごと）と、キャッシュに無いディレクトリ（パス、md5、理由）の一覧"""
     all_stages = stages(root)
     found = outputs(root, all_stages)
     deps = {p for stage in all_stages if stage.by_xlc for p in stage.deps}
@@ -278,30 +279,51 @@ def exemptions(root):
     return allowed
 
 
-def from_head(root, xlc, tmp):
-    """キャッシュに無いファイルを、HEAD の git が追っていれば、lock の md5 と同じ blob を tmp に書いたものに替える。
-    読むファイル、どちらにも無いファイル、blob の md5 が lock と違うファイルの組"""
-    present = [t for t in xlc if t.file.exists()]
-    absent = [t for t in xlc if not t.file.exists()]
-    missing, mismatched = [], []
-    if not absent:
-        return present, missing, mismatched
-    head = set(git(root, "ls-tree", "-r", "-z", "--name-only", "HEAD").split("\0"))
-    for t in absent:
-        if t.path not in head:
+def git_bytes(root, *args):
+    """git の標準出力のバイト。失敗は Stop"""
+    result = subprocess.run(
+        ["git", "-C", str(root), "--literal-pathspecs", *args],
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise Stop(
+            f"git {' '.join(args)} が失敗した: {result.stderr.decode(errors='replace').strip()}"
+        )
+    return result.stdout
+
+
+def from_index(root, xlc, tmp):
+    """キャッシュに無いファイルを、git の index が追っていれば、lock の md5 と同じ blob を tmp に書いたものに替える。
+    読むファイル、どちらにも無いファイル（パス、md5、理由）、blob の md5 が lock と違うファイルの組。
+
+    HEAD でなく index を読むのは、マージの hook の中では HEAD が既定ブランチのままで、index と作業ツリーの lock が
+    マージの結果になるため（ステージしていない作業ツリーの変更は読まない）"""
+    present, missing, mismatched = [], [], []
+    for t in xlc:
+        if t.file.exists():
+            present.append(t)
+            continue
+        entries = git_bytes(root, "ls-files", "-s", "-z", "--", t.path).split(b"\0")[
+            :-1
+        ]
+        if not entries:
             missing.append(
                 (
                     t.path,
                     t.md5,
-                    f"DVC のキャッシュに無く（{t.file}）、HEAD の git も追っていない",
+                    f"DVC のキャッシュに無く（{t.file}）、git の index も追っていない",
                 )
             )
             continue
-        blob = subprocess.run(
-            ["git", "-C", str(root), "cat-file", "blob", f"HEAD:{t.path}"],
-            check=True,
-            capture_output=True,
-        ).stdout
+        mode, oid, stage = entries[0].split(b"\t", 1)[0].decode().split()
+        if len(entries) != 1 or stage != "0":
+            raise Stop(f"{t.path} は git の index で衝突している（マージを解いてから）")
+        if mode not in ("100644", "100755"):
+            raise Stop(
+                f"{t.path} は git の index で通常のファイルでない（mode {mode}）ので、中身を lock の md5 と照らせない"
+            )
+        blob = git_bytes(root, "cat-file", "blob", oid)
         actual = hashlib.md5(blob).hexdigest()
         if actual != t.md5:
             mismatched.append((t.path, t.md5, actual))
@@ -401,16 +423,13 @@ def main(argv):
             if built.returncode != 0:
                 raise Stop(f"読み手をビルドできない:\n{built.stderr.strip()}")
             reader = ["cargo", "run", *PACKAGE]
-        # HEAD の blob を書いたファイルは、読み終えるまで残す
+        # index の blob を書いたファイルは、読み終えるまで残す
         with tempfile.TemporaryDirectory() as tmp:
-            present, missing_files, mismatched = from_head(root, xlc, Path(tmp))
+            present, missing_files, mismatched = from_index(root, xlc, Path(tmp))
             start = time.monotonic()
             failed = read(root, reader, present) if present else {}
             seconds = time.monotonic() - start
-        missing = [
-            (path, md5, f"DVC のキャッシュに無い（{manifest}）")
-            for path, md5, manifest in missing_dirs
-        ] + missing_files
+        missing = missing_dirs + missing_files
     except Stop as e:
         print(f"STOP: {e}")
         return 1
@@ -419,8 +438,8 @@ def main(argv):
         print(f"MISSING: {path} (md5 {md5}): {reason}")
     for path, md5, actual in sorted(mismatched):
         print(
-            f"MISMATCH: {path} (md5 {md5}): DVC のキャッシュに無く、HEAD の git の版の md5 は {actual}。"
-            "lock が古いか、出力の変更をコミットしていない"
+            f"MISMATCH: {path} (md5 {md5}): DVC のキャッシュに無く、git の index の版の md5 は {actual}。"
+            "lock が古いか、出力の変更をステージしていない"
         )
     for t in sorted(present, key=lambda t: t.path):
         if str(t.file) not in failed:
