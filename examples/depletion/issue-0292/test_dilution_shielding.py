@@ -99,5 +99,24 @@ class Grids(unittest.TestCase):
             ds.check_grid(a, {**a, "group_bounds": [10.0, 0.1]}, "X")
 
 
+class Unranked(unittest.TestCase):
+    def test_nuclides_outside_the_cooling_table_are_left_unranked(self):
+        self.assertEqual(
+            ds.ranked_names(["A", "U", "B"], ["A", "B", "C"], ["U"]), ["A", "B"]
+        )
+
+    def test_an_unranked_nuclide_of_the_cooling_table_is_an_error(self):
+        with self.assertRaises(SystemExit):
+            ds.ranked_names(["A", "U"], ["A", "U"], ["U"])
+
+    def test_a_nuclide_outside_the_cooling_table_must_be_listed_unranked(self):
+        with self.assertRaises(SystemExit):
+            ds.ranked_names(["A", "U"], ["A"], [])
+
+    def test_unranked_nuclides_must_be_added_ones(self):
+        with self.assertRaises(SystemExit):
+            ds.ranked_names(["A"], ["A"], ["U"])
+
+
 if __name__ == "__main__":
     unittest.main()
