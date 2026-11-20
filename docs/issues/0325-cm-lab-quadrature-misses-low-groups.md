@@ -6,7 +6,7 @@ opened: 2026-11-20
 closed: 2026-11-21
 milestone:
 blocked-by: []
-resolution: コミット a93bc219e
+resolution: コミット ccf481688
 ---
 
 # 重心系の分布を実験室系の群に振り分ける積分が、Ec の幅を分けず低い群の値を誤る

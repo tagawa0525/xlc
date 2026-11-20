@@ -893,8 +893,8 @@ cargo run --release -p xlc-xs --example compare_njoy_gendf -- \
 
 ### 計算
 
-`compare_njoy_gendf` は xlc 9c3c0456（分岐点 068aea9e、2026-11-21。重心系の変換は下の「重心系の分布の実験室系の群への振り分け」）で、手元で実行した。
-`xs nuclide` は 4a04ac94（分岐点 0f883589、2026-11-21）と 9c3c0456 の `cargo build --release` の bin（どちらも 4 スレッド。終了コードは両方で確かめ、時間は 4a04ac94 のもの）で、`issue-0312/fission-<版>.toml`
+`compare_njoy_gendf` は xlc c3cc0a26（分岐点 068aea9e、2026-11-21。重心系の変換は下の「重心系の分布の実験室系の群への振り分け」）で、手元で実行した。
+`xs nuclide` は 4a04ac94（分岐点 0f883589、2026-11-21）と c3cc0a26 の `cargo build --release` の bin（どちらも 4 スレッド。終了コードは両方で確かめ、時間は 4a04ac94 のもの）で、`issue-0312/fission-<版>.toml`
 （σ0 と散乱の次数は `read-survey/sample-<版>.toml` と同じ、温度 1 点の 600 K）に `examples/depletion/xs-range.toml` を与えて実行した。
 
 ### 結果
@@ -932,7 +932,7 @@ Pa233 VIII.1 chi  : max rel diff 3.88e-1 in group 19 (ours 1.428718e-6, njoy 1.0
 - χ: 差の絶対値の和は 8.2e-4〜9.5e-4 で、MF5 MT18 の評価の比較（上の 2 つの節。`econst` の近似で説明のつく Am-241、Am-243 の 9.1e-4〜1.76e-3 を除いて
   1.5e-6 以下）より大きい。相対差の最大は χ が 1e-6 の程度の群（367〜907 eV）で 0.4、上の群では NJOY が硬い（VIII.0 の Th-232 の群 0〜2（3.68〜10 MeV。
   出力の群の番号）で NJOY が 0.07〜0.1 % 大きい）。差は GROUPR の `cm2lab` の格子の許容（`tol=0.01`）による。下の「重心系の分布の実験室系の群への
-  振り分け」の診断で、許容を 1e-4 にした GROUPR では差の和が 3.2e-5〜8.5e-5 になる。残りのうち、xs が使わない Legendre 係数（ADR-0082 の M0 の近似）の
+  振り分け」の診断で、許容を 1e-4 にした GROUPR では差の和が 3.2e-5〜9.8e-5 になる（4 つの版の 12 の評価）。残りのうち、xs が使わない Legendre 係数（ADR-0082 の M0 の近似）の
   分は Th-232 で 5.5e-5
 
 - `xs check` と `xs nuclide`: 12 の評価は `xs check` を通り（上の「中性子のファイルの読み込みの走査」）、`xs nuclide` は 12 のすべてが終了コード 0 で
@@ -953,34 +953,43 @@ MF6 の LAW=1 の重心系の分布（LCT=2、3）を実験室系の群に振り
 cd references/njoy-runs/mf6-fission/Th232-VIII.0-cm2lab-tol1e-4 && <手元のビルド>/njoy < input > log
 # 既存の核種の出力の差（main の bin/xs とブランチの bin を同じ入力で）
 (cd examples/depletion/issue-0325 && ../../../bin/xs --threads 4 nuclide existing-VIII.0.toml ../xs-range.toml U-235 <出力>)
+(cd examples/depletion/issue-0325 && ../../../target/release/xs --threads 4 nuclide existing-VIII.0.toml ../xs-range.toml U-235 <ブランチの出力>)
 python3 examples/depletion/compare_xs_outputs.py <main の出力> <ブランチの出力>
 ```
 
 ### 計算
 
-xlc 9c3c0456（分岐点 068aea9e、2026-11-21）。手元で実行した。NJOY の許容を変えたビルドは、references/NJOY2016（2016.79）の src に
+xlc c3cc0a26（分岐点 068aea9e、2026-11-21）。手元で実行した。NJOY の許容を変えたビルドは、references/NJOY2016（2016.79）の src に
 `issue-0325/njoy-cm2lab-tol.patch` だけを当て、手元で gfortran 13 と cmake でビルドしたもの（パッチなしで同じ手順でビルドした njoy の
-VIII.0 の Th-232 の GENDF は、references の devShell の njoy の GENDF とバイトで同じ）。入力は references/njoy-runs/mf6-fission/<核種>-VIII.0/ と同じで、
-出力は `<核種>-VIII.0-cm2lab-tol1e-4`、`Th232-VIII.0-isotropic-cm2lab-tol1e-4` に置いた（git で追跡しない）。`xs nuclide` は `issue-0325/existing-VIII.0.toml`
+VIII.0 の Th-232 の GENDF は、references の devShell の njoy の GENDF とバイトで同じ）。入力は references/njoy-runs/mf6-fission/<核種>-<版>/ と同じで、
+出力は `<核種>-<版>-cm2lab-tol1e-4`、`Th232-VIII.0-isotropic-cm2lab-tol1e-4` に置いた（git で追跡しない）。`xs nuclide` は `issue-0325/existing-VIII.0.toml`
 と `issue-0312/fission-VIII.0.toml` の 600 K の 1 点（4 スレッド）を、main（068aea9e）の `bin/xs` と、このコミットの `cargo build --release` の bin で実行した。
 
 ### 結果
 
-`compare_njoy_gendf` の χ（先頭に NJOY の出力の置き場を付けた。`cm2lab-tol1e-4` は許容を 1e-4 にした GROUPR）:
+`compare_njoy_gendf` の χ（先頭に NJOY の出力の置き場を付けた。`cm2lab-tol1e-4` は許容を 1e-4 にした GROUPR。元の GROUPR との比較は上の「版ごとのライブラリの
+MF6 MT18 の核分裂スペクトル」）:
 
 ```text
-Th232-VIII.0 chi  : max rel diff 8.37e-3 in group 20 (ours 3.289933e-6, njoy 3.262621e-6), sum of |diff| 8.18e-4
+Th232-VII.0-cm2lab-tol1e-4 chi  : max rel diff 5.98e-3 in group 18 (ours 2.394091e-6, njoy 2.379866e-6), sum of |diff| 9.82e-5
+Pa231-VII.0-cm2lab-tol1e-4 chi  : max rel diff 3.72e-3 in group 18 (ours 2.132935e-6, njoy 2.125040e-6), sum of |diff| 3.16e-5
+Pa233-VII.0-cm2lab-tol1e-4 chi  : max rel diff 4.94e-3 in group 18 (ours 2.187261e-6, njoy 2.176503e-6), sum of |diff| 8.26e-5
+Th232-VII.1-cm2lab-tol1e-4 chi  : max rel diff 5.83e-3 in group 18 (ours 2.397263e-6, njoy 2.383372e-6), sum of |diff| 9.39e-5
+Pa231-VII.1-cm2lab-tol1e-4 chi  : max rel diff 3.72e-3 in group 18 (ours 2.132935e-6, njoy 2.125040e-6), sum of |diff| 3.16e-5
+Pa233-VII.1-cm2lab-tol1e-4 chi  : max rel diff 4.94e-3 in group 18 (ours 2.187261e-6, njoy 2.176503e-6), sum of |diff| 8.26e-5
 Th232-VIII.0-cm2lab-tol1e-4 chi  : max rel diff 7.29e-3 in group 20 (ours 3.289933e-6, njoy 3.266133e-6), sum of |diff| 8.53e-5
-Pa231-VIII.0 chi  : max rel diff 3.89e-1 in group 19 (ours 1.393712e-6, njoy 1.003739e-6), sum of |diff| 9.51e-4
 Pa231-VIII.0-cm2lab-tol1e-4 chi  : max rel diff 3.72e-3 in group 18 (ours 2.132935e-6, njoy 2.125040e-6), sum of |diff| 3.16e-5
-Pa233-VIII.0 chi  : max rel diff 3.88e-1 in group 19 (ours 1.428718e-6, njoy 1.029020e-6), sum of |diff| 8.60e-4
 Pa233-VIII.0-cm2lab-tol1e-4 chi  : max rel diff 4.94e-3 in group 18 (ours 2.187261e-6, njoy 2.176503e-6), sum of |diff| 8.26e-5
+Th232-VIII.1-cm2lab-tol1e-4 chi  : max rel diff 7.29e-3 in group 20 (ours 3.289933e-6, njoy 3.266133e-6), sum of |diff| 8.53e-5
+Pa231-VIII.1-cm2lab-tol1e-4 chi  : max rel diff 3.72e-3 in group 18 (ours 2.132935e-6, njoy 2.125040e-6), sum of |diff| 3.16e-5
+Pa233-VIII.1-cm2lab-tol1e-4 chi  : max rel diff 4.94e-3 in group 18 (ours 2.187261e-6, njoy 2.176503e-6), sum of |diff| 8.26e-5
 Th232-VIII.0-lab chi  : max rel diff 2.78e-4 in group 20 (ours 3.330885e-6, njoy 3.329959e-6), sum of |diff| 1.05e-5
 Th232-VIII.0-isotropic chi  : max rel diff 4.96e-3 in group 12 (ours 1.043841e-3, njoy 1.038692e-3), sum of |diff| 7.92e-4
 Th232-VIII.0-isotropic-cm2lab-tol1e-4 chi  : max rel diff 1.72e-3 in group 19 (ours 1.208761e-5, njoy 1.210843e-5), sum of |diff| 3.08e-5
 ```
 
-- GROUPR の許容を 1e-4 にすると、χ の差の和は Th-232 で 8.2e-4 から 8.5e-5、Pa-231 で 9.5e-4 から 3.2e-5、Pa-233 で 8.6e-4 から 8.3e-5 になる。
+- GROUPR の許容を 1e-4 にすると、4 つの版の 12 の評価で、χ の差の和は 8.2e-4〜9.5e-4 から 3.2e-5〜9.8e-5 になる（VIII.0 の Th-232 で 8.5e-5、
+  Pa-231 で 3.2e-5、Pa-233 で 8.3e-5、VII.0 と VII.1 の Th-232 で 9.8e-5 と 9.4e-5）。
   差は GROUPR の `cm2lab` の格子の許容（実験室系の分布を、区間の比 1.01 と中点の 1 % で線形化する）による。xs の変換は、VIII.0 の Th-232 で
   LCT を 1 にした ENDF と比べて群 0 の χ を相対 1.70e-4 動かし、許容 1e-4 の GROUPR は 6.5e-5（Legendre 係数を含む）、元の GROUPR は 1.10e-3 動かす。
   分布を指数関数とみた見積もり（平均 Ec の移動と幅の分散）は相対 1e-4 の程度
@@ -1008,8 +1017,8 @@ Th232-VIII.0-isotropic-cm2lab-tol1e-4 chi  : max rel diff 1.72e-3 in group 19 (o
 - 本番の結果への影響の見積もり（確かめていない）: 散乱行列の変わる量は行の和の 1e-5 以下で、χ が変わるのは MF6 MT18 の 3 核種（燃焼の
   チェーンで微量の核種）だけなので、格子計算の k への効きは 1 pcm に満たない程度と見込む
 - 時間: `perf stat` の `cycles:u`（手元の計算で、ほかのジョブと重なった時間があり、時間は記録の測定ではない）は、main に対してブランチが
-  U-235 0.98 倍、U-238 0.97 倍、Pu-239 1.02 倍、Zr-90 1.01 倍、O-16 1.03 倍、Fe-56 0.96 倍、H-1 1.09 倍、Th-232 1.00 倍、Pa-231 0.96 倍、Pa-233 1.00 倍で、
-  計算の変わらない H-1 の 1.09 倍と同じ程度のばらつきに収まる。区間をすべての境界の折れ目で分けて求積した途中の形（#0325 の「検討して捨てた形」）は、U-238 で
+  U-235 0.99 倍、U-238 0.96 倍、Pu-239 1.01 倍、Zr-90 0.97 倍、O-16 0.92 倍、Fe-56 1.13 倍、H-1 1.14 倍、Th-232 0.98 倍、Pa-231 0.96 倍、Pa-233 0.99 倍で、
+  計算の変わらない H-1 の 1.14 倍と同じ程度のばらつきに収まる。区間をすべての境界の折れ目で分けて求積した途中の形（#0325 の「検討して捨てた形」）は、U-238 で
   main の 1.5 倍の時間（経過時間、手元）がかかった
 
 ## 版ごとのライブラリの分離共鳴の R 行列の制限形の核分裂

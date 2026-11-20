@@ -82,7 +82,7 @@ MF5 MT455 のない評価（Np-239、Am-242m、Cm-244）の扱い:
 - NJOY GROUPR との比較（`compare_njoy_gendf` の例）は、GROUPR の MF6 MT18 が即発の分布だけを使うので、即発の分布だけで比較し、
   入射エネルギーの重みも GROUPR と同じ ν_p σf w にする
 - MF6 MT18 で即発の分布を与える評価（Th-232、Pa-231、Pa-233 の 4 つの版）の χ は、GROUPR と差の絶対値の和で 8.2e-4〜9.5e-4 違う。差は
-  GROUPR の `cm2lab` の格子の許容（1 %）によるもので、許容を 1e-4 にした GROUPR とは 3.2e-5〜8.5e-5 になる（examples/depletion/verification.md の
+  GROUPR の `cm2lab` の格子の許容（1 %）によるもので、許容を 1e-4 にした GROUPR とは 3.2e-5〜9.8e-5 になる（examples/depletion/verification.md の
   「版ごとのライブラリの MF6 MT18 の核分裂スペクトル」と「重心系の分布の実験室系の群への振り分け」。xs の側の積分は #0325 で直した）
 - ENDF/B-VIII.0 の MF5 MT455 は族ごとに LF=5（一般の蒸発スペクトル。θ = 1 で g(x) がヒストグラムの表）なので、MF5 の読み込みと
   群への振り分けに LF=5 を足した

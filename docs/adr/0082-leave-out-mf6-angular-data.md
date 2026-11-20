@@ -43,10 +43,11 @@ MF6 の角度のデータは入れない。
 
 ## 確認
 
-上の調査（2026-10-08）。影響の大きさは測っていない。2体反応の扱いは `two_body_mf6_level_uses_q_value`、
+上の調査（2026-10-08）。散乱行列への影響の大きさは測っていない。MF6 MT18 の χ への角度の分は、Th-232 の GROUPR の χ が Legendre 係数の
+有無で差の絶対値の和 5.5e-5 動く程度（examples/depletion/verification.md の「重心系の分布の実験室系の群への振り分け」、2026-11-21）。2体反応の扱いは `two_body_mf6_level_uses_q_value`、
 `two_body_neutron_law_is_marked`、`isotropic_two_body_neutron_law_is_marked`、`lab_frame_two_body_angles_are_error`。重心系で等方な連続的な放出の実験室系の群への振り分けは `center_of_mass_energy_spreads_in_laboratory`、
 `center_of_mass_panel_wider_than_ec_is_split_exactly_into_low_groups`、`center_of_mass_groups_out_of_reach_stay_exactly_zero`、
-`center_of_mass_motion_far_smaller_than_the_outgoing_energy_keeps_the_total`。
+`center_of_mass_motion_far_smaller_than_the_outgoing_energy_keeps_the_total`、`no_center_of_mass_motion_groups_the_outgoing_energies_as_given`。
 
 ## 帰結
 
