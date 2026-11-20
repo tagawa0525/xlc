@@ -76,7 +76,8 @@ xs の処理:
   ADR-0268 により UFG で解く）と組めばエラーで止める。`assemble` は、核種ごとの結果がポイントワイズの断面積を持つかが入力の項目と
   合うことを確かめる（古い結果を黙って組み立てない）
 - 形式（crates/format）: 温度の表の `pointwise` を `Option<Pointwise>` にする。nil の核種は、温度の間の内挿でも nil のまま（片方だけが
-  nil なら止める）
+  nil なら止める）。範囲のあるライブラリの S(α, β) の核種は nil にできない（xs の入力と同じ理由。別の経路で書いたライブラリでも、UFG が
+  S(α, β) の移行の欠けとして止まる前に、読み書きで止める）
 - lattice: `ufg-nuclides` に挙げた核種がポイントワイズの断面積を持たなければ、自己遮蔽の前にエラーで止める。UFG の減速計算は、
   ポイントワイズの断面積で解く核種（`ufg-nuclides` を省いた入力では、すべての核種）が持たなければエラーで止め、`ufg-nuclides` から
   外して等価原理の群定数で解くこと（ADR-0268）を示す。中心でないリングの核種はもともと挙げる必要がある（ADR-0268）ので、持たない
@@ -94,9 +95,9 @@ xs の処理:
 テスト（2026-11-20、すべて通る）:
 
 - 形式: nil の核種が読み書きで変わらない、一部の温度だけ nil の核種と、nil で S(α, β) の移行を持つ核種はエラー、S(α, β) の温度の
-  内挿は nil を保つ（crates/format/src/library/tests.rs の `nuclides_may_leave_out_the_pointwise_data`、
+  内挿は nil を保つ、S(α, β) の核種は nil にできない（crates/format/src/library/tests.rs の `nuclides_may_leave_out_the_pointwise_data`、
   `pointwise_data_are_left_out_at_every_temperature_or_none`、`nuclides_without_pointwise_data_take_no_sab_transfer`、
-  `interpolation_keeps_the_pointwise_data_left_out`）
+  `s_alpha_beta_nuclides_keep_their_pointwise_data`、`interpolation_keeps_the_pointwise_data_left_out`）
 - xs: 項目を読み、`thermal` と `activation` と組めばエラー、結果から外し、組み立てが結果と項目の食い違いを止める
   （crates/xs/src/main/tests.rs の `reads_nuclides_without_pointwise_data`、`results_leave_out_the_pointwise_data_the_input_leaves_out`）
 - lattice: 持たない核種は挙げない経路で持つときと同じに解け、挙げた入力と一覧を省いた入力はエラー（crates/lattice/src/shielding/tests.rs の
