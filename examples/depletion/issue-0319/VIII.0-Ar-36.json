@@ -1,0 +1,420 @@
+{
+ "format": "xlc-unresolved-background-methods",
+ "nuclide": "Ar-36",
+ "reference": "add",
+ "range": [
+  46500.0,
+  1200000.0
+ ],
+ "inputs": [
+  {
+   "name": "add",
+   "path": "out/add/VIII.0-Ar-36.msgpack",
+   "md5": "16ad420bbea81d35c04e379758e21b4d"
+  },
+  {
+   "name": "factors",
+   "path": "out/factors/VIII.0-Ar-36.msgpack",
+   "md5": "8e071f395476c0e0be236a8f979e891d"
+  },
+  {
+   "name": "scale",
+   "path": "out/scale/VIII.0-Ar-36.msgpack",
+   "md5": "0915db3d6ea05b3c770f245a00be6516"
+  }
+ ],
+ "methods": {
+  "factors": [
+   {
+    "temperature": 565.0,
+    "sigma0": [
+     {
+      "sigma0": 10000000000.0,
+      "capture": {
+       "relative": -1.7808499119809085e-10,
+       "group": 6,
+       "reference": 0.0037049006049211563,
+       "value": 0.003704900604261369
+      },
+      "fission": {
+       "relative": 0.0,
+       "group": null,
+       "reference": 0.0,
+       "value": 0.0
+      },
+      "total": {
+       "relative": -6.793454687681333e-13,
+       "group": 5,
+       "reference": 2.573447739534333,
+       "value": 2.5734477395325848
+      }
+     },
+     {
+      "sigma0": 100000.0,
+      "capture": {
+       "relative": -1.7808039653566254e-05,
+       "group": 6,
+       "reference": 0.003704867335864019,
+       "value": 0.0037048013594395907
+      },
+      "fission": {
+       "relative": 0.0,
+       "group": null,
+       "reference": 0.0,
+       "value": 0.0
+      },
+      "total": {
+       "relative": -2.1015706230587128e-05,
+       "group": 11,
+       "reference": 3.401057235492626,
+       "value": 3.4009857598728916
+      }
+     },
+     {
+      "sigma0": 10000.0,
+      "capture": {
+       "relative": -0.00017799159121656416,
+       "group": 6,
+       "reference": 0.003704568138663816,
+       "value": 0.003703908756686045
+      },
+      "fission": {
+       "relative": 0.0,
+       "group": null,
+       "reference": 0.0,
+       "value": 0.0
+      },
+      "total": {
+       "relative": -0.00020974624149716625,
+       "group": 10,
+       "reference": 2.759405114459897,
+       "value": 2.7588263396083708
+      }
+     },
+     {
+      "sigma0": 1000.0,
+      "capture": {
+       "relative": -0.0017711015891201942,
+       "group": 6,
+       "reference": 0.0037015984617040994,
+       "value": 0.00369504255478629
+      },
+      "fission": {
+       "relative": 0.0,
+       "group": null,
+       "reference": 0.0,
+       "value": 0.0
+      },
+      "total": {
+       "relative": -0.0020686382942022297,
+       "group": 10,
+       "reference": 2.738931615945486,
+       "value": 2.7332657571195402
+      }
+     },
+     {
+      "sigma0": 300.0,
+      "capture": {
+       "relative": -0.005829311280755811,
+       "group": 6,
+       "reference": 0.0036940824167730024,
+       "value": 0.003672548460468866
+      },
+      "fission": {
+       "relative": 0.0,
+       "group": null,
+       "reference": 0.0,
+       "value": 0.0
+      },
+      "total": {
+       "relative": -0.00666374176735296,
+       "group": 10,
+       "reference": 2.6899695284978407,
+       "value": 2.672044266197883
+      }
+     },
+     {
+      "sigma0": 100.0,
+      "capture": {
+       "relative": -0.01689019283808668,
+       "group": 6,
+       "reference": 0.003673943086385204,
+       "value": 0.0036118894791800026
+      },
+      "fission": {
+       "relative": 0.0,
+       "group": null,
+       "reference": 0.0,
+       "value": 0.0
+      },
+      "total": {
+       "relative": -0.018323601481560536,
+       "group": 10,
+       "reference": 2.57520813389103,
+       "value": 2.5280210463135377
+      }
+     },
+     {
+      "sigma0": 30.0,
+      "capture": {
+       "relative": -0.050528219561277066,
+       "group": 6,
+       "reference": 0.0036155928488516642,
+       "value": 0.003432903379540704
+      },
+      "fission": {
+       "relative": 0.0,
+       "group": null,
+       "reference": 0.0,
+       "value": 0.0
+      },
+      "total": {
+       "relative": -0.0484524524909169,
+       "group": 10,
+       "reference": 2.328495743953527,
+       "value": 2.2156744145443166
+      }
+     },
+     {
+      "sigma0": 10.0,
+      "capture": {
+       "relative": -0.11959450016669904,
+       "group": 6,
+       "reference": 0.003507699230168632,
+       "value": 0.0030881976940014995
+      },
+      "fission": {
+       "relative": 0.0,
+       "group": null,
+       "reference": 0.0,
+       "value": 0.0
+      },
+      "total": {
+       "relative": -0.09725172925689607,
+       "group": 10,
+       "reference": 2.0340660374043393,
+       "value": 1.8362495978440452
+      }
+     },
+     {
+      "sigma0": 1.0,
+      "capture": {
+       "relative": -0.366089174831038,
+       "group": 6,
+       "reference": 0.0032250134965222488,
+       "value": 0.002044370966761458
+      },
+      "fission": {
+       "relative": 0.0,
+       "group": null,
+       "reference": 0.0,
+       "value": 0.0
+      },
+      "total": {
+       "relative": -0.250758989116438,
+       "group": 10,
+       "reference": 1.566380035522605,
+       "value": 1.1735961612427863
+      }
+     }
+    ]
+   }
+  ],
+  "scale": [
+   {
+    "temperature": 565.0,
+    "sigma0": [
+     {
+      "sigma0": 10000000000.0,
+      "capture": {
+       "relative": 3.9918957028817204e-11,
+       "group": 11,
+       "reference": 0.008239135963456014,
+       "value": 0.008239135963784913
+      },
+      "fission": {
+       "relative": 0.0,
+       "group": null,
+       "reference": 0.0,
+       "value": 0.0
+      },
+      "total": {
+       "relative": 9.747758156208874e-14,
+       "group": 11,
+       "reference": 3.401378970990833,
+       "value": 3.401378970991164
+      }
+     },
+     {
+      "sigma0": 100000.0,
+      "capture": {
+       "relative": 3.991465786556958e-06,
+       "group": 11,
+       "reference": 0.008238370107697299,
+       "value": 0.00823840299086972
+      },
+      "fission": {
+       "relative": 0.0,
+       "group": null,
+       "reference": 0.0,
+       "value": 0.0
+      },
+      "total": {
+       "relative": 1.8031757864633846e-08,
+       "group": 11,
+       "reference": 3.401057235492626,
+       "value": 3.4010572968196664
+      }
+     },
+     {
+      "sigma0": 10000.0,
+      "capture": {
+       "relative": 3.981527366603288e-05,
+       "group": 11,
+       "reference": 0.008231501966890951,
+       "value": 0.008231829706394446
+      },
+      "fission": {
+       "relative": 0.0,
+       "group": null,
+       "reference": 0.0,
+       "value": 0.0
+      },
+      "total": {
+       "relative": 1.7960435383379547e-07,
+       "group": 11,
+       "reference": 3.3981726764273144,
+       "value": 3.3981732867539223
+      }
+     },
+     {
+      "sigma0": 1000.0,
+      "capture": {
+       "relative": 0.0003886729038029557,
+       "group": 11,
+       "reference": 0.00816514020422464,
+       "value": 0.008168313772977774
+      },
+      "fission": {
+       "relative": 0.0,
+       "group": null,
+       "reference": 0.0,
+       "value": 0.0
+      },
+      "total": {
+       "relative": 1.7290674907410875e-06,
+       "group": 11,
+       "reference": 3.3703751210105644,
+       "value": 3.3703809486166176
+      }
+     },
+     {
+      "sigma0": 300.0,
+      "capture": {
+       "relative": 0.0012244153842617678,
+       "group": 11,
+       "reference": 0.00800995442970333,
+       "value": 0.008019761941134294
+      },
+      "fission": {
+       "relative": 0.0,
+       "group": null,
+       "reference": 0.0,
+       "value": 0.0
+      },
+      "total": {
+       "relative": 5.283972562830641e-06,
+       "group": 11,
+       "reference": 3.305997283783626,
+       "value": 3.3060147525825663
+      }
+     },
+     {
+      "sigma0": 100.0,
+      "capture": {
+       "relative": 0.0032277988893405496,
+       "group": 11,
+       "reference": 0.007658841455795885,
+       "value": 0.007683562655740538
+      },
+      "fission": {
+       "relative": 0.0,
+       "group": null,
+       "reference": 0.0,
+       "value": 0.0
+      },
+      "total": {
+       "relative": 1.3116552734837583e-05,
+       "group": 11,
+       "reference": 3.1646687946194394,
+       "value": 3.1647103041645726
+      }
+     },
+     {
+      "sigma0": 30.0,
+      "capture": {
+       "relative": 0.008091142191630984,
+       "group": 11,
+       "reference": 0.0069148380523944095,
+       "value": 0.006970786990308433
+      },
+      "fission": {
+       "relative": 0.0,
+       "group": null,
+       "reference": 0.0,
+       "value": 0.0
+      },
+      "total": {
+       "relative": 2.9715455373890975e-05,
+       "group": 11,
+       "reference": 2.8900539871853184,
+       "value": 2.8901398664556024
+      }
+     },
+     {
+      "sigma0": 10.0,
+      "capture": {
+       "relative": 0.01618343057304239,
+       "group": 11,
+       "reference": 0.005939848721429721,
+       "value": 0.006035975850827354
+      },
+      "fission": {
+       "relative": 0.0,
+       "group": null,
+       "reference": 0.0,
+       "value": 0.0
+      },
+      "total": {
+       "relative": 5.395674810904083e-05,
+       "group": 11,
+       "reference": 2.576137775523294,
+       "value": 2.576276775540342
+      }
+     },
+     {
+      "sigma0": 1.0,
+      "capture": {
+       "relative": 0.045961570727037104,
+       "group": 11,
+       "reference": 0.003875519219087827,
+       "value": 0.004053644169779924
+      },
+      "fission": {
+       "relative": 0.0,
+       "group": null,
+       "reference": 0.0,
+       "value": 0.0
+      },
+      "total": {
+       "relative": 0.00013840456764979692,
+       "group": 11,
+       "reference": 1.9747083204477607,
+       "value": 1.974981629099087
+      }
+     }
+    ]
+   }
+  ]
+ }
+}
