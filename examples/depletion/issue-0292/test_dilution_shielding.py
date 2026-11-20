@@ -73,6 +73,12 @@ class Ratio(unittest.TestCase):
         self.assertAlmostEqual(r, 1.0, places=6)
         self.assertAlmostEqual(one, 50.5)
 
+    def test_a_nuclide_without_capture_or_fission_is_not_shielded(self):
+        x = nuclide([[0.0, 0.0], [0.0, 0.0]])
+        r, one = ds.ratio(x, [1.0, 1.0], 1.0, [1e10, 1.0], [1.0, 1.0], 565.0)
+        self.assertEqual(r, 1.0)
+        self.assertEqual(one, 0.0)
+
     def test_a_concentrated_nuclide_takes_the_shielded_table(self):
         x = nuclide([[100.0, 1.0], [50.0, 1.0]])
         r, _ = ds.ratio(x, [1.0, 1.0], 1.0, [1e10, 1.0], [1.0, 1.0], 565.0)
