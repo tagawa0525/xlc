@@ -3,6 +3,7 @@
 
 使い方: python3 added_effect.py --json <出力> <試行の履歴> <全核種の履歴> <試行の組成のテーブル> <全核種の組成のテーブル>
           <全核種の組成のテーブルの入力> <足した核種の一覧>
+          [--shares <吸収の割合の JSON の形の出力>]
         python3 added_effect.py --report <出力の JSON>...
 
 テーブルは、2 つの履歴の組成から同じ燃焼点の基準条件の 1 状態を、すべての核種を UFG で解いたブランチ計算（ufg_subset.py の組
@@ -99,6 +100,7 @@ def contributions(before, after, before_table, after_table, volume, added):
             change = n_after if name in added else n_after - n_before
             nuclides[name] = {
                 "pcm": -1e5 * change * sigma_a * sum(flux) / production,
+                "fraction": n_after * sigma_a * sum(flux) / lattice_absorption,
                 "added": name in added,
                 "density_ratio": n_after / n_before if n_before > 0.0 else None,
             }
@@ -118,6 +120,7 @@ def contributions(before, after, before_table, after_table, volume, added):
         points.append(
             {
                 "burnup": burnup,
+                "k_inf": state["k_inf"],
                 "direct_pcm": direct,
                 **sums,
                 "remainder_pcm": direct - sum(sums.values()),
@@ -126,6 +129,25 @@ def contributions(before, after, before_table, after_table, volume, added):
             }
         )
     return points
+
+
+def shares(points: list[dict]) -> dict:
+    """足した核種の、全核種の組成の格子の吸収に占める割合を、吸収の割合の JSON（untransported_absorption.py）の形で
+    （dilution_shielding.py が全核種の組成で順位を付けるため）。数密度は全核種の燃焼が自分の吸収で減らしたものなので、比は 1"""
+    return {
+        "points": [
+            {
+                "burnup": p["burnup"],
+                "k_inf": p["k_inf"],
+                "untransported_all": {
+                    n: {"fraction": v["fraction"], "captured_ratio": 1.0}
+                    for n, v in p["nuclides"].items()
+                    if v["added"]
+                },
+            }
+            for p in points
+        ]
+    }
 
 
 def top(point: dict) -> list[dict]:
@@ -192,6 +214,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--report", nargs="+", type=Path)
     parser.add_argument("--json", type=Path)
+    parser.add_argument(
+        "--shares",
+        type=Path,
+        help="足した核種の吸収の割合を、吸収の割合の JSON の形で書く置き場",
+    )
     parser.add_argument("files", nargs="*", type=Path)
     args = parser.parse_args()
     if args.report:
@@ -221,6 +248,9 @@ def main() -> None:
         "inputs": [{"path": str(p), "md5": md5(p)} for p in args.files],
     }
     args.json.write_text(json.dumps(summary, indent=1) + "\n")
+    if args.shares:
+        out = {**shares(points), "inputs": summary["inputs"]}
+        args.shares.write_text(json.dumps(out, indent=1) + "\n")
 
 
 if __name__ == "__main__":

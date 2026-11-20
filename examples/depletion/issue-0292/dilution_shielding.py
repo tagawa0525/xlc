@@ -157,6 +157,14 @@ def ratio(added, background, density, sigma0, w, temperature):
     return sum(a * x for a, x in zip(shielded, w)) / one, one / sum(w)
 
 
+def background(total, name, density, sigma_t, transported):
+    """核種 `name` の σ0 の分子 Σ_{j≠i} Nⱼ σt,j,g: 輸送する核種の和 `total` から、`name` が輸送する核種なら自分の項を除く
+    （全核種の履歴では足した核種も輸送する核種）"""
+    if name not in transported:
+        return total
+    return [t - density * s for t, s in zip(total, sigma_t)]
+
+
 def ranked_names(names, cooled, unranked):
     """足した核種 `names` のうち順位を付けるもの。履歴のライブラリに無く、冷却計算の断面積（`cooled` はテーブルの冷却計算の
     核種）と吸収の割合の無い核種は `unranked` に挙げ、順位を付けない。挙げ忘れ、足していない核種、順位を付けられる核種を挙げた
@@ -195,6 +203,7 @@ def summarize(history, table, shares, transported_dir, added_dir, names, tempera
     pruned = set(shares.get("pruned", {}).get("nuclides", []))
     bounds, sigma0 = first["group_bounds"], first["sigma0"]
     rows = {n: [] for n in names}
+    transported = set(history["transportable"])
     for p in shares["points"]:
         b = p["burnup"]
         hp = points.get(b)
@@ -219,7 +228,16 @@ def summarize(history, table, shares, transported_dir, added_dir, names, tempera
                 total[g] += n * s
         for name in names:
             n = mean(name)
-            r, one = ratio(nuclide(added_dir, name), total, n, sigma0, w, temperature)
+            data = nuclide(added_dir, name)
+            own = temperature_data(data, temperature)["shielded"][0]["total"]
+            r, one = ratio(
+                data,
+                background(total, name, n, own, transported),
+                n,
+                sigma0,
+                w,
+                temperature,
+            )
             cooled = capture_and_fission(
                 cooling["points"][k][cooling["nuclides"].index(name)]
             )
