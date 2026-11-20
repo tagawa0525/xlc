@@ -731,41 +731,28 @@ struct FinalStates<'a> {
 }
 
 impl FinalStates<'_> {
-    /// 経路 `i` の、縮める前の断面積（反応の断面積 `s` が 0 でないエネルギー `e` で）。MF9 の表の外なら `uncovered` に `e` を残す
-    fn raw(
-        &self,
-        i: usize,
-        e: f64,
-        s: f64,
-        uncovered: Option<&std::cell::Cell<Option<f64>>>,
-    ) -> f64 {
-        match self.tables[i].eval(e) {
-            Some(v) if self.entries[i].mf == 9 => v * s,
-            Some(v) => v,
-            None => {
-                if self.entries[i].mf == 9
-                    && let Some(cell) = uncovered
-                    && cell.get().is_none()
-                {
-                    cell.set(Some(e));
-                }
-                0.0
-            }
-        }
+    /// 経路 `i` の、縮める前の断面積（反応の断面積 `s` が 0 でないエネルギー `e` で）。表の外なら None
+    fn raw(&self, i: usize, e: f64, s: f64) -> Option<f64> {
+        let v = self.tables[i].eval(e)?;
+        Some(if self.entries[i].mf == 9 { v * s } else { v })
     }
 
-    /// エネルギー `e` の、反応の断面積と、縮める前の経路の和
+    /// エネルギー `e` の、反応の断面積と、縮める前の経路の和（表の外の経路は 0）
     fn sum_at(&self, e: f64) -> (f64, f64) {
         let s = self.sigma.eval(e).unwrap_or(0.0);
         if s == 0.0 {
             return (0.0, 0.0);
         }
-        (
-            s,
-            (0..self.tables.len())
-                .map(|i| self.raw(i, e, s, None))
-                .sum(),
-        )
+        let sum = (0..self.tables.len())
+            .map(|i| self.raw(i, e, s).unwrap_or(0.0))
+            .sum();
+        (s, sum)
+    }
+
+    /// 経路の和 `sum` が反応 `s` を超えて縮めるか。負の反応は縮めない（縮める倍率が負になり経路の符号が変わる。和が反応を
+    /// 超える分は、群の残りの検査が止める）
+    fn exceeds(s: f64, sum: f64) -> bool {
+        s > 0.0 && sum > s
     }
 
     /// 群の境界 `bounds`（降順）と、その範囲の中の表の点（反応と全部の経路の表の点）のうち、経路の和が反応を最も大きく超える
@@ -783,7 +770,7 @@ impl FinalStates<'_> {
             .chain(bounds.iter().copied())
             .filter_map(|e| {
                 let (s, sum) = self.sum_at(e);
-                (sum > s).then(|| (e, (sum - s) / s))
+                Self::exceeds(s, sum).then(|| (e, (sum - s) / s))
             })
             .max_by(|a, b| a.1.total_cmp(&b.1))
     }
@@ -801,8 +788,17 @@ impl FinalStates<'_> {
             if s == 0.0 {
                 return Ok([0.0]);
             }
-            let v = self.raw(i, e, s, Some(&uncovered));
-            Ok([if sum > s { v * (s / sum) } else { v }])
+            let v = self.raw(i, e, s).unwrap_or_else(|| {
+                if self.entries[i].mf == 9 && uncovered.get().is_none() {
+                    uncovered.set(Some(e));
+                }
+                0.0
+            });
+            Ok([if Self::exceeds(s, sum) {
+                v * (s / sum)
+            } else {
+                v
+            }])
         };
         let own = &self.tables[i];
         let others = self
@@ -814,7 +810,7 @@ impl FinalStates<'_> {
             .copied()
             .filter(|&e| {
                 let (s, sum) = self.sum_at(e);
-                sum > s
+                Self::exceeds(s, sum)
             });
         let nodes: Vec<f64> = own
             .x
