@@ -36,11 +36,47 @@ impl Interpolation {
         matches!(self, Self::LogLin | Self::LogLog)
     }
 
+    /// ln x をとる補間則で、区間の端の x0、x1 が正であるか。
+    pub fn check_x(self, x0: f64, x1: f64) -> Result<(), String> {
+        if self.log_x() && (x0 <= 0.0 || x1 <= 0.0) {
+            return Err(format!(
+                "{self:?} interpolation is not defined with non-positive x between {x0} and {x1}"
+            ));
+        }
+        Ok(())
+    }
+
+    /// 2 点 (x0, y0)、(x1, y1) の区間で、この補間則が定義されるか。ln x をとる補間則は x0、x1 が正（`check_x`）、
+    /// ln y をとる補間則は y0、y1 が負でないこと（0 は ln y → −∞ の極限として扱う。`interpolate`）。
+    pub fn check_interval(self, (x0, y0): (f64, f64), (x1, y1): (f64, f64)) -> Result<(), String> {
+        let between = || format!("between ({x0}, {y0}) and ({x1}, {y1})");
+        if self.check_x(x0, x1).is_err() {
+            return Err(format!(
+                "{self:?} interpolation is not defined with non-positive x {}",
+                between()
+            ));
+        }
+        if self.log_y() && (y0 < 0.0 || y1 < 0.0) {
+            return Err(format!(
+                "{self:?} interpolation is not defined with negative y {}",
+                between()
+            ));
+        }
+        Ok(())
+    }
+
+    /// 区間 [x0, x1] の x で補間する。
+    ///
+    /// 区間は `check_interval` に通ること。通らない区間では ln が NaN を返し、後のどの比較も偽になって黙って通るので、
+    /// 補間する値の並びを作る所（読み込みと作り直した表の `Tab1::check`、MF4 と MF5・MF6 の入射エネルギーの補間則の
+    /// 読み込み、`UnresolvedShielding::new`）が先にエラーにする（#0326）。
     pub fn interpolate(self, x: f64, (x0, y0): (f64, f64), (x1, y1): (f64, f64)) -> f64 {
         if x == x0 {
             return y0;
         }
-        // 端点の y が 0 なら ln y → -∞ となり、区間内の値は極限として 0
+        // 端点の y が 0 なら ln y → −∞ となり、区間内の値は極限として 0。ENDF-102 は INT=4、5 の 0 を定めないが、INT=6 の
+        // 説明で「σ1 か σ2 が 0 なら結果は明らかに 0」、MF7 で「S = 0.0 はとても小さい数」と書き、NJOY の terp1 も log-log の
+        // y1 = 0 で 0、y2 = 0 で exp(−∞) = 0 を返す
         if self.log_y() && (y0 == 0.0 || y1 == 0.0) {
             return 0.0;
         }
@@ -83,7 +119,7 @@ impl Tab1 {
 
     /// x と y の長さ、区切りと補間則の対応（区切りは狭義の昇順で、最後が点の数）、値がすべて有限で
     /// x が昇順であること、各区間の値が補間則の定義域にあることを検査する。
-    pub(super) fn check(&self) -> Result<(), String> {
+    pub(crate) fn check(&self) -> Result<(), String> {
         if self.x.len() != self.y.len() {
             return Err(format!(
                 "{} x values but {} y values",
@@ -128,18 +164,8 @@ impl Tab1 {
                 ));
             }
             let law = self.law_of_interval(k);
-            if law.log_x() && x0 <= 0.0 {
-                return Err(format!(
-                    "non-positive x {x0} with logarithmic x interpolation"
-                ));
-            }
-            let (y0, y1) = (self.y[k], self.y[k + 1]);
-            if law.log_y() && (y0 < 0.0 || y1 < 0.0) {
-                return Err(format!(
-                    "negative y with logarithmic y interpolation at point {}",
-                    k + 1
-                ));
-            }
+            law.check_interval((x0, self.y[k]), (x1, self.y[k + 1]))
+                .map_err(|message| format!("points {} and {}: {message}", k + 1, k + 2))?;
         }
         Ok(())
     }
