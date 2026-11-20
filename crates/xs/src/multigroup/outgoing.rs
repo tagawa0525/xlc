@@ -288,8 +288,9 @@ pub enum GroupedLaw {
 }
 
 /// θ(E) で決まる出射分布（LF=5, 7, 9, 11, 12）。入射エネルギーごとに、群ごとの割合を x = E'/θ までの累積の差で
-/// 厳密に求める（LF=7, 9 は不完全ガンマ関数、LF=11 は誤差関数、LF=12 は閉じた式。NJOY GROUPR の anased と同じ）。
-/// LF=11 の θ は a(E)。
+/// 厳密に求める（LF=7, 9 は不完全ガンマ関数、LF=11 は誤差関数、LF=12 は閉じた式。累積の差で分けるのは NJOY GROUPR の anased と
+/// 同じ）。LF=11 の θ は a(E)。LF=11 の √(E'/a) < 0.01 の累積は、anased が x^(3/2) の初項だけで近似するのに対し、ここでは
+/// 正の級数で求める（`watt_small_cumulative`）。
 #[derive(Debug, Clone)]
 pub struct AnalyticSpectrum {
     /// x = E'/θ 未満の出射の割合
@@ -341,15 +342,23 @@ impl Cumulative {
         Self::Table { shape, integral }
     }
 
-    /// x = E'/θ までの累積。`e` と `theta` は x を出した入射エネルギーと θ（LF=11 の累積は a b/4 に、LF=12 の累積は
-    /// E_F/θ にもよる）
-    fn at(&self, x: f64, e: f64, theta: f64) -> f64 {
+    /// 入射エネルギー e（θ は `theta`）で決まり、x によらない累積の形の量（`at` に渡す）。LF=11 は a b/4、LF=12 は θ、
+    /// ほかは使わない
+    fn parameter(&self, e: f64, theta: f64) -> f64 {
+        match self {
+            Self::Watt { b } => 0.25 * theta * b.eval(e),
+            _ => theta,
+        }
+    }
+
+    /// x = E'/θ までの累積。`parameter` は x を出した入射エネルギーの `Cumulative::parameter`
+    fn at(&self, x: f64, parameter: f64) -> f64 {
         match self {
             Self::Gamma(p) => p(x),
-            Self::Watt { b } => watt_cumulative(x, 0.25 * theta * b.eval(e)),
+            Self::Watt { .. } => watt_cumulative(x, parameter),
             Self::MadlandNix { light, heavy } => {
-                0.5 * (madland_nix_fraction(x, light / theta)
-                    + madland_nix_fraction(x, heavy / theta))
+                0.5 * (madland_nix_fraction(x, light / parameter)
+                    + madland_nix_fraction(x, heavy / parameter))
             }
             Self::Table { shape, integral } => {
                 let (xs, ys) = (&shape.x, &shape.y);
@@ -371,14 +380,15 @@ impl Cumulative {
 
 /// x = E'/a がこれより小さいところは、閉じた式でなく級数で累積を求める（`watt_small_cumulative`）。閉じた式は 1 程度の項の
 /// 差で、累積（x^(3/2) で 0 に近づく）の相対誤差が ε x^(-3/2) ほどになる。級数は項がすべて正で、x が大きいと項の数が増える
-/// （`special` の不完全ガンマ関数と同じ切り替え）。x = 1 の前後の両者の相対差は 6e-15 以下（c = a b/4 = 0.05〜5）
+/// （`special` の不完全ガンマ関数と同じ切り替え）。x = 1 の前後の両者の相対差は 6e-15 以下（c = a b/4 = 0.05〜5。読み込みが
+/// c ≤ 5 に限る。endf の mf5 の `WATT_MAX_AB`）
 const WATT_SERIES_LIMIT: f64 = 1.0;
 
 /// ENDF-102 の 5.1.1.5 の exp(-E'/a) sinh(√(b E')) の、E'/a < x の（正規化しない）累積を a e^c で割ったもの。`c` は a b/4。
 ///
 /// E' = a u² と置くと、r = √c として 2u e^(-u²) sinh(2ru) = u (e^(-(u-r)²) - e^(-(u+r)²)) e^c なので、
 /// W(x) = (√π/2) r (erf(√x - r) + erf(√x + r)) - (e^(-(√x - r)²) - e^(-(√x + r)²))/2（ENDF-102 の正規化の定数 I を
-/// a e^c で割ったものと同じ形）。e^c を外に出すので、大きい a b で溢れない。小さい x（`WATT_SERIES_LIMIT`）は
+/// a e^c で割ったものと同じ形）。小さい x（`WATT_SERIES_LIMIT`）は
 /// `watt_small_cumulative`。
 fn watt_cumulative(x: f64, c: f64) -> f64 {
     if x < WATT_SERIES_LIMIT {
@@ -482,12 +492,13 @@ impl AnalyticSpectrum {
             return;
         }
         let theta = self.theta.eval(e);
-        let total = self.fraction.at(top / theta, e, theta);
+        let parameter = self.fraction.parameter(e, theta);
+        let total = self.fraction.at(top / theta, parameter);
         // 最下位の群から積み上げる。群構造の外に出る分は端の群に入れる
         let mut below = 0.0;
         for g in (0..out.len()).rev() {
             let upper = if g == 0 { top } else { self.bounds[g].min(top) };
-            let cumulative = self.fraction.at(upper / theta, e, theta);
+            let cumulative = self.fraction.at(upper / theta, parameter);
             out[g] += scale * (cumulative - below) / total;
             below = cumulative;
             if upper >= top {
