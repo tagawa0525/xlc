@@ -73,6 +73,22 @@ class Ratio(unittest.TestCase):
         self.assertAlmostEqual(r, 1.0, places=6)
         self.assertAlmostEqual(one, 50.5)
 
+    def test_a_nuclide_without_capture_or_fission_is_an_error(self):
+        x = nuclide([[0.0, 0.0], [0.0, 0.0]])
+        with self.assertRaises(SystemExit):
+            ds.ratio(x, [1.0, 1.0], 1.0, [1e10, 1.0], [1.0, 1.0], 565.0)
+
+
+class Tableless(unittest.TestCase):
+    def test_nuclides_without_capture_or_fission_are_set_apart(self):
+        files = {
+            "A": nuclide([[1.0, 0.0], [0.5, 0.0]]),
+            "T": nuclide([[0.0, 0.0], [0.0, 0.0]]),
+        }
+        ranked, tableless = ds.split_tableless(["A", "T"], files.__getitem__, 565.0)
+        self.assertEqual(ranked, ["A"])
+        self.assertEqual(tableless, ["T"])
+
     def test_a_concentrated_nuclide_takes_the_shielded_table(self):
         x = nuclide([[100.0, 1.0], [50.0, 1.0]])
         r, _ = ds.ratio(x, [1.0, 1.0], 1.0, [1e10, 1.0], [1.0, 1.0], 565.0)
@@ -97,6 +113,58 @@ class Grids(unittest.TestCase):
             ds.check_grid(a, {**a, "sigma0": [1e10, 10.0]}, "X")
         with self.assertRaises(SystemExit):
             ds.check_grid(a, {**a, "group_bounds": [10.0, 0.1]}, "X")
+
+
+class Unranked(unittest.TestCase):
+    def test_nuclides_outside_the_cooling_table_are_left_unranked(self):
+        self.assertEqual(
+            ds.ranked_names(["A", "U", "B"], ["A", "B", "C"], ["U"]), ["A", "B"]
+        )
+
+    def test_an_unranked_nuclide_of_the_cooling_table_is_an_error(self):
+        with self.assertRaises(SystemExit):
+            ds.ranked_names(["A", "U"], ["A", "U"], ["U"])
+
+    def test_a_nuclide_outside_the_cooling_table_must_be_listed_unranked(self):
+        with self.assertRaises(SystemExit):
+            ds.ranked_names(["A", "U"], ["A"], [])
+
+    def test_unranked_nuclides_must_be_added_ones(self):
+        with self.assertRaises(SystemExit):
+            ds.ranked_names(["A"], ["A"], ["U"])
+
+
+class Report(unittest.TestCase):
+    def test_a_point_without_a_cooling_value_has_no_weight_check(self):
+        summary = {
+            "inputs": [],
+            "nuclides": [
+                {
+                    "nuclide": "H-3",
+                    "max_pcm": 0.0,
+                    "burnup": 10.0,
+                    "points": [{"burnup": 10.0, "ratio": 1.0, "weight_check": None}],
+                }
+            ],
+        }
+        self.assertTrue(ds.report(summary)[-1].endswith("| –"))
+
+
+class Background(unittest.TestCase):
+    def test_a_transported_nuclide_leaves_its_own_term_out_of_its_background(self):
+        # 全核種の履歴では足した核種も輸送する核種で、σ0 = Σ_{j≠i} Nⱼ σt,j / Nᵢ の和から自分の項を除く
+        total = [3.0, 5.0]
+        self.assertEqual(ds.background(total, "X", 0.5, [2.0, 4.0], {"X"}), [2.0, 3.0])
+
+    def test_an_untransported_nuclide_is_not_in_the_sum(self):
+        total = [3.0, 5.0]
+        self.assertEqual(ds.background(total, "X", 0.5, [2.0, 4.0], set()), total)
+
+
+class Empty(unittest.TestCase):
+    def test_nothing_left_to_rank_is_an_error(self):
+        with self.assertRaises(SystemExit):
+            ds.summarize({}, {}, {}, "t", "a", [], 565.0)
 
 
 if __name__ == "__main__":

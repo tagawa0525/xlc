@@ -80,5 +80,42 @@ class Compare(unittest.TestCase):
             )
 
 
+class Unestimated(unittest.TestCase):
+    def test_unestimated_nuclides_are_left_out_of_the_estimates(self):
+        before, after = history([(10.0, 1.0)]), history([(10.0, 1.0)], ["A", "U"])
+        shares = absorption([(10.0, 1.0, {"A": (0.01, 1.0)})])
+        summary = compare_added.compare(before, after, shares, ["A", "U"], ["U"])
+        (row,) = summary["points"]
+        self.assertAlmostEqual(row["decay_only_pcm"], -1e3)
+        self.assertEqual(summary["unestimated"], ["U"])
+
+    def test_an_unestimated_nuclide_with_a_share_is_an_error(self):
+        before, after = history([(10.0, 1.0)]), history([(10.0, 1.0)], ["A"])
+        shares = absorption([(10.0, 1.0, {"A": (0.01, 1.0)})])
+        with self.assertRaises(SystemExit):
+            compare_added.compare(before, after, shares, ["A"], ["A"])
+
+    def test_unestimated_nuclides_must_be_added_ones(self):
+        before, after = history([(10.0, 1.0)]), history([(10.0, 1.0)], ["A"])
+        shares = absorption([(10.0, 1.0, {"A": (0.01, 1.0)})])
+        with self.assertRaises(SystemExit):
+            compare_added.compare(before, after, shares, ["A"], ["U"])
+
+
+class Report(unittest.TestCase):
+    def test_the_report_counts_the_unestimated_nuclides(self):
+        summary = {
+            "inputs": [],
+            "added": ["A", "U"],
+            "unestimated": ["U"],
+            "points": [],
+        }
+        self.assertIn("目安に入れない 1", "\n".join(compare_added.report(summary)))
+
+    def test_a_summary_without_the_unestimated_list_is_an_error(self):
+        with self.assertRaises(KeyError):
+            compare_added.report({"inputs": [], "added": [], "points": []})
+
+
 if __name__ == "__main__":
     unittest.main()

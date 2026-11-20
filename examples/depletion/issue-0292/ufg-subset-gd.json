@@ -123,12 +123,20 @@
  ],
  "inputs": [
   {
+   "path": "issue-0292/ufg-subset/gd/all.toml",
+   "md5": "4b43cb6f8acb112fccd59c8059256e86"
+  },
+  {
    "path": "issue-0292/ufg-subset/gd/out/all.msgpack",
    "md5": "f040b84262685dd13b0c8587943895ba"
   },
   {
    "path": "issue-0292/ufg-subset/gd/out-timed/all.log",
    "md5": "89391d42c3d8b43dc868c0a82d387750"
+  },
+  {
+   "path": "issue-0292/ufg-subset/gd/none.toml",
+   "md5": "d86bc9acc454c10a84544d808823adf4"
   },
   {
    "path": "issue-0292/ufg-subset/gd/out/none.msgpack",
@@ -139,12 +147,20 @@
    "md5": "0d162711fa250200fd5f52f19accf311"
   },
   {
+   "path": "issue-0292/ufg-subset/gd/s4.toml",
+   "md5": "6a4203be2bc833e283789c3a82471135"
+  },
+  {
    "path": "issue-0292/ufg-subset/gd/out/s4.msgpack",
    "md5": "65be0fd6ff9e1ee0a775d58c9a292eb7"
   },
   {
    "path": "issue-0292/ufg-subset/gd/out-timed/s4.log",
    "md5": "519d58895c904169a7880e329dc8e851"
+  },
+  {
+   "path": "issue-0292/ufg-subset/gd/s17.toml",
+   "md5": "b4c5a3ffd3bf44f4f73162d19ef19a33"
   },
   {
    "path": "issue-0292/ufg-subset/gd/out/s17.msgpack",

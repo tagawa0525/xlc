@@ -2,6 +2,7 @@
 
 使い方: python3 dilution_shielding.py --json <出力> <履歴（msgpack）> <テーブル（msgpack）> <吸収の割合の JSON>
           <輸送する核種の xs のファイルの置き場> <足す核種の xs のファイルの置き場> <足した核種の一覧> [--temperature 565]
+          [--unranked <順位を付けない核種の一覧>]
         python3 dilution_shielding.py --report <出力の JSON>
 
 核種ごとの xs のファイル（`xs nuclide` の出力。ADR-0138）の Bondarenko の表（`shielded`。σ0 ごとの群の捕獲と核分裂）を、燃焼の領域の
@@ -121,6 +122,23 @@ def absorption_groups(shielded_entry):
     return [c + f for c, f in zip(shielded_entry["capture"], shielded_entry["fission"])]
 
 
+def data_name(nuclide_file):
+    return nuclide_file["nuclides"][0]["name"]
+
+
+def split_tableless(names, load, temperature):
+    """`names` を、順位を付ける核種と、Bondarenko の表（捕獲と核分裂）が無限希釈ですべての群で 0 の核種に分ける（H-3 の (n,2n)、
+    Be-7 の (n,p) のように表に無い反応だけで中性子を失う核種は、表で自己遮蔽を見積もれない）。`load` は名前から xs のファイル"""
+    ranked, tableless = [], []
+    for name in names:
+        table = temperature_data(load(name), temperature)["shielded"][0]
+        if any(c + f != 0.0 for c, f in zip(table["capture"], table["fission"])):
+            ranked.append(name)
+        else:
+            tableless.append(name)
+    return ranked, tableless
+
+
 def ratio(added, background, density, sigma0, w, temperature):
     """足す核種の、組成の希釈の 1 群の吸収断面積と無限希釈の比、と無限希釈の 1 群の値（重み `w` の和で割る）"""
     data = temperature_data(added, temperature)
@@ -132,10 +150,41 @@ def ratio(added, background, density, sigma0, w, temperature):
         shielded.append(interpolate(sigma0, [t[g] for t in tables], value))
     infinite = tables[0]
     one = sum(a * x for a, x in zip(infinite, w))
+    if one == 0.0:
+        raise SystemExit(
+            f"{data_name(added)}: no capture or fission to shield (set it apart with split_tableless)"
+        )
     return sum(a * x for a, x in zip(shielded, w)) / one, one / sum(w)
 
 
+def background(total, name, density, sigma_t, transported):
+    """核種 `name` の σ0 の分子 Σ_{j≠i} Nⱼ σt,j,g: 輸送する核種の和 `total` から、`name` が輸送する核種なら自分の項を除く
+    （全核種の履歴では足した核種も輸送する核種）"""
+    if name not in transported:
+        return total
+    return [t - density * s for t, s in zip(total, sigma_t)]
+
+
+def ranked_names(names, cooled, unranked):
+    """足した核種 `names` のうち順位を付けるもの。履歴のライブラリに無く、冷却計算の断面積（`cooled` はテーブルの冷却計算の
+    核種）と吸収の割合の無い核種は `unranked` に挙げ、順位を付けない。挙げ忘れ、足していない核種、順位を付けられる核種を挙げた
+    ものはエラー"""
+    cooled, unranked = set(cooled), list(unranked)
+    stray = sorted(set(unranked) - set(names))
+    if stray:
+        raise SystemExit(f"the unranked {stray} are not added nuclides")
+    rankable = sorted(set(unranked) & cooled)
+    if rankable:
+        raise SystemExit(f"{rankable} have cooling cross sections and can be ranked")
+    missing = [n for n in names if n not in cooled and n not in unranked]
+    if missing:
+        raise SystemExit(f"{missing} have no cooling cross sections of the history")
+    return [n for n in names if n not in unranked]
+
+
 def summarize(history, table, shares, transported_dir, added_dir, names, temperature):
+    if not names:
+        raise SystemExit("no added nuclide is left to rank")
     index = {n: i for i, n in enumerate(history["nuclides"])}
     volume = sum(r["volume"] for r in history["regions"])
     points = {p["burnup"]: p for p in history["points"]}
@@ -154,6 +203,7 @@ def summarize(history, table, shares, transported_dir, added_dir, names, tempera
     pruned = set(shares.get("pruned", {}).get("nuclides", []))
     bounds, sigma0 = first["group_bounds"], first["sigma0"]
     rows = {n: [] for n in names}
+    transported = set(history["transportable"])
     for p in shares["points"]:
         b = p["burnup"]
         hp = points.get(b)
@@ -178,7 +228,16 @@ def summarize(history, table, shares, transported_dir, added_dir, names, tempera
                 total[g] += n * s
         for name in names:
             n = mean(name)
-            r, one = ratio(nuclide(added_dir, name), total, n, sigma0, w, temperature)
+            data = nuclide(added_dir, name)
+            own = temperature_data(data, temperature)["shielded"][0]["total"]
+            r, one = ratio(
+                data,
+                background(total, name, n, own, transported),
+                n,
+                sigma0,
+                w,
+                temperature,
+            )
             cooled = capture_and_fission(
                 cooling["points"][k][cooling["nuclides"].index(name)]
             )
@@ -221,7 +280,8 @@ def report(summary):
     for r in summary["nuclides"]:
         at = next(p for p in r["points"] if p["burnup"] == r["burnup"])
         lines.append(
-            f"{r['nuclide']} | {r['max_pcm']:+.2f} | {r['burnup']:g} | {at['ratio']:.4f} | {at['weight_check']:.3f}"
+            f"{r['nuclide']} | {r['max_pcm']:+.2f} | {r['burnup']:g} | {at['ratio']:.4f} | "
+            + ("–" if at["weight_check"] is None else f"{at['weight_check']:.3f}")
         )
     return lines
 
@@ -231,6 +291,10 @@ def main():
     parser.add_argument("--json")
     parser.add_argument("--report")
     parser.add_argument("--temperature", type=float, default=565.0)
+    parser.add_argument(
+        "--unranked",
+        help="順位を付けない足した核種の一覧（履歴のライブラリに無い核種）",
+    )
     parser.add_argument("files", nargs="*")
     args = parser.parse_args()
     if args.report:
@@ -241,16 +305,27 @@ def main():
     history_path, table_path, shares_path, transported_dir, added_dir, list_path = (
         args.files
     )
-    names = Path(list_path).read_text().split()
+    added = Path(list_path).read_text().split()
+    unranked = Path(args.unranked).read_text().split() if args.unranked else []
+    table = read(table_path)
+    names, tableless = split_tableless(
+        ranked_names(added, table["cooling"]["nuclides"], unranked),
+        lambda n: read(Path(added_dir) / f"{n}.msgpack"),
+        args.temperature,
+    )
     summary = {
         "format": "xlc-dilution-shielding",
         "inputs": [
             {"path": f, "md5": hashlib.md5(Path(f).read_bytes()).hexdigest()}
             for f in (history_path, table_path, shares_path, list_path)
+            + ((args.unranked,) if args.unranked else ())
         ],
+        "unranked": unranked,
+        # 表で自己遮蔽を見積もれず、順位を付けない核種（split_tableless）
+        "tableless": tableless,
         # 比を決める xs のファイルの置き場ごとの md5（足す核種と、履歴の輸送する核種）
         "xs_files": {
-            "added": directory_md5(added_dir, names),
+            "added": directory_md5(added_dir, names + tableless),
             "transported": directory_md5(
                 transported_dir, read(history_path)["transportable"]
             ),
@@ -258,7 +333,7 @@ def main():
         "temperature": args.temperature,
         "nuclides": summarize(
             read(history_path),
-            read(table_path),
+            table,
             json.loads(Path(shares_path).read_text()),
             transported_dir,
             added_dir,

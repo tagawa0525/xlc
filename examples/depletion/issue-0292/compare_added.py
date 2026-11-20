@@ -1,6 +1,7 @@
 """輸送しない核種を輸送する核種にしたライブラリで燃焼させ直した k∞ の差を、untransported_absorption.py の 1 次の目安と比べる（#0292）。
 
 使い方: python3 compare_added.py --json <出力> <足す前の履歴（msgpack）> <足した後の履歴（msgpack）> <吸収の割合の JSON> <足した核種の一覧>
+          [--unestimated <目安に入れない核種の一覧>]
         python3 compare_added.py --report <出力の JSON>
 
 吸収の割合の JSON は、足す前の履歴と、そのベース計算の組成から基準条件へのブランチ計算のテーブルから untransported_absorption.py が
@@ -27,7 +28,8 @@ def history_k(history):
     return {p["burnup"]: p["k_inf"] for p in history["points"]}
 
 
-def compare(before, after, absorption, added):
+def compare(before, after, absorption, added, unestimated=()):
+    """`unestimated` は、足す前の履歴のライブラリに無く吸収の割合の無い、目安に入れない足した核種"""
     k_before, k_after = history_k(before), history_k(after)
     gained = set(after["transportable"]) - set(before["transportable"])
     wrong = sorted(set(added) ^ gained)
@@ -35,6 +37,9 @@ def compare(before, after, absorption, added):
         raise SystemExit(
             f"the added list and the nuclides the second library transports differ in {wrong}"
         )
+    stray = sorted(set(unestimated) - set(added))
+    if stray:
+        raise SystemExit(f"the unestimated {stray} are not added nuclides")
     if sorted(k_before) != sorted(k_after):
         raise SystemExit("the histories have different burnup points")
     rows = []
@@ -44,7 +49,14 @@ def compare(before, after, absorption, added):
             raise SystemExit(f"burnup {b} is not a point of the histories")
         shares = p["untransported_all"]
         dropped = set(absorption.get("pruned", {}).get("nuclides", []))
-        missing = [n for n in added if n not in shares and n not in dropped]
+        shared = [n for n in unestimated if n in shares or n in dropped]
+        if shared:
+            raise SystemExit(f"the unestimated {shared} have absorption shares")
+        missing = [
+            n
+            for n in added
+            if n not in shares and n not in dropped and n not in unestimated
+        ]
         if missing:
             raise SystemExit(
                 f"{missing} are not untransported nuclides of the absorption JSON"
@@ -65,14 +77,16 @@ def compare(before, after, absorption, added):
                 "captured_pcm": -1e5 * captured / p["k_inf"],
             }
         )
-    return {"added": added, "points": rows}
+    return {"added": added, "unestimated": list(unestimated), "points": rows}
 
 
 def report(summary):
     lines = [
         "inputs: " + ", ".join(f"{i['path']} {i['md5'][:8]}" for i in summary["inputs"])
     ]
-    lines.append(f"足した核種 {len(summary['added'])}")
+    lines.append(
+        f"足した核種 {len(summary['added'])}（目安に入れない {len(summary['unestimated'])}）"
+    )
     lines.append(
         "燃焼度 (MWd/kg) | k∞ 前 | k∞ 後 | 直接 (pcm) | 目安 崩壊だけ (pcm) | 目安 自分の吸収で減らす (pcm)"
     )
@@ -88,6 +102,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--json")
     parser.add_argument("--report")
+    parser.add_argument(
+        "--unestimated",
+        help="目安に入れない足した核種の一覧（足す前の履歴のライブラリに無い核種）",
+    )
     parser.add_argument("files", nargs="*")
     args = parser.parse_args()
     if args.report:
@@ -98,13 +116,15 @@ def main():
     before, after = read(args.files[0]), read(args.files[1])
     absorption = json.loads(Path(args.files[2]).read_text())
     added = Path(args.files[3]).read_text().split()
+    unestimated = Path(args.unestimated).read_text().split() if args.unestimated else []
+    files = [*args.files, *([args.unestimated] if args.unestimated else [])]
     summary = {
         "format": "xlc-compare-added-nuclides",
         "inputs": [
             {"path": f, "md5": hashlib.md5(Path(f).read_bytes()).hexdigest()}
-            for f in args.files
+            for f in files
         ],
-        **compare(before, after, absorption, added),
+        **compare(before, after, absorption, added, unestimated),
     }
     Path(args.json).write_text(json.dumps(summary, indent=1) + "\n")
     print("\n".join(report(summary)))

@@ -1,0 +1,5 @@
+outs:
+- md5: ee01703e314a7d69ffa28d2249a86d39
+  size: 153249
+  hash: md5
+  path: nominal.log

@@ -1,0 +1,6 @@
+outs:
+- md5: 20de8849fb1e7197db059805a7dd8d85.dir
+  size: 51009
+  nfiles: 12
+  hash: md5
+  path: out-timed
