@@ -4,16 +4,37 @@
 //! MLBW の NAPS=0 だけ）、R-matrix limited 形式
 //! （LRU=1, LRF=7。Reich-Moore で幅を与えるものだけ）、
 //! 非分離共鳴（LRU=2 の LRF=1, 2）を扱う。それ以外の形式はエラーにする。
+//! 同位体が複数の物質（天然の元素。NIS > 1）は、同位体の範囲が分離共鳴の MLBW、Reich-Moore、R-matrix limited だけで、分離共鳴の
+//! 上端が揃うものを読む。
 
 use super::tape::{Reader, Section};
 use super::{Error, Interpolation, Tab1};
 
-/// 1核種（同位体1つ）の共鳴パラメータ。
+/// 1 つの物質の共鳴パラメータ。天然の元素は同位体ごとのパラメータを持ち、断面積は同位体の断面積を存在比 `abn` で
+/// 重み付けした和（ENDF-102 の 2.1）。
 #[derive(Debug, Clone, PartialEq)]
 pub struct Mf2 {
     pub za: f64,
     pub awr: f64,
+    /// ZAI の順（ENDF-102 の 2.1）
+    pub isotopes: Vec<Isotope>,
+}
+
+/// 物質の中の 1 つの同位体の共鳴パラメータ。
+#[derive(Debug, Clone, PartialEq)]
+pub struct Isotope {
+    pub zai: f64,
+    /// 存在比（個数の割合）。同位体が 1 つなら 1
+    pub abn: f64,
+    /// エネルギーの順で、重ならない
     pub ranges: Vec<ResonanceRange>,
+}
+
+impl Mf2 {
+    /// 全部の同位体の範囲（同位体の順、同位体の中はエネルギーの順）。
+    pub fn ranges(&self) -> impl Iterator<Item = &ResonanceRange> {
+        self.isotopes.iter().flat_map(|i| &i.ranges)
+    }
 }
 
 /// エネルギー範囲 [el, eh] (eV) の共鳴データ。
@@ -239,13 +260,85 @@ impl Mf2 {
     pub fn parse(section: &Section<'_>) -> Result<Self, Error> {
         let mut r = section.reader();
         let head = r.cont()?;
-        if head.n1 != 1 {
-            return Err(Error::new(
-                r.line(),
-                format!("NIS={} isotopes are not supported", head.n1),
-            ));
+        // ENDF-102 の 2.1 は NIS < 10 とする
+        if !(1..10).contains(&head.n1) {
+            return Err(Error::new(r.line(), format!("invalid NIS {}", head.n1)));
         }
+        let mut isotopes = Vec::new();
+        for _ in 0..head.n1 {
+            let line = r.line() + 1;
+            let isotope = Isotope::parse(&mut r)?;
+            if head.n1 > 1 {
+                check_in_element(&isotope).map_err(|what| Error::new(line, what))?;
+            }
+            isotopes.push(isotope);
+        }
+        if head.n1 > 1 {
+            check_resolved_tops(&isotopes).map_err(|what| Error::new(r.line(), what))?;
+        }
+        Ok(Self {
+            za: head.c1,
+            awr: head.c2,
+            isotopes,
+        })
+    }
+}
+
+/// 天然の元素の同位体に許す範囲: 分離共鳴の MLBW、Reich-Moore、R 行列の制限形だけ。
+///
+/// 非分離共鳴（自己遮蔽の表と LSSF=0 の平均断面積の置き換え）、SLBW（共鳴の弾性散乱を MF3 のバックグラウンドとの和で 0 に切る）、
+/// 散乱半径だけの範囲（NJOY は 4π AP² を足すが、MF3 との関係を ENDF-102 は書かない）は、同位体の存在比の重みを扱わない処理に渡るので止める。
+fn check_in_element(isotope: &Isotope) -> Result<(), String> {
+    let zai = isotope.zai;
+    if !(isotope.abn > 0.0 && isotope.abn <= 1.0) {
+        return Err(format!(
+            "isotope ZAI={zai}: ABN={} is outside (0, 1]",
+            isotope.abn
+        ));
+    }
+    for range in &isotope.ranges {
+        let form = match range.kind {
+            RangeKind::Mlbw(_) | RangeKind::ReichMoore(_) | RangeKind::RMatrixLimited(_) => {
+                continue;
+            }
+            RangeKind::ScatteringRadius { .. } => "LRU=0",
+            RangeKind::Slbw(_) => "LRF=1",
+            RangeKind::Unresolved(_) => "LRU=2",
+        };
+        return Err(format!(
+            "isotope ZAI={zai}: {form} ranges are not supported in a material of several isotopes"
+        ));
+    }
+    Ok(())
+}
+
+/// 天然の元素の同位体の分離共鳴の上端が揃うこと。分離共鳴の上のポテンシャル散乱を、同位体の最上の範囲の半径の和で決める
+/// （`process::resolved`）ため。
+fn check_resolved_tops(isotopes: &[Isotope]) -> Result<(), String> {
+    let tops: Vec<f64> = isotopes
+        .iter()
+        .map(|i| {
+            i.ranges
+                .iter()
+                .filter(|r| r.kind.is_resolved())
+                .map(|r| r.eh)
+                .fold(f64::NEG_INFINITY, f64::max)
+        })
+        .collect();
+    if tops.iter().any(|&t| t != tops[0]) {
+        return Err(format!(
+            "the resolved ranges of the isotopes have different upper ends {tops:?} eV; \
+             materials of several isotopes are supported only with a common upper end"
+        ));
+    }
+    Ok(())
+}
+
+impl Isotope {
+    /// 1 つの同位体（isotope の CONT とその範囲）を読む。
+    fn parse(r: &mut Reader<'_>) -> Result<Self, Error> {
         let isotope = r.cont()?;
+        let abn = isotope.c2;
         // 核分裂幅がエネルギー依存か（非分離共鳴 LRF=1 の形式を決める）
         let lfw = isotope.l2;
         let ner = usize::try_from(isotope.n1)
@@ -272,22 +365,22 @@ impl Mf2 {
                         range.n2
                     ));
                 }
-                1 if lrf == 3 => RangeKind::ReichMoore(read_reich_moore(&mut r, range.n2)?),
+                1 if lrf == 3 => RangeKind::ReichMoore(read_reich_moore(r, range.n2)?),
                 1 if lrf == 1 => RangeKind::Slbw(read_breit_wigner(
-                    &mut r,
+                    r,
                     Levels::Single,
                     range.n2,
                     nro,
                     (range.c1, range.c2),
                 )?),
                 1 if lrf == 2 => RangeKind::Mlbw(read_breit_wigner(
-                    &mut r,
+                    r,
                     Levels::Multi,
                     range.n2,
                     nro,
                     (range.c1, range.c2),
                 )?),
-                1 if lrf == 7 => RangeKind::RMatrixLimited(read_r_matrix_limited(&mut r)?),
+                1 if lrf == 7 => RangeKind::RMatrixLimited(read_r_matrix_limited(r)?),
                 1 => return unsupported(format!("resolved LRF={lrf} is not supported")),
                 2 if lrf == 1 || lrf == 2 => {
                     let ap_energy = match nro {
@@ -296,15 +389,9 @@ impl Mf2 {
                         _ => return unsupported(format!("invalid NRO={nro}")),
                     };
                     let urr = if lrf == 2 {
-                        read_unresolved(&mut r, range.n2, ap_energy)?
+                        read_unresolved(r, range.n2, ap_energy)?
                     } else {
-                        read_unresolved_lrf1(
-                            &mut r,
-                            lfw,
-                            (range.c1, range.c2),
-                            range.n2,
-                            ap_energy,
-                        )?
+                        read_unresolved_lrf1(r, lfw, (range.c1, range.c2), range.n2, ap_energy)?
                     };
                     // ENDF は非分離共鳴の l を 2 までとする。それを超える l も、分離共鳴と同じ
                     // 剛体球の透過因子と位相シフトで扱う（NJOY は l=2 の式で計算してしまう）
@@ -326,9 +413,9 @@ impl Mf2 {
                 kind,
             });
         }
-        Ok(Self {
-            za: head.c1,
-            awr: head.c2,
+        Ok(Isotope {
+            zai: isotope.c1,
+            abn,
             ranges,
         })
     }

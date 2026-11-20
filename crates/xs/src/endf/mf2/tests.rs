@@ -37,7 +37,7 @@ fn rml_lines(control: [&'static str; 6]) -> Vec<[&'static str; 6]> {
 #[test]
 fn reads_r_matrix_limited_range() {
     let data = mf2(&rml_lines(["0.0", "0.0", "0", "3", "1", "0"])).unwrap();
-    let RangeKind::RMatrixLimited(rml) = &data.ranges[0].kind else {
+    let RangeKind::RMatrixLimited(rml) = &data.isotopes[0].ranges[0].kind else {
         panic!("expected R-matrix limited");
     };
     assert_eq!(
@@ -147,9 +147,12 @@ fn reads_reich_moore_and_unresolved_ranges() {
     ])
     .unwrap();
     assert_eq!(data.za, 92238.0);
-    assert_eq!(data.ranges.len(), 2);
-    assert_eq!((data.ranges[0].el, data.ranges[0].eh), (1.0e-5, 2.0e4));
-    let RangeKind::ReichMoore(rm) = &data.ranges[0].kind else {
+    assert_eq!(data.isotopes[0].ranges.len(), 2);
+    assert_eq!(
+        (data.isotopes[0].ranges[0].el, data.isotopes[0].ranges[0].eh),
+        (1.0e-5, 2.0e4)
+    );
+    let RangeKind::ReichMoore(rm) = &data.isotopes[0].ranges[0].kind else {
         panic!("expected Reich-Moore");
     };
     assert_eq!((rm.spi, rm.ap, rm.naps), (0.0, 0.0, 0));
@@ -166,7 +169,7 @@ fn reads_reich_moore_and_unresolved_ranges() {
             gfb: 0.0
         }
     );
-    let RangeKind::Unresolved(urr) = &data.ranges[1].kind else {
+    let RangeKind::Unresolved(urr) = &data.isotopes[0].ranges[1].kind else {
         panic!("expected unresolved");
     };
     assert_eq!((urr.lssf, urr.spi, urr.ap, urr.naps), (1, 0.0, 0.948, 0));
@@ -212,7 +215,7 @@ fn reads_energy_dependent_radius_of_unresolved_range() {
         ["2.0+4", "20.0", "0.0", "2.0-3", "2.3-2", "0.0"],
     ])
     .unwrap();
-    let RangeKind::Unresolved(urr) = &data.ranges[0].kind else {
+    let RangeKind::Unresolved(urr) = &data.isotopes[0].ranges[0].kind else {
         panic!("expected unresolved");
     };
     let radius = urr.ap_energy.as_ref().unwrap();
@@ -235,8 +238,11 @@ fn read_lrf1(lfw: &str, nro: &str, parameters: &[[&str; 6]]) -> Unresolved {
     lines.push(["4.0+4", "2.0+7", "0", "0", "0", "0"]);
     lines.push(["0.0", "0.5", "0", "0", "0", "0"]);
     let data = mf2(&lines).unwrap();
-    assert_eq!(data.ranges[1].kind, RangeKind::ScatteringRadius { ap: 0.5 });
-    let RangeKind::Unresolved(urr) = &data.ranges[0].kind else {
+    assert_eq!(
+        data.isotopes[0].ranges[1].kind,
+        RangeKind::ScatteringRadius { ap: 0.5 }
+    );
+    let RangeKind::Unresolved(urr) = &data.isotopes[0].ranges[0].kind else {
         panic!("expected unresolved");
     };
     urr.clone()
@@ -400,7 +406,7 @@ fn rounds_degrees_of_freedom_like_njoy() {
         ["2.0+4", "18.0", "0.0", "1.8-3", "2.3-2", "0.0"],
     ])
     .unwrap();
-    let RangeKind::Unresolved(urr) = &data.ranges[0].kind else {
+    let RangeKind::Unresolved(urr) = &data.isotopes[0].ranges[0].kind else {
         panic!("expected unresolved");
     };
     let j = &urr.l_values[0].j_values[0];
@@ -438,7 +444,7 @@ fn reads_mlbw_range() {
         ["2.4e3", "1.5", "0.25", "0.2", "0.05", "0.0"],
     ])
     .unwrap();
-    let RangeKind::Mlbw(bw) = &data.ranges[0].kind else {
+    let RangeKind::Mlbw(bw) = &data.isotopes[0].ranges[0].kind else {
         panic!("expected MLBW");
     };
     assert_eq!((bw.spi, bw.ap, bw.naps), (0.0, 0.716, 0));
@@ -468,10 +474,10 @@ fn reads_slbw_range_in_the_form_of_mlbw() {
         ["8.2-2", "2.0", "1.2-1", "2.5-2", "9.0-2", "5.0-3"],
     ])
     .unwrap();
-    let RangeKind::Slbw(bw) = &data.ranges[0].kind else {
+    let RangeKind::Slbw(bw) = &data.isotopes[0].ranges[0].kind else {
         panic!("expected SLBW");
     };
-    assert!(data.ranges[0].kind.is_resolved());
+    assert!(data.isotopes[0].ranges[0].kind.is_resolved());
     assert_eq!(
         (bw.spi, bw.ap, bw.naps, bw.ap_energy.as_ref()),
         (1.5, 0.531, 0, None)
@@ -516,7 +522,7 @@ fn slbw_reads_resonances_whose_spin_equals_the_target_spin() {
     // J = I は J の分からない共鳴に置いた古い慣習で、g = 1/2 を表す（ENDF-102 の 2.4.7）。SLBW は J を g にだけ使い、
     // 準位の系列を分けないので、その g のまま読む
     let data = spin_equal_to_target("1").unwrap();
-    let RangeKind::Slbw(bw) = &data.ranges[0].kind else {
+    let RangeKind::Slbw(bw) = &data.isotopes[0].ranges[0].kind else {
         panic!("expected SLBW");
     };
     assert_eq!(bw.l_values[0].resonances[1].aj, 2.5);
@@ -560,7 +566,7 @@ fn mlbw_with_radius(naps: &str, radius: [&str; 4]) -> Result<Mf2, Error> {
 #[test]
 fn reads_energy_dependent_radius_of_mlbw_range() {
     let data = mlbw_with_radius("0", ["1.0-5", "0.70", "5.0+1", "0.60"]).unwrap();
-    let RangeKind::Mlbw(bw) = &data.ranges[0].kind else {
+    let RangeKind::Mlbw(bw) = &data.isotopes[0].ranges[0].kind else {
         panic!("expected MLBW");
     };
     assert_eq!((bw.spi, bw.naps), (3.5, 0));
@@ -635,7 +641,7 @@ fn reads_scattering_radius_only_range() {
     ])
     .unwrap();
     assert_eq!(
-        data.ranges[0].kind,
+        data.isotopes[0].ranges[0].kind,
         RangeKind::ScatteringRadius { ap: 1.276553 }
     );
 }
@@ -684,8 +690,97 @@ fn huge_range_count_is_error_not_abort() {
     assert_eq!(err.line, 3);
 }
 
+/// MLBW の範囲 [1e-5, `eh`] を 1 つ持つ同位体の行（isotope の CONT から）
+fn mlbw_isotope(zai: &'static str, abn: &'static str, eh: &'static str) -> Vec<[&'static str; 6]> {
+    vec![
+        [zai, abn, "0", "0", "1", "0"],
+        ["1.0-5", eh, "1", "2", "0", "0"],
+        ["0.0", "5.6-1", "0", "0", "1", "0"],
+        ["6.338000+1", "0.0", "0", "0", "6", "1"],
+        ["1.0+3", "0.5", "2.3", "2.0", "0.3", "0.0"],
+    ]
+}
+
+/// NIS = 2 の MF2（元素 Zn の見出し）
+fn two_isotopes(a: Vec<[&'static str; 6]>, b: Vec<[&'static str; 6]>) -> Result<Mf2, Error> {
+    let head = ["3.000000+4", "6.483400+1", "0", "0", "2", "0"];
+    let lines: Vec<[&str; 6]> = std::iter::once(head).chain(a).chain(b).collect();
+    mf2(&lines)
+}
+
 #[test]
-fn multiple_isotopes_are_error() {
-    let err = mf2(&[["9.223800+4", "2.360058+2", "0", "0", "2", "0"]]).unwrap_err();
-    assert_eq!(err.line, 1);
+fn reads_ranges_of_each_isotope_with_its_abundance() {
+    let data = two_isotopes(
+        mlbw_isotope("3.006400+4", "6.0-1", "1.0+5"),
+        mlbw_isotope("3.006600+4", "4.0-1", "1.0+5"),
+    )
+    .unwrap();
+    let heads: Vec<(f64, f64, usize)> = data
+        .isotopes
+        .iter()
+        .map(|i| (i.zai, i.abn, i.ranges.len()))
+        .collect();
+    assert_eq!(heads, vec![(30064.0, 0.6, 1), (30066.0, 0.4, 1)]);
+    assert_eq!(data.ranges().count(), 2);
+    assert!(matches!(
+        data.isotopes[1].ranges[0].kind,
+        RangeKind::Mlbw(_)
+    ));
+}
+
+#[test]
+fn abundance_outside_zero_to_one_is_error() {
+    for abn in ["0.0", "-1.0-1", "1.5"] {
+        let err = two_isotopes(
+            mlbw_isotope("3.006400+4", abn, "1.0+5"),
+            mlbw_isotope("3.006600+4", "4.0-1", "1.0+5"),
+        )
+        .unwrap_err();
+        assert!(err.message.contains("ABN"), "{abn}: {}", err.message);
+    }
+}
+
+#[test]
+fn isotopes_with_different_resolved_tops_are_error() {
+    // 分離共鳴の上のポテンシャル散乱を同位体の和で決めるので、上端は同位体の間で揃っていること
+    let err = two_isotopes(
+        mlbw_isotope("3.006400+4", "6.0-1", "1.0+5"),
+        mlbw_isotope("3.006600+4", "4.0-1", "5.0+4"),
+    )
+    .unwrap_err();
+    assert!(err.message.contains("upper end"), "{}", err.message);
+}
+
+#[test]
+fn isotopes_with_unresolved_or_slbw_or_radius_only_ranges_are_error() {
+    // 非分離共鳴、SLBW、散乱半径だけの範囲は、同位体の存在比の重みを扱わない処理（遮蔽、MF3 との和で切る SLBW）に渡るので止める
+    let unresolved = vec![
+        ["3.006600+4", "4.0-1", "0", "0", "1", "0"],
+        ["1.0+5", "2.0+5", "2", "2", "0", "1"],
+        ["0.0", "0.6", "0", "0", "1", "0"],
+        ["6.338000+1", "0.0", "0", "0", "1", "0"],
+        ["0.5", "0.0", "2", "0", "18", "2"],
+        ["0.0", "0.0", "0.0", "1.0", "0.0", "0.0"],
+        ["1.0+5", "1.0+3", "0.0", "1.0-1", "1.0", "0.0"],
+        ["2.0+5", "1.0+3", "0.0", "1.0-1", "1.0", "0.0"],
+    ];
+    let mut slbw = mlbw_isotope("3.006600+4", "4.0-1", "1.0+5");
+    slbw[1][3] = "1";
+    let radius_only = vec![
+        ["3.006600+4", "4.0-1", "0", "0", "1", "0"],
+        ["1.0-5", "1.0+5", "0", "0", "0", "0"],
+        ["0.0", "0.6", "0", "0", "0", "0"],
+    ];
+    for (name, isotope) in [
+        ("LRU=2", unresolved),
+        ("LRF=1", slbw),
+        ("LRU=0", radius_only),
+    ] {
+        let err = two_isotopes(mlbw_isotope("3.006400+4", "6.0-1", "1.0+5"), isotope).unwrap_err();
+        assert!(
+            err.message.contains("isotopes") && err.message.contains(name),
+            "{name}: {}",
+            err.message
+        );
+    }
 }

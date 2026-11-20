@@ -1170,3 +1170,34 @@ fn activation_nuclides_have_the_chain_reactions_of_a_processed_nuclide() {
         assert_eq!(a.fission, vec![0.0; settings.groups.len()]);
     }
 }
+
+#[test]
+fn potential_of_isotopes_is_the_abundance_weighted_sum() {
+    // 天然の元素のポテンシャル散乱は、同位体ごとの 4π a² を存在比 ABN で重み付けした和（ENDF-102 の 2.1）
+    use crate::endf::rec;
+    let isotope = |zai: &str, abn: &str, ap: &str| {
+        [
+            rec([zai, abn, "0", "0", "1", "0"], 1, 2, 151),
+            rec(["1.0-5", "1.0+5", "1", "2", "0", "0"], 1, 2, 151),
+            rec(["0.0", ap, "0", "0", "1", "0"], 1, 2, 151),
+            rec(["6.338000+1", "0.0", "0", "0", "6", "1"], 1, 2, 151),
+            rec(["1.0+3", "0.5", "2.3", "2.0", "0.3", "0.0"], 1, 2, 151),
+        ]
+        .concat()
+    };
+    let text = [
+        rec(["3.000000+4", "6.483400+1", "0", "0", "2", "0"], 1, 2, 151),
+        isotope("3.006400+4", "6.0-1", "5.6-1"),
+        isotope("3.006600+4", "4.0-1", "6.3-1"),
+        rec(["", "", "", "", "", ""], 1, 2, 0),
+    ]
+    .concat();
+    let range = resolved(&Tape::parse(&text).unwrap(), 1).unwrap().unwrap();
+    let expected = 4.0 * std::f64::consts::PI * (0.6 * 0.56 * 0.56 + 0.4 * 0.63 * 0.63);
+    assert_eq!(range.top, 1.0e5);
+    assert!(
+        (range.potential - expected).abs() < 1e-12 * expected,
+        "{} vs {expected}",
+        range.potential
+    );
+}

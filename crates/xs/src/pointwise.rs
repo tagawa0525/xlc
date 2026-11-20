@@ -8,7 +8,8 @@ use std::convert::Infallible;
 
 use crate::doppler::{broaden, broadening_limit};
 use crate::endf::{
-    BreitWigner, Error, Interpolation, Mf2, Mf3, RangeKind, ResonanceRange, Tab1, Tape, Unresolved,
+    BreitWigner, Error, Interpolation, Isotope, Mf2, Mf3, RangeKind, ResonanceRange, Tab1, Tape,
+    Unresolved,
 };
 use crate::resonance::{
     MlbwXs, RMatrixLimitedXs, ReichMooreXs, Sigma, SlbwXs, UnresolvedXs, unresolved_grid,
@@ -531,9 +532,11 @@ impl ColdParts {
         } = RawParts::read(tape, mat)?;
         if let Some(section) = tape.section(mat, 2, 151) {
             let parsed = Mf2::parse(&section)?;
-            for range in &parsed.ranges {
-                check_range(&parsed, range)
-                    .map_err(|message| Error::new(section.reader().line(), message))?;
+            for isotope in &parsed.isotopes {
+                for range in &isotope.ranges {
+                    check_range(isotope, range)
+                        .map_err(|message| Error::new(section.reader().line(), message))?;
+                }
             }
         }
         let mut mts: Vec<u32> = parts.into_iter().map(|(mt, _)| mt).collect();
@@ -735,13 +738,13 @@ fn add_all<'a>(tables: impl Iterator<Item = &'a Tab1>) -> Option<Tab1> {
     })
 }
 
-/// 共鳴の範囲を再構成する前の検査: 非分離共鳴の LSSF は 0 か 1、LSSF=0 の非分離共鳴は分離共鳴と重ならない、R 行列の
-/// 制限形は扱える粒子の対とチャネルだけを持つ。
-fn check_range(mf2: &Mf2, range: &ResonanceRange) -> Result<(), String> {
+/// 共鳴の範囲を再構成する前の検査: 非分離共鳴の LSSF は 0 か 1、LSSF=0 の非分離共鳴は同じ同位体の分離共鳴と重ならない、
+/// R 行列の制限形は扱える粒子の対とチャネルだけを持つ。
+fn check_range(isotope: &Isotope, range: &ResonanceRange) -> Result<(), String> {
     match &range.kind {
         RangeKind::Unresolved(Unresolved { lssf: 0, .. }) => {
             // 平均で置き換えると、重なった部分の分離共鳴が消える（NJOY は分離共鳴の上端まで分離共鳴を使う）
-            let resolved_top = mf2
+            let resolved_top = isotope
                 .ranges
                 .iter()
                 .filter(|r| r.kind.is_resolved())
@@ -770,82 +773,39 @@ fn check_range(mf2: &Mf2, range: &ResonanceRange) -> Result<(), String> {
     }
 }
 
-/// 分離共鳴の寄与を弾性散乱・核分裂・捕獲に足す。
+/// 共鳴の寄与を弾性散乱・核分裂・捕獲に足す。分離共鳴の寄与は同位体の存在比を掛けて足す（ENDF-102 の 2.1）。全部の同位体の
+/// 分離共鳴を足してから負の弾性散乱を 0 にし（和で判断する。ADR-0267）、そのあと LSSF=0 の非分離共鳴の範囲を平均断面積で
+/// 置き換える。非分離共鳴と SLBW は、同位体が 1 つの物質にだけある（`Mf2::parse`）。
 fn add_resonances(
     tables: &mut BTreeMap<u32, Tab1>,
     mf2: &Mf2,
     fission_mt: u32,
     tol: f64,
 ) -> Result<(), String> {
-    for range in &mf2.ranges {
-        check_range(mf2, range)?;
-        let contributions = match &range.kind {
-            RangeKind::ScatteringRadius { .. } => continue,
-            RangeKind::Unresolved(urr) if urr.lssf == 1 => continue,
-            // LSSF は 0 か 1（`check_range`）
-            RangeKind::Unresolved(urr) => {
-                replace_with_unresolved(tables, urr, range.el, range.eh, fission_mt, tol)?;
-                continue;
-            }
-            RangeKind::ReichMoore(rm) => {
-                let peaks = rm
-                    .l_values
-                    .iter()
-                    .flat_map(|lv| &lv.resonances)
-                    .map(|r| (r.er, 0.5 * (r.gn + r.gg + r.gfa.abs() + r.gfb.abs())));
-                let nodes = resonance_nodes(peaks);
-                let xs = ReichMooreXs::new(rm);
-                let f = |e: f64| xs.cross_sections(e).map(|sigma| sigma.components());
-                // ENDF の読み込みのエラー（行番号つき）にまとめるので、ここでは文にする
-                let tables = resonance_tables(f, &nodes, range.el, range.eh, tol)
-                    .map_err(|e| e.to_string())?;
-                sigma_contributions(tables, fission_mt)
-            }
-            RangeKind::RMatrixLimited(rml) => {
-                // ENDF の読み込みのエラー（行番号つき）にまとめるので、ここでは文にする
-                let xs = RMatrixLimitedXs::new(rml).map_err(|e| e.to_string())?;
-                let nodes = resonance_nodes(xs.peaks());
-                let f = |e: f64| xs.cross_sections(e);
-                let tables = resonance_tables(f, &nodes, range.el, range.eh, tol)
-                    .map_err(|e| e.to_string())?;
-                // 全断面積は部分反応の和で作り直す。核分裂は `fission_mt` に入れる
-                xs.reactions()
-                    .into_iter()
-                    .map(|mt| if mt == 18 { fission_mt } else { mt })
-                    .zip(tables)
-                    .filter(|&(mt, _)| mt != 1)
-                    .collect()
-            }
-            RangeKind::Slbw(bw) => slbw_contributions(tables.get(&2), bw, range, fission_mt, tol)?,
-            RangeKind::Mlbw(bw) => {
-                let peaks = bw
-                    .l_values
-                    .iter()
-                    .flat_map(|lv| &lv.resonances)
-                    .map(|r| (r.er, 0.5 * (r.gn + r.gg + r.gf)));
-                // 散乱半径の表の点で位相シフトが折れるので、その点も格子に入れる
-                let breaks = bw.ap_energy.iter().flat_map(|t| t.x.iter().copied());
-                let nodes: Vec<f64> = resonance_nodes(peaks).into_iter().chain(breaks).collect();
-                let xs = MlbwXs::new(bw);
-                let f = |e: f64| xs.cross_sections(e).map(|sigma| sigma.components());
-                // ENDF の読み込みのエラー（行番号つき）にまとめるので、ここでは文にする
-                let tables = resonance_tables(f, &nodes, range.el, range.eh, tol)
-                    .map_err(|e| e.to_string())?;
-                sigma_contributions(tables, fission_mt)
-            }
-        };
-        for (mt, contribution) in contributions {
-            if contribution.y.iter().all(|&v| v == 0.0) {
-                continue;
-            }
-            let combined = match tables.get(&mt) {
-                Some(background) => add(background, &contribution),
-                None => contribution,
-            };
-            tables.insert(mt, combined);
+    for isotope in &mf2.isotopes {
+        for range in &isotope.ranges {
+            check_range(isotope, range)?;
         }
-        if range.kind.is_resolved()
-            && let Some(elastic) = tables.get(&2)
+    }
+    for isotope in &mf2.isotopes {
+        for range in &isotope.ranges {
+            for (mt, mut contribution) in resolved_contributions(tables, range, fission_mt, tol)? {
+                if contribution.y.iter().all(|&v| v == 0.0) {
+                    continue;
+                }
+                for v in &mut contribution.y {
+                    *v *= isotope.abn;
+                }
+                let combined = match tables.get(&mt) {
+                    Some(background) => add(background, &contribution),
+                    None => contribution,
+                };
+                tables.insert(mt, combined);
+            }
+        }
+    }
+    for range in mf2.ranges().filter(|r| r.kind.is_resolved()) {
+        if let Some(elastic) = tables.get(&2)
             && let Some(raised) = raise_negative(elastic, range.el, range.eh)
         {
             xlc_log::warn!(
@@ -862,7 +822,75 @@ fn add_resonances(
             tables.insert(2, raised.table);
         }
     }
+    for range in mf2.ranges() {
+        // LSSF は 0 か 1（`check_range`）。LSSF=1 は MF3 が無限希釈の断面積を持つ
+        if let RangeKind::Unresolved(urr) = &range.kind
+            && urr.lssf == 0
+        {
+            replace_with_unresolved(tables, urr, range.el, range.eh, fission_mt, tol)?;
+        }
+    }
     Ok(())
+}
+
+/// 1 つの範囲の分離共鳴の、弾性散乱・核分裂・捕獲の寄与（存在比を掛ける前。分離共鳴でない範囲は空）。`tables` は MF3 のバックグラウンド（SLBW が使う）。
+fn resolved_contributions(
+    tables: &BTreeMap<u32, Tab1>,
+    range: &ResonanceRange,
+    fission_mt: u32,
+    tol: f64,
+) -> Result<Vec<(u32, Tab1)>, String> {
+    let contributions = match &range.kind {
+        // 散乱半径だけの範囲は MF3 のまま、非分離共鳴は `add_resonances` が置き換える
+        RangeKind::ScatteringRadius { .. } | RangeKind::Unresolved(_) => Vec::new(),
+        RangeKind::ReichMoore(rm) => {
+            let peaks = rm
+                .l_values
+                .iter()
+                .flat_map(|lv| &lv.resonances)
+                .map(|r| (r.er, 0.5 * (r.gn + r.gg + r.gfa.abs() + r.gfb.abs())));
+            let nodes = resonance_nodes(peaks);
+            let xs = ReichMooreXs::new(rm);
+            let f = |e: f64| xs.cross_sections(e).map(|sigma| sigma.components());
+            // ENDF の読み込みのエラー（行番号つき）にまとめるので、ここでは文にする
+            let tables =
+                resonance_tables(f, &nodes, range.el, range.eh, tol).map_err(|e| e.to_string())?;
+            sigma_contributions(tables, fission_mt)
+        }
+        RangeKind::RMatrixLimited(rml) => {
+            // ENDF の読み込みのエラー（行番号つき）にまとめるので、ここでは文にする
+            let xs = RMatrixLimitedXs::new(rml).map_err(|e| e.to_string())?;
+            let nodes = resonance_nodes(xs.peaks());
+            let f = |e: f64| xs.cross_sections(e);
+            let tables =
+                resonance_tables(f, &nodes, range.el, range.eh, tol).map_err(|e| e.to_string())?;
+            // 全断面積は部分反応の和で作り直す。核分裂は `fission_mt` に入れる
+            xs.reactions()
+                .into_iter()
+                .map(|mt| if mt == 18 { fission_mt } else { mt })
+                .zip(tables)
+                .filter(|&(mt, _)| mt != 1)
+                .collect()
+        }
+        RangeKind::Slbw(bw) => slbw_contributions(tables.get(&2), bw, range, fission_mt, tol)?,
+        RangeKind::Mlbw(bw) => {
+            let peaks = bw
+                .l_values
+                .iter()
+                .flat_map(|lv| &lv.resonances)
+                .map(|r| (r.er, 0.5 * (r.gn + r.gg + r.gf)));
+            // 散乱半径の表の点で位相シフトが折れるので、その点も格子に入れる
+            let breaks = bw.ap_energy.iter().flat_map(|t| t.x.iter().copied());
+            let nodes: Vec<f64> = resonance_nodes(peaks).into_iter().chain(breaks).collect();
+            let xs = MlbwXs::new(bw);
+            let f = |e: f64| xs.cross_sections(e).map(|sigma| sigma.components());
+            // ENDF の読み込みのエラー（行番号つき）にまとめるので、ここでは文にする
+            let tables =
+                resonance_tables(f, &nodes, range.el, range.eh, tol).map_err(|e| e.to_string())?;
+            sigma_contributions(tables, fission_mt)
+        }
+    };
+    Ok(contributions)
 }
 
 /// `raise_negative` で 0 にした表と、0 にした点のまとめ。

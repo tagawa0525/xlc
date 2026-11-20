@@ -98,7 +98,7 @@ fn energy_dependent_radius_sets_the_s_wave_phase_shift_at_each_energy() {
     .collect();
     let tape = Tape::parse(&text).unwrap();
     let mf2 = Mf2::parse(&tape.section(6046, 2, 151).unwrap()).unwrap();
-    let RangeKind::Mlbw(bw) = &mf2.ranges[0].kind else {
+    let RangeKind::Mlbw(bw) = &mf2.isotopes[0].ranges[0].kind else {
         panic!("expected MLBW");
     };
     let xs = MlbwXs::new(bw);
@@ -135,7 +135,7 @@ fn energy_dependent_radius_keeps_the_awri_channel_radius_near_a_p_wave_resonance
     .collect();
     let tape = Tape::parse(&text).unwrap();
     let mf2 = Mf2::parse(&tape.section(6046, 2, 151).unwrap()).unwrap();
-    let RangeKind::Mlbw(bw) = &mf2.ranges[0].kind else {
+    let RangeKind::Mlbw(bw) = &mf2.isotopes[0].ranges[0].kind else {
         panic!("expected MLBW");
     };
     let xs = MlbwXs::new(bw);

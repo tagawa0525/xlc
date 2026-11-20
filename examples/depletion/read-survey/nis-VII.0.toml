@@ -1,0 +1,10 @@
+# #0305 の VII.0 の天然の元素の評価（MF2 の NIS > 1）を、温度 1 点（600 K）で xs nuclide に最後まで通す試行。σ0 と散乱の次数は
+# ../endfb70/xs.toml と同じ。名前は入力の名前の形（質量数）を満たすためだけのもので、ライブラリやチェーンの核種への対応ではない
+output = "unused.msgpack"
+endf-directory = "../../../references/endf/ENDF-B-VII.0_neutrons"
+sigma0 = [1e10, 1e5, 1e4, 1e3, 300, 100, 30, 10, 1]
+scattering-order = 3
+
+[nuclide]
+V-51 = { endf = "n-023_V_000.endf", temperatures = [600] }
+Zn-64 = { endf = "n-030_Zn_000.endf", temperatures = [600] }

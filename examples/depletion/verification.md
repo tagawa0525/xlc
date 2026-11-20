@@ -256,8 +256,8 @@ python3 examples/depletion/read_survey.py --report examples/depletion/read-surve
 
 ### 計算
 
-`xs check` と要約のツールは 74f25be0 のもの（分岐点 7ec34be0、2026-11-20。`bin/xs` の正規形は `binary-forms/xs.md5`）で、ステージは rebase の後の
-付け直し（`chore: relock read-survey after the second rebase`）で実行した。報告は `read-survey-<版>.toml`、要約の文章は `read-survey.txt`（`--report` と
+`xs check` は 8bed7fc7 のもの（分岐点 49e3045c、2026-11-20。`bin/xs` の正規形は `binary-forms/xs.md5`）で、4 つの版のステージと要約を
+このコミットで実行した（要約のツールは 74f25be0 から変わっていない）。報告は `read-survey-<版>.toml`、要約の文章は `read-survey.txt`（`--report` と
 同じ）。1 つの版の全部のファイル（393〜558）は、手元の 8 スレッドで 1 秒に満たない（VII.0 の 393 ファイルで 0.4 秒。手元の計算で、時間は記録の
 測定ではない）。
 
@@ -267,7 +267,7 @@ python3 examples/depletion/read_survey.py --report examples/depletion/read-surve
 
 | 版     | チェーンの評価 | 読めた | 止まった | チェーンの外の評価 | 読めた | 止まった | ファイルの無いチェーンの核種 |
 | ------ | -------------- | ------ | -------- | ------------------ | ------ | -------- | ---------------------------- |
-| VII.0  | 390            | 383    | 7        | 3                  | 1      | 2        | 3447 / 3837                  |
+| VII.0  | 390            | 383    | 7        | 3                  | 3      | 0        | 3447 / 3837                  |
 | VII.1  | 422            | 415    | 7        | 1                  | 1      | 0        | 3398 / 3820                  |
 | VIII.0 | 556            | 549    | 7        | 1                  | 1      | 0        | 3264 / 3820                  |
 | VIII.1 | 557            | 547    | 10       | 1                  | 1      | 0        | 3263 / 3820                  |
@@ -285,8 +285,6 @@ python3 examples/depletion/read_survey.py --report examples/depletion/read-surve
 | ---------------------------------------------------------------------------- | ---------------------- | ---------------------- | ---------------------- | ---------------------- |
 | neutron LAW=6 is not supported                                               | H-2                    | H-2                    | H-2                    | H-2、Li-6              |
 | neutron LAW=7 is not supported                                               | Be-9                   | Be-9                   | Be-9                   | Be-9                   |
-| NIS=2 isotopes are not supported                                             | n-023_V_000.endf       | –                      | –                      | –                      |
-| NIS=5 isotopes are not supported                                             | n-030_Zn_000.endf      | –                      | –                      | –                      |
 | last NBT must equal NP                                                       | Rb-87                  | –                      | –                      | –                      |
 | fission needs MF1 MT452 and MF5 MT18                                         | Th-232、Pa-231、Pa-233 | Th-232、Pa-231、Pa-233 | Th-232、Pa-231、Pa-233 | Th-232、Pa-231、Pa-233 |
 | LF=11 is not supported                                                       | U-233                  | U-233                  | –                      | –                      |
@@ -299,8 +297,9 @@ python3 examples/depletion/read_survey.py --report examples/depletion/read-surve
 <!-- /table -->
 
 理由は `xs check` の文から先頭の行番号を除いたもの。形式ごとの issue: MF6 の LAW=6、7 は #0311、MF6 MT18 の核分裂の中性子は #0312、MF5 の
-LF=11 は #0313、Rb-87 の TAB1 は #0316、NIS > 1 は #0305、R 行列の制限形のシフト因子（Cl-35 の VII.1、Cu-63 の VIII.1）とバックグラウンドの
-R 行列（Sr-88 の VIII.1。#0305 にもある）は #0310、荷電粒子の対は #0264。VIII.1 の Pu-239 の核分裂の対は、#0308 で読めるようになった。
+LF=11 は #0313、Rb-87 の TAB1 は #0316、R 行列の制限形のシフト因子（Cl-35 の VII.1、Cu-63 の VIII.1）とバックグラウンドの
+R 行列（Sr-88 の VIII.1。#0305 にもある）は #0310、荷電粒子の対は #0264。VIII.1 の Pu-239 の核分裂の対は #0308 で、VII.0 の天然の V と Zn の
+複数の同位体（NIS > 1）は #0305 で読めるようになった（下の「天然の元素の評価の複数の同位体」）。
 
 ### #0292 の 9 核種の `xs nuclide`
 
@@ -691,6 +690,64 @@ Fe54 VIII.1 MT102: points ours 100308 njoy 48648, compared 48648, max rel diff 1
   測っていないので書かない
 - 既存の核種の出力は変わらない: VIII.0 の Fe-54、Fe-56（本番の `xs.toml`）と U-238（同じ入力の温度を 565 K の 1 点にした）の
   `xs nuclide` の出力は、分岐点 c0e6195f の bin の出力とバイトで同じ
+
+## 天然の元素の評価の複数の同位体
+
+MF2 に複数の同位体（NIS > 1）を持つ評価は、4 つの版の 1931 ファイルのうち VII.0 の天然の V（NIS = 2）と Zn（NIS = 5）だけで、どの同位体も
+分離共鳴の MLBW の範囲を 1 つ持ち、非分離共鳴の範囲は無い（2026-11-20 に MF2 の見出しを数えた。#0305）。断面積は同位体の断面積を存在比 ABN で
+重み付けした和（ENDF-102 の 2.1。NJOY の RECONR の `sigma` も `sigp*abn` を足す）とする xs（#0305）の 0 K の再構成を、NJOY2016.79 の RECONR
+（許容誤差 1e-3）の PENDF と比べた。NJOY の入力と出力は references/njoy-runs/nis/<元素>-VII.0/（git で追跡しない。入力は上の「版ごとのライブラリの
+分離共鳴の SLBW」の references/njoy-runs/slbw/ と同じ形で MAT だけが違う）。
+
+```sh
+cargo run --release -p xlc-xs --example compare_njoy_pendf -- \
+  references/njoy-runs/nis/Zn-VII.0/tape20 references/njoy-runs/nis/Zn-VII.0/tape25 3000
+```
+
+### 計算
+
+xlc 17644c98（分岐点 49e3045c、2026-11-20）。手元で `compare_njoy_pendf` を実行した。`xs nuclide` は 0625ec94（分岐点 49e3045c、2026-11-20）の
+`cargo build --release` の bin で、温度を 600 K の 1 点にした `read-survey/nis-VII.0.toml`（σ0 と散乱の次数は `endfb70/xs.toml` と同じ。核種の
+名前は入力の名前の形を満たすためだけのもので、ライブラリやチェーンの核種への対応ではない）と `read-survey/keep-<版>.toml` を、各版の
+`xs-range.toml` で手元で実行した。比べた main の bin は 51876d5c のもの（分岐点 49e3045c と crates の差は無い）。
+
+```sh
+cd examples/depletion/read-survey && ../../../bin/xs nuclide nis-VII.0.toml ../endfb70/xs-range.toml Zn-64 <出力>
+```
+
+### 結果
+
+`compare_njoy_pendf` の出力（先頭に元素と版を付けた。V と Zn は核分裂を持たないので MT18 の行は除いた）。どの反応も最大は 9.56e-4〜9.97e-4 で、
+許容誤差の 2 倍を超える点は無い（上の「版ごとのライブラリの分離共鳴の SLBW」と同じ基準）。
+
+```text
+V VII.0 MT1: points ours 16342 njoy 12312, compared 12312, max rel diff 9.93e-4 at 3.921657e4 eV, > 2 tol: 0
+V VII.0   resolved 2.000000e3..1.000000e5 eV: compared 5883, max rel diff 9.93e-4 at 3.921657e4 eV, > 2 tol: 0
+V VII.0   outside the resonance ranges: compared 6429, max rel diff 5.39e-7 at 2.717554e-2 eV, > 2 tol: 0
+V VII.0 MT2: points ours 16321 njoy 12312, compared 12312, max rel diff 9.97e-4 at 3.921657e4 eV, > 2 tol: 0
+V VII.0   resolved 2.000000e3..1.000000e5 eV: compared 5883, max rel diff 9.97e-4 at 3.921657e4 eV, > 2 tol: 0
+V VII.0   outside the resonance ranges: compared 6429, max rel diff 3.97e-7 at 1.275159e7 eV, > 2 tol: 0
+V VII.0 MT102: points ours 10442 njoy 12312, compared 12312, max rel diff 9.92e-4 at 7.030307e3 eV, > 2 tol: 0
+V VII.0   resolved 2.000000e3..1.000000e5 eV: compared 5883, max rel diff 9.92e-4 at 7.030307e3 eV, > 2 tol: 0
+V VII.0   outside the resonance ranges: compared 6429, max rel diff 4.65e-7 at 6.110131e-1 eV, > 2 tol: 0
+Zn VII.0 MT1: points ours 217369 njoy 59555, compared 59555, max rel diff 9.57e-4 at 8.411007e3 eV, > 2 tol: 0
+Zn VII.0   resolved 1.000000e-5..1.000000e5 eV: compared 59336, max rel diff 9.57e-4 at 8.411007e3 eV, > 2 tol: 0
+Zn VII.0   outside the resonance ranges: compared 219, max rel diff 1.82e-7 at 1.700000e7 eV, > 2 tol: 0
+Zn VII.0 MT2: points ours 217321 njoy 59555, compared 59555, max rel diff 9.56e-4 at 1.302221e4 eV, > 2 tol: 0
+Zn VII.0   resolved 1.000000e-5..1.000000e5 eV: compared 59336, max rel diff 9.56e-4 at 1.302221e4 eV, > 2 tol: 0
+Zn VII.0   outside the resonance ranges: compared 219, max rel diff 1.07e-7 at 1.200001e7 eV, > 2 tol: 0
+Zn VII.0 MT102: points ours 217149 njoy 59555, compared 59555, max rel diff 9.95e-4 at 9.054526e4 eV, > 2 tol: 0
+Zn VII.0   resolved 1.000000e-5..1.000000e5 eV: compared 59336, max rel diff 9.95e-4 at 9.054526e4 eV, > 2 tol: 0
+Zn VII.0   outside the resonance ranges: compared 219, max rel diff 4.62e-7 at 1.625000e6 eV, > 2 tol: 0
+```
+
+- Zn の xs の表の点は NJOY の 3.6 倍。xs は同位体ごとに範囲を線形化して和をとるので、和の表は 5 つの同位体の格子の和集合になる（候補。
+  同位体ごとの点の数は数えていない）。NJOY は和を 1 つの関数として線形化する
+- 共鳴の弾性散乱が負になる点の warn（ADR-0267）は、V にも Zn にも出ない。MLBW の同位体ごとの弾性散乱は負にならないので、NJOY の同位体ごとに
+  負を 0 にする手当て（`sigma` の `sigp(j)=0`）と、xs の和で判断する手当ては同じ値になる
+- `xs nuclide`（600 K）: VII.0 の V と Zn は終了コード 0 で終わる（手元で 2 秒、11 秒。時間は記録の測定ではない）
+- 既存の核種の出力は変わらない: VIII.0 の U-235、Zr-90、VII.1 の Pu-239（分離共鳴の Reich-Moore の範囲を 3 つ持つ）、VIII.1 の Fe-54（負の
+  分離共鳴の弾性散乱を 0 にする）の `xs nuclide`（`read-survey/keep-<版>.toml`）の出力は、main の bin の出力とバイトで同じ
 
 ## 燃焼の多群ライブラリ
 

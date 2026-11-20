@@ -155,7 +155,6 @@ endf = "../../references/endf/ENDF-B-VII.0_neutrons/n-022_Ti_050.endf"
 
 [[evaluation]]
 endf = "../../references/endf/ENDF-B-VII.0_neutrons/n-023_V_000.endf"
-error = "line 155: NIS=2 isotopes are not supported"
 
 [[evaluation]]
 endf = "../../references/endf/ENDF-B-VII.0_neutrons/n-024_Cr_050.endf"
@@ -219,7 +218,6 @@ endf = "../../references/endf/ENDF-B-VII.0_neutrons/n-029_Cu_065.endf"
 
 [[evaluation]]
 endf = "../../references/endf/ENDF-B-VII.0_neutrons/n-030_Zn_000.endf"
-error = "line 343: NIS=5 isotopes are not supported"
 
 [[evaluation]]
 endf = "../../references/endf/ENDF-B-VII.0_neutrons/n-031_Ga_069.endf"

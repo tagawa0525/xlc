@@ -185,7 +185,7 @@ pub fn unresolved_shielding(
     };
     let mf2 = Mf2::parse(&section)?;
     let mut unresolved = None;
-    for range in &mf2.ranges {
+    for range in mf2.ranges() {
         match &range.kind {
             RangeKind::Unresolved(urr) if unresolved.is_none() => unresolved = Some((range, urr)),
             RangeKind::Unresolved(_) => return Err(ProcessError::MultipleUnresolved),
@@ -422,21 +422,26 @@ pub fn resolved(tape: &Tape, mat: i32) -> Result<Option<Resolved>, ProcessError>
     resolved_in(&Mf2::parse(&section)?)
 }
 
-/// 読んだ MF2 から `resolved` を求める。
+/// 読んだ MF2 から `resolved` を求める。同位体が複数なら、ポテンシャル散乱は同位体ごとの最上の範囲の 4π a² を存在比で
+/// 重み付けした和（ENDF-102 の 2.1。上端は同位体の間で揃う。`Mf2::parse`）。
 fn resolved_in(mf2: &Mf2) -> Result<Option<Resolved>, ProcessError> {
-    let Some(range) = mf2
-        .ranges
-        .iter()
-        .filter(|r| r.kind.is_resolved())
-        .max_by(|a, b| a.eh.total_cmp(&b.eh))
-    else {
-        return Ok(None);
-    };
-    let radius = s_wave_radius(&range.kind, range.eh)?;
-    Ok(Some(Resolved {
-        top: range.eh,
-        potential: 4.0 * std::f64::consts::PI * radius * radius,
-    }))
+    let mut found = None;
+    for isotope in &mf2.isotopes {
+        let Some(range) = isotope
+            .ranges
+            .iter()
+            .filter(|r| r.kind.is_resolved())
+            .max_by(|a, b| a.eh.total_cmp(&b.eh))
+        else {
+            continue;
+        };
+        let radius = s_wave_radius(&range.kind, range.eh)?;
+        let potential = isotope.abn * (4.0 * std::f64::consts::PI * radius * radius);
+        let (top, sum) = found.get_or_insert((range.eh, 0.0));
+        *top = f64::max(*top, range.eh);
+        *sum += potential;
+    }
+    Ok(found.map(|(top, potential)| Resolved { top, potential }))
 }
 
 /// 上端が `top` (eV) の分離共鳴の範囲の、s 波の位相シフトに使う散乱半径 (10^-12 cm)。エネルギーによるなら上端の値。

@@ -432,14 +432,12 @@ fn quadrature(a: f64, b: f64, mut f: impl FnMut(f64, f64)) {
 /// 共鳴パラメータがなければ `MAX_LIMIT` とし、1 eV より上から始まるしきい反応があれば、
 /// そのしきい値の手前までにする。
 pub fn broadening_limit<'a>(mf2: Option<&Mf2>, tables: impl Iterator<Item = &'a Tab1>) -> f64 {
-    let ranges = mf2.map_or(&[][..], |m| &m.ranges);
-    let resolved = ranges
-        .iter()
+    let ranges = || mf2.into_iter().flat_map(Mf2::ranges);
+    let resolved = ranges()
         .filter(|r| r.kind.is_resolved())
         .map(|r| r.eh)
         .reduce(f64::max);
-    let unresolved = ranges
-        .iter()
+    let unresolved = ranges()
         .filter(|r| matches!(r.kind, RangeKind::Unresolved(_)))
         .map(|r| r.el)
         .reduce(f64::min);
