@@ -337,6 +337,24 @@ fn read_law7(r: &mut Reader<'_>) -> Result<OutgoingDistributions, Error> {
         table
             .check()
             .map_err(|message| Error::new(start, message))?;
+        // ENDF-102 の式 6.2 で ∫∫ f dμ dE' = 1。開いた範囲の一部を欠いた分布はこれに足りず、中性子を黙って失う。黙って
+        // 規格化し直さずに止める（g は lin-lin なので台形で厳密）
+        let total: f64 = table
+            .x
+            .windows(2)
+            .zip(table.y.windows(2))
+            .map(|(x, y)| 0.5 * (x[1] - x[0]) * (y[0] + y[1]))
+            .sum();
+        if (total - 1.0).abs() > LAW7_NORMALIZATION_TOLERANCE {
+            return Err(Error::new(
+                start,
+                format!(
+                    "LAW=7 distribution at E = {:e} eV integrates to {total:.6} over cosine and \
+                     outgoing energy, not 1 (ENDF-102 eq. 6.2)",
+                    cosines.c2
+                ),
+            ));
+        }
         incident.push(cosines.c2);
         spectra.push(table);
     }
@@ -350,6 +368,11 @@ fn read_law7(r: &mut Reader<'_>) -> Result<OutgoingDistributions, Error> {
         spectra,
     })
 }
+
+/// LAW=7 の ∫∫ f dμ dE' の 1 からのずれの許容誤差。ENDF の 11 桁の欄の実数は指数が 1 桁なら 7 桁、2 桁なら 6 桁で、値ごとの丸めの
+/// 相対誤差は 5e-7〜5e-6。正の項の和の相対誤差も同じ上限なので、評価者の規格化の丸めを含めて、その上限の 2 倍とする。4 つの版の
+/// Be-9 のずれは最大 7.0e-7（ADR-0271）。開いた範囲の一部を欠いた分布は、欠いた割合だけ足りない
+const LAW7_NORMALIZATION_TOLERANCE: f64 = 1.0e-5;
 
 /// 余弦 μ_i の表を余弦の補間則で補間して、表の余弦の範囲で積分するときの、各表の重み（lin-lin は台形、ヒストグラムは左の表）。
 /// 余弦は昇順で −1〜1 の中の 2 つ以上であること。
