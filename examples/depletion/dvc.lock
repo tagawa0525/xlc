@@ -6193,3 +6193,56 @@ stages:
       hash: md5
       md5: f599a54efdf03744e77ce65425bdebda
       size: 749
+  compare-depletion-versions:
+    cmd: python3 compare_depletion_versions.py --json 
+      compare-depletion-versions.json --base VII.1 
+      VII.0=endfb70/lattice-1C-60.msgpack VII.1=endfb71/lattice-1C-60.msgpack 
+      VIII.0=endfb80/lattice-1C-60.msgpack VIII.1=endfb81/lattice-1C-60.msgpack 
+      > compare-depletion-versions.txt
+    deps:
+    - path: 
+        ../../python-ast/examples/depletion/compare_depletion_versions.py.ast
+      hash: md5
+      md5: e9ee83d3f650041df26b880beb833ea5
+      size: 6666
+    - path: endfb70/lattice-1C-60.msgpack
+      hash: md5
+      md5: 67680b208af9883bfc7697a36fdf3572
+      size: 1290739
+    - path: endfb70/natural-isotopes.txt
+      hash: md5
+      md5: c49a41ea593205891ee4e78e97b82cf7
+      size: 201
+    - path: endfb71/lattice-1C-60.msgpack
+      hash: md5
+      md5: f93e4331dba56f8b67c62a49ba4c00f6
+      size: 1285089
+    - path: endfb71/natural-isotopes.txt
+      hash: md5
+      md5: f209a1bdfbb5a8e83c25412005f8d4b8
+      size: 154
+    - path: endfb80/lattice-1C-60.msgpack
+      hash: md5
+      md5: 7d10f4a4118c89b6de15ed07ed46bda3
+      size: 1285089
+    - path: endfb80/natural-isotopes.txt
+      hash: md5
+      md5: f2fca9f74a1f90befabcddc6b4c1a7e2
+      size: 134
+    - path: endfb81/lattice-1C-60.msgpack
+      hash: md5
+      md5: 65de0d8f176498133de0a2cd4e9de7b5
+      size: 1285089
+    - path: endfb81/natural-isotopes.txt
+      hash: md5
+      md5: 7fd6a14fbd09747fe20b7e885996e1dd
+      size: 150
+    outs:
+    - path: compare-depletion-versions.json
+      hash: md5
+      md5: 0ca2fb3ccf151f00fc462450b21328bb
+      size: 32222
+    - path: compare-depletion-versions.txt
+      hash: md5
+      md5: 933c1e6d6020987468e3651e7bec6484
+      size: 1776
