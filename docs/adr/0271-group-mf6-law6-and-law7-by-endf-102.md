@@ -28,7 +28,7 @@ ENDF/B-VIII.1 の Li-6、Be-9（4 つの版）で止まっていた（#0311）�
   （前の点が要るか）は、前の点での直線の値を f1·y(前の前) + (1 − f1)·y(今)（f1 = (x(前) − x(前の前))/(x(今) − x(前の前))）
   としていて、正しい (1 − f1)·y(前の前) + f1·y(今) と重みが入れ替わっている。ヒストグラムの E' の表では段の直前の点が消え、段が
   傾きに替わる。Be-9 の ENDF/B-VIII.0 の 2 MeV の入射で、群ごとの割合が ENDF のヒストグラムから差の絶対値の和で 31% ずれ、和が
-  14% 大きくなる（重みを正しくすると 0.3%。`ll2lab` を真似た trials の `ll2lab_thinning.py` で測った。examples/depletion/verification.md）。
+  14% 大きくなる（重みを正しくすると 0.3%。`ll2lab` を真似た examples/depletion/issue-0311/ll2lab_thinning.py で測った。examples/depletion/verification.md）。
   採らない
 - ENDF-102 の定義のとおりに振り分ける（採用）
 

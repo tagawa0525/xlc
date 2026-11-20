@@ -1,0 +1,17 @@
+# #0311: 既存の核種の出力が変わらないこと（ENDF/B-VIII.0、600 K の 1 点）
+output = "existing-VIII.0.msgpack"
+endf-directory = "../../../references/endf/ENDF-B-VIII.0_neutrons"
+sigma0 = [1e10, 1e5, 1e4, 1e3, 300, 100, 30, 10, 1]
+scattering-order = 3
+
+[nuclide.U-235]
+endf = "n-092_U_235.endf"
+temperatures = [600]
+
+[nuclide.O-16]
+endf = "n-008_O_016.endf"
+temperatures = [600]
+
+[nuclide.Zr-90]
+endf = "n-040_Zr_090.endf"
+temperatures = [600]
