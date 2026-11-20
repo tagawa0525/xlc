@@ -4,7 +4,7 @@ use crate::endf::{
     ClampedTab1, EnergyLaw, IncidentLaw, Interpolation, OutgoingDistributions, Tab1,
 };
 use crate::pointwise::linearize;
-use crate::special::{exp_e1, gamma_p_2, gamma_p_3_2};
+use crate::special::{erf, exp_e1, gamma_p_2, gamma_p_3_2, lower_gamma_series};
 use xlc_format::group::GroupStructure;
 use xlc_numeric::quadrature::GAUSS_LEGENDRE_4;
 
@@ -287,8 +287,9 @@ pub enum GroupedLaw {
     Analytic(AnalyticSpectrum),
 }
 
-/// θ(E) で決まる出射分布（LF=5, 7, 9, 12）。入射エネルギーごとに、群ごとの割合を x = E'/θ までの累積の差で
-/// 厳密に求める（LF=7, 9 は不完全ガンマ関数、LF=12 は閉じた式。NJOY GROUPR の anased と同じ）。
+/// θ(E) で決まる出射分布（LF=5, 7, 9, 11, 12）。入射エネルギーごとに、群ごとの割合を x = E'/θ までの累積の差で
+/// 厳密に求める（LF=7, 9 は不完全ガンマ関数、LF=11 は誤差関数、LF=12 は閉じた式。NJOY GROUPR の anased と同じ）。
+/// LF=11 の θ は a(E)。
 #[derive(Debug, Clone)]
 pub struct AnalyticSpectrum {
     /// x = E'/θ 未満の出射の割合
@@ -323,6 +324,8 @@ enum Cumulative {
     Gamma(fn(f64) -> f64),
     /// 表の g(x)（LF=5）を線形化した区分線形の密度の積分。`integral[k]` は x[k] までの積分
     Table { shape: Tab1, integral: Vec<f64> },
+    /// Watt の分布（LF=11）の累積（`watt_cumulative`）。θ は a(E)、`b` は b(E)
+    Watt { b: ClampedTab1 },
     /// Madland-Nix のスペクトル（LF=12）の 0〜∞ で 1 の累積。θ は T_M、`light` と `heavy` は E_F (eV)
     MadlandNix { light: f64, heavy: f64 },
 }
@@ -338,10 +341,12 @@ impl Cumulative {
         Self::Table { shape, integral }
     }
 
-    /// x = E'/θ までの累積。`theta` は x を出した θ（LF=12 の累積は E_F/θ にもよる）
-    fn at(&self, x: f64, theta: f64) -> f64 {
+    /// x = E'/θ までの累積。`e` と `theta` は x を出した入射エネルギーと θ（LF=11 の累積は a b/4 に、LF=12 の累積は
+    /// E_F/θ にもよる）
+    fn at(&self, x: f64, e: f64, theta: f64) -> f64 {
         match self {
             Self::Gamma(p) => p(x),
+            Self::Watt { b } => watt_cumulative(x, 0.25 * theta * b.eval(e)),
             Self::MadlandNix { light, heavy } => {
                 0.5 * (madland_nix_fraction(x, light / theta)
                     + madland_nix_fraction(x, heavy / theta))
@@ -362,6 +367,46 @@ impl Cumulative {
             }
         }
     }
+}
+
+/// x = E'/a がこれより小さいところは、閉じた式でなく級数で累積を求める（`watt_small_cumulative`）。閉じた式は 1 程度の項の
+/// 差で、累積（x^(3/2) で 0 に近づく）の相対誤差が ε x^(-3/2) ほどになる。級数は項がすべて正で、x が大きいと項の数が増える
+/// （`special` の不完全ガンマ関数と同じ切り替え）。x = 1 の前後の両者の相対差は 6e-15 以下（c = a b/4 = 0.05〜5）
+const WATT_SERIES_LIMIT: f64 = 1.0;
+
+/// ENDF-102 の 5.1.1.5 の exp(-E'/a) sinh(√(b E')) の、E'/a < x の（正規化しない）累積を a e^c で割ったもの。`c` は a b/4。
+///
+/// E' = a u² と置くと、r = √c として 2u e^(-u²) sinh(2ru) = u (e^(-(u-r)²) - e^(-(u+r)²)) e^c なので、
+/// W(x) = (√π/2) r (erf(√x - r) + erf(√x + r)) - (e^(-(√x - r)²) - e^(-(√x + r)²))/2（ENDF-102 の正規化の定数 I を
+/// a e^c で割ったものと同じ形）。e^c を外に出すので、大きい a b で溢れない。小さい x（`WATT_SERIES_LIMIT`）は
+/// `watt_small_cumulative`。
+fn watt_cumulative(x: f64, c: f64) -> f64 {
+    if x < WATT_SERIES_LIMIT {
+        return watt_small_cumulative(x, c);
+    }
+    let (r, s) = (c.sqrt(), x.sqrt());
+    0.5 * std::f64::consts::PI.sqrt() * r * (erf(s - r) + erf(s + r))
+        - 0.5 * ((-(s - r) * (s - r)).exp() - (-(s + r) * (s + r)).exp())
+}
+
+/// x < `WATT_SERIES_LIMIT` での `watt_cumulative`。sinh(2r√s) を級数に展開して項ごとに積分すると
+/// W(x) = e^(-c) Σ_k (2r)^(2k+1)/(2k+1)! γ(k + 3/2, x) で、γ(p, x) = x^p e^(-x)/p Σ_n xⁿ/((p+1)…(p+n))
+/// （`lower_gamma_series`）。どちらの和も項が正なので、桁落ちしない。
+fn watt_small_cumulative(x: f64, c: f64) -> f64 {
+    // k = 0 の (2r)^(2k+1) x^(k+3/2)/((2k+1)! (k+3/2))
+    let mut term = 2.0 * c.sqrt() * x * x.sqrt() / 1.5;
+    let mut sum = 0.0;
+    for k in 0.. {
+        let p = f64::from(k) + 1.5;
+        let part = term * lower_gamma_series(p, x);
+        sum += part;
+        if part <= f64::EPSILON * sum {
+            break;
+        }
+        let k = f64::from(k);
+        term *= 4.0 * c * x / ((2.0 * k + 2.0) * (2.0 * k + 3.0)) * p / (p + 1.0);
+    }
+    (-(c + x)).exp() * sum
 }
 
 /// E'/T_M が E_F/T_M のこの倍より小さいところは、閉じた式でなく級数で累積を求める（`madland_nix_small_fraction`）。
@@ -437,12 +482,12 @@ impl AnalyticSpectrum {
             return;
         }
         let theta = self.theta.eval(e);
-        let total = self.fraction.at(top / theta, theta);
+        let total = self.fraction.at(top / theta, e, theta);
         // 最下位の群から積み上げる。群構造の外に出る分は端の群に入れる
         let mut below = 0.0;
         for g in (0..out.len()).rev() {
             let upper = if g == 0 { top } else { self.bounds[g].min(top) };
-            let cumulative = self.fraction.at(upper / theta, theta);
+            let cumulative = self.fraction.at(upper / theta, e, theta);
             out[g] += scale * (cumulative - below) / total;
             below = cumulative;
             if upper >= top {
@@ -485,7 +530,11 @@ impl GroupedLaw {
                 Some(*restriction),
                 Theta::Table(theta.clone()),
             ),
-            EnergyLaw::Watt { .. } => unimplemented!("LF=11"),
+            EnergyLaw::Watt { restriction, a, b } => analytic(
+                Cumulative::Watt { b: b.clone() },
+                Some(*restriction),
+                Theta::Table(a.clone()),
+            ),
             EnergyLaw::MadlandNix {
                 light,
                 heavy,
@@ -506,7 +555,8 @@ impl GroupedLaw {
         match self {
             Self::Table(grouped) => grouped.incident().to_vec(),
             // θ の表の点と、E - U が 0 や群境界を横切る点（群ごとの割合の傾きが変わる）。表の g(x)（θ は一定）では、
-            // E - U が g の表の点の θ 倍を横切る点でも傾きが変わる。U で切らない分布（LF=12）は θ の表の点だけ
+            // E - U が g の表の点の θ 倍を横切る点でも傾きが変わる。LF=11 は b の表の点でも傾きが変わる。U で切らない
+            // 分布（LF=12）は θ の表の点だけ
             Self::Analytic(spectrum) => {
                 let mut points = Vec::new();
                 if let Some(restriction) = spectrum.restriction {
@@ -520,6 +570,9 @@ impl GroupedLaw {
                 }
                 if let Theta::Table(theta) = &spectrum.theta {
                     points.extend(&theta.table().x);
+                }
+                if let Cumulative::Watt { b } = &spectrum.fraction {
+                    points.extend(&b.table().x);
                 }
                 points.retain(|&e| e > 0.0);
                 points

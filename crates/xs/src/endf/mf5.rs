@@ -1,6 +1,6 @@
 //! MF5（出射中性子のエネルギー分布）。表形式（LF=1）と、θ(E) で決まる形のうち
 //! 一般の蒸発スペクトル（LF=5）、単純な核分裂スペクトル（LF=7）、蒸発スペクトル（LF=9）、
-//! Madland-Nix の核分裂スペクトル（LF=12）を扱う。
+//! エネルギーによる Watt の分布（LF=11）、Madland-Nix の核分裂スペクトル（LF=12）を扱う。
 //! それ以外の形式は、対象核種で必要になるまで追加しない。
 
 use super::Error;
@@ -20,7 +20,7 @@ pub struct OutgoingDistributions {
     pub spectra: Vec<Tab1>,
 }
 
-/// 部分分布の形。LF=5、7、9 の解析式の分布は、出射エネルギー E' を 0 ≤ E' ≤ E - U に制限する。
+/// 部分分布の形。LF=5、7、9、11 の解析式の分布は、出射エネルギー E' を 0 ≤ E' ≤ E - U に制限する。
 #[derive(Debug, Clone, PartialEq)]
 pub enum EnergyLaw {
     /// LF=1: 入射エネルギーごとの表
@@ -42,10 +42,12 @@ pub enum EnergyLaw {
         restriction: f64,
         theta: ClampedTab1,
     },
-    /// LF=11: エネルギーによる Watt の分布
+    /// LF=11: エネルギーによる Watt の分布 f(E') ∝ exp(-E'/a(E)) sinh(√(b(E) E'))（ENDF-102 の 5.1.1.5）
     Watt {
         restriction: f64,
+        /// a(E) (eV)
         a: ClampedTab1,
+        /// b(E) (1/eV)
         b: ClampedTab1,
     },
     /// LF=12: Madland-Nix の核分裂スペクトル f(E') = (g(E', E_F(L)) + g(E', E_F(H)))/2（ENDF-102 の 5.1.1.6）。
@@ -76,7 +78,8 @@ impl Mf5 {
         for _ in 0..nk {
             let start = r.line() + 1;
             let probability = r.tab1()?;
-            // θ(E) で決まる分布では、p(E) の TAB1 の C1 が U で、θ(E) の TAB1 が続く（LF=5 はさらに g(x) の TAB1）
+            // θ(E) で決まる分布では、p(E) の TAB1 の C1 が U で、θ(E) の TAB1 が続く（LF=5 はさらに g(x) の TAB1）。
+            // LF=11 は a(E) と b(E) の TAB1 が続く（ENDF-102 の 5.2.5）
             let restriction = probability.c1;
             let law = match probability.l2 {
                 1 => EnergyLaw::Tabulated(parse_outgoing(&mut r)?),
@@ -92,6 +95,12 @@ impl Mf5 {
                 9 => EnergyLaw::Evaporation {
                     restriction,
                     theta: positive_theta(&mut r)?,
+                },
+                // b = 0 では sinh が 0 になり分布が無い。負の b は sinh の引数が虚数になる
+                11 => EnergyLaw::Watt {
+                    restriction,
+                    a: positive_theta(&mut r)?,
+                    b: positive_theta(&mut r)?,
                 },
                 // ENDF-102 の 5.2.6 で p(E) の C1 は 0.0。E' は 0〜∞（5.1.1.6）なので、U を書いた評価は意味が決まらない
                 12 if restriction != 0.0 => {
