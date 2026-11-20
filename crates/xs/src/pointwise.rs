@@ -365,7 +365,12 @@ fn start_at_threshold(
         dropped,
         zeroed,
     };
-    Ok((Tab1 { breaks, laws, x, y }, Some(shift)))
+    // 区間はファイルの表のものを引き継ぐが、作り直した表なので補間則の定義域をもう一度確かめる
+    let table = Tab1 { breaks, laws, x, y };
+    table
+        .check()
+        .map_err(|message| format!("MT{mt}: {message}"))?;
+    Ok((table, Some(shift)))
 }
 
 /// 運動学のしきい値に合わせた1反応（`start_at_threshold`）。
@@ -1273,15 +1278,17 @@ fn replace_with_unresolved(
         if background.is_none() && values.iter().all(|&v| v == 0.0) {
             continue;
         }
-        let unresolved = linearize(
-            &Tab1 {
-                breaks: vec![grid.len()],
-                laws: vec![law],
-                x: grid.clone(),
-                y: values,
-            },
-            tol,
-        );
+        let unresolved = Tab1 {
+            breaks: vec![grid.len()],
+            laws: vec![law],
+            x: grid.clone(),
+            y: values,
+        };
+        // 格子点の間は MF2 の補間則で補間するので、ln をとる補間則の定義域を先に確かめる（負の和を ln で補間しない）
+        unresolved.check().map_err(|message| {
+            format!("MT{mt} in the unresolved range {el}..{eh} eV: {message}")
+        })?;
+        let unresolved = linearize(&unresolved, tol);
         let combined = match background {
             Some(t) => add(&outside(t, el, eh), &unresolved),
             None => unresolved,

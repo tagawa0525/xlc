@@ -338,6 +338,7 @@ fn legendre_table(r: &mut Reader<'_>) -> Result<LegendreTable, Error> {
         coefficients.push(list.values);
     }
     increasing(&energies, r.line())?;
+    check_energy_laws(&tab2.breaks, &laws, &energies, r.line())?;
     Ok(LegendreTable {
         breaks: tab2.breaks,
         laws,
@@ -383,6 +384,7 @@ fn angle_tables(r: &mut Reader<'_>) -> Result<AngleTables, Error> {
         tables.push(record.table);
     }
     increasing(&energies, r.line())?;
+    check_energy_laws(&tab2.breaks, &laws, &energies, r.line())?;
     Ok(AngleTables {
         breaks: tab2.breaks,
         laws,
@@ -399,6 +401,26 @@ fn laws(codes: &[i64], line: usize) -> Result<Vec<Interpolation>, Error> {
                 .ok_or_else(|| Error::new(line, format!("invalid interpolation code {c}")))
         })
         .collect()
+}
+
+/// 入射エネルギーの間の補間則が ln E をとるなら、入射エネルギーが正であること（`Interpolation::check_x`）。係数と密度の
+/// 側は、読むときに ln をとる補間則か負の密度をエラーにしている。
+fn check_energy_laws(
+    breaks: &[usize],
+    laws: &[Interpolation],
+    energies: &[f64],
+    line: usize,
+) -> Result<(), Error> {
+    for (k, w) in energies.windows(2).enumerate() {
+        let law = laws[breaks.partition_point(|&b| b < k + 2)];
+        law.check_x(w[0], w[1]).map_err(|message| {
+            Error::new(
+                line,
+                format!("incident energies {} and {}: {message}", k + 1, k + 2),
+            )
+        })?;
+    }
+    Ok(())
 }
 
 fn increasing(energies: &[f64], line: usize) -> Result<(), Error> {

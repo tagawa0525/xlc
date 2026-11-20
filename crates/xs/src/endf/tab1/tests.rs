@@ -144,3 +144,45 @@ fn log_y_with_zero_endpoint_is_zero_inside() {
         assert_close(t.eval(2.0), 1.0);
     }
 }
+
+#[test]
+fn logarithmic_intervals_outside_their_domain_are_rejected() {
+    // ln をとる側の値が負か、符号の違う 2 点か、ln x の側の x が正でないと、補間は定義されない
+    let undefined = [
+        (Interpolation::LogLog, (1.0, 1.0), (2.0, -1.0)),
+        (Interpolation::LogLog, (1.0, -1.0), (2.0, -2.0)),
+        (Interpolation::LogLin, (1.0, -1.0), (2.0, 1.0)),
+        (Interpolation::LinLog, (0.0, 1.0), (1.0, 2.0)),
+        (Interpolation::LogLog, (-1.0, 1.0), (1.0, 2.0)),
+        // NaN は定義域の中にない
+        (Interpolation::LogLog, (1.0, f64::NAN), (2.0, 1.0)),
+        (Interpolation::LinLog, (f64::NAN, 1.0), (2.0, 1.0)),
+    ];
+    for (law, p0, p1) in undefined {
+        assert!(law.check_interval(p0, p1).is_err(), "{law:?} {p0:?} {p1:?}");
+    }
+    // 0 の y は極限 0 として、ln をとらない側の負の値は lin の補間として通す
+    let defined = [
+        (Interpolation::LogLog, (1.0, 0.0), (2.0, 1.0)),
+        (Interpolation::LinLog, (1.0, -1.0), (2.0, 1.0)),
+        (Interpolation::LogLin, (-1.0, 1.0), (1.0, 2.0)),
+        (Interpolation::LinLin, (-1.0, -1.0), (1.0, 2.0)),
+    ];
+    for (law, p0, p1) in defined {
+        assert!(law.check_interval(p0, p1).is_ok(), "{law:?} {p0:?} {p1:?}");
+    }
+}
+
+#[test]
+fn check_names_the_interval_and_values_outside_the_logarithmic_domain() {
+    let negative = table(Interpolation::LogLog, &[1.0, 2.0, 3.0], &[1.0, 2.0, -0.5]);
+    let message = negative.check().unwrap_err();
+    for part in ["LogLog", "points 2 and 3", "-0.5"] {
+        assert!(message.contains(part), "{message}");
+    }
+    let zero_x = table(Interpolation::LinLog, &[0.0, 2.0], &[1.0, 2.0]);
+    let message = zero_x.check().unwrap_err();
+    for part in ["LinLog", "points 1 and 2", "(0, 1)"] {
+        assert!(message.contains(part), "{message}");
+    }
+}

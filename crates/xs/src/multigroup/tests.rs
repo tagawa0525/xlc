@@ -360,3 +360,54 @@ fn inverse_velocity_averages_one_over_v_with_the_weight_function() {
         );
     }
 }
+
+#[test]
+fn negative_unresolved_values_with_logarithmic_law_are_errors() {
+    // σ0 の 2 番目の、2 番目の格子点の捕獲が負。ln をとる補間則では区間の値が定義されない
+    let shielded = vec![
+        vec![[8.0, 7.5, 0.0, 0.5]; 2],
+        vec![[8.0, 7.5, 0.0, 0.5], [8.0, 7.5, 0.0, -0.25]],
+    ];
+    let error = UnresolvedShielding::new(
+        1.0e3,
+        1.0e6,
+        1,
+        vec![1.0e3, 1.0e6],
+        Interpolation::LogLog,
+        shielded.clone(),
+        vec![[10.0, 9.0, 0.0, 1.0]; 2],
+    )
+    .unwrap_err()
+    .to_string();
+    for part in ["capture", "sigma zero 2", "LogLog", "-0.25", "1000000"] {
+        assert!(error.contains(part), "{error}");
+    }
+    // 無限希釈の値も同じ
+    let error = UnresolvedShielding::new(
+        1.0e3,
+        1.0e6,
+        1,
+        vec![1.0e3, 1.0e6],
+        Interpolation::LogLin,
+        vec![vec![[8.0, 7.5, 0.0, 0.5]; 2]],
+        vec![[10.0, -9.0, 0.0, 1.0], [10.0, 9.0, 0.0, 1.0]],
+    )
+    .unwrap_err()
+    .to_string();
+    for part in ["elastic", "infinite dilution", "-9"] {
+        assert!(error.contains(part), "{error}");
+    }
+    // lin-lin は負の値も補間できる
+    assert!(
+        UnresolvedShielding::new(
+            1.0e3,
+            1.0e6,
+            1,
+            vec![1.0e3, 1.0e6],
+            Interpolation::LinLin,
+            shielded,
+            vec![[10.0, 9.0, 0.0, 1.0]; 2],
+        )
+        .is_ok()
+    );
+}

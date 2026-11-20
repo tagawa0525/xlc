@@ -79,6 +79,9 @@ pub struct UnresolvedShielding {
     infinite: Vec<[f64; 4]>,
 }
 
+/// `UnresolvedShielding` の格子点ごとの値の成分の名前（並びは `shielded` と `infinite` の配列の順）
+const COMPONENTS: [&str; 4] = ["total", "elastic", "fission", "capture"];
+
 impl UnresolvedShielding {
     /// `shielded` は σ0 ごとに格子点の数だけ、`infinite` は格子点の数だけ値を持つこと。
     pub fn new(
@@ -101,6 +104,28 @@ impl UnresolvedShielding {
         }
         if infinite.len() != n || shielded.iter().any(|row| row.len() != n) {
             return Err(ShieldingError::GridValues);
+        }
+        // 補正は格子点の間を `law` で補間するので、ln をとる補間則の定義域を先に確かめ、どの値かを示して止める
+        let tables = shielded
+            .iter()
+            .enumerate()
+            .map(|(s, row)| (format!("sigma zero {}", s + 1), row))
+            .chain(std::iter::once((
+                "infinite dilution".to_string(),
+                &infinite,
+            )));
+        for (table, values) in tables {
+            for (c, component) in COMPONENTS.iter().enumerate() {
+                for k in 1..n {
+                    let (p0, p1) = ((grid[k - 1], values[k - 1][c]), (grid[k], values[k][c]));
+                    law.check_interval(p0, p1).map_err(|reason| {
+                        ShieldingError::UnresolvedInterpolation {
+                            table: format!("{component} at {table}"),
+                            reason,
+                        }
+                    })?;
+                }
+            }
         }
         Ok(Self {
             el,
@@ -159,6 +184,8 @@ pub enum ShieldingError {
     Grid,
     #[error("unresolved values must match the grid")]
     GridValues,
+    #[error("unresolved {table}: {reason}")]
+    UnresolvedInterpolation { table: String, reason: String },
     #[error("self-shielding needs the total cross section (MT1)")]
     NoTotal,
     #[error("sigma zero must be positive and finite, got {0}")]
