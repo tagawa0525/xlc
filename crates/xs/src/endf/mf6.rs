@@ -351,8 +351,8 @@ fn read_law7(r: &mut Reader<'_>) -> Result<OutgoingDistributions, Error> {
     })
 }
 
-/// 余弦 μ_i の表を余弦の補間則で補間して −1〜1 で積分するときの、各表の重み（lin-lin は台形、ヒストグラムは左の表）。
-/// 余弦は昇順で −1 から 1 までであること。
+/// 余弦 μ_i の表を余弦の補間則で補間して、表の余弦の範囲で積分するときの、各表の重み（lin-lin は台形、ヒストグラムは左の表）。
+/// 余弦は昇順で −1〜1 の中の 2 つ以上であること。
 fn cosine_weights(mu: &[f64], breaks: &[usize], codes: &[i64]) -> Result<Vec<f64>, String> {
     if mu
         .windows(2)
@@ -360,9 +360,12 @@ fn cosine_weights(mu: &[f64], breaks: &[usize], codes: &[i64]) -> Result<Vec<f64
     {
         return Err(format!("LAW=7 cosines {mu:?} must ascend"));
     }
-    // −1〜1 を覆わない分布は、積分すると和が 1 に足りない
-    if mu.first() != Some(&-1.0) || mu.last() != Some(&1.0) {
-        return Err(format!("LAW=7 cosines {mu:?} must run from -1 to 1"));
+    // 余弦は出射の粒子に開いた範囲（前方の円錐 μ_min〜1 でもよい。ENDF-102 の 6.2.9）を覆う。1 つだけでは積分の幅が 0
+    if mu.len() < 2 {
+        return Err(format!("LAW=7 needs at least two cosines, got {mu:?}"));
+    }
+    if !(-1.0..=1.0).contains(&mu[0]) || !(-1.0..=1.0).contains(&mu[mu.len() - 1]) {
+        return Err(format!("LAW=7 cosines {mu:?} must lie in -1 to 1"));
     }
     let mut weights = vec![0.0; mu.len()];
     for k in 0..mu.len().saturating_sub(1) {
