@@ -109,6 +109,25 @@ class Contributions(unittest.TestCase):
             )
 
 
+class Shares(unittest.TestCase):
+    def test_the_added_nuclides_get_their_lattice_absorption_fraction(self):
+        # 吸収の割合の JSON の形（dilution_shielding.py が読む）。割合は N̄ σa φ̄ / A（A = Σa,1 φ1 = 1）、全核種の燃焼が
+        # 自分の吸収で減らした数密度なので、数密度の比は 1
+        before = history([1e-3, 1e-6, 2e-7], ["U-235", "Sm-149"])
+        after = history([1e-3, 3e-6, 1e-7], ["U-235", "Sm-149", "Pm-148"])
+        points = added_effect.contributions(
+            before, after, table(1.5), table(1.4), 1.0, ["Pm-148"]
+        )
+        shares = added_effect.shares(points)
+        (point,) = shares["points"]
+        self.assertEqual(point["burnup"], 10.0)
+        self.assertEqual(point["k_inf"], 1.4)
+        self.assertEqual(list(point["untransported_all"]), ["Pm-148"])
+        pm = point["untransported_all"]["Pm-148"]
+        self.assertAlmostEqual(pm["fraction"], 1e-7 * 0.5 * 1000.0 / 1.0)
+        self.assertEqual(pm["captured_ratio"], 1.0)
+
+
 class Heavy(unittest.TestCase):
     def test_actinides_are_heavy_and_fission_products_are_not(self):
         self.assertTrue(added_effect.heavy("Pu-239"))

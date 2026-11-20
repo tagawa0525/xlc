@@ -150,6 +150,17 @@ class Report(unittest.TestCase):
         self.assertTrue(ds.report(summary)[-1].endswith("| –"))
 
 
+class Background(unittest.TestCase):
+    def test_a_transported_nuclide_leaves_its_own_term_out_of_its_background(self):
+        # 全核種の履歴では足した核種も輸送する核種で、σ0 = Σ_{j≠i} Nⱼ σt,j / Nᵢ の和から自分の項を除く
+        total = [3.0, 5.0]
+        self.assertEqual(ds.background(total, "X", 0.5, [2.0, 4.0], {"X"}), [2.0, 3.0])
+
+    def test_an_untransported_nuclide_is_not_in_the_sum(self):
+        total = [3.0, 5.0]
+        self.assertEqual(ds.background(total, "X", 0.5, [2.0, 4.0], set()), total)
+
+
 class Empty(unittest.TestCase):
     def test_nothing_left_to_rank_is_an_error(self):
         with self.assertRaises(SystemExit):
