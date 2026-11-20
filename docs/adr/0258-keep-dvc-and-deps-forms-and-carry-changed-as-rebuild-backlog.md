@@ -620,7 +620,8 @@ ADR-0257）は、上の段の実装のブランチで、その ADR の決定と�
     一覧の項の型の誤りと、同じ md5 の 2 つの項で、traceback でなく `STOP:` で止まること。キャッシュに無い出力、読み手の失敗で止まること。
     キャッシュに無く git の index が追う出力は、blob の md5 が lock と同じなら index の版を読み（作業ツリーの版は読まない。HEAD と
     index が違えば index を読む。読めなければそのパスを `UNREADABLE:` に出す）、違えば `MISMATCH:` で止まり、index で通常のファイルで
-    ないもの（symlink）は traceback でなく `STOP:` で止まること（#0317、ブランチ fix/0317-read-cache-false-outputs-from-git）。`build` の
+    ないもの（symlink）と解いていない衝突の項は traceback でなく `STOP:` で止まり、出力のパスの名前のディレクトリの下の
+    項を出力と取り違えないこと（#0317、ブランチ fix/0317-read-cache-false-outputs-from-git）。`build` の
     deps を変えない差分では読まず、crates/ か Cargo.lock を変えた差分、crates/ の外へ動かした差分、crates/ に追跡していない
     ファイルを足した差分では読むこと。マージの hook の中でも一時のリポジトリだけに触れるよう、テストの git は GIT_ の変数を外す
 
