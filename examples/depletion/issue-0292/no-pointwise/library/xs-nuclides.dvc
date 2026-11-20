@@ -1,0 +1,6 @@
+outs:
+- md5: 4e94c39abbcc73ec9f8a2c397c37215b.dir
+  size: 128119377
+  nfiles: 48
+  hash: md5
+  path: xs-nuclides
