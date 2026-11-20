@@ -441,7 +441,7 @@ cargo run --release -p xlc-xs --example compare_njoy_pendf -- \
 
 ### 計算
 
-xlc fef94235（分岐点 f6360d71、2026-11-20）。手元で `compare_njoy_pendf` を実行した。`xs nuclide` は同じコミットの `cargo build --release`
+xlc 0883d42b（分岐点 4968867b、2026-11-20）。手元で `compare_njoy_pendf` を実行した。`xs nuclide` は同じコミットの `cargo build --release`
 の bin で、ブランチ feat/0303-pin-depletion-by-endf-version の `endfb81/xs.toml` と `endfb81/xs-range.toml` を手元の試行に置いて実行した。
 メモリの上限（`systemd-run --scope -p MemoryMax=8G`）を付け、最大常駐は子の `ru_maxrss` で測った。
 
@@ -458,11 +458,11 @@ Fe54 VIII.1 MT102: points ours 100308 njoy 48648, compared 48648, max rel diff 1
 - 弾性散乱の許容誤差の 2 倍を超える 24 点は、どれも分離共鳴の範囲の中で、NJOY の値が 5.14e-5 b 以下、差の絶対値が 1.18e-7 b 以下の、
   和が 0 に近い点である。xs は和が負の 74 点（最小 −7.28e-5 b、3491.6〜3516.6 eV。xs の warn）を 0 にし、NJOY は 21 点を 1e-8 b にする
   （`emerge` の「nonpositive elastic cross sections」）。範囲の外は、どの反応も 2 倍を超える点が無い
-- `xs nuclide`（2 温度）: VIII.1 の Fe-54 は終了コード 0、最大常駐 115 MiB。同じ入力の VIII.1 の Fe-56 は 99 MiB、VIII.0 の Fe-54 は
-  121 MiB（本番の `xs.toml`）。変更の前は、VIII.1 の Fe-54 が Slurm 989 で常駐 77.6 GB に達して止められた。時間は排他のジョブで
+- `xs nuclide`（2 温度）: VIII.1 の Fe-54 は終了コード 0、最大常駐 114 MiB。同じ入力の VIII.1 の Fe-56 は 99 MiB、VIII.0 の Fe-54 は
+  120 MiB（本番の `xs.toml`）。変更の前は、VIII.1 の Fe-54 が Slurm 989 で常駐 77.6 GB に達して止められた。時間は排他のジョブで
   測っていないので書かない
 - 既存の核種の出力は変わらない: VIII.0 の Fe-54、Fe-56（本番の `xs.toml`）と U-238（同じ入力の温度を 565 K の 1 点にした）の
-  `xs nuclide` の出力は、分岐点 f6360d71 の bin の出力とバイトで同じ
+  `xs nuclide` の出力は、分岐点 4968867b の bin の出力とバイトで同じ
 
 ## 燃焼の多群ライブラリ
 
