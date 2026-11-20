@@ -39,7 +39,7 @@ use crate::tracking::Tracking;
 use crate::ufg::{
     CellSpectrum, CellTangent, CensusCall, Collision, FreeGas, MemoryError, NuclideTransfer,
     Scattering, ShareCellCache, TangentCost, UfgError, cell_range, held_cells, hold_total,
-    kernel_cap, material_range, slowing_down_tangent, slowing_down_transfers, slowing_down_with,
+    kernel_cap, material_range, slowing_down_stepped, slowing_down_tangent,
 };
 
 /// 物質の核種ごとの、UFG の範囲の群の弾性散乱の移行（[`UfgTransfer::RingFlux`]）
@@ -58,7 +58,7 @@ const RING_CAPTURES: [&str; 5] = ["U-238", "Pu-239", "Pu-240", "Gd-155", "Gd-157
 pub const UFG_CP_POINTS: usize = 6;
 
 /// 格子の燃料の自己遮蔽の反復の条件。
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ShieldingOptions {
     /// 燃料の各核種の全断面積の相対変化の上限
     pub tolerance: f64,
@@ -79,6 +79,9 @@ pub struct ShieldingOptions {
     pub scattering: Scattering,
     /// 等価なセルのリングの物質の、UFG の範囲の群の散乱行列の移行の形（ADR-0207）
     pub transfer: UfgTransfer,
+    /// UFG の減速計算でポイントワイズの断面積で解く核種（`None` はすべて）。挙げない中心の物質の核種は、等価原理の群定数の段の
+    /// 断面積を持つ静止した標的として解く（ADR-0268）
+    pub ufg_nuclides: Option<Vec<String>>,
 }
 
 impl Default for ShieldingOptions {
@@ -93,6 +96,7 @@ impl Default for ShieldingOptions {
             hold_memory: None,
             scattering: Scattering::default(),
             transfer: UfgTransfer::default(),
+            ufg_nuclides: None,
         }
     }
 }
@@ -316,6 +320,17 @@ enum PinMethod<'a> {
 pub enum SelfShieldingError {
     #[error("material `{0}` is not defined")]
     UnknownMaterial(String),
+    /// UFG で解く核種（`ufg-nuclides`。ADR-0268）がライブラリに無い
+    #[error("ufg-nuclides: `{0}` is not a nuclide of the library")]
+    UnknownUfgNuclide(String),
+    /// UFG で解く核種に挙げない核種が、中心の物質（燃料か棒）でないリングにある（段の断面積で解くのは中心の物質の核種だけ。ADR-0268）
+    #[error(
+        "cell {cell}: `{name}` is outside the centre material of the UFG cell, so it must be in ufg-nuclides"
+    )]
+    UnlistedOutsideCentre { cell: usize, name: String },
+    /// UFG の 1 次の変化（[`shield_fuel_tangent`]）と、段の断面積で解く核種（ADR-0268）を組んだ
+    #[error("cell {0}: the UFG tangent cannot be taken with nuclides missing from ufg-nuclides")]
+    SteppedTangent(usize),
     #[error("{given} region materials for {regions} regions")]
     Regions { given: usize, regions: usize },
     #[error("cell {0}: fuel must fill the innermost rings of a ring cell")]
@@ -1043,6 +1058,14 @@ fn shield_fuel_by(
     let tracking = reuse.tracking;
     let lattice = &tracking.lattice;
     let regions = lattice.volumes().len();
+    if let Some(name) = options
+        .ufg_nuclides
+        .iter()
+        .flatten()
+        .find(|name| !library.nuclides.iter().any(|n| &n.name == *name))
+    {
+        return Err(SelfShieldingError::UnknownUfgNuclide(name.clone()));
+    }
     if region_materials.len() != regions {
         return Err(SelfShieldingError::Regions {
             given: region_materials.len(),
@@ -1246,6 +1269,7 @@ fn shield_fuel_by(
             shares,
             hold,
             tangent,
+            ufg_nuclides: options.ufg_nuclides.as_deref(),
             solves,
         };
         let ufg = match method {
@@ -1850,6 +1874,7 @@ fn shield_lumps(
                         shares,
                         hold,
                         tangent: None,
+                        ufg_nuclides: options.ufg_nuclides.as_deref(),
                         solves,
                     };
                     shield_cell(
@@ -2087,6 +2112,8 @@ struct PinRings<'a> {
     hold: usize,
     /// 減速計算の 1 次の変化を求める核種（[`shield_fuel_tangent`]）
     tangent: Option<&'a [String]>,
+    /// 減速計算でポイントワイズの断面積で解く核種（[`ShieldingOptions::ufg_nuclides`]。ADR-0268）
+    ufg_nuclides: Option<&'a [String]>,
     /// 等価なセルの減速計算を解いた回数（[`ShieldingReuse::slowing_downs`]）
     solves: &'a AtomicUsize,
 }
@@ -2156,6 +2183,7 @@ fn solve_equivalent_cell<'a>(
     materials: &'a [MaterialInput],
     dilute: &[Material],
     dancoff: &[f64],
+    center: &[Shielded],
     range_of: impl FnOnce(&[Option<&MaterialInput>]) -> Result<Option<[f64; 2]>, UfgError>,
 ) -> Result<Option<EquivalentCell<'a>>, SelfShieldingError> {
     let cell = pin.cell;
@@ -2203,6 +2231,7 @@ fn solve_equivalent_cell<'a>(
     let Some(range) = range_of(&inputs)? else {
         return Ok(None);
     };
+    let stepped = stepped_nuclides(pin, &inputs, center)?;
     let bounds = library.groups.bounds();
     let position = |e: f64| {
         bounds.iter().position(|&b| b == e).ok_or(UfgError::Range {
@@ -2252,35 +2281,19 @@ fn solve_equivalent_cell<'a>(
         pin.cp_points,
     )?;
     let solve = || -> Result<_, UfgError> {
-        Ok(match pin.transfer {
-            UfgTransfer::InfiniteDilution => (
-                slowing_down_with(
-                    library,
-                    &cylinder,
-                    &inputs,
-                    range,
-                    pin.collision,
-                    pin.thinning,
-                    pin.scattering,
-                    pin.hold,
-                )?,
-                None,
-            ),
-            UfgTransfer::RingFlux => {
-                let (spectrum, transfers) = slowing_down_transfers(
-                    library,
-                    &cylinder,
-                    &inputs,
-                    range,
-                    pin.collision,
-                    pin.thinning,
-                    pin.scattering,
-                    pin.shares,
-                    pin.hold,
-                )?;
-                (spectrum, Some(transfers))
-            }
-        })
+        let shares = (pin.transfer == UfgTransfer::RingFlux).then_some(pin.shares);
+        slowing_down_stepped(
+            library,
+            &cylinder,
+            &inputs,
+            range,
+            pin.collision,
+            pin.thinning,
+            pin.scattering,
+            shares,
+            pin.hold,
+            &stepped,
+        )
     };
     let (spectrum, transfers) = solve()?;
     pin.solves.fetch_add(1, Ordering::Relaxed);
@@ -2341,6 +2354,45 @@ fn solve_equivalent_cell<'a>(
         transfers,
         tangent,
     }))
+}
+
+/// 等価なセルのリングの物質 `inputs` のうち、減速計算で段の断面積で解く核種（[`ShieldingOptions::ufg_nuclides`] に挙げない中心の
+/// 物質の核種）と、その段（中心の物質の等価原理の値 `center`。並びは中心の物質の組成）。挙げない核種が中心でないリングにあれば
+/// エラー（ADR-0268）。1 次の変化（`pin.tangent`）は段の断面積の核種と組めない（段は個数密度で変わる等価原理の値で、1 次の変化に
+/// 入らない）
+fn stepped_nuclides<'a>(
+    pin: &PinRings,
+    inputs: &[Option<&'a MaterialInput>],
+    center: &'a [Shielded],
+) -> Result<Vec<(&'a str, &'a Shielded)>, SelfShieldingError> {
+    let cell = pin.cell;
+    let Some(listed) = pin.ufg_nuclides else {
+        return Ok(Vec::new());
+    };
+    let listed = |name: &str| listed.iter().any(|n| n == name);
+    for m in inputs[pin.rings..].iter().flatten() {
+        if let Some((name, _)) = m.composition.iter().find(|(n, _)| !listed(n)) {
+            return Err(SelfShieldingError::UnlistedOutsideCentre {
+                cell,
+                name: name.clone(),
+            });
+        }
+    }
+    let mut stepped: Vec<(&str, &Shielded)> = Vec::new();
+    for m in inputs[..pin.rings].iter().flatten() {
+        if m.composition.len() != center.len() {
+            return Err(SelfShieldingError::CellShape(cell));
+        }
+        for ((name, _), s) in m.composition.iter().zip(center) {
+            if !listed(name) && !stepped.iter().any(|(n, _)| n == name) {
+                stepped.push((name.as_str(), s));
+            }
+        }
+    }
+    if pin.tangent.is_some() && !stepped.is_empty() {
+        return Err(SelfShieldingError::SteppedTangent(cell));
+    }
+    Ok(stepped)
 }
 
 /// 中心のリングの群定数の平均: `base` の核種ごとの値の、UFG の範囲の群を、中心の `rings` のリングの値を中性子束と体積で
@@ -2415,7 +2467,7 @@ fn shield_cell(
 ) -> Result<Option<CellShielding>, SelfShieldingError> {
     let cell = pin.cell;
     let Some(equivalent) =
-        solve_equivalent_cell(library, pin, materials, dilute, dancoff, range_of)?
+        solve_equivalent_cell(library, pin, materials, dilute, dancoff, carlvik, range_of)?
     else {
         return Ok(None);
     };

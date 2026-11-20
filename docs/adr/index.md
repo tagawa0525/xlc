@@ -262,3 +262,4 @@
 * [ADR-0265: 分離共鳴の SLBW の弾性散乱が、MF3 のバックグラウンドとの和で負になるところを 0 にする](0265-raise-negative-slbw-elastic-sums-to-zero.md)
 * [ADR-0266: xs check は、ENDF の評価を再構成せずに、xs nuclide が読む MF の読み込みと形式の検査だけで確かめる](0266-check-evaluations-without-reconstruction.md)
 * [ADR-0267: 分離共鳴の弾性散乱が MF3 のバックグラウンドとの和で負になるところは形式によらず 0 にし、ほかの負の 0 K の断面積はエラーにする](0267-raise-negative-resolved-elastic-sums.md)
+* [ADR-0268: UFG の減速計算で、入力に挙げない中心の物質の核種を、等価原理の群定数の段の断面積の静止した標的として解く](0268-solve-unlisted-fuel-nuclides-by-group-constants.md)

@@ -3574,4 +3574,136 @@ pub(crate) mod lattice {
             "{result:?}"
         );
     }
+
+    /// 燃料（U-238、U-235、O-16 の 3 つのリング）、真空のギャップ、被覆管（Zr-90）、水（H-1、O-16）の UFG で遮蔽するピンセルを、
+    /// UFG のポイントワイズの断面積で解く核種を `listed` にして（`None` はすべて）自己遮蔽する（ADR-0268）
+    fn shield_listed(listed: Option<&[&str]>) -> Result<FuelShielding, SelfShieldingError> {
+        let library = resonant_library();
+        let materials = vec![
+            MaterialInput {
+                name: "fuel".into(),
+                temperature: T,
+                composition: vec![
+                    ("U-238".into(), 0.022),
+                    ("U-235".into(), 5.0e-4),
+                    ("O-16".into(), 0.045),
+                ],
+            },
+            MaterialInput {
+                name: "clad".into(),
+                temperature: T,
+                composition: vec![("Zr-90".into(), 0.043)],
+            },
+            MaterialInput {
+                name: "water".into(),
+                temperature: T,
+                composition: vec![("H-1".into(), 0.05), ("O-16".into(), 0.025)],
+            },
+        ];
+        let pin = PinCell::new(1.26, vec![0.2, 0.35, 0.4096, 0.418, 0.475]).unwrap();
+        let tracking = Tracking::new(&Lattice::pin_cell(pin), 16, 0.02).unwrap();
+        let regions: Vec<String> = ["fuel", "fuel", "fuel", crate::input::VOID, "clad", "water"]
+            .map(String::from)
+            .to_vec();
+        let options = ShieldingOptions {
+            ufg_nuclides: listed.map(|names| names.iter().map(|n| n.to_string()).collect()),
+            ..ShieldingOptions::default()
+        };
+        shield_fuel(&library, &tracking, &materials, &regions, &options)
+    }
+
+    const ALL: [&str; 5] = ["U-238", "U-235", "O-16", "Zr-90", "H-1"];
+
+    #[test]
+    fn listing_every_nuclide_shields_as_without_a_list() {
+        // ADR-0268: すべての核種を挙げると、挙げないとき（すべてを UFG で解く既定）と同じ
+        assert_eq!(
+            shield_listed(Some(&ALL)).unwrap(),
+            shield_listed(None).unwrap()
+        );
+    }
+
+    #[test]
+    fn unlisted_fuel_nuclides_keep_their_equivalence_values() {
+        // ADR-0268: 挙げない燃料の核種（U-235）の群定数は、どのリングでもそのピンの等価原理の値（UFG の範囲の群も）。挙げた核種は
+        // UFG で解き、U-235 の段の断面積の中で遮蔽される
+        let listed = shield_listed(Some(&["U-238", "O-16", "Zr-90", "H-1"])).unwrap();
+        let all = shield_listed(None).unwrap();
+        let library = resonant_library();
+        let pin = &listed.pins[0];
+        let equivalence = Equivalence {
+            chord: 2.0 * 0.4096,
+            terms: pin.dancoff.iter().map(|&c| carlvik(c).unwrap()).collect(),
+        };
+        let fuel = MaterialInput {
+            name: "fuel".into(),
+            temperature: T,
+            composition: vec![
+                ("U-238".into(), 0.022),
+                ("U-235".into(), 5.0e-4),
+                ("O-16".into(), 0.045),
+            ],
+        };
+        let carlvik = shield_material(
+            &library,
+            &fuel,
+            &equivalence,
+            &ShieldingOptions::default(),
+            0,
+        )
+        .unwrap();
+        let close = |a: f64, b: f64| (a - b).abs() <= 1e-12 * b.abs();
+        let ng = library.groups.len();
+        for region in 0..3 {
+            let u235 = &listed.region_cross_sections(region).unwrap()[1];
+            for g in 0..ng {
+                for (a, b) in [
+                    (u235.total[g], carlvik[1].total[g]),
+                    (u235.elastic[g], carlvik[1].elastic[g]),
+                    (u235.fission[g], carlvik[1].fission[g]),
+                    (u235.capture[g], carlvik[1].capture[g]),
+                ] {
+                    assert!(close(a, b), "region {region} group {g}: {a} vs {b}");
+                }
+            }
+            // 移行は物質の核種ごと
+            assert_eq!(listed.region_transfers(region).unwrap().len(), 3);
+        }
+        // UFG の範囲の群（1, 2）では、U-235 を UFG で解いたときと値が違う（段の断面積は等価原理の値）
+        let ufg = &all.region_cross_sections(0).unwrap()[1];
+        let stepped = &listed.region_cross_sections(0).unwrap()[1];
+        assert!((ufg.total[1] - stepped.total[1]).abs() > 1e-6 * ufg.total[1]);
+        // U-238 の共鳴の遮蔽は、U-235 の扱いによらずほとんど同じ
+        let u238 = |s: &FuelShielding| s.region_cross_sections(0).unwrap()[0].total[1];
+        assert!(
+            (u238(&listed) - u238(&all)).abs() < 1e-3 * u238(&all),
+            "{} vs {}",
+            u238(&listed),
+            u238(&all)
+        );
+    }
+
+    #[test]
+    fn unlisted_nuclides_outside_the_centre_stop() {
+        // ADR-0268: 段の断面積で解くのは中心の物質の核種だけ。減速材の H-1 を挙げ忘れた入力は止める
+        let result = shield_listed(Some(&["U-238", "U-235", "O-16", "Zr-90"]));
+        assert!(
+            matches!(
+                &result,
+                Err(SelfShieldingError::UnlistedOutsideCentre { cell: 0, name }) if name == "H-1"
+            ),
+            "{result:?}"
+        );
+    }
+
+    #[test]
+    fn listed_nuclides_must_be_in_the_library() {
+        let mut names = ALL.to_vec();
+        names.push("Xe-131");
+        let result = shield_listed(Some(&names));
+        assert!(
+            matches!(&result, Err(SelfShieldingError::UnknownUfgNuclide(name)) if name == "Xe-131"),
+            "{result:?}"
+        );
+    }
 }
