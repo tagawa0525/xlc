@@ -1,6 +1,6 @@
 ---
 type: ADR
-status: proposed
+status: accepted
 date: 2026-11-20
 requires: [ADR-0265]
 supersedes: []
@@ -58,9 +58,12 @@ NJOY2016 の RECONR は、共鳴の部分を負なら 0 にしてから MF3 を�
 
 - 単体テスト（crates/xs/src/pointwise/tests.rs）: `negative_resolved_elastic_with_its_background_is_raised_to_zero`、
   `negative_broadened_cross_sections_are_an_error`
-- VIII.1 の Fe-54 の `xs nuclide` が終わり、メモリが VIII.0 の Fe-54 と同じ桁であること（#0309）
-- NJOY との比較: VIII.1 の Fe-54 の 0 K の再構成を、NJOY2016 の RECONR の PENDF と比べる（examples/depletion/verification.md）
-- 負の値の無い評価の出力が変わらないこと: VIII.0 の Fe-54、Fe-56、U-238 の `xs nuclide` の出力のバイトが、この変更の前の main と同じ
+- VIII.1 の Fe-54 の `xs nuclide`（2 温度）が終了コード 0 で終わり、最大常駐は VIII.0 の Fe-54 と同じ桁（examples/depletion/verification.md の
+  「版ごとのライブラリの負の分離共鳴の弾性散乱」）
+- NJOY との比較（xlc deb0c79c、2026-11-20）: VIII.1 の Fe-54 の 0 K の再構成を NJOY2016 の RECONR の PENDF と比べ、全断面積と捕獲は
+  許容誤差の 2 倍を超える点が無い。弾性散乱の 2 倍を超える点は、NJOY の値が 5.14e-5 b 以下の和が 0 に近い点だけ（同じ節）
+- 負の値の無い評価の出力が変わらないこと: VIII.0 の Fe-54、Fe-56、U-238 の `xs nuclide` の出力のバイトが、この変更の前の main
+  （f6360d71）と同じ（同じ節）
 
 ## 帰結
 
