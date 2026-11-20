@@ -62,9 +62,9 @@
      "chain": true,
      "stage": "reading",
      "reason": "last NBT must equal NP",
-     "cause": "MF5 MT17 の TAB1 の補間の区切りが点の数と食い違う（評価の誤り）",
+     "cause": "MF5 MT17 の TAB1 の補間の区切りが点の数と食い違う（評価の誤り。入力の `corrections` の宣言で読める。ADR-0272）",
      "where": "endf/tape.rs の tab1",
-     "issue": "#0316"
+     "issue": "#0316（closed）"
     },
     {
      "nuclide": "Ta-181",
@@ -172,8 +172,8 @@
     },
     {
      "nuclide": "Th-232",
-     "seconds": 57.79,
-     "max_rss_kb": 104456
+     "seconds": 28.65,
+     "max_rss_kb": 104832
     },
     {
      "nuclide": "Tc-99",
@@ -270,19 +270,19 @@
      "max_rss_kb": 7660
     },
     {
-     "nuclide": "Pa-231",
-     "seconds": 276.99,
-     "max_rss_kb": 40216
-    },
-    {
-     "nuclide": "Pa-233",
-     "seconds": 253.81,
-     "max_rss_kb": 25096
-    },
-    {
      "nuclide": "U-238",
      "seconds": 241.95,
      "max_rss_kb": 332904
+    },
+    {
+     "nuclide": "Np-236",
+     "seconds": 237.53,
+     "max_rss_kb": 10972
+    },
+    {
+     "nuclide": "Np-238",
+     "seconds": 232.87,
+     "max_rss_kb": 13340
     }
    ],
    "largest": [
@@ -303,8 +303,8 @@
     },
     {
      "nuclide": "Th-232",
-     "seconds": 62.24,
-     "max_rss_kb": 105384
+     "seconds": 28.99,
+     "max_rss_kb": 105772
     },
     {
      "nuclide": "Tm-169",
@@ -567,14 +567,14 @@
      "max_rss_kb": 272912
     },
     {
-     "nuclide": "Pa-231",
-     "seconds": 211.27,
-     "max_rss_kb": 40284
+     "nuclide": "U-238",
+     "seconds": 202.86,
+     "max_rss_kb": 338344
     },
     {
-     "nuclide": "Pa-233",
-     "seconds": 205.68,
-     "max_rss_kb": 24720
+     "nuclide": "Np-236",
+     "seconds": 194.47,
+     "max_rss_kb": 10472
     }
    ],
    "largest": [
@@ -834,7 +834,7 @@
  "inputs": [
   {
    "path": "process-survey/VII.0/report.json",
-   "md5": "b7af8f2c67b2b7fd16eeacaa96f8f73c"
+   "md5": "6aae6e99c21e992d801db64dfa1e5d1b"
   },
   {
    "path": "read-survey-endfb70.toml",
@@ -846,7 +846,7 @@
   },
   {
    "path": "process-survey/VII.1/report.json",
-   "md5": "f4b2935d6456e2f96e3a97cef93d42df"
+   "md5": "9b1d235b621b9bb851259eb620117c7d"
   },
   {
    "path": "read-survey-endfb71.toml",
@@ -858,7 +858,7 @@
   },
   {
    "path": "process-survey/VIII.0/report.json",
-   "md5": "fef6d6ba5f80c95bc178521ee388e961"
+   "md5": "a4cd693e5bb3ddb212aa73269e250a08"
   },
   {
    "path": "read-survey-endfb80.toml",
@@ -870,7 +870,7 @@
   },
   {
    "path": "process-survey/VIII.1/report.json",
-   "md5": "feb0510ad2b07cc3b050b53920d300ff"
+   "md5": "416077cc0e74e56d5f69f41e09d36afc"
   },
   {
    "path": "read-survey-endfb81.toml",

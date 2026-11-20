@@ -1,4 +1,4 @@
-inputs: process-survey/VII.0/report.json b7af8f2c, read-survey-endfb70.toml 37c30609, endfb70/chain.msgpack 5c4c8194, process-survey/VII.1/report.json f4b2935d, read-survey-endfb71.toml 8cc9ff01, endfb71/chain.msgpack 32ee4517, process-survey/VIII.0/report.json fef6d6ba, read-survey-endfb80.toml 5b469fe4, chain.msgpack 1f1de180, process-survey/VIII.1/report.json feb0510a, read-survey-endfb81.toml adc307a6, endfb81/chain.msgpack 4b084932
+inputs: process-survey/VII.0/report.json 6aae6e99, read-survey-endfb70.toml 37c30609, endfb70/chain.msgpack 5c4c8194, process-survey/VII.1/report.json 9b1d235b, read-survey-endfb71.toml 8cc9ff01, endfb71/chain.msgpack 32ee4517, process-survey/VIII.0/report.json a4cd693e, read-survey-endfb80.toml 5b469fe4, chain.msgpack 1f1de180, process-survey/VIII.1/report.json 416077cc, read-survey-endfb81.toml adc307a6, endfb81/chain.msgpack 4b084932
 
 | 版 | チェーンの評価 | 通った | 止まった | うち走査でも止まる | チェーンの外の評価 | 通した | 通った | 止まった | 入れない |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -12,7 +12,7 @@ inputs: process-survey/VII.0/report.json b7af8f2c, read-survey-endfb70.toml 37c3
 - VII.0 Be-9（n-004_Be_009.endf、チェーン、走査でも止まる）: neutron LAW=7 is not supported — MF6 の中性子の LAW=6、7 を読めない、endf/mf6.rs の parse、#0311
 - VII.0 Cl-35（n-017_Cl_035.endf、チェーン、処理で初めて止まる）: MT2 is negative at 2 points up to the Doppler broadening limit 217643.623542 eV (1.0000e-5..1.2260e-5 eV, down to -2.218e3 b); a negative cross section cannot be broadened — 広げる範囲の 0 K の断面積が負（ADR-0267 でエラー）、pointwise.rs の reject_negative_broadened、#0309
 - VII.0 Co-58（n-027_Co_058.endf、チェーン、処理で初めて止まる）: MT102 is negative at 42 points up to the Doppler broadening limit 596.41 eV (8.4925e0..9.5433e0 eV, down to -3.742e3 b); a negative cross section cannot be broadened — 広げる範囲の 0 K の断面積が負（ADR-0267 でエラー）、pointwise.rs の reject_negative_broadened、#0309
-- VII.0 Rb-87（n-037_Rb_087.endf、チェーン、走査でも止まる）: last NBT must equal NP — MF5 MT17 の TAB1 の補間の区切りが点の数と食い違う（評価の誤り）、endf/tape.rs の tab1、#0316
+- VII.0 Rb-87（n-037_Rb_087.endf、チェーン、走査でも止まる）: last NBT must equal NP — MF5 MT17 の TAB1 の補間の区切りが点の数と食い違う（評価の誤り。入力の `corrections` の宣言で読める。ADR-0272）、endf/tape.rs の tab1、#0316（closed）
 - VII.0 Ta-181（n-073_Ta_181.endf、チェーン、処理で初めて止まる）: 565 K: the sampled total cross section is not positive -251.8341136002381 eV from 330 eV — 非分離共鳴のラダーのサンプルの全断面積が正でない、resonance/ladder.rs の add_samples、#0319
 - VII.0 Th-232（n-090_Th_232.endf、チェーン、走査でも止まる）: 565 K: fission needs MF1 MT452 and MF5 MT18 — 核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない、process.rs の at_temperature、#0312
 - VII.0 Pa-231（n-091_Pa_231.endf、チェーン、走査でも止まる）: 565 K: fission needs MF1 MT452 and MF5 MT18 — 核分裂の中性子の分布が MF6 MT18 で、輸送する核種の群定数を作れない、process.rs の at_temperature、#0312
@@ -58,12 +58,12 @@ inputs: process-survey/VII.0/report.json b7af8f2c, read-survey-endfb70.toml 37c3
 
 ## 時間と常駐の大きい核種
 - VII.0 時間: Am-242m 347.2 s 9608 kB、Eu-154 257.02 s 7632 kB、Cm-245 256.72 s 8940 kB、Cm-243 250.22 s 8348 kB、U-233 213.69 s 23396 kB
-- VII.0 常駐: U-238 182.52 s 278240 kB、U-235 151.76 s 149764 kB、Pu-239 174.85 s 107196 kB、Th-232 57.79 s 104456 kB、Tc-99 50.15 s 67984 kB
-- VII.1 時間: Am-242m 393.16 s 10104 kB、Eu-154 294.03 s 7660 kB、Pa-231 276.99 s 40216 kB、Pa-233 253.81 s 25096 kB、U-238 241.95 s 332904 kB
-- VII.1 常駐: U-238 241.95 s 332904 kB、U-235 198.08 s 193648 kB、Pu-239 223.24 s 123464 kB、Th-232 62.24 s 105384 kB、Tm-169 31.96 s 96180 kB
+- VII.0 常駐: U-238 182.52 s 278240 kB、U-235 151.76 s 149764 kB、Pu-239 174.85 s 107196 kB、Th-232 28.65 s 104832 kB、Tc-99 50.15 s 67984 kB
+- VII.1 時間: Am-242m 393.16 s 10104 kB、Eu-154 294.03 s 7660 kB、U-238 241.95 s 332904 kB、Np-236 237.53 s 10972 kB、Np-238 232.87 s 13340 kB
+- VII.1 常駐: U-238 241.95 s 332904 kB、U-235 198.08 s 193648 kB、Pu-239 223.24 s 123464 kB、Th-232 28.99 s 105772 kB、Tm-169 31.96 s 96180 kB
 - VIII.0 時間: Am-242m 281.06 s 10396 kB、Eu-154 233.59 s 8416 kB、Eu-151 170.68 s 10684 kB、U-238 167.41 s 344288 kB、Am-242 153.62 s 11268 kB
 - VIII.0 常駐: U-238 167.41 s 344288 kB、U-235 142.66 s 320720 kB、Pu-240 46.51 s 146832 kB、O-16 1.4 s 123540 kB、Pu-239 147.9 s 113280 kB
-- VIII.1 時間: Am-242m 305.32 s 10092 kB、Eu-154 250.99 s 7852 kB、H-1 230.61 s 272912 kB、Pa-231 211.27 s 40284 kB、Pa-233 205.68 s 24720 kB
+- VIII.1 時間: Am-242m 305.32 s 10092 kB、Eu-154 250.99 s 7852 kB、H-1 230.61 s 272912 kB、U-238 202.86 s 338344 kB、Np-236 194.47 s 10472 kB
 - VIII.1 常駐: U-238 202.86 s 338344 kB、U-235 184.43 s 320252 kB、H-1 230.61 s 272912 kB、Pu-239 179.84 s 165656 kB、Pt-192 59.1 s 162956 kB
 
 ## 版の間で時間か常駐が 10 倍以上違う核種
