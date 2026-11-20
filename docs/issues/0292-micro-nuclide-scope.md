@@ -169,5 +169,6 @@ resolution:
   （区分 decision、10 分 8 秒〜13 分 29 秒、割り込まれうるジョブ）。どの核種も `xs nuclide` を終了コード 0 で通り、走査
   （examples/depletion/process-survey.txt）に無い種類の WARN は無い。VIII.0 の試行のライブラリは #0325 の前の xs のものなので、同じ入力を
   #0325 の後の xs で作り直し（Slurm 1020。ライブラリと解いた出力は追跡しない `trials/` の試行）、U、MOX、Gd の燃焼の組成の基準条件の
-  4 状態を解き直した差は、どれも 0.0001 pcm 以下（燃焼の履歴は作り直していない）。版の差（数十〜数百 pcm）に比べて無視できるので、
-  VIII.0 の燃焼は作り直さない。燃焼と比較（`compare_versions.py`）は続き
+  4 状態を解き直した差は、どれも 0.0001 pcm 以下。燃焼の履歴（数密度）への効きは、燃焼させ直していないので確かめていない。65 核種の組の
+  1C の版の差（VII.1 基準で 0、17、60 MWd/kg に +4〜−706 pcm。examples/depletion/compare-depletion-versions.json、e40645cb7）に比べて
+  固定した組成の差は無視できるので、VIII.0 の燃焼は作り直さない。燃焼と比較（`compare_versions.py`）は続き
