@@ -10,6 +10,9 @@
   ピン 8 本。Gd のピンを 1 本で鏡面反射にすると、周りの燃料の中性子の来ない、Gd のピンだけの格子になる（スペクトルが集合体の
   中の Gd のピンから離れる）ので、周りに燃料を置く。Gd と燃料の本数の比 1:8 は、2O の 24:240 より Gd が多い
 
+確認のセル `CHECK_FUELS`（gd10: gd の Gd のピンの Gd2O3 を 5 から 10 wt% にしたもの）は、ここでは書かず、全核種の燃焼の入力
+（all_nuclides.py）と組の入力（ufg_subset.py）だけが、この形状と組成を使う。
+
 `python3 inputs.py` は燃料ごとの <燃料>/nominal.toml と <燃料>/density.toml（減速材 0.743 と 0.661 g/cc の燃焼。出力は <燃料>/out/）を
 書き、<燃料>/out/nominal-state.toml（ベース計算の履歴の組成から基準条件（0.743）へのブランチ計算で、履歴の輸送と同じ問題。`micro` は追う 31 核種）
 を書く。nominal-state は冷却計算の 1 群の断面積（ADR-0238）で輸送しない核種の吸収を見る（untransported_absorption.py）。燃焼の後に
@@ -70,6 +73,31 @@ GD = (
     "Gd-160 = 3.67198e-04, O-16 = 4.53705e-02 }"
 )
 # 2O の Gd のピンの 8 つの等面積のリングの外半径（../p9-gd/fuel-2O.toml の cell.gd）
+# GD の Gd2O3 の重量割合（2O の Gd のピン。数密度の UO2 と Gd2O3 の質量から 0.0500）
+GD_WEIGHT_FRACTION = 0.05
+
+
+def gadolinia(factor: float) -> str:
+    """GD の Gd2O3 の重量割合を `factor` 倍にした組成。ペレットの質量（密度）を変えず、Gd を `factor` 倍、U を
+    (1 − factor w) / (1 − w) 倍にし、酸素は UO2 と Gd2O3 の化学量論の比で同じだけ動かす（同位体の割合は変えない）"""
+    pairs = [p.split(" = ") for p in GD.strip("{} ").split(", ")]
+    densities = {n: float(v) for n, v in pairs}
+    w = GD_WEIGHT_FRACTION
+    scale = {"U": (1 - factor * w) / (1 - w), "Gd": factor}
+    u = sum(v for n, v in densities.items() if n.startswith("U-"))
+    gd = sum(v for n, v in densities.items() if n.startswith("Gd-"))
+    oxygen = (2 * u * scale["U"] + 1.5 * gd * scale["Gd"]) / (2 * u + 1.5 * gd)
+    out = {
+        n: v * (oxygen if n == "O-16" else scale[n.split("-")[0]])
+        for n, v in densities.items()
+    }
+    return "{ " + ", ".join(f"{n} = {v:.5e}" for n, v in out.items()) + " }"
+
+
+# 確認のセル（ADR-0270 の確定に足りない測定の (2)。UFG で解く核種の順位に入れない）: gd10 は gd の Gd のピンの Gd2O3 を
+# 10 wt%（Gd を 2 倍）にしたもの。PWR の Gd の燃料棒の範囲（6〜11 wt% を調べた ORNL の 17×17 の格子の検討など）の中
+CHECK_FUELS = ("gd10",)
+GD_COMPOSITIONS = {"gd": GD, "gd10": gadolinia(2.0)}
 GD_RADII = [
     0.1448154688, 0.2048, 0.2508277497, 0.2896309376, 0.3238172324, 0.3547240054, 0.3831457164, 0.4096,
 ]  # fmt: skip
@@ -145,14 +173,16 @@ sectors = 8
 
 def fuel_materials(fuel: str) -> list[str]:
     """燃焼させる物質（入力の物質の名前）"""
-    return {"u": ["fuel"], "mox": ["fuel"], "gd": ["fuel", *GD_MATERIALS]}[fuel]
+    return ["fuel", *GD_MATERIALS] if fuel in GD_COMPOSITIONS else ["fuel"]
 
 
 def geometry(fuel: str, depth: int, water: str) -> str:
     """ライブラリ、離散化、格子、物質、セル。`depth` は入力の置き場の examples/depletion からの深さ（パスの ../ の数）"""
     up = "../" * depth
     rows = (
-        '["pin pin pin", "pin gd  pin", "pin pin pin"]' if fuel == "gd" else '["pin"]'
+        '["pin pin pin", "pin gd  pin", "pin pin pin"]'
+        if fuel in GD_COMPOSITIONS
+        else '["pin"]'
     )
     materials = [
         "[material.fuel]",
@@ -160,12 +190,12 @@ def geometry(fuel: str, depth: int, water: str) -> str:
         f"nuclides = {MOX if fuel == 'mox' else UO2}",
         "",
     ]
-    if fuel == "gd":
+    if fuel in GD_COMPOSITIONS:
         for m in GD_MATERIALS:
             materials += [
                 f"[material.{m}]",
                 "temperature = 565",
-                f"nuclides = {GD}",
+                f"nuclides = {GD_COMPOSITIONS[fuel]}",
                 "",
             ]
     return "\n".join(
@@ -184,7 +214,7 @@ def geometry(fuel: str, depth: int, water: str) -> str:
             water,
             "",
             PIN.format(fuel="fuel"),
-            *([gd_cell()] if fuel == "gd" else []),
+            *([gd_cell()] if fuel in GD_COMPOSITIONS else []),
         ]
     )
 

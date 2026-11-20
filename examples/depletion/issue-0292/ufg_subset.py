@@ -38,12 +38,12 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent.parent))
 from all_nuclides import transported as transported_names
-from inputs import NOMINAL_DENSITY, ZIRCALOY, branch_input
+from inputs import CHECK_FUELS, NOMINAL_DENSITY, ZIRCALOY, branch_input
 from verification_tables import markdown_table, signed
 
 FUELS = ("u", "mox", "gd")
 # 記録の表の燃料の名前
-FUEL_NAMES = {"u": "U", "mox": "MOX", "gd": "Gd"}
+FUEL_NAMES = {"u": "U", "mox": "MOX", "gd": "Gd", "gd10": "Gd 10 wt%"}
 BURNUP = [0, 10, 30, 60]
 # 足した 65 核種のうち UFG で解く核種。順位は examples/depletion/verification.md の「足す核種の自己遮蔽の目安」（燃焼度を通じた
 # 最大の自己遮蔽の目安）: 7 pcm 以上の 4 核種と、1 pcm を超える 17 核種
@@ -56,6 +56,9 @@ SETS = {"all": None, "none": [], "s4": SHIELDED_4, "s17": SHIELDED_17}
 # 全核種の系列の組の閾値 (pcm)。#0292 の 65 核種の測定（ADR-0268）で、1 pcm を超える 17 核種の組の差が 3.7 pcm 以下だった。
 # それより小さい閾値で核種を増やし、差がどこで収束するかを見る
 THRESHOLDS_PCM = (1.0, 0.3, 0.1)
+# 確認のセル（inputs.py の `CHECK_FUELS`。全核種の系列だけ）が解く組: 基準と、ADR-0270 が選ぶ組。3 つの燃料の順位で選んだ組を、
+# 選んだ組成と別の履歴で解き、差だけを見る（順位に入れず、時間は測らない。対照は試行の履歴が無いので無い）
+CHECK_SETS = ("all", "a0.1")
 # ホウ酸水の式（`water = { ... }`）が置く核種
 WATER = ["H-1", "O-16", "B-10", "B-11"]
 # 系列ごとの入力の置き場（issue-0292 から）、入力から見たライブラリと履歴、足した核種の一覧（issue-0292 から）、見出しの語
@@ -252,6 +255,19 @@ def write_inputs(series: str, rankings=tuple(RANKINGS)) -> None:
             )
         if config.get("control"):
             (directory / "control.toml").write_text(control_input(fuel))
+    if series != "all" or not set(CHECK_SETS) <= set(cases):
+        return
+    transported = library_transported(HERE / config["library_input"])
+    for fuel in CHECK_FUELS:
+        directory = HERE / config["directory"] / fuel
+        (directory / "out").mkdir(parents=True, exist_ok=True)
+        for case in CHECK_SETS:
+            kept = cases[case]
+            names = listed(transported, added, kept)
+            count = 0 if kept is None else len(kept)
+            (directory / f"{case}.toml").write_text(
+                case_input(fuel, case, names, count, config)
+            )
 
 
 SECONDS = {"s": 1.0, "ms": 1e-3, "µs": 1e-6, "us": 1e-6, "ns": 1e-9}
@@ -295,9 +311,14 @@ def compare(
     if "all" in untimed:
         raise SystemExit("the reference set all must be timed")
     config = SERIES[series]
+    check = fuel in CHECK_FUELS
+    if check and series != "all":
+        raise SystemExit(f"the check cell {fuel} is solved only in the all series")
     inputs = []
     if cases_of is None:
         cases_of = sets(series, root)
+        if check:
+            cases_of = {c: cases_of[c] for c in CHECK_SETS}
         inputs += [
             {"path": str(p.relative_to(root.parent)), "md5": md5(p)}
             for p in set_sources(series, root)
@@ -314,7 +335,7 @@ def compare(
         k = k_by_burnup(read(table_path))
         input_path = directory / f"{case}.toml"
         paths = [input_path, table_path]
-        if case in untimed:
+        if check or case in untimed:
             seconds = None
         else:
             seconds = shielding_seconds(log_path.read_text())
@@ -348,7 +369,7 @@ def compare(
                 ],
                 "seconds": c["seconds"],
                 "ratio": None
-                if c["seconds"] is None
+                if c["seconds"] is None or reference["seconds"] is None
                 else [s / r for s, r in zip(c["seconds"], reference["seconds"])],
             }
         )
@@ -368,7 +389,7 @@ def compare(
                 "the history transports other nuclides than the library input "
                 "has at the burnt temperatures"
             )
-    if config.get("control"):
+    if config.get("control") and not check:
         paths = [
             root / SERIES["trial"]["directory"] / fuel / "out" / "all.msgpack",
             directory / "out" / "control.msgpack",
@@ -458,7 +479,7 @@ def main() -> None:
     )
     c = sub.add_parser("compare")
     c.add_argument("--json", type=Path, required=True)
-    c.add_argument("fuel", choices=FUELS)
+    c.add_argument("fuel", choices=FUELS + CHECK_FUELS)
     c.add_argument(
         "--untimed",
         nargs="+",

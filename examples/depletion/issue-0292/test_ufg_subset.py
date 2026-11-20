@@ -354,6 +354,12 @@ class CheckFuel(unittest.TestCase):
         (root / "all" / "gd10").mkdir(parents=True)
         (root / "all" / "library").mkdir()
         (root / "all" / "added-to-p2.txt").write_text("A\n")
+        # 組は 3 つの燃料の順位から（a0.1 = [A]）
+        for name in ufg_subset.RANKINGS.values():
+            for fuel in ufg_subset.FUELS:
+                (root / "all" / name.format(fuel=fuel)).write_text(
+                    json.dumps({"nuclides": [{"nuclide": "A", "max_pcm": 5.0}]})
+                )
         (root / "all" / "library" / "xs.toml").write_text(
             "[nuclide]\n"
             'U-235 = { endf = "u", temperatures = [565] }\n'
@@ -396,6 +402,7 @@ class CheckFuel(unittest.TestCase):
             self.assertNotIn("library_change_pcm", d)
             paths = [i["path"] for i in d["inputs"]]
             self.assertFalse(any("out-timed" in p for p in paths))
+            self.assertIn("issue-0292/all/dilution-all-gd.json", paths)
 
     def test_the_check_fuel_inputs_read_its_history(self):
         text = ufg_subset.case_input(
