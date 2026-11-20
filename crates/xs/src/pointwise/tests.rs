@@ -325,38 +325,96 @@ fn declared_negative_values_are_raised_to_zero_with_a_warning() {
     assert_eq!(tables[&2], linear(&[1.0e-5, 2.0e7], &[10.0, 10.0]));
 }
 
+/// 宣言で `ColdParts::read` が止まったときの文
+fn declaration_error(tape: &Tape, negatives: &[NegativeToZero]) -> String {
+    ColdParts::read(tape, 1, 1.0e-3, negatives)
+        .map(drop)
+        .unwrap_err()
+        .message
+}
+
 #[test]
 fn declarations_that_do_not_match_the_tables_are_an_error() {
     let tape = capture_tape(&NEGATIVE_CAPTURE);
-    let error = |negatives: &[NegativeToZero]| {
-        ColdParts::read(&tape, 1, 1.0e-3, negatives)
-            .map(drop)
-            .unwrap_err()
-            .message
-    };
+    let error = |negatives: &[NegativeToZero]| declaration_error(&tape, negatives);
     // 範囲に負の値が無い宣言は止める（評価が替わって宣言が古くなったことに気付けるように）
     let message = error(&[
         declared(102, 1.0e-5, 10.0, None),
         declared(102, 5.0, 10.0, None),
     ]);
-    assert!(message.contains("MT102"), "{message}");
+    assert!(
+        message.contains("MT102 at 5..10 eV: no value is negative"),
+        "{message}"
+    );
     // 宣言の範囲の外に残る負の値は、宣言しないときと同じく止める
     let message = error(&[declared(102, 1.5, 10.0, None)]);
-    assert!(message.contains("negative-to-zero"), "{message}");
-    // 表の無い反応、範囲の逆転、引く先の反応が無いか同じ反応の宣言も止める
-    for negatives in [
-        declared(103, 1.0e-5, 10.0, None),
-        declared(102, 10.0, 1.0e-5, None),
-        declared(102, f64::NAN, 10.0, None),
-        declared(102, 1.0e-5, 10.0, Some(4)),
-        declared(102, 1.0e-5, 10.0, Some(102)),
+    assert!(
+        message.contains("the 0 K cross sections are negative: MT102"),
+        "{message}"
+    );
+    // 表の無い反応、有限でないか逆転した範囲、引く先の反応が無いか同じ反応の宣言も、それぞれの理由で止める
+    for (negatives, reason) in [
+        (
+            declared(103, 1.0e-5, 10.0, None),
+            "the evaluation has no MT103",
+        ),
+        (
+            declared(102, 10.0, 1.0e-5, None),
+            "the range must be finite",
+        ),
+        (
+            declared(102, f64::NAN, 10.0, None),
+            "the range must be finite",
+        ),
+        (declared(102, 1.0e-5, 10.0, Some(4)), "no MT4 to take from"),
+        (
+            declared(102, 1.0e-5, 10.0, Some(102)),
+            "must name another reaction",
+        ),
     ] {
         let message = error(std::slice::from_ref(&negatives));
-        assert!(
-            message.contains("MT102") || message.contains("MT103"),
-            "{negatives:?}: {message}"
-        );
+        assert!(message.contains(reason), "{negatives:?}: {message}");
     }
+}
+
+#[test]
+fn taking_the_raised_amount_must_keep_the_total_and_the_source_non_negative() {
+    // 全断面積に入らない反応（生成断面積など）との間で引くと、全断面積が変わる
+    let text = [
+        mf3_section(2, ["1.0-5", "2.0+7"], ["10.0", "10.0"]),
+        mf3_points(102, &NEGATIVE_CAPTURE),
+        mf3_section(203, ["1.0-5", "2.0+7"], ["10.0", "10.0"]),
+    ]
+    .concat();
+    let tape = Tape::parse(&text).unwrap();
+    let message = declaration_error(&tape, &[declared(102, 1.0e-5, 10.0, Some(203))]);
+    assert!(message.contains("part of the total"), "{message}");
+    // 引いた先が負になる宣言は、引く先の誤りとして止める（引いた先を別に 0 にすると、全断面積が戻らない）
+    let text = [
+        mf3_section(2, ["1.0-5", "2.0+7"], ["1.0", "1.0"]),
+        mf3_points(102, &NEGATIVE_CAPTURE),
+    ]
+    .concat();
+    let tape = Tape::parse(&text).unwrap();
+    let message = declaration_error(&tape, &[declared(102, 1.0e-5, 10.0, Some(2))]);
+    assert!(message.contains("makes MT2 negative"), "{message}");
+}
+
+#[test]
+fn declarations_cannot_reach_the_background_of_an_lssf0_unresolved_range() {
+    // LSSF=0 の非分離共鳴の自己遮蔽は、テープの MF3 のバックグラウンドを読むので、その範囲（1 keV〜100 keV）に宣言は届かない
+    let text = [
+        unresolved_mf2(),
+        mf3_section(2, ["1.0-5", "2.0+7"], ["10.0", "10.0"]),
+        mf3_points(102, &NEGATIVE_CAPTURE),
+    ]
+    .concat();
+    let tape = Tape::parse(&text).unwrap();
+    let message = declaration_error(&tape, &[declared(102, 1.0e-5, 2.0e3, None)]);
+    assert!(message.contains("unresolved range"), "{message}");
+    let message = declaration_error(&tape, &[declared(102, 1.0e-5, 10.0, Some(2))]);
+    assert!(!message.contains("unresolved range"), "{message}");
+    assert!(ColdParts::read(&tape, 1, 1.0e-3, &[declared(102, 1.0e-5, 10.0, Some(2))]).is_ok());
 }
 
 #[test]
