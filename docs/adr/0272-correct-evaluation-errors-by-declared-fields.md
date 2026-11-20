@@ -103,3 +103,5 @@ corrections = [{ line = 1194, mf = 5, mt = 17, field = 1, from = 1, to = 3 }]
 - VII.0 の Rb-87 の 600 K の `xs nuclide`（宣言した入力 examples/depletion/read-survey/sample-VII.0.toml）が終了コード 0 で
   終わる。宣言しない核種の出力は変わらない（VIII.0 の Li-7、N-14、Ni-58 の出力のバイトが main のビルドと同じ）。数値の出どころは
   examples/depletion/verification.md の「走査が見逃す種類」
+- 4 つの版の全評価を 565 K の 1 点で `xs nuclide` に通す走査（examples/depletion/verification.md の「中性子の評価のすべての `xs nuclide`」）は、
+  `examples/depletion/process-survey/VII.0/declarations.toml` で Rb-87 の修正を宣言し、Rb-87 は通る
