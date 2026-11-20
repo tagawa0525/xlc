@@ -28,3 +28,4 @@ HEAD、ブランチ、タグのどれかから辿れることを、crates/docs �
 | `record/adr-0185-pointwise-trials` | ADR-0185 の検討した案の案 L                |
 | `record/adr-0225-rod-axis-check`   | ADR-0225、#0213、examples/depletion/       |
 | `record/adr-0251-coverage-848-854` | ADR-0251 の検討した案の案 A、#0286         |
+| `record/adr-0268-dilute-absorbers` | ADR-0268 の検討した案の案 E、#0292         |
