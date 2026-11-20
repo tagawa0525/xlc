@@ -213,7 +213,8 @@ fn negative_broadened_cross_sections_are_an_error() {
     assert!(error.message.contains("MT102"), "{error}");
     // 0 になる 5.25 MeV から上限の 6.5 MeV までは、表の点の間の補間の値が負（上限より下の表の点はどれも正）
     let across = tape((["1.0-5", "7.0+6"], ["3.0", "-1.0"]));
-    assert!(ColdParts::read(&across, 1, 1.0e-3).is_err());
+    let error = ColdParts::read(&across, 1, 1.0e-3).unwrap_err();
+    assert!(error.message.contains("MT102"), "{error}");
     // 0 になる 10 MeV が上限より上なら、広げる値はどれも正で、拡がりの格子は止まる
     let above = tape((["1.0-5", "2.0+7"], ["1.0", "-1.0"]));
     let hot = ColdParts::read(&above, 1, 1.0e-3).unwrap().at(565.0);
