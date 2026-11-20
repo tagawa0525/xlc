@@ -36,9 +36,9 @@ impl Interpolation {
         matches!(self, Self::LogLin | Self::LogLog)
     }
 
-    /// ln x をとる補間則で、区間の端の x0、x1 が正であるか。
+    /// ln x をとる補間則で、区間の端の x0、x1 が正であるか（NaN は正でない）。
     pub fn check_x(self, x0: f64, x1: f64) -> Result<(), String> {
-        if self.log_x() && (x0 <= 0.0 || x1 <= 0.0) {
+        if self.log_x() && !(x0 > 0.0 && x1 > 0.0) {
             return Err(format!(
                 "{self:?} interpolation is not defined with non-positive x between {x0} and {x1}"
             ));
@@ -46,23 +46,19 @@ impl Interpolation {
         Ok(())
     }
 
-    /// 2 点 (x0, y0)、(x1, y1) の区間で、この補間則が定義されるか。ln x をとる補間則は x0、x1 が正（`check_x`）、
-    /// ln y をとる補間則は y0、y1 が負でないこと（0 は ln y → −∞ の極限として扱う。`interpolate`）。
+    /// 2 点 (x0, y0)、(x1, y1) の区間で、この補間則が定義されるか。ln x をとる補間則は x0、x1 が正、ln y をとる補間則は
+    /// y0、y1 が負でないこと（0 は ln y → −∞ の極限として扱う。`interpolate`）。比較は否定の形にして、NaN を定義域の外にする。
     pub fn check_interval(self, (x0, y0): (f64, f64), (x1, y1): (f64, f64)) -> Result<(), String> {
-        let between = || format!("between ({x0}, {y0}) and ({x1}, {y1})");
-        if self.check_x(x0, x1).is_err() {
-            return Err(format!(
-                "{self:?} interpolation is not defined with non-positive x {}",
-                between()
-            ));
-        }
-        if self.log_y() && (y0 < 0.0 || y1 < 0.0) {
-            return Err(format!(
-                "{self:?} interpolation is not defined with negative y {}",
-                between()
-            ));
-        }
-        Ok(())
+        let side = if self.log_x() && !(x0 > 0.0 && x1 > 0.0) {
+            "non-positive x"
+        } else if self.log_y() && !(y0 >= 0.0 && y1 >= 0.0) {
+            "negative y"
+        } else {
+            return Ok(());
+        };
+        Err(format!(
+            "{self:?} interpolation is not defined with {side} between ({x0}, {y0}) and ({x1}, {y1})"
+        ))
     }
 
     /// 区間 [x0, x1] の x で補間する。

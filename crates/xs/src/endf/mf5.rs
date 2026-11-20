@@ -332,7 +332,7 @@ pub(super) fn check_unit_base(
 }
 
 /// 入射エネルギーの間の補間則が、補間する値の定義域にあること（`Interpolation::check_interval`）。補間する値は、入射
-/// エネルギーと、両端の分布の密度（群ごとの確率と単位基底の密度は、負でない密度から負でない値になる）と、単位基底の
+/// エネルギーと、両端の分布の密度（群ごとの確率と単位基底の密度は、負でない密度から負でない値になる）と、単位基底では
 /// 出射エネルギーの範囲の両端。密度は最も小さい値で確かめる。
 pub(super) fn check_incident_domain(
     laws: &[IncidentLaw],
@@ -348,12 +348,17 @@ pub(super) fn check_incident_domain(
         [] => (0.0, 0.0),
     };
     for k in 0..incident.len().saturating_sub(1) {
-        let IncidentLaw { law, .. } = laws[breaks.partition_point(|&b| b < k + 2)];
+        let IncidentLaw { law, unit_base } = laws[breaks.partition_point(|&b| b < k + 2)];
         let (e0, e1) = (incident[k], incident[k + 1]);
         let (lo, hi) = (&spectra[k], &spectra[k + 1]);
         let ((a0, b0), (a1, b1)) = (ends(lo), ends(hi));
-        [(lowest(lo), lowest(hi)), (a0, a1), (b0, b1)]
-            .into_iter()
+        let range_ends = if unit_base {
+            vec![(a0, a1), (b0, b1)]
+        } else {
+            Vec::new()
+        };
+        std::iter::once((lowest(lo), lowest(hi)))
+            .chain(range_ends)
             .try_for_each(|(v0, v1)| law.check_interval((e0, v0), (e1, v1)))
             .map_err(|message| {
                 Error::new(
