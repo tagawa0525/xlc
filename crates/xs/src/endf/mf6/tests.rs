@@ -398,3 +398,12 @@ fn law7_cosine_interpolation_other_than_histogram_or_linear_is_error() {
     let err = Mf6::parse(&tape.section(825, 6, 16).unwrap()).unwrap_err();
     assert_eq!(err.line, 7, "{err}");
 }
+
+#[test]
+fn law7_cosines_must_span_minus_one_to_one() {
+    // 余弦が −1〜1 を覆わないと、積分した分布の和が 1 に足りず、中性子を黙って失う
+    let text = angle_energy("1", "2").replacen("       -1.0", "       -0.5", 1);
+    let tape = Tape::parse(&text).unwrap();
+    let err = Mf6::parse(&tape.section(825, 6, 16).unwrap()).unwrap_err();
+    assert_eq!(err.line, 7, "{err}");
+}
