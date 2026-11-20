@@ -13,3 +13,21 @@ Rb-87 = { endf = "n-037_Rb_087.endf", temperatures = [600], corrections = [
 U-233 = { endf = "n-092_U_233.endf", temperatures = [600] }
 Li-7 = { endf = "n-003_Li_007.endf", temperatures = [600] }
 Ni-58 = { endf = "n-028_Ni_058.endf", temperatures = [600] }
+# MF3 の弾性散乱は、最初の 2 点（1e-5〜1.226e-5 eV）が全断面積（同じ点で 0）から捕獲と (n,p) を引いた値で負（最小 −2218 b）。
+# 次の点からは一定の 20.68 b で、ENDF/B-VII.1 の同じ核種の 0 K の弾性散乱（NJOY RECONR）は 1e-5 eV で 20.69 b。0 にする範囲は
+# 1.45e-5 eV の正の点までで、零点を足す（ADR-0267）
+Cl-35 = { endf = "n-017_Cl_035.endf", temperatures = [600], negative-to-zero = [
+  { mt = 2, from = 1.0e-5, to = 1.5e-5 },
+] }
+# MF3 の捕獲のバックグラウンドは負（−8.2e4 b から始まる）で、9 eV の MLBW の共鳴の捕獲を打ち消しきれず、和が 8.49〜9.54 eV で
+# 負（最小 −3742 b）。ENDF/B-VII.1 は共鳴パラメータを評価し直し（共鳴は 10.35 eV）、バックグラウンドを 0 にした。両側の正の点
+# （8 eV で 327 b、10 eV で 277 b）までを 0 にする範囲にする（ADR-0267）
+Co-58 = { endf = "n-027_Co_058.endf", temperatures = [600], negative-to-zero = [
+  { mt = 102, from = 8.0, to = 10.0 },
+] }
+# MT91 は MT4 から離散準位（MT51〜90）の和を引いた値で、1.7〜4.07 MeV で負（最小 −0.257 b）。ENDF/B-VII.1 は MT91 を 0 にし、
+# MT1 を変えずに弾性散乱を減らした（MF1 MT451 の「negative cross sections in MF3 MT91」）。同じく、0 にした分を弾性散乱から
+# 引く（ADR-0267）
+Y-89 = { endf = "n-039_Y_089.endf", temperatures = [600], negative-to-zero = [
+  { mt = 91, from = 1.5e6, to = 4.2e6, take-from = 2 },
+] }

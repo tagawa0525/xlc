@@ -214,7 +214,21 @@ pub fn reconstruct_at(
     tol: f64,
     temperature: f64,
 ) -> Result<BTreeMap<u32, Tab1>, Error> {
-    Ok(ColdParts::read(tape, mat, tol)?.at(temperature))
+    Ok(ColdParts::read(tape, mat, tol, &[])?.at(temperature))
+}
+
+/// 0 K の再構成の後に残る負の値を 0 にする、xs の入力の核種の項目 `negative-to-zero` の宣言（ADR-0267）。
+///
+/// `mt` の表の、`from` 以上 `to` 以下（eV。段差の両側の点を含む）の点の負の値を 0 にし、範囲の中の隣り合う点の間で符号が
+/// 変わるところに線形補間の零点を足す。範囲を負の点の両側の正の点まで取ると、0 にした表は元の表を 0 で切った関数になる。
+/// `take_from` があれば、0 にするために足した分をその反応から引き、部分反応の和（全断面積）を宣言の前と同じにする。
+#[derive(Debug, Clone, PartialEq, serde::Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+pub struct NegativeToZero {
+    pub mt: u32,
+    pub from: f64,
+    pub to: f64,
+    pub take_from: Option<u32>,
 }
 
 /// 1核種の 0 K の部分反応（冗長な反応を和で作り直す前）。共鳴の再構成は重いので、
@@ -463,9 +477,15 @@ impl RawParts {
 }
 
 impl ColdParts {
-    /// MF3 と共鳴パラメータから、許容誤差 `tol` で 0 K の部分反応を作る。
+    /// MF3 と共鳴パラメータから、許容誤差 `tol` で 0 K の部分反応を作る。`negatives` の宣言の負の値を 0 にし、残る負の値が
+    /// あれば止める（ADR-0267）。
     #[tracing::instrument(name = "reconstruct", level = "debug", skip_all)]
-    pub fn read(tape: &Tape, mat: i32, tol: f64) -> Result<Self, Error> {
+    pub fn read(
+        tape: &Tape,
+        mat: i32,
+        tol: f64,
+        negatives: &[NegativeToZero],
+    ) -> Result<Self, Error> {
         let RawParts {
             available,
             parts,
@@ -507,13 +527,41 @@ impl ColdParts {
                 .map_err(|message| Error::new(section.reader().line(), message))?;
             mf2 = Some(parsed);
         }
-        reject_negative_broadened(&tables, mf2.as_ref()).map_err(|(mt, message)| {
-            // MF3 に無い反応（共鳴だけの反応）は、MF2 の行を示す
+        // MF3 に無い反応（共鳴だけの反応）は、MF2 の行を示す
+        let line = |mt: u32| {
             let section = tape
                 .section(mat, 3, mt)
                 .or_else(|| tape.section(mat, 2, 151));
-            Error::new(section.map_or(0, |s| s.reader().line()), message)
-        })?;
+            section.map_or(0, |s| s.reader().line())
+        };
+        // 引かない宣言を先に当て、引く宣言が引く先の 0 にした後の値を見るようにする。引く先が別の引く宣言の反応なら、当てる順で
+        // 引く先の値が変わるので止める。どちらもあって、結果は並べた順によらない
+        if let Some(chained) = negatives.iter().find(|d| {
+            // 同じ反応から引く宣言は、`raise_declared` が止める
+            d.take_from.is_some_and(|source| {
+                source != d.mt
+                    && negatives
+                        .iter()
+                        .any(|o| o.mt == source && o.take_from.is_some())
+            })
+        }) {
+            let source = chained.take_from.unwrap_or_default();
+            return Err(Error::new(
+                line(chained.mt),
+                format!(
+                    "`negative-to-zero` for MT{}: the reaction to take from, MT{source}, is also declared with \
+                     `take-from`, so the result would depend on the order",
+                    chained.mt
+                ),
+            ));
+        }
+        let (plain, taking): (Vec<_>, Vec<_>) =
+            negatives.iter().partition(|d| d.take_from.is_none());
+        for declared in plain.into_iter().chain(taking) {
+            raise_declared(&mut tables, mf2.as_ref(), declared)
+                .map_err(|message| Error::new(line(declared.mt), message))?;
+        }
+        reject_negative(&tables).map_err(|(mt, message)| Error::new(line(mt), message))?;
         Ok(Self {
             tables,
             mf2,
@@ -587,39 +635,155 @@ fn parts_broadening_limit(tables: &BTreeMap<u32, Tab1>, mf2: Option<&Mf2>) -> f6
     broadening_limit(mf2, candidates.map(|(_, t)| t))
 }
 
-/// 広げる反応の、広げる上限より下に負の値があれば、その MT と文を返す（ADR-0267）。
+/// 宣言（`NegativeToZero`）の範囲の負の値を 0 にし、warn を出す。範囲に負の点が無い、表が無い、範囲が有限でないか逆転して
+/// いる宣言は、評価と合わないので文を返す（評価が替わって古くなった宣言を黙って当てない）。`take-from` は、両方の反応が全断面積に
+/// 入り、引く先が引く範囲で負でなく、引いた後も負にならないときだけ当てる。
 ///
-/// ドップラー拡がりの格子の判定（`doppler::split`）は正の値を前提にし、両端が負の区間を際限なく分ける。上限より下の表の点と、
-/// 上限をまたぐ区間の上限での値（左からの極限）を見る。上限より上の値は広げないので見ない（扱いは #0309）。
-fn reject_negative_broadened(
-    tables: &BTreeMap<u32, Tab1>,
+/// LSSF=0 の非分離共鳴の範囲に重なる宣言は、反応によらず止める。その範囲の自己遮蔽（`process::unresolved_shielding`）は、テープの
+/// MF3 の全断面積、弾性散乱、核分裂、捕獲をバックグラウンドに読むので、宣言が届かず、部分反応の和とも食い違う。
+fn raise_declared(
+    tables: &mut BTreeMap<u32, Tab1>,
     mf2: Option<&Mf2>,
-) -> Result<(), (u32, String)> {
-    let e_max = parts_broadening_limit(tables, mf2);
-    for (&mt, t) in tables.iter().filter(|(mt, _)| is_broadened(**mt)) {
-        let points = t.x.iter().zip(&t.y).filter(|(e, _)| **e < e_max);
-        let at_limit = (t.x[0] < e_max).then(|| (e_max, left_limit(t, e_max)));
-        let negative: Vec<(f64, f64)> = points
-            .map(|(e, v)| (*e, *v))
-            .chain(at_limit)
-            .filter(|(_, v)| *v < 0.0)
-            .collect();
-        let (Some(first), Some(last)) = (negative.first(), negative.last()) else {
-            continue;
-        };
-        let lowest = negative.iter().map(|(_, v)| *v).fold(0.0, f64::min);
-        return Err((
-            mt,
-            format!(
-                "MT{mt} is negative at {} points up to the Doppler broadening limit {e_max} eV \
-                 ({:.4e}..{:.4e} eV, down to {lowest:.3e} b); a negative cross section cannot be broadened",
-                negative.len(),
-                first.0,
-                last.0
-            ),
+    declared: &NegativeToZero,
+) -> Result<(), String> {
+    let NegativeToZero {
+        mt,
+        from,
+        to,
+        take_from,
+    } = *declared;
+    let name = format!("`negative-to-zero` for MT{mt} at {from}..{to} eV");
+    if !(from.is_finite() && to.is_finite() && from <= to) {
+        return Err(format!("{name}: the range must be finite with from <= to"));
+    }
+    // 範囲は両端を含む
+    let lssf0 = mf2.into_iter().flat_map(Mf2::ranges).find(|r| {
+        matches!(&r.kind, RangeKind::Unresolved(u) if u.lssf == 0) && from <= r.eh && r.el <= to
+    });
+    if let Some(range) = lssf0 {
+        return Err(format!(
+            "{name}: the range overlaps the unresolved range {}..{} eV (LSSF=0), whose shielding reads the MF3 \
+             background from the tape, so the declaration cannot reach it",
+            range.el, range.eh
         ));
     }
+    let table = tables
+        .get(&mt)
+        .ok_or_else(|| format!("{name}: the evaluation has no MT{mt}"))?;
+    let inside = |k: usize| from <= table.x[k] && table.x[k] <= to;
+    let Some(raised) = raise_where(table, inside) else {
+        return Err(format!(
+            "{name}: no value is negative in the range, so the declaration does not match the evaluation"
+        ));
+    };
+    let taken = match take_from {
+        None => None,
+        Some(source) if source == mt => {
+            return Err(format!("{name}: `take-from` must name another reaction"));
+        }
+        Some(source) => {
+            if !(is_part_of_total(mt) && is_part_of_total(source)) {
+                return Err(format!(
+                    "{name}: `take-from` keeps the total only if MT{mt} and MT{source} are both part of the total"
+                ));
+            }
+            let source_table = tables
+                .get(&source)
+                .ok_or_else(|| format!("{name}: the evaluation has no MT{source} to take from"))?;
+            let subtracted = raised.subtracted();
+            let (low, high) = (subtracted.x[0], subtracted.x[subtracted.x.len() - 1]);
+            let already = source_table
+                .x
+                .iter()
+                .zip(&source_table.y)
+                .filter(|(e, v)| low <= **e && **e <= high && **v < 0.0)
+                .map(|(_, v)| *v)
+                .reduce(f64::min);
+            if let Some(lowest) = already {
+                return Err(format!(
+                    "{name}: MT{source} is negative where the raised amount is taken (down to {lowest:.3e} b), so it \
+                     cannot give it; take it from another reaction"
+                ));
+            }
+            let taken = add(source_table, &subtracted);
+            let lowest = taken
+                .x
+                .iter()
+                .zip(&taken.y)
+                .filter(|(e, v)| low <= **e && **e <= high && **v < 0.0)
+                .map(|(_, v)| *v)
+                .reduce(f64::min);
+            if let Some(lowest) = lowest {
+                return Err(format!(
+                    "{name}: taking the raised amount makes MT{source} negative (down to {lowest:.3e} b)"
+                ));
+            }
+            Some((source, taken))
+        }
+    };
+    let taking = taken.as_ref().map_or(String::new(), |(source, _)| {
+        format!(
+            "; the raised amount (up to {:.3e} b) is taken from MT{source}, keeping the total",
+            -raised.lowest
+        )
+    });
+    xlc_log::warn!(
+        "MT{mt}: {} of {} points in {from}..{to} eV are negative (down to {:.3e} b, at {:.4e}..{:.4e} eV) and are \
+         raised to 0, as the input declares (ADR-0267){taking}",
+        raised.points,
+        raised.inside,
+        raised.lowest,
+        raised.from,
+        raised.to
+    );
+    tables.insert(mt, raised.table);
+    if let Some((source, table)) = taken {
+        tables.insert(source, table);
+    }
     Ok(())
+}
+
+/// 0 K の部分反応に負の値が残れば、最初の MT と、負の値の残る全部の反応を示す文を返す（ADR-0267）。
+///
+/// ドップラー拡がりの格子の判定（`doppler::split`）は正の値を前提にし、両端が負の区間を際限なく分ける。広げる上限より上の値も、
+/// 拡がりの積分の窓と群の平均に入る。表の点がどれも負でなければ、lin-lin の補間の値も負にならない。
+fn reject_negative(tables: &BTreeMap<u32, Tab1>) -> Result<(), (u32, String)> {
+    let summaries: Vec<(u32, String)> = tables
+        .iter()
+        .filter_map(|(&mt, t)| {
+            let negative: Vec<(f64, f64)> =
+                t.x.iter()
+                    .zip(&t.y)
+                    .filter(|(_, v)| **v < 0.0)
+                    .map(|(e, v)| (*e, *v))
+                    .collect();
+            let (first, last) = (negative.first()?, negative.last()?);
+            let lowest = negative.iter().map(|(_, v)| *v).fold(0.0, f64::min);
+            Some((
+                mt,
+                format!(
+                    "MT{mt} at {} point{} ({:.4e}..{:.4e} eV, down to {lowest:.3e} b)",
+                    negative.len(),
+                    if negative.len() == 1 { "" } else { "s" },
+                    first.0,
+                    last.0
+                ),
+            ))
+        })
+        .collect();
+    let Some(&(first, _)) = summaries.first() else {
+        return Ok(());
+    };
+    let listed: Vec<&str> = summaries.iter().map(|(_, s)| s.as_str()).collect();
+    Err((
+        first,
+        format!(
+            "the 0 K cross sections are negative: {}; a negative cross section can be neither broadened nor \
+             averaged. Declare the reaction and the energy range in `negative-to-zero` of the nuclide in the input \
+             to raise them to 0 (ADR-0267)",
+            listed.join(", ")
+        ),
+    ))
 }
 
 /// 上限エネルギーより下から始まる反応を、まとめてドップラー拡がりで広げる。
@@ -893,9 +1057,11 @@ fn resolved_contributions(
     Ok(contributions)
 }
 
-/// `raise_negative` で 0 にした表と、0 にした点のまとめ。
+/// `raise_where` で 0 にした表と、0 にした点のまとめ。
 struct Raised {
     table: Tab1,
+    /// `table` の点ごとの、0 にするために足した値 (b)
+    added: Vec<f64>,
     /// 負だった点の数
     points: usize,
     /// 範囲の中の点の数
@@ -907,26 +1073,51 @@ struct Raised {
     to: f64,
 }
 
+impl Raised {
+    /// 足した値を引く lin-lin の表（足した値の符号を変えたもの）。足した値が 0 でない点と、その両隣の点だけを持つので、
+    /// 引く先の表はその外で変わらない。
+    fn subtracted(&self) -> Tab1 {
+        let nonzero = |&k: &usize| self.added[k] != 0.0;
+        let mut indices = 0..self.added.len();
+        let first = indices.clone().find(nonzero).unwrap_or(0);
+        let last = indices.rfind(nonzero).unwrap_or(0);
+        let range = first.saturating_sub(1)..=(last + 1).min(self.added.len() - 1);
+        Tab1::linear(
+            self.table.x[range.clone()].to_vec(),
+            self.added[range].iter().map(|v| -v).collect(),
+        )
+    }
+}
+
 /// lin-lin の表の [el, eh] の中の負の値を 0 にする（ADR-0267）。負の点がなければ `None`。
 ///
 /// 範囲の端の段差では、下端は右、上端は左の値だけが範囲の中にある。区間の中で符号が変わるところには、線形補間の零点を
 /// 加えるので、0 にした表は元の表の線形補間を 0 で切った関数と同じになる。
 fn raise_negative(t: &Tab1, el: f64, eh: f64) -> Option<Raised> {
-    let n = t.x.len();
     let inside = |k: usize| {
         let e = t.x[k];
         (el < e && e < eh)
             || (e == el && t.x.get(k + 1) != Some(&el))
             || (e == eh && (k == 0 || t.x[k - 1] != eh))
     };
+    raise_where(t, inside)
+}
+
+/// lin-lin の表の、`inside` が真の点の負の値を 0 にする。隣り合う 2 点がどちらも `inside` で符号が変わる区間には、線形補間の
+/// 零点を加える。負の点がなければ `None`。
+fn raise_where(t: &Tab1, inside: impl Fn(usize) -> bool) -> Option<Raised> {
+    let n = t.x.len();
     let negative: Vec<usize> = (0..n).filter(|&k| inside(k) && t.y[k] < 0.0).collect();
     let (&first, &last) = (negative.first()?, negative.last()?);
     let lowest = negative.iter().map(|&k| t.y[k]).fold(0.0, f64::min);
     let (mut x, mut y) = (Vec::with_capacity(n), Vec::with_capacity(n));
+    let mut added = Vec::with_capacity(n);
     for k in 0..n {
         let (e, v) = (t.x[k], t.y[k]);
+        let raised = if inside(k) { v.max(0.0) } else { v };
         x.push(e);
-        y.push(if inside(k) { v.max(0.0) } else { v });
+        y.push(raised);
+        added.push(raised - v);
         if k + 1 < n && inside(k) && inside(k + 1) {
             let (e1, v1) = (t.x[k + 1], t.y[k + 1]);
             if e < e1 && (v < 0.0) != (v1 < 0.0) && v != 0.0 && v1 != 0.0 {
@@ -935,12 +1126,14 @@ fn raise_negative(t: &Tab1, el: f64, eh: f64) -> Option<Raised> {
                 if e < zero && zero < e1 {
                     x.push(zero);
                     y.push(0.0);
+                    added.push(0.0);
                 }
             }
         }
     }
     Some(Raised {
         table: Tab1::linear(x, y),
+        added,
         points: negative.len(),
         inside: (0..n).filter(|&k| inside(k)).count(),
         lowest,

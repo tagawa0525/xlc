@@ -61,6 +61,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if tables.is_empty() {
         return Err(format!("none of MT{mts:?} is in the 0 K PENDF").into());
     }
+    // 拡がりの格子は正の値を前提にし、負の区間を際限なく分ける（ADR-0267）。NJOY RECONR は、共鳴のある評価の弾性散乱の
+    // ほかの負の値を残す（共鳴の無い評価の弾性散乱も）
+    for (mt, table) in present.iter().zip(&tables) {
+        if let Some(lowest) = table
+            .y
+            .iter()
+            .copied()
+            .filter(|v| *v < 0.0)
+            .reduce(f64::min)
+        {
+            return Err(format!(
+                "MT{mt} of the 0 K PENDF is negative (down to {lowest:.3e} b); broaden needs non-negative values"
+            )
+            .into());
+        }
+    }
     // 上限は、指定した反応だけでなく、広げる対象の全反応のしきい値で決まる
     let mut candidates = Vec::new();
     for (mt, section) in cold.sections(mat, 3) {

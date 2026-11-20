@@ -55,6 +55,13 @@
 //! temperatures = [600]
 //! # 評価の誤りを直す宣言（省略すると直さない）: ファイルの line 行目の MF/MT の行の field 番目（1〜6）の整数の欄を from から to に
 //! corrections = [{ line = 1194, mf = 5, mt = 17, field = 1, from = 1, to = 3 }]
+//!
+//! [nuclide.Y-89]
+//! endf = "n-039_Y_089.endf"
+//! temperatures = [600]
+//! # 0 K の再構成の後に残る負の値を 0 にする宣言（省略すると負の値で止まる）: MT の from〜to eV の点の負の値を 0 にし、
+//! # take-from（省略できる）があれば、0 にするために足した分をその MT から引く
+//! negative-to-zero = [{ mt = 91, from = 1.0e6, to = 5.0e6, take-from = 2 }]
 //! ```
 //!
 //! `activation = true` の核種は、チェーンの反応と核分裂の無限希釈の群の断面積だけを作り、ライブラリの `activation` に置く
@@ -67,6 +74,9 @@
 //!
 //! `corrections` の宣言は、テープを読んだ直後、MF ごとの読み込みの前に、行の MF と MT と欄の元の値を確かめて当て、当てるたびに
 //! warn を出す（ADR-0272）。どれかが宣言と違えば止まる。
+//!
+//! 0 K の再構成の後に負の断面積が残れば、エネルギーと反応によらず止まる。`negative-to-zero` の宣言は、その範囲の負の値を 0 に
+//! して warn を出し、範囲に負の値が無ければ止まる（ADR-0267）。
 //!
 //! `thermal` を指定した核種は、`sab-upper` 未満の弾性散乱を S(α, β) で、その上の `free-gas-upper` 未満を自由ガス
 //! 模型で扱う（ADR-0133）。ほかの核種は 4 eV 未満を自由ガス模型で扱う。
@@ -93,7 +103,7 @@ use xlc_xs::check::{Checked, check_contents, report_toml};
 use xlc_xs::endf::{Correction, Tape};
 use xlc_xs::multigroup::{SabOutside, Weight, inverse_velocity};
 use xlc_xs::parallel::{in_parallel, set_threads};
-use xlc_xs::pointwise::DEFAULT_TOLERANCE;
+use xlc_xs::pointwise::{DEFAULT_TOLERANCE, NegativeToZero};
 use xlc_xs::process::{
     SabUpper, Settings, ThermalScattering, process_activation, process_nuclide,
     read_thermal_scattering, resolved,
@@ -120,6 +130,8 @@ struct NuclideInput {
     pointwise: bool,
     /// 読む前に当てる評価の誤りの修正（ADR-0272）
     corrections: Vec<Correction>,
+    /// 0 K の再構成の後に 0 にする負の値（ADR-0267）
+    negatives: Vec<NegativeToZero>,
     thermal: Option<ThermalInput>,
 }
 
@@ -178,6 +190,9 @@ struct NuclideEntry {
     /// 評価の誤りの修正（ADR-0272）。省略すると直さない
     #[serde(default)]
     corrections: Vec<Correction>,
+    /// 0 K の再構成の後に 0 にする負の値（ADR-0267）。省略すると、負の値で止まる
+    #[serde(default)]
+    negative_to_zero: Vec<NegativeToZero>,
 }
 
 /// `pointwise` を省略したときの値（ADR-0269 の既定。今のとおり持たせる）
@@ -293,6 +308,7 @@ fn parse_input(text: &str, base: &Path) -> Result<Input, InputError> {
             activation: entry.activation,
             pointwise: entry.pointwise,
             corrections: entry.corrections,
+            negatives: entry.negative_to_zero,
             thermal,
             name,
         });
@@ -733,8 +749,14 @@ fn process_file(
 ) -> anyhow::Result<Processed> {
     let name = &nuclide.name;
     if nuclide.activation {
-        let data = process_activation(tape, name, &nuclide.temperatures, settings)
-            .with_context(|| name.clone())?;
+        let data = process_activation(
+            tape,
+            name,
+            &nuclide.temperatures,
+            &nuclide.negatives,
+            settings,
+        )
+        .with_context(|| name.clone())?;
         return Ok(Processed::Activation(data));
     }
     let thermal = match &nuclide.thermal {
@@ -752,6 +774,7 @@ fn process_file(
         name,
         &nuclide.temperatures,
         thermal.as_ref(),
+        &nuclide.negatives,
         settings,
     )
     .with_context(|| name.clone())?;

@@ -44,6 +44,7 @@ fn parses_input_relative_to_its_directory() {
                 activation: false,
                 pointwise: true,
                 corrections: Vec::new(),
+                negatives: Vec::new(),
                 thermal: Some(ThermalInput {
                     path: PathBuf::from("work/tsl/h2o.endf"),
                     upper: SabUpper::Evaluated,
@@ -58,6 +59,7 @@ fn parses_input_relative_to_its_directory() {
                 activation: false,
                 pointwise: true,
                 corrections: Vec::new(),
+                negatives: Vec::new(),
                 thermal: None,
             },
         ]
@@ -453,6 +455,47 @@ fn reads_declared_corrections_of_the_evaluation() {
     // 宣言の項目は 6 つとも要り、ほかの項目は取らない
     for (from, to) in [("field = 1, ", ""), ("to = 3 }", "to = 3, value = 3 }")] {
         let text = CORRECTED_INPUT.replace(from, to);
+        assert!(parse_input(&text, Path::new(".")).is_err(), "{text}");
+    }
+}
+
+const NEGATIVE_INPUT: &str = r#"
+output = "m1.msgpack"
+endf-directory = "endf"
+sigma0 = [1e10, 10, 1]
+
+[nuclide.Y-89]
+endf = "y89.endf"
+temperatures = [600]
+negative-to-zero = [{ mt = 91, from = 1.0e6, to = 5.0e6, take-from = 2 }, { mt = 102, from = 8.0, to = 10.0 }]
+"#;
+
+#[test]
+fn reads_declared_negative_values_to_raise_to_zero() {
+    let input = parse_input(NEGATIVE_INPUT, Path::new(".")).unwrap();
+    assert_eq!(
+        input.nuclides[0].negatives,
+        vec![
+            NegativeToZero {
+                mt: 91,
+                from: 1.0e6,
+                to: 5.0e6,
+                take_from: Some(2),
+            },
+            NegativeToZero {
+                mt: 102,
+                from: 8.0,
+                to: 10.0,
+                take_from: None,
+            },
+        ]
+    );
+    // `take-from` のほかの項目は要り、ほかの項目は取らない
+    for (from, to) in [
+        ("from = 8.0, ", ""),
+        ("to = 10.0 }", "to = 10.0, value = 0 }"),
+    ] {
+        let text = NEGATIVE_INPUT.replace(from, to);
         assert!(parse_input(&text, Path::new(".")).is_err(), "{text}");
     }
 }

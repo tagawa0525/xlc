@@ -53,16 +53,38 @@ NJOY2016 の RECONR は、共鳴の部分を負なら 0 にしてから MF3 を�
 - 範囲の端の段差では、下端は右、上端は左の値だけを範囲の中とみなす（ADR-0265 と同じ）
 - 0 にした点があれば、その数、最も小さかった値、エネルギーの範囲を warn で出す。NJOY の 1e-8 b の下限は真似ない（ADR-0265）
 - SLBW の範囲は ADR-0265 の扱いのままで、和はすでに負でないので、ここでは何も変わらない
-- 0 K の再構成の後、ドップラー拡がりで広げる反応（`is_broadened`）の、広げる上限（`broadening_limit`）より下の表の点と、上限を
-  またぐ区間の上限での値（左からの極限）に負の値が残れば、MT、エネルギー、値を示してエラーにする。格子の判定が止まらなくなる入力を、
-  メモリを使い尽くす前に止める。上限より上の値は広げないので見ない。ただし、拡がりの積分の窓（上限の上の数百 eV。Fe-54 の
-  1.036 MeV、1200 K で約 450 eV）に入る負の値は、拡げた値に届きうる。4 つの版でそれに当たるのは VIII.1 の Ni-60 の上限 800 keV の
-  右の値（−1.06e-12 b）だけで、1200 K の `xs nuclide` は終わる（#0309）
+- 0 K の再構成の後、どの反応のどのエネルギーの表の点にも負の値が残れば、負の値の残る全部の反応の MT、点の数、エネルギーの範囲、
+  最小の値を 1 つの文で示してエラーにする。格子の判定が止まらなくなる入力を、メモリを使い尽くす前に止める。広げる上限より上の値も、
+  拡がりの積分の窓（上限の上の数百 eV）と群の平均に入るので見る。残る反応はどれも断面積なので、負の値に意味は無い。表の点が負で
+  なければ、lin-lin の補間の値も負にならない
+- 評価の誤りで負になった値は、xs の入力の核種の項目 `negative-to-zero` に、反応（`mt`）とエネルギーの範囲（`from`〜`to` eV。
+  段差の両側の点を含む閉区間）を宣言したときだけ 0 にする。範囲の中の負の点を 0 にし、範囲の中の隣り合う点の間で符号が変わる
+  ところに零点を足す（上の分離共鳴の弾性散乱と同じ切り方）。`take-from` に別の反応を書くと、0 にするために足した分をその反応から
+  引き、部分反応の和（全断面積）を変えない。宣言は分離共鳴の弾性散乱を 0 にした後に当て、当てるたびに、MT、範囲、負の点の数、最小の
+  値、引いた先を warn で出す。範囲に負の点が無い、表が無い、範囲が有限でないか逆転している、`take-from` が同じ反応か無い宣言は
+  止める（評価が替わって古くなった宣言を黙って当てない）。`take-from` は、両方の反応が全断面積に入らないか、引いた先が負になれば
+  止める。`take-from` の無い宣言を先に当て、`take-from` は引く先の宣言の後の値から引く。引く先が引く範囲で負のとき（引く分を出せない）と、
+  引く先が別の `take-from` の宣言の反応のとき（当てる順で結果が変わる）は止める。これで結果は入力に並べた順によらない。LSSF=0 の
+  非分離共鳴の範囲（両端を含む）に重なる宣言は、反応によらず止める（その範囲の自己遮蔽はテープの MF3 の全断面積、弾性散乱、核分裂、
+  捕獲をバックグラウンドに読み、宣言が届かず、部分反応の和とも食い違う）
+  - 宣言は評価の誤りの中身（どの反応のどの範囲が負か）そのもので、入力とログから読める。ADR-0272 の `corrections`（テープの整数の
+    欄を読む前に書き換える）とは別の項目にする。負の値の多くは MF3 の値でなく、共鳴との和（VII.0 の Co-58）や再構成の後の表に
+    表れるので、テープの欄では書けない
+  - 丸めの大きさの負の値（VIII.1 の Ni-60 の 800 keV の右の値 −1.06e-12 b）にも宣言を求める。黙って 0 にするしきい値（その点の
+    全断面積に対する比など）は、ENDF の有効数字からの目安にはなっても物理では決まらず、4 つの版で当たるのは 1 つだけ（#0309）
 
 ## 確認
 
 - 単体テスト（crates/xs/src/pointwise/tests.rs）: `negative_resolved_elastic_with_its_background_is_raised_to_zero`、
-  `negative_broadened_cross_sections_are_an_error`
+  `negative_cross_sections_are_an_error_at_any_energy`、`declared_negative_values_are_raised_to_zero_with_a_warning`、
+  `declarations_that_do_not_match_the_tables_are_an_error`、`the_raised_amount_is_taken_from_the_declared_reaction`、
+  `taking_the_raised_amount_must_keep_the_total_and_the_source_non_negative`、
+  `declarations_cannot_reach_the_background_of_an_lssf0_unresolved_range`、`declarations_apply_in_the_same_way_in_any_order`、
+  `a_take_from_and_a_declaration_of_its_source_elsewhere_give_the_same_tables_in_any_order`、
+  `a_take_from_cannot_take_from_a_reaction_that_takes_from_another`。入力のテスト
+  （crates/xs/src/main/tests.rs）: `reads_declared_negative_values_to_raise_to_zero`
+- 宣言した VII.0 の Cl-35、Co-58、Y-89 と VIII.1 の Ni-60 の 600 K の `xs nuclide` が終了コード 0 で終わり、宣言しない核種の出力は
+  変わらない（examples/depletion/verification.md の「版ごとのライブラリの負の 0 K の断面積の宣言」）
 - VIII.1 の Fe-54 の `xs nuclide`（2 温度）が終了コード 0 で終わり、最大常駐は VIII.0 の Fe-54 と同じ桁（examples/depletion/verification.md の
   「版ごとのライブラリの負の分離共鳴の弾性散乱」）
 - NJOY との比較（xlc 20e70134、2026-11-20）: VIII.1 の Fe-54 の 0 K の再構成を NJOY2016 の RECONR の PENDF と比べ、全断面積と捕獲は
@@ -74,5 +96,21 @@ NJOY2016 の RECONR は、共鳴の部分を負なら 0 にしてから MF3 を�
 
 - 分離共鳴の範囲の弾性散乱の和が負になる点が 0 になる: VIII.1 の Fe-54 と Ni-60、VII.0 と VII.1 の Ar-40、Gd-152、Dy-160（#0309）
 - 0 にした点の弾性散乱は NJOY より 1e-8 b 小さい
-- VII.0 の Cl-35（範囲の外の MF3 の弾性散乱が負）と Co-58（MF3 の捕獲のバックグラウンドとの和が負）は、エラーで止まる
-- 広げる上限より上の負の値（VII.0 の Y-89 の MT91 など）と、窓の値を格子の側で止めるか（案 E）は #0309 に残す
+- 4 つの版で宣言が要るのは、VII.0 の Cl-35（範囲の外の MF3 の弾性散乱）、Co-58（MF3 の捕獲のバックグラウンドとの和）、Y-89（MT91。
+  `take-from = 2`）と VIII.1 の Ni-60（800 keV の右の弾性散乱）。宣言の内容と根拠は examples/depletion/read-survey/ の標本の入力と
+  #0309 にある。本番と検証のライブラリの入力には、宣言の要る評価は無い
+- NJOY は弾性散乱のほかの負の値を RECONR で残し、BROADR が広げた後の負の値を 0 にする（broadr.f90 の `sigmin`）。広げない反応の負の
+  値は群定数に負のまま入る（VII.0 の Y-89 の MT91 は 2 群で負）。xs は広げる前の 0 K の値を 0 にするので、負の値を広げてから切る NJOY と
+  群の値が違う（差の大きさは examples/depletion/verification.md の「版ごとのライブラリの負の 0 K の断面積の宣言」）
+- 拡げた値を格子の側で止める案 E は要らない。`broaden` を呼ぶのは `ColdParts::at`（この検査の後）と `compare_njoy_broadr`（NJOY の
+  0 K の PENDF に負の値があれば止める）だけで、どちらも負の表を渡さない
+
+## 変更
+
+- 2026-11-20: 「決定と理由」の負の値の検査を、広げる反応の上限より下から、全部の反応の全部のエネルギーに広げ、入力の
+  `negative-to-zero` の宣言で 0 にする項を足した。前は「0 K の再構成の後、ドップラー拡がりで広げる反応（`is_broadened`）の、広げる
+  上限（`broadening_limit`）より下の表の点と、上限をまたぐ区間の上限での値（左からの極限）に負の値が残れば、MT、エネルギー、値を
+  示してエラーにする。（略）上限より上の値は広げないので見ない」。上限より上の負の値（VII.0 の Y-89 の MT91、最小 −0.26 b）が群定数に
+  負のまま入り、エラーで止まる VII.0 の Cl-35 と Co-58 を、4 つの版の全部の核種を流す求め（ユーザー 2026-11-20、別のセッションが
+  伝えたもの）のとおり流すため。比べた案（Y-89 で 0 にするだけで弾性散乱から引かない、後の版の値で置き換える、NJOY と同じく
+  広げた後に切る、丸めの大きさの負の値をしきい値で黙って 0 にする、`corrections` に実数の欄を足す）は #0309 の「検討して捨てた形」

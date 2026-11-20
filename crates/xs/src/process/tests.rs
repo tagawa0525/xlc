@@ -438,7 +438,7 @@ fn scattering_order_sets_the_number_of_moments() {
             pointwise_range: Some((4.0, 1.0e4)),
             scattering_order: order,
         };
-        let data = process_nuclide(&tape, "X", &[293.6], None, &settings).unwrap();
+        let data = process_nuclide(&tape, "X", &[293.6], None, &[], &settings).unwrap();
         assert_eq!(data.temperatures[0].scatter.len(), order + 1);
     }
 }
@@ -455,7 +455,7 @@ fn processes_each_temperature_and_sigma0() {
         pointwise_range: Some((4.0, 1.0e4)),
         scattering_order: 0,
     };
-    let data = process_nuclide(&tape, "X", &[293.6, 600.0], None, &settings).unwrap();
+    let data = process_nuclide(&tape, "X", &[293.6, 600.0], None, &[], &settings).unwrap();
     assert_eq!(data.name, "X");
     let temperatures: Vec<f64> = data.temperatures.iter().map(|t| t.temperature).collect();
     assert_eq!(temperatures, vec![293.6, 600.0]);
@@ -594,6 +594,7 @@ fn capture_is_kept_per_sigma0_and_pointwise() {
         "X",
         &[293.6],
         None,
+        &[],
         &reaction_settings(),
     )
     .unwrap();
@@ -615,7 +616,7 @@ fn capture_is_kept_per_sigma0_and_pointwise() {
 fn chain_reactions_sum_the_partial_mts_and_split_the_mf9_states() {
     let settings = reaction_settings();
     let tape = reaction_tape(&[(0, "0.0", "0.9"), (2, "5.0+4", "0.1")]);
-    let data = process_nuclide(&tape, "X", &[293.6], None, &settings).unwrap();
+    let data = process_nuclide(&tape, "X", &[293.6], None, &[], &settings).unwrap();
     let reactions = &data.temperatures[0].reactions;
     let mts: Vec<u32> = reactions.iter().map(|r| r.mt).collect();
     assert_eq!(mts, vec![102, 103]);
@@ -666,7 +667,7 @@ fn chain_reactions_sum_the_partial_mts_and_split_the_mf9_states() {
 fn capture_states_without_the_ground_state_leave_the_remainder_to_it() {
     let settings = reaction_settings();
     let tape = reaction_tape(&[(2, "5.0+4", "0.1")]);
-    let data = process_nuclide(&tape, "X", &[293.6], None, &settings).unwrap();
+    let data = process_nuclide(&tape, "X", &[293.6], None, &[], &settings).unwrap();
     let capture = &data.temperatures[0].reactions[0];
     use xlc_format::library::ChannelState;
     let states: Vec<_> = capture.channels.iter().map(|c| c.final_state).collect();
@@ -689,7 +690,7 @@ fn listed_states_beyond_the_reaction_are_scaled_down_to_it() {
     // 多重度の和が 1.2 の評価は、状態の比を保って反応（MF3）に合わせる
     let settings = reaction_settings();
     let tape = reaction_tape(&[(0, "0.0", "0.9"), (2, "5.0+4", "0.3")]);
-    let data = process_nuclide(&tape, "X", &[293.6], None, &settings).unwrap();
+    let data = process_nuclide(&tape, "X", &[293.6], None, &[], &settings).unwrap();
     let capture = &data.temperatures[0].reactions[0];
     let tables = crate::pointwise::reconstruct_at(&tape, 1, 1.0e-3, 293.6).unwrap();
     let averages =
@@ -710,7 +711,7 @@ fn excited_states_beyond_the_reaction_leave_no_remainder() {
     // 励起状態だけで反応を超えると、状態が反応のすべてを持ち、基底状態への残りは 0
     let settings = reaction_settings();
     let tape = reaction_tape(&[(2, "5.0+4", "1.2")]);
-    let data = process_nuclide(&tape, "X", &[293.6], None, &settings).unwrap();
+    let data = process_nuclide(&tape, "X", &[293.6], None, &[], &settings).unwrap();
     let capture = &data.temperatures[0].reactions[0];
     let (state, rest) = (&capture.channels[0], &capture.channels[1]);
     let tables = crate::pointwise::reconstruct_at(&tape, 1, 1.0e-3, 293.6).unwrap();
@@ -733,7 +734,7 @@ fn multiplicities_count_only_where_the_mf9_table_is_given() {
     // とし（NJOY GROUPR と同じ）、残りの経路がその分を持つ
     let settings = reaction_settings();
     let tape = reaction_tape_from(&[(2, "5.0+4", "0.1")], "1.0+3");
-    let data = process_nuclide(&tape, "X", &[293.6], None, &settings).unwrap();
+    let data = process_nuclide(&tape, "X", &[293.6], None, &[], &settings).unwrap();
     let capture = &data.temperatures[0].reactions[0];
     let (state, rest) = (&capture.channels[0], &capture.channels[1]);
     let total = |g: usize| state.cross_section[g] + rest.cross_section[g];
@@ -800,6 +801,7 @@ fn production_cross_sections_start_where_the_reaction_does() {
         "X",
         &[293.6],
         None,
+        &[],
         &settings,
     )
     .unwrap();
@@ -861,7 +863,7 @@ fn excess_warnings(tape: &Tape, settings: &Settings) -> Vec<(u64, f64)> {
     }
     let seen = Seen::default();
     let subscriber = Registry::default().with(Record(seen.clone()));
-    let tables = crate::pointwise::ColdParts::read(tape, 1, settings.tolerance)
+    let tables = crate::pointwise::ColdParts::read(tape, 1, settings.tolerance, &[])
         .unwrap()
         .at(293.6);
     tracing::subscriber::with_default(subscriber, || {
@@ -884,7 +886,7 @@ fn production_beyond_the_reaction_is_scaled_down_where_it_exceeds() {
     // （6.0655〜10 MeV）の生成断面積の平均は反応より小さいので、群の平均で比べて縮めると縮まらない。点ごとに min(生成, 反応)
     let settings = reaction_settings();
     let tape = reaction_tape_with_production(["1.1+6", "2.0+7"], ["0.0", "0.76"]);
-    let data = process_nuclide(&tape, "X", &[293.6], None, &settings).unwrap();
+    let data = process_nuclide(&tape, "X", &[293.6], None, &[], &settings).unwrap();
     let np = &data.temperatures[0].reactions[1];
     assert_eq!(np.mt, 103);
     let (state, rest) = (&np.channels[0], &np.channels[1]);
@@ -926,7 +928,7 @@ fn excess_within_the_tolerance_is_scaled_without_a_warning() {
     let settings = reaction_settings();
     let tape = reaction_tape(&[(0, "0.0", "0.9"), (2, "5.0+4", "0.1005")]);
     assert_eq!(excess_warnings(&tape, &settings), vec![]);
-    let data = process_nuclide(&tape, "X", &[293.6], None, &settings).unwrap();
+    let data = process_nuclide(&tape, "X", &[293.6], None, &[], &settings).unwrap();
     let capture = &data.temperatures[0].reactions[0];
     let tables = crate::pointwise::reconstruct_at(&tape, 1, 1.0e-3, 293.6).unwrap();
     let averages =
@@ -1068,17 +1070,25 @@ fn sab_nuclides_carry_the_ufg_transfer_with_a_pointwise_range() {
     };
     let settings = reaction_settings();
     let tape = reaction_tape(&[]);
-    let data = process_nuclide(&tape, "X", &[TEMPERATURE], Some(&thermal), &settings).unwrap();
+    let data = process_nuclide(&tape, "X", &[TEMPERATURE], Some(&thermal), &[], &settings).unwrap();
     let table = data.temperatures[0].sab_transfer.as_ref().unwrap();
     assert_eq!(table.incident.last(), Some(&10.0));
     // S(α, β) のない核種と、ポイントワイズの範囲のないライブラリは持たない
-    let plain = process_nuclide(&tape, "X", &[TEMPERATURE], None, &settings).unwrap();
+    let plain = process_nuclide(&tape, "X", &[TEMPERATURE], None, &[], &settings).unwrap();
     assert!(plain.temperatures[0].sab_transfer.is_none());
     let without_range = Settings {
         pointwise_range: None,
         ..settings
     };
-    let data = process_nuclide(&tape, "X", &[TEMPERATURE], Some(&thermal), &without_range).unwrap();
+    let data = process_nuclide(
+        &tape,
+        "X",
+        &[TEMPERATURE],
+        Some(&thermal),
+        &[],
+        &without_range,
+    )
+    .unwrap();
     assert!(data.temperatures[0].sab_transfer.is_none());
 }
 
@@ -1156,8 +1166,8 @@ fn evaluations_without_the_delayed_spectrum_have_no_families() {
 fn activation_nuclides_have_the_chain_reactions_of_a_processed_nuclide() {
     let tape = reaction_tape(&[(2, "1.0+5", "0.4")]);
     let settings = reaction_settings();
-    let activation = process_activation(&tape, "X", &[293.6, 600.0], &settings).unwrap();
-    let processed = process_nuclide(&tape, "X", &[293.6, 600.0], None, &settings).unwrap();
+    let activation = process_activation(&tape, "X", &[293.6, 600.0], &[], &settings).unwrap();
+    let processed = process_nuclide(&tape, "X", &[293.6, 600.0], None, &[], &settings).unwrap();
     assert_eq!(activation.name, "X");
     assert_eq!(
         (activation.za, activation.awr),
