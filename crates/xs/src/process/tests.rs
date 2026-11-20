@@ -1061,20 +1061,32 @@ fn delayed_nubar_is_not_read_without_its_spectrum() {
 /// MF6 MT18 の節（実験室系、中性子 1 つ）。`jp` は JP、`law` は中性子の LAW、`multiplicity` は y(E)（一定）。LAW=1 の分布は、
 /// 入射エネルギー 1e-5 eV と 2e7 eV のどちらでも 0.5〜1.5 MeV の一様な密度（積分がちょうど 1）
 fn mf6_fission_section(jp: &str, law: &str, multiplicity: &str) -> String {
+    mf6_fission_section_with("1", jp, law, multiplicity, ("5.0+5", "1.5+6", "1.0-6"))
+}
+
+/// `mf6_fission_section` の、LCT を `lct`、LAW=1 の一様な密度を `uniform`（下端、上端、密度）にしたもの
+fn mf6_fission_section_with(
+    lct: &str,
+    jp: &str,
+    law: &str,
+    multiplicity: &str,
+    uniform: (&str, &str, &str),
+) -> String {
     use crate::endf::rec;
     let r = |f: [&str; 6]| rec(f, 1, 6, 18);
     let mut lines = vec![
-        r(["9.223500+4", "2.330248+2", jp, "1", "1", "0"]),
+        r(["9.223500+4", "2.330248+2", jp, lct, "1", "0"]),
         r(["1.0", "1.0", "0", law, "1", "2"]),
         r(["2", "2", "", "", "", ""]),
         r(["1.0-5", multiplicity, "2.0+7", multiplicity, "", ""]),
     ];
     if law == "1" {
+        let (lo, hi, density) = uniform;
         lines.push(r(["0.0", "0.0", "1", "2", "1", "2"]));
         lines.push(r(["2", "22", "", "", "", ""]));
         for e in ["1.0-5", "2.0+7"] {
             lines.push(r(["0.0", e, "0", "0", "4", "2"]));
-            lines.push(r(["5.0+5", "1.0-6", "1.5+6", "1.0-6", "", ""]));
+            lines.push(r([lo, density, hi, density, "", ""]));
         }
     }
     lines.concat()
@@ -1131,6 +1143,37 @@ fn mf6_prompt_neutrons_take_the_mt456_nubar_beside_the_delayed_ones() {
     let high = (0.5 * 2.414 + 1.6e-2) / 2.43;
     assert!((chi[0] - high).abs() < 1e-9, "{chi:?}");
     assert!((chi.iter().sum::<f64>() - 1.0).abs() < 1e-12, "{chi:?}");
+}
+
+#[test]
+fn mf6_centre_of_mass_spectrum_is_spread_in_the_laboratory() {
+    // 重心系で 1.0〜1.5 MeV の一様な密度 f = 2e-6 /eV。σf は入射 1e7 eV の近くだけにあり、Ec = E/(A+1)² ≈ 183 eV。重心系で等方なら
+    // 実験室系で [(√E' − √Ec)², (√E' + √Ec)²] に一様に広がり、1 MeV（B）より下に漏れる割合は f √B √Ec / 2（c/√B の 1 次まで）
+    let section = mf6_fission_section_with("2", "0", "1", "1.0", ("1.0+6", "1.5+6", "2.0-6"));
+    let tape = mf6_fission_tape(&[(452, "2.43")], &[], &section);
+    let parts = parts(&tape).unwrap();
+    let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e-5]).unwrap();
+    let fission = Tab1::linear(vec![9.9e6, 1.01e7], vec![1.0, 1.0]);
+    let chi = fission_spectrum(&groups, &Weight::lwr(), &fission, &parts);
+    let ec = 1.0e7 / (2.330248e2_f64 + 1.0).powi(2);
+    let below = 2.0e-6 * 1.0e6_f64.sqrt() * ec.sqrt() / 2.0;
+    assert!(
+        (chi[1] - below).abs() < 0.02 * below,
+        "{chi:?}, expected {below}"
+    );
+}
+
+#[test]
+fn mf5_with_a_jpn0_mf6_without_neutron_distributions_keeps_mf5() {
+    // JPN=0 の MF6 MT18 の中性子が分布を持たない（LAW=0）なら、平均の分布は MF5 MT18 だけが与える
+    let tape = mf6_fission_tape(
+        &[(452, "2.43")],
+        &[18],
+        &mf6_fission_section("0", "0", "1.0"),
+    );
+    let parts = parts(&tape).unwrap();
+    assert_eq!(nubar_values(&parts), vec![2.43]);
+    assert!((chi_of(&parts)[0] - 1.0).abs() < 1e-9);
 }
 
 #[test]
