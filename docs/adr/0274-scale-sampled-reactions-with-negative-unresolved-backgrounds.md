@@ -5,7 +5,7 @@ date: 2026-11-21
 requires: [ADR-0177]
 supersedes: []
 superseded-by:
-issues: ["#0319", "#0320"]
+issues: ["#0319", "#0320", "#0327"]
 ---
 
 # ADR-0274: 非分離共鳴（LSSF=0）の範囲の MF3 の捕獲か核分裂のバックグラウンドが負の評価は、既定はエラーにし、入力の宣言でその反応の File 2 のサンプルを (平均 + バックグラウンド)/平均 倍にする
@@ -130,8 +130,11 @@ ENDF-102（BNL-224854-2023-INRE）の 2.3.1 節と 2.4.17 節は、LSSF=0 の MF
 - 既定のエラーで止まる評価が、走査で止まった 3 つ（Ta-181、Es-253、Cf-253）のほかに増える: 4 つの版の Na-22、Ar-36、Cd-106、Cd-111、
   Eu-154 と、VII.0 の Am-241、Cf-252。宣言の要る評価は VII.0 で 10、VII.1、VIII.0、VIII.1 で各 5 の計 25。走査の入力の宣言は
   examples/depletion/process-survey/<版>/declarations.toml
-- 本番のライブラリの入力（examples/depletion/p2/xs.toml）の Na-22、Ar-36、Eu-154 は放射化の核種で、遮蔽を求めないので当たらない。#0292 の試行の
-  入力（issue-0292 の trial、no-pointwise、all の library と control）には宣言を足した。試行のライブラリは作り直していない
+- 本番と検証のライブラリの入力のうち、AIC の Cd-106、Cd-111 を輸送する examples/vera/xs.toml、examples/vera/endfb70/xs.toml、
+  examples/depletion/p2/xs.toml、examples/core/xs.toml、examples/m3-nuclides/xs.toml と、VII.0 の Am-241 を輸送する examples/depletion/endfb70/xs.toml に
+  宣言を足した（p2 の Na-22、Ar-36、Eu-154 は放射化の核種で当たらない）。#0292 の試行の入力（issue-0292 の trial、no-pointwise、all の library と
+  control）にも足した。ライブラリは作り直していない（ステージは changed）。AIC の結果に効く大きさは確かめていない（#0327）。入力の全部が宣言を
+  持つことは、examples/depletion/test_input_declarations.py が版の走査の宣言と突き合わせて確かめる
 - Cf-253 の NaN は、エラーで手前で止まる。符号の違う 2 点を log-log で補間すると NaN を返す `Interpolation::LogLog`（endf/tab1.rs）は
   変えていない（別のセッションが issue にする）
 

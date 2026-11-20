@@ -322,3 +322,4 @@
 * [MF6 の LAW=1 と MF5 の表の出射分布の規格化を確かめていない](0324-law1-outgoing-tables-not-normalization-checked.md)
 * [重心系の分布を実験室系の群に振り分ける積分が、Ec の幅を分けず低い群の値を誤る](0325-cm-lab-quadrature-misses-low-groups.md)
 * [対数の補間則が、ln をとる側の正でない値で NaN を黙って返す](0326-log-interpolation-of-nonpositive-values.md)
+* [ADR-0274 の宣言で変わる Cd-106、Cd-111 の非分離共鳴の群定数が、VERA の AIC の制御棒の結果に効く大きさを確かめていない](0327-measure-cd-unresolved-scaling-in-aic.md)
