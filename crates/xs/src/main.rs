@@ -99,6 +99,8 @@ struct NuclideInput {
     temperatures: Vec<f64>,
     /// 放射化の核種（輸送しない。ADR-0238）
     activation: bool,
+    /// ライブラリにポイントワイズの断面積を持たせる（false は UFG で解かない核種。ADR-0269）
+    pointwise: bool,
     thermal: Option<ThermalInput>,
 }
 
@@ -252,6 +254,7 @@ fn parse_input(text: &str, base: &Path) -> Result<Input, InputError> {
             endf: endf_directory.join(&entry.endf),
             temperatures: entry.temperatures,
             activation: entry.activation,
+            pointwise: true,
             thermal,
             name,
         });
@@ -632,6 +635,11 @@ fn check_shared(input: &Input, range: Option<(f64, f64)>, part: &Library) -> any
         }
     }
     Ok(())
+}
+
+/// 輸送する核種の結果 `data` を、入力 `nuclide` の `pointwise` に合わせる。
+fn keep_pointwise(_nuclide: &NuclideInput, data: NuclideData) -> NuclideData {
+    data
 }
 
 /// 核種を処理する（処理の時間をログに出す）。

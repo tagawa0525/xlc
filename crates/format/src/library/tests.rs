@@ -1133,3 +1133,70 @@ fn activation_nuclides_are_checked_like_the_chain_reactions_of_the_library() {
     twice.activation.push(activation());
     assert!(twice.to_msgpack().is_err());
 }
+
+#[test]
+fn nuclides_may_leave_out_the_pointwise_data() {
+    // UFG で解かない核種はポイントワイズの断面積を持たない（nil。ADR-0269）
+    let mut library = sample();
+    for t in &mut library.nuclides[0].temperatures {
+        t.pointwise = None;
+    }
+    let read = Library::from_msgpack(&library.to_msgpack().unwrap()).unwrap();
+    assert_eq!(read, library);
+    assert!(
+        read.nuclides[0]
+            .temperatures
+            .iter()
+            .all(|t| t.pointwise.is_none())
+    );
+    // ポイントワイズの範囲の無いライブラリでも持たない
+    library.pointwise_range = None;
+    for t in &mut library.nuclides[1].temperatures {
+        t.pointwise = Some(Pointwise::default());
+    }
+    assert_eq!(
+        Library::from_msgpack(&library.to_msgpack().unwrap()).unwrap(),
+        library
+    );
+}
+
+#[test]
+fn pointwise_data_are_left_out_at_every_temperature_or_none() {
+    let mut library = sample();
+    library.nuclides[0].temperatures[1].pointwise = None;
+    assert!(matches!(
+        library.to_msgpack(),
+        Err(LibraryError::Invalid(_))
+    ));
+    let mut file = sample_file();
+    file.nuclides[0].temperatures[1].pointwise = None;
+    assert!(Library::from_msgpack(&rmp_serde::to_vec_named(&file).unwrap()).is_err());
+}
+
+#[test]
+fn nuclides_without_pointwise_data_take_no_sab_transfer() {
+    // S(α, β) の移行は UFG だけが読むので、ポイントワイズの断面積を持たない核種は持たない
+    let mut library = sample();
+    library.nuclides[1].thermal_scattering = true;
+    library.nuclides[1].temperatures[0].sab_transfer = Some(sab_transfer(1.0));
+    assert!(library.to_msgpack().is_ok());
+    library.nuclides[1].temperatures[0].pointwise = None;
+    assert!(library.to_msgpack().is_err());
+    library.nuclides[1].temperatures[0].sab_transfer = None;
+    assert!(library.to_msgpack().is_ok());
+}
+
+#[test]
+fn interpolation_keeps_the_pointwise_data_left_out() {
+    let mut library = two_temperatures(true);
+    let h1 = library.nuclides.last_mut().unwrap();
+    for t in &mut h1.temperatures {
+        t.pointwise = None;
+    }
+    let (_, t) = library.lookup("H-1", 565.0).unwrap();
+    assert!(t.pointwise.is_none());
+    // 片方の温度だけが持たない表は内挿しない
+    let h1 = library.nuclides.last_mut().unwrap();
+    h1.temperatures[0].pointwise = sample().nuclides[0].temperatures[0].pointwise.clone();
+    assert!(library.lookup("H-1", 565.0).is_err());
+}

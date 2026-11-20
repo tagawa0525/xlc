@@ -3578,7 +3578,14 @@ pub(crate) mod lattice {
     /// 燃料（U-238、U-235、O-16 の 3 つのリング）、真空のギャップ、被覆管（Zr-90）、水（H-1、O-16）の UFG で遮蔽するピンセルを、
     /// UFG のポイントワイズの断面積で解く核種を `listed` にして（`None` はすべて）自己遮蔽する（ADR-0268）
     fn shield_listed(listed: Option<&[&str]>) -> Result<FuelShielding, SelfShieldingError> {
-        let library = resonant_library();
+        shield_listed_in(&resonant_library(), listed)
+    }
+
+    /// [`shield_listed`] をライブラリ `library` で解く
+    fn shield_listed_in(
+        library: &Library,
+        listed: Option<&[&str]>,
+    ) -> Result<FuelShielding, SelfShieldingError> {
         let materials = vec![
             MaterialInput {
                 name: "fuel".into(),
@@ -3609,7 +3616,7 @@ pub(crate) mod lattice {
             ufg_nuclides: listed.map(|names| names.iter().map(|n| n.to_string()).collect()),
             ..ShieldingOptions::default()
         };
-        shield_fuel(&library, &tracking, &materials, &regions, &options)
+        shield_fuel(library, &tracking, &materials, &regions, &options)
     }
 
     const ALL: [&str; 5] = ["U-238", "U-235", "O-16", "Zr-90", "H-1"];
@@ -3703,6 +3710,43 @@ pub(crate) mod lattice {
         let result = shield_listed(Some(&names));
         assert!(
             matches!(&result, Err(SelfShieldingError::UnknownUfgNuclide(name)) if name == "Xe-131"),
+            "{result:?}"
+        );
+    }
+
+    /// [`resonant_library`] の U-235 のポイントワイズの断面積を外したもの（xs の `pointwise = false`。ADR-0269）
+    fn library_without_u235_pointwise() -> Library {
+        let mut library = resonant_library();
+        for n in library.nuclides.iter_mut().filter(|n| n.name == "U-235") {
+            for t in &mut n.temperatures {
+                t.pointwise = None;
+            }
+        }
+        library
+    }
+
+    #[test]
+    fn nuclides_without_pointwise_data_are_solved_only_unlisted() {
+        // ADR-0269: ポイントワイズの断面積を持たない核種は、挙げない燃料の核種の経路（ADR-0268）では持つときと同じに解ける
+        let library = library_without_u235_pointwise();
+        let unlisted = ["U-238", "O-16", "Zr-90", "H-1"];
+        assert_eq!(
+            shield_listed_in(&library, Some(&unlisted)).unwrap(),
+            shield_listed(Some(&unlisted)).unwrap()
+        );
+        // 挙げればエラー
+        let result = shield_listed_in(&library, Some(&ALL));
+        assert!(
+            matches!(&result, Err(SelfShieldingError::UfgNuclideWithoutPointwise(name)) if name == "U-235"),
+            "{result:?}"
+        );
+        // 一覧を省く（すべてを UFG で解く）入力もエラー
+        let result = shield_listed_in(&library, None);
+        assert!(
+            matches!(
+                &result,
+                Err(SelfShieldingError::Ufg(UfgError::NoNuclidePointwise { name })) if name == "U-235"
+            ),
             "{result:?}"
         );
     }
