@@ -16,8 +16,8 @@
 //! 入力の `output` に書く。
 //!
 //! `check` は入力ファイルを使わず、ENDF のファイルごとに、輸送する核種として `nuclide` が読むものの読み込みと形式の検査だけを
-//! 行い、止まった理由をファイルごとに報告（TOML の `[[evaluation]]` の並びで、`endf` に与えたパス、止まれば `error` に理由）に
-//! 書く（ADR-0266）。止まったファイルがあっても成功で終わる。
+//! 行い、止まった理由をファイルごとに報告（TOML の `[[evaluation]]` をパスの順に並べ、`endf` に与えたパス、止まれば `error` に
+//! 理由）に書く（ADR-0266）。止まったファイルがあっても成功で終わる。
 //!
 //! 入力ファイルは TOML（パスは入力ファイルのディレクトリからの相対パス）:
 //!
@@ -72,7 +72,7 @@ use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
 use xlc_format::group::GroupStructure;
 use xlc_format::library::{ActivationData, Library, NuclideData, is_nuclide_name};
-use xlc_xs::check::{Checked, check_evaluation, report_toml};
+use xlc_xs::check::{Checked, check_contents, report_toml};
 use xlc_xs::endf::Tape;
 use xlc_xs::multigroup::{SabOutside, Weight, inverse_velocity};
 use xlc_xs::parallel::{in_parallel, set_threads};
@@ -502,16 +502,12 @@ fn run_check(paths: &[&str], out: &Path) -> anyhow::Result<()> {
     write_file(out, report_toml(&checked)?.as_bytes())
 }
 
-/// ファイル `path` の検査の結果。ファイルが読めなければエラー（テープとして読めないのは、検査で止まった理由）。
+/// ファイル `path` の検査の結果。ファイルが読めなければエラー（中身がテープとして読めないのは、検査で止まった理由）。
 fn check_file(path: &str) -> anyhow::Result<Checked> {
-    let text = std::fs::read_to_string(path).with_context(|| path.to_string())?;
-    let error = match Tape::parse(&text) {
-        Ok(tape) => check_evaluation(&tape).err().map(|e| e.to_string()),
-        Err(e) => Some(e.to_string()),
-    };
+    let bytes = std::fs::read(path).with_context(|| path.to_string())?;
     Ok(Checked {
         endf: path.to_string(),
-        error,
+        error: check_contents(&bytes).err(),
     })
 }
 

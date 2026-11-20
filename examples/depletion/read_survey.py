@@ -35,7 +35,7 @@ WATCHED = [
 ]
 
 FILE_NAME = re.compile(r"n-(\d{3})_[A-Za-z]+_(\d{3})(?:m(\d+))?\.endf")
-LINE = re.compile(r"line \d+: ")
+LINE = re.compile(r"^line \d+: ")
 
 
 def nuclide_key(path: str) -> tuple[int, int, int]:

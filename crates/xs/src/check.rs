@@ -81,9 +81,11 @@ fn check_final_states(tape: &Tape, mat: i32, mts: &[u32]) -> Result<(), ProcessE
     Ok(())
 }
 
-/// ファイルの中身を、テープとして読んで `check_evaluation` で確かめる。止まれば理由の文。
-pub fn check_contents(_bytes: &[u8]) -> Result<(), String> {
-    Ok(())
+/// ファイルの中身を、テープとして読んで `check_evaluation` で確かめる。止まれば理由の文（UTF-8 でない中身も、そのファイルの理由）。
+pub fn check_contents(bytes: &[u8]) -> Result<(), String> {
+    let text = std::str::from_utf8(bytes).map_err(|e| format!("not UTF-8: {e}"))?;
+    let tape = Tape::parse(text).map_err(|e| e.to_string())?;
+    check_evaluation(&tape).map_err(|e| e.to_string())
 }
 
 /// 1 つの ENDF のファイルの検査の結果。
@@ -102,10 +104,13 @@ struct Report<'a> {
     evaluation: &'a [Checked],
 }
 
-/// 検査の結果を、与えられた順に TOML の `[[evaluation]]` の並びで書く。
+/// 検査の結果を、パスのバイトの順に TOML の `[[evaluation]]` の並びで書く（与えた順はシェルのグロブならロケールの照合順で
+/// 変わり、同じファイルの組で報告のバイトが変わるため）。
 pub fn report_toml(checked: &[Checked]) -> Result<String, toml::ser::Error> {
+    let mut sorted = checked.to_vec();
+    sorted.sort_by(|a, b| a.endf.cmp(&b.endf));
     toml::to_string(&Report {
-        evaluation: checked,
+        evaluation: &sorted,
     })
 }
 
