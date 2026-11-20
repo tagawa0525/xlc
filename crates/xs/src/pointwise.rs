@@ -534,7 +534,10 @@ impl ColdParts {
                 .or_else(|| tape.section(mat, 2, 151));
             section.map_or(0, |s| s.reader().line())
         };
-        for declared in negatives {
+        // 引かない宣言を先に当て、引く宣言が引く先の 0 にした後の値を見るようにする（並べた順によらない）
+        let (plain, taking): (Vec<_>, Vec<_>) =
+            negatives.iter().partition(|d| d.take_from.is_none());
+        for declared in plain.into_iter().chain(taking) {
             raise_declared(&mut tables, mf2.as_ref(), declared)
                 .map_err(|message| Error::new(line(declared.mt), message))?;
         }
@@ -616,8 +619,8 @@ fn parts_broadening_limit(tables: &BTreeMap<u32, Tab1>, mf2: Option<&Mf2>) -> f6
 /// いる宣言は、評価と合わないので文を返す（評価が替わって古くなった宣言を黙って当てない）。`take-from` は、両方の反応が全断面積に
 /// 入り、引いた後も引いた先が負にならないときだけ当てる。
 ///
-/// LSSF=0 の非分離共鳴の範囲に重なる、共鳴の反応（`RESONANCE_MTS` と第 1 チャンスの核分裂）の宣言は止める。その範囲の自己遮蔽
-/// （`process::unresolved_shielding`）は、テープの MF3 のバックグラウンドを読むので、宣言が届かない。
+/// LSSF=0 の非分離共鳴の範囲に重なる宣言は、反応によらず止める。その範囲の自己遮蔽（`process::unresolved_shielding`）は、テープの
+/// MF3 の全断面積、弾性散乱、核分裂、捕獲をバックグラウンドに読むので、宣言が届かず、部分反応の和とも食い違う。
 fn raise_declared(
     tables: &mut BTreeMap<u32, Tab1>,
     mf2: Option<&Mf2>,
@@ -633,18 +636,16 @@ fn raise_declared(
     if !(from.is_finite() && to.is_finite() && from <= to) {
         return Err(format!("{name}: the range must be finite with from <= to"));
     }
-    let shielded = |m: u32| RESONANCE_MTS.contains(&m) || m == 19;
-    if shielded(mt) || take_from.is_some_and(shielded) {
-        let lssf0 = mf2.into_iter().flat_map(Mf2::ranges).find(|r| {
-            matches!(&r.kind, RangeKind::Unresolved(u) if u.lssf == 0) && from < r.eh && r.el < to
-        });
-        if let Some(range) = lssf0 {
-            return Err(format!(
-                "{name}: the range overlaps the unresolved range {}..{} eV (LSSF=0), whose shielding reads the MF3 \
-                 background from the tape, so the declaration cannot reach it",
-                range.el, range.eh
-            ));
-        }
+    // 範囲は両端を含む
+    let lssf0 = mf2.into_iter().flat_map(Mf2::ranges).find(|r| {
+        matches!(&r.kind, RangeKind::Unresolved(u) if u.lssf == 0) && from <= r.eh && r.el <= to
+    });
+    if let Some(range) = lssf0 {
+        return Err(format!(
+            "{name}: the range overlaps the unresolved range {}..{} eV (LSSF=0), whose shielding reads the MF3 \
+             background from the tape, so the declaration cannot reach it",
+            range.el, range.eh
+        ));
     }
     let table = tables
         .get(&mt)
@@ -670,8 +671,21 @@ fn raise_declared(
                 .get(&source)
                 .ok_or_else(|| format!("{name}: the evaluation has no MT{source} to take from"))?;
             let subtracted = raised.subtracted();
-            let taken = add(source_table, &subtracted);
             let (low, high) = (subtracted.x[0], subtracted.x[subtracted.x.len() - 1]);
+            let already = source_table
+                .x
+                .iter()
+                .zip(&source_table.y)
+                .filter(|(e, v)| low <= **e && **e <= high && **v < 0.0)
+                .map(|(_, v)| *v)
+                .reduce(f64::min);
+            if let Some(lowest) = already {
+                return Err(format!(
+                    "{name}: MT{source} is negative before the subtraction (down to {lowest:.3e} b); declare its \
+                     negative values too"
+                ));
+            }
+            let taken = add(source_table, &subtracted);
             let lowest = taken
                 .x
                 .iter()

@@ -434,15 +434,16 @@ fn declarations_cannot_reach_the_background_of_an_lssf0_unresolved_range() {
 
 #[test]
 fn declarations_apply_in_the_same_way_in_any_order() {
-    // 引く先（MT2）の負の点を 0 にする宣言と、MT2 から引く宣言は、並べた順によらず同じ結果になる（引かない宣言を先に当てる）
+    // 引く先（MT2）の負の点を 0 にする宣言と、MT2 から引く宣言は、並べた順によらず同じ結果になる（引かない宣言を先に当てる）。
+    // 2.5 eV の MT2 は 0 にした後に捕獲の 0.5 b を引かれて負になるので、どちらの順でも引いたせいで負になると示して止まる
     let text = [
         mf3_points(
             2,
             &[
                 ("1.0-5", "10.0"),
-                ("2.75", "10.0"),
-                ("2.8", "-1.0"),
-                ("2.85", "10.0"),
+                ("2.4", "10.0"),
+                ("2.5", "-0.1"),
+                ("2.6", "10.0"),
                 ("2.0+7", "10.0"),
             ],
         ),
@@ -451,12 +452,13 @@ fn declarations_apply_in_the_same_way_in_any_order() {
     .concat();
     let tape = Tape::parse(&text).unwrap();
     let (raise, take) = (
-        declared(2, 2.7, 2.9, None),
+        declared(2, 2.45, 2.55, None),
         declared(102, 1.0e-5, 10.0, Some(2)),
     );
-    let first = ColdParts::read(&tape, 1, 1.0e-3, &[raise.clone(), take.clone()]).unwrap();
-    let second = ColdParts::read(&tape, 1, 1.0e-3, &[take.clone(), raise]).unwrap();
-    assert_eq!(first.at(0.0), second.at(0.0));
+    let first = declaration_error(&tape, &[raise.clone(), take.clone()]);
+    let second = declaration_error(&tape, &[take.clone(), raise]);
+    assert_eq!(first, second);
+    assert!(first.contains("makes MT2 negative"), "{first}");
     // 引く先の負の値を宣言しなければ、引いたせいでなく、引く先がもともと負であることを示して止める
     let message = declaration_error(&tape, &[take]);
     assert!(message.contains("MT2 is negative before"), "{message}");
