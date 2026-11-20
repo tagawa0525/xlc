@@ -137,6 +137,11 @@ class Report(unittest.TestCase):
         self.assertIn("| 0.0 ", rows[0])
         self.assertIn("−12.3", rows[0])
 
+    def test_fuels_are_named_as_in_the_record(self):
+        summary = self.summary()
+        summary["fuel"] = "gd"
+        self.assertIn("Gd s4", ufg_subset.k_table([summary]))
+
     def test_the_time_table_gives_seconds_and_the_ratio_to_all(self):
         text = ufg_subset.time_table([self.summary()])
         rows = text.splitlines()[2:]
