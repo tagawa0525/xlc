@@ -393,7 +393,7 @@ fn a_negative_capture_or_fission_background_is_an_error_without_the_declaration(
                 "MT{mt}: {error}"
             );
             assert!(
-                error.to_string().contains("unresolved-shielding"),
+                error.to_string().contains("unresolved-negative-background"),
                 "{error}"
             );
         }
@@ -423,59 +423,81 @@ fn a_negative_elastic_background_keeps_the_additive_shielding() {
     );
 }
 
-#[test]
-fn declared_factors_shield_by_file_2_alone_as_lssf_1_does() {
-    // 宣言した評価は、MF3 を入れない File 2 のラダーの比を掛ける。LSSF=1 の評価と同じ経路で、同じ補正になる
-    let sigma0 = [1.0e10, 100.0, 1.0];
-    let temperatures = [300.0, 900.0];
-    let declared = unresolved_shielding(
-        &background_tape(102, -1.0e-3),
-        1,
-        &temperatures,
-        &sigma0,
-        UnresolvedMethod::Factors,
-    )
-    .unwrap()
-    .unwrap();
-    let lssf_1 = unresolved_shielding(
-        &unresolved_tape(),
-        1,
-        &temperatures,
-        &sigma0,
-        UnresolvedMethod::Additive,
-    )
-    .unwrap()
-    .unwrap();
-    assert_eq!(declared, lssf_1);
-}
-
-#[test]
-fn declared_factors_keep_the_shielded_capture_positive() {
-    // 無限希釈の捕獲（File 2 の平均と負のバックグラウンドの和）が正なら、どの σ0 でも遮蔽した捕獲は正
+/// `tape` の非分離共鳴の補正（温度 300 K）を当てた、1e4〜5e4 eV の 1 群の σ0 ごとの捕獲と、補正なしの捕獲
+fn shielded_capture(tape: &Tape, sigma0: &[f64], method: UnresolvedMethod) -> (Vec<f64>, f64) {
     use crate::multigroup::shielded_averages;
-    let tape = background_tape(102, -1.0e-3);
-    let sigma0 = [1.0e10, 30.0, 1.0];
-    let [shielding] = &unresolved_shielding(&tape, 1, &[300.0], &sigma0, UnresolvedMethod::Factors)
+    let [shielding] = &unresolved_shielding(tape, 1, &[300.0], sigma0, method)
         .unwrap()
         .unwrap()[..]
     else {
         panic!("one temperature gives one shielding");
     };
-    let tables = crate::pointwise::reconstruct(&tape, 1, 1.0e-3).unwrap();
+    let tables = crate::pointwise::reconstruct(tape, 1, 1.0e-3).unwrap();
     let groups = GroupStructure::new(vec![5.0e4, 1.0e4]).unwrap();
-    let shielded = shielded_averages(
-        &groups,
-        &Weight::lwr(),
-        &tables,
-        None,
-        &sigma0,
-        Some(shielding),
-        None,
+    let averages = |shielding| {
+        shielded_averages(
+            &groups,
+            &Weight::lwr(),
+            &tables,
+            None,
+            sigma0,
+            shielding,
+            None,
+        )
+        .unwrap()
+    };
+    let capture = averages(Some(shielding))
+        .iter()
+        .map(|a| a.sigma[&102][0])
+        .collect();
+    (capture, averages(None)[0].sigma[&102][0])
+}
+
+#[test]
+fn declared_scaling_keeps_the_dilute_cross_sections_of_the_evaluation() {
+    // 負のバックグラウンドの反応は File 2 のサンプルを (平均 + バックグラウンド)/平均 倍にするので、遮蔽のない極限は 0 K の表
+    // （File 2 の平均とバックグラウンドの和）に戻る
+    let (capture, dilute) = shielded_capture(
+        &background_tape(102, -1.0e-3),
+        &[1.0e10, 1.0],
+        UnresolvedMethod::ScaleNegative,
+    );
+    assert!(
+        (capture[0] / dilute - 1.0).abs() < 1e-5,
+        "{capture:?} {dilute}"
+    );
+    assert!(capture[1] < 0.99 * dilute);
+}
+
+#[test]
+fn declared_scaling_keeps_the_shielded_capture_positive() {
+    // サンプルは負にならないので、無限希釈の捕獲が正なら、どの σ0 でも遮蔽した捕獲は正
+    let (capture, _) = shielded_capture(
+        &background_tape(102, -1.0e-3),
+        &[1.0e10, 30.0, 1.0],
+        UnresolvedMethod::ScaleNegative,
+    );
+    assert!(capture.iter().all(|&c| c > 0.0), "{capture:?}");
+}
+
+#[test]
+fn declared_scaling_of_a_negative_dilute_cross_section_is_an_error() {
+    // バックグラウンドが File 2 の平均より負に大きいと、縮める倍率が負になる。0 K の表の負の値で、読み替えでは直らない
+    let error = unresolved_shielding(
+        &background_tape(102, -1.0e3),
+        1,
+        &[300.0],
+        &[1.0e10, 1.0],
+        UnresolvedMethod::ScaleNegative,
     )
-    .unwrap();
-    for (s, avg) in sigma0.iter().zip(&shielded) {
-        assert!(avg.sigma[&102][0] > 0.0, "sigma0 {s}");
-    }
+    .unwrap_err();
+    assert!(
+        matches!(
+            error,
+            ProcessError::NegativeUnresolvedDilute { mt: 102, .. }
+        ),
+        "{error}"
+    );
 }
 
 #[test]
@@ -498,11 +520,11 @@ fn the_declaration_needs_a_negative_capture_or_fission_background() {
             1,
             &[300.0],
             &[1.0e10, 1.0],
-            UnresolvedMethod::Factors,
+            UnresolvedMethod::ScaleNegative,
         )
         .unwrap_err();
         assert!(
-            matches!(error, ProcessError::UnneededUnresolvedFactors),
+            matches!(error, ProcessError::UnneededUnresolvedScaling),
             "{error}"
         );
     }

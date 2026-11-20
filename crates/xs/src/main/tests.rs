@@ -502,7 +502,7 @@ fn reads_declared_negative_values_to_raise_to_zero() {
     }
 }
 
-const FACTORS_INPUT: &str = r#"
+const SCALED_INPUT: &str = r#"
 output = "m1.msgpack"
 endf-directory = "endf"
 sigma0 = [1e10, 10, 1]
@@ -510,23 +510,26 @@ sigma0 = [1e10, 10, 1]
 [nuclide.Ta-181]
 endf = "ta181.endf"
 temperatures = [565]
-unresolved-shielding = "factors"
+unresolved-negative-background = "scale"
 "#;
 
 #[test]
-fn reads_declared_unresolved_shielding_factors() {
-    let input = parse_input(FACTORS_INPUT, Path::new(".")).unwrap();
-    assert_eq!(input.nuclides[0].unresolved, UnresolvedMethod::Factors);
-    // 宣言の値は "factors" だけで、輸送しない放射化の核種は遮蔽しないので宣言を取らない
+fn reads_declared_scaling_of_negative_unresolved_backgrounds() {
+    let input = parse_input(SCALED_INPUT, Path::new(".")).unwrap();
+    assert_eq!(
+        input.nuclides[0].unresolved,
+        UnresolvedMethod::ScaleNegative
+    );
+    // 宣言の値は "scale" だけで、輸送しない放射化の核種は遮蔽しないので宣言を取らない
     for (from, to) in [
-        ("\"factors\"", "\"additive\""),
-        ("\"factors\"", "true"),
+        ("\"scale\"", "\"add\""),
+        ("\"scale\"", "true"),
         (
             "temperatures = [565]",
             "temperatures = [565]\nactivation = true",
         ),
     ] {
-        let text = FACTORS_INPUT.replace(from, to);
+        let text = SCALED_INPUT.replace(from, to);
         assert!(parse_input(&text, Path::new(".")).is_err(), "{text}");
     }
 }
