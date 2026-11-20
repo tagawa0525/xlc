@@ -509,3 +509,105 @@ fn peaks_of_shifted_levels_sit_at_the_observed_energy() {
         "peak {peak} eV, capture maximum {maximum} eV, half width {half_width} eV"
     );
 }
+
+/// 陽子の質量（中性子の質量の単位）
+const PROTON: f64 = 0.998_623_5;
+
+/// `single_level` の準位に、陽子の放出（MT600、陽子と電荷 16 の残留核、Q 値 `q`）の l = 0 のチャネル（幅 `gp`）を加える。
+fn proton_level(q: f64, gp: f64) -> RMatrixLimited {
+    let mut data = single_level(1.5e-3, 2.3e-2);
+    data.pairs.push(ParticlePair {
+        za: 1.0,
+        zb: 16.0,
+        pnt: 1,
+        ..pair(PROTON, AWRI, q, 600)
+    });
+    let group = &mut data.spin_groups[0];
+    group.channels.push(channel(2, OrbitalL::S, 0.5));
+    group.resonances[0].widths.push(gp);
+    data
+}
+
+/// 陽子のチャネルの Coulomb の透過因子。η と ρ は重心系のエネルギー E·A/(A+1) + Q から、
+/// η = zZα √(μc²/2E_cm)、ρ = √(2μc² E_cm) a / ħc で求める（xs の波数 k からの ηk/k と別の道筋）。
+fn proton_penetrability(e: f64, q: f64) -> f64 {
+    const ALPHA: f64 = 7.297_352_569_3e-3;
+    const HBAR_C: f64 = 1.973_269_804e-5; // eV cm
+    let mu_c2 = PROTON * AWRI / (PROTON + AWRI) * crate::physics::AMASSN * 931.494_102_42e6;
+    let e_cm = e * AWRI / (AWRI + 1.0) + q;
+    let eta = 16.0 * ALPHA * (mu_c2 / (2.0 * e_cm)).sqrt();
+    let rho = (2.0 * mu_c2 * e_cm).sqrt() / HBAR_C * AP * 1.0e-12;
+    crate::resonance::coulomb::penetrability(0, eta, rho)
+}
+
+#[test]
+fn proton_channel_matches_single_level_breit_wigner_with_coulomb_penetrability() {
+    let (gn, gg, gp, q) = (1.5e-3, 2.3e-2, 1.0e-2, 6.0e5);
+    let xs = RMatrixLimitedXs::new(&proton_level(q, gp)).unwrap();
+    assert_eq!(xs.reactions(), vec![1, 2, 102, 600]);
+    let er: f64 = 6.674;
+    for e in [1.0e-3_f64, 1.0, 6.0, 6.674, 6.69, 7.0, 100.0, 1.0e4] {
+        // 幅は透過因子に比例する。中性子の l = 0 の透過因子は ρ ∝ √E
+        let gn_e = gn * (e / er).sqrt();
+        let gp_e = gp * proton_penetrability(e, q) / proton_penetrability(er, q);
+        let k = wave_number_factor() * AWRI / (AWRI + 1.0) * e.sqrt();
+        let width = gn_e + gg + gp_e;
+        let expected = PI / (k * k) * gn_e * gp_e / ((e - er).powi(2) + width * width / 4.0);
+        let proton = xs.cross_sections(e).unwrap()[3];
+        assert_close(proton, expected, &format!("(n,p) at {e}"));
+    }
+}
+
+#[test]
+fn endothermic_proton_channel_is_closed_below_its_threshold() {
+    // Q = −1 MeV の閾値（実験室系）は 1 MeV × (A+1)/A。共鳴は閾値の上の 2 MeV に置く
+    let mut data = proton_level(-1.0e6, 1.0e-2);
+    data.spin_groups[0].resonances[0].er = 2.0e6;
+    let xs = RMatrixLimitedXs::new(&data).unwrap();
+    let threshold = 1.0e6 * (AWRI + 1.0) / AWRI;
+    assert_eq!(xs.cross_sections(threshold * 0.999).unwrap()[3], 0.0);
+    assert!(xs.cross_sections(2.0e6).unwrap()[3] > 0.0);
+}
+
+#[test]
+fn rejects_widths_whose_coulomb_penetrability_underflows() {
+    // 共鳴で陽子の重心系のエネルギーが 1 meV になり、η ≈ 8e4 の障壁の下で透過因子が 0 になる
+    let q = 1.0e-3 - 6.674 * AWRI / (AWRI + 1.0);
+    let error = RMatrixLimitedXs::new(&proton_level(q, 1.0e-2))
+        .unwrap_err()
+        .to_string();
+    assert!(error.contains("underflows"), "{error}");
+}
+
+#[test]
+fn rejects_shift_factor_for_charged_pairs() {
+    let mut data = proton_level(6.0e5, 1.0e-2);
+    data.pairs[2].shf = 1;
+    let error = RMatrixLimitedXs::new(&data).unwrap_err().to_string();
+    assert!(error.contains("SHF=1"), "{error}");
+}
+
+#[test]
+fn rejects_charged_pairs_outside_charged_particle_levels() {
+    let mut data = proton_level(6.0e5, 1.0e-2);
+    data.pairs[2].mt = 103;
+    let error = RMatrixLimitedXs::new(&data).unwrap_err().to_string();
+    assert!(error.contains("MT=103"), "{error}");
+}
+
+#[test]
+fn rejects_charged_pairs_without_penetrability() {
+    let mut data = proton_level(6.0e5, 1.0e-2);
+    data.pairs[2].pnt = -1;
+    let error = RMatrixLimitedXs::new(&data).unwrap_err().to_string();
+    assert!(error.contains("PNT=-1"), "{error}");
+}
+
+#[test]
+fn lists_widths_whose_coulomb_penetrability_njoy_approximates() {
+    // Q = 0.6 MeV の陽子は η ≈ 3.3 で、NJOY の近似の式の外。Q = 50 keV では η ≈ 11 で、障壁の下（転回点 2η ≫ ρ ≈ 0.5）
+    let above = RMatrixLimitedXs::new(&proton_level(6.0e5, 1.0e-2)).unwrap();
+    assert!(above.njoy_approximated_widths().is_empty());
+    let below = RMatrixLimitedXs::new(&proton_level(5.0e4, 1.0e-2)).unwrap();
+    assert_eq!(below.njoy_approximated_widths(), vec![600]);
+}

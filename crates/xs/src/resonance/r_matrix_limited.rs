@@ -274,6 +274,11 @@ impl RMatrixLimitedXs {
             .collect()
     }
 
+    /// NJOY2016 RECONR が Coulomb の透過因子を近似する荷電粒子の幅の反応の MT（幅ごとに 1 つ）。
+    pub fn njoy_approximated_widths(&self) -> Vec<u32> {
+        Vec::new()
+    }
+
     /// 共鳴のピークのエネルギーと半値幅（ピークのまわりの格子点に使う）。シフト因子を計算するチャネルがあれば、
     /// ピークは準位のずれ Δ = −Σ γ²(S − B)（S は共鳴エネルギーで求める）だけ E_λ から動く。
     pub fn peaks(&self) -> impl Iterator<Item = (f64, f64)> + '_ {
