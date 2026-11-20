@@ -1140,6 +1140,47 @@ impl SabTransfer {
     }
 }
 
+impl Pointwise {
+    /// 列の長さ、エネルギーの順、有限な値と、ライブラリの範囲 `range` をちょうど覆うこと（超微細群の減速計算が範囲の外を
+    /// 引かないように。範囲がなければ空）を確かめる
+    fn check(&self, range: Option<[f64; 2]>) -> Result<(), String> {
+        let columns = [
+            &self.total,
+            &self.elastic,
+            &self.fission,
+            &self.nu_fission,
+            &self.capture,
+        ];
+        if columns.iter().any(|c| c.len() != self.energy.len()) {
+            return Err("pointwise columns must match the energies".into());
+        }
+        if self.energy.windows(2).any(|w| w[1] < w[0]) {
+            return Err("pointwise energies must not decrease".into());
+        }
+        match range {
+            Some(range) => {
+                if self.energy.first() != Some(&range[0]) || self.energy.last() != Some(&range[1]) {
+                    return Err(format!("pointwise data must cover the range {range:?}"));
+                }
+            }
+            None => {
+                if !self.energy.is_empty() {
+                    return Err("pointwise data without a pointwise range".into());
+                }
+            }
+        }
+        if let Some(bad) = self
+            .energy
+            .iter()
+            .chain(columns.into_iter().flatten())
+            .find(|v| !v.is_finite())
+        {
+            return Err(format!("non-finite value {bad}"));
+        }
+        Ok(())
+    }
+}
+
 impl NuclideData {
     /// 配列の長さ（群の数 `ng`、σ0 の数 `n_sigma0`）と温度の表があることを確かめる。
     fn check(&self, ng: usize, n_sigma0: usize, range: Option<[f64; 2]>) -> Result<(), String> {
@@ -1248,43 +1289,32 @@ impl NuclideData {
                     ));
                 }
             }
-            // ポイントワイズの断面積を持たない核種は、UFG だけが読む S(α, β) の移行も持たない（ADR-0269）
-            if t.pointwise.is_some() != self.temperatures[0].pointwise.is_some() {
-                return Err(at(
-                    "pointwise data must be on every temperature or none".into()
-                ));
-            }
-            if t.pointwise.is_none() && t.sab_transfer.is_some() {
-                return Err(at(
-                    "an S(α, β) transfer needs the pointwise data of the nuclide".into(),
-                ));
-            }
-            let empty = Pointwise::default();
-            let p = t.pointwise.as_ref().unwrap_or(&empty);
-            let columns = [&p.total, &p.elastic, &p.fission, &p.nu_fission, &p.capture];
-            if columns.iter().any(|c| c.len() != p.energy.len()) {
-                return Err(at("pointwise columns must match the energies".into()));
-            }
-            if p.energy.windows(2).any(|w| w[1] < w[0]) {
-                return Err(at("pointwise energies must not decrease".into()));
-            }
-            // 範囲をちょうど覆うこと（超微細群の減速計算が範囲の外を引かないように）。範囲がなければ空で、
-            // 分離共鳴も持たない（範囲は分離共鳴を持つ核種がないときだけない）
+            // 範囲は分離共鳴を持つ核種がないときだけない
             if range.is_none() && self.resolved.is_some() {
                 return Err(format!(
                     "{name}: resolved resonances need a pointwise range"
                 ));
             }
-            match range {
-                Some(_) if t.pointwise.is_none() => {}
-                Some(range) => {
-                    if p.energy.first() != Some(&range[0]) || p.energy.last() != Some(&range[1]) {
-                        return Err(at(format!("pointwise data must cover the range {range:?}")));
-                    }
-                }
+            if t.pointwise.is_some() != self.temperatures[0].pointwise.is_some() {
+                return Err(at(
+                    "pointwise data must be on every temperature or none".into()
+                ));
+            }
+            match &t.pointwise {
+                Some(p) => p.check(range).map_err(at)?,
+                // 持たない核種は UFG で解かない核種（ADR-0269）で、UFG だけが読む S(α, β) の移行も持たない。S(α, β) の核種は
+                // 減速材の核種で UFG で解く（ADR-0268）ので、範囲のあるライブラリでは持つ
                 None => {
-                    if !p.energy.is_empty() {
-                        return Err(at("pointwise data without a pointwise range".into()));
+                    if t.sab_transfer.is_some() {
+                        return Err(at(
+                            "an S(α, β) transfer needs the pointwise data of the nuclide".into(),
+                        ));
+                    }
+                    if self.thermal_scattering && range.is_some() {
+                        return Err(at(
+                            "S(α, β) nuclides are solved by the UFG and need their pointwise data"
+                                .into(),
+                        ));
                     }
                 }
             }
@@ -1325,9 +1355,7 @@ impl NuclideData {
                         .iter()
                         .flat_map(|r| &r.channels)
                         .flat_map(|c| &c.cross_section),
-                )
-                .chain(p.energy.iter())
-                .chain(columns.into_iter().flatten());
+                );
             if let Some(bad) = values.copied().find(|v| !v.is_finite()) {
                 return Err(at(format!("non-finite value {bad}")));
             }
