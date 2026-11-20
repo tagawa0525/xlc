@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [xs, depletion]
 opened: 2026-11-20
-closed:
+closed: 2026-11-20
 milestone:
 blocked-by: []
-resolution:
+resolution: コミット f6360d711
 ---
 
 # xs が MF5 の LF=12（Madland-Nix）と MF1 の LNU=1（多項式の ν）を読めず、ENDF/B-VII.0 と VII.1 の燃焼のライブラリを作れない
@@ -31,7 +31,7 @@ resolution:
   ENDF-102 の定義のとおりなので ADR にしない。比較は examples/depletion/verification.md の「版ごとのライブラリの Madland-Nix の核分裂
   スペクトルと多項式の ν」）
 - [x] MF1 の LNU=1 を読む（MT452 の定数と 1 次の多項式。4 つの版の全評価の LNU=1 はどれも MT452 の NC=2。同じ節）
-- [ ] VII.0 と VII.1 の 65 核種の `xs nuclide` が、打ち切らずに最後まで終わる
+- [x] VII.0 と VII.1 の 65 核種の `xs nuclide` が、打ち切らずに最後まで終わる
 
 ## 経緯
 
@@ -42,3 +42,6 @@ resolution:
   割合が 1.6e-7 ずれ、1e-4 eV より下の群では負になりうる。レビューの指摘）。小さいところを、g を √u E1(u) の積分に書いた 8 点の
   Gauss-Legendre の二重の積分で求める形を試したが、Am-241（VII.0）の `compare_njoy_gendf` が閉じた式だけの 4.1 秒から 36.7 秒になった
   ので捨て、同じ積分の級数の始めの 3 項にした（2.4 秒。閾値の前後の相対誤差は、閉じた式で 3e-9 以下、級数で 1.1e-11 以下）
+- 2026-11-20: VII.0 と VII.1 の 65 核種のライブラリのステージ（examples/depletion/endfb70、endfb71 の dvc.yaml の xs-nuclide と xs）が、
+  f6360d711 の後の xs で最後まで終わり（Slurm 987、988）、閉じた（ブランチ feat/0303-pin-depletion-by-endf-version の
+  examples/depletion/verification.md の「版ごとのピンセルの燃焼」）
