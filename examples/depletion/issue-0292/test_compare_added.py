@@ -102,5 +102,20 @@ class Unestimated(unittest.TestCase):
             compare_added.compare(before, after, shares, ["A"], ["U"])
 
 
+class Report(unittest.TestCase):
+    def test_the_report_counts_the_unestimated_nuclides(self):
+        summary = {
+            "inputs": [],
+            "added": ["A", "U"],
+            "unestimated": ["U"],
+            "points": [],
+        }
+        self.assertIn("目安に入れない 1", "\n".join(compare_added.report(summary)))
+
+    def test_a_summary_without_the_unestimated_list_is_an_error(self):
+        with self.assertRaises(KeyError):
+            compare_added.report({"inputs": [], "added": [], "points": []})
+
+
 if __name__ == "__main__":
     unittest.main()
