@@ -124,5 +124,21 @@ class Unranked(unittest.TestCase):
             ds.ranked_names(["A"], ["A"], ["U"])
 
 
+class Report(unittest.TestCase):
+    def test_a_point_without_a_cooling_value_has_no_weight_check(self):
+        summary = {
+            "inputs": [],
+            "nuclides": [
+                {
+                    "nuclide": "H-3",
+                    "max_pcm": 0.0,
+                    "burnup": 10.0,
+                    "points": [{"burnup": 10.0, "ratio": 1.0, "weight_check": None}],
+                }
+            ],
+        }
+        self.assertTrue(ds.report(summary)[-1].endswith("| –"))
+
+
 if __name__ == "__main__":
     unittest.main()
