@@ -1,7 +1,7 @@
 ---
 type: ADR
-status: proposed
-date: 2026-11-21
+status: accepted
+date: 2026-11-22
 requires: [ADR-0003, ADR-0158, ADR-0232, ADR-0247]
 supersedes: []
 superseded-by:
@@ -46,8 +46,12 @@ lattice だけが使うものに、1 行か 1 列の格子のブロック三重�
 
 対角のブロック:
 
-- 案 B1（採用）: セルごとの LU 分解の前進・後退代入（lattice の形）を、xlc-cmfd でも使う
-- 案 B2: 逆行列を平らな配列に持って掛ける（xlc-cmfd の形）
+- 案 B1（採用）: セルごとの LU 分解の前進・後退代入（lattice の形。`xlc_numeric::lu::Lu` と同じ演算）を、xlc-cmfd でも使う。分解はすべてのセルで
+  1 つの平らな配列に持ち、行の入れ替えは右辺を読む並びにする
+- 案 B1′: 案 B1 を、セルごとの `Lu` の列で持つ。core の全炉心の BOC の固有値計算（下の時間と同じ問題）が 14.0 秒で、平らな配列の 13.0 秒より長い
+- 案 B2: 逆行列を平らな配列に持って掛ける（xlc-cmfd の形）。core の全炉心の BOC の固有値計算は 10.0 秒で、案 B1 の 13.0 秒より短い（Problem 9 の形の
+  台帳とサイクル、ホウ素 1100 ppm、燃焼度 0、Xe なし、平らな初期値、`RAYON_NUM_THREADS=1`、手元の続けて流した目安。入力は examples/depletion/p9-timing/trial-0244/boc-1100.toml の
+  コピー、2026-11-22）。外側の反復は 47 回で同じ。逆数を掛ける後退代入（13.1 秒）でも差は縮まらなかった（コミットしていない試行）
 
 組の重み:
 
@@ -76,20 +80,41 @@ lattice の CMFD の粗メッシュの固有値問題は、2 次元の格子（�
 - 案 R1: 1e-14 は、k の変化（k は 1 の桁なので相対と同じ）と中性子束の相対変化の丸めの水準で、lattice の粗メッシュの許容（k 1e-10、中性子束 1e-8 から
   緩める。[ADR-0110](0110-solve-cmfd-as-finely-as-the-moc-change.md)）と MOC の許容より 4 桁以上小さい
 - 案 N1: 案 N2 は、すべてのセルで負の解を見逃す
-- 案 B1: 逆行列を掛ける形は後退安定でなく、条件数の悪いブロックで誤差が大きくなりうる（確認の「ブロックの誤差」）
+- 案 B1: 逆行列を掛ける形は後退安定でなく、条件数の悪いブロックで誤差が大きい（確認の「ブロックの誤差」。最大で LU の 5.4 倍）。判断の軸の
+  正確さを実行速度より先にし、core の固有値計算が 3 割長くなる案 B1 にする。平らな配列にするのは、案 B1′ より 7 % 短いため
 - 案 W1: 重みは生成率の和にだけ掛かり、解の比の大きさ（生成率 1 の規格化）を決める。重み 1 の積は値を変えないので、重みを付けない core の解は変わらない
 - 案 C1: ADR-0003 の基準。`solve_projected` の 1 回を xlc-cmfd に置くのは、対角のブロックと隣との結合を lattice に二重に持たないため
 
 ### 帰結
 
 - lattice の粗メッシュの Gauss-Seidel の複製と、core と lattice の `Remaining` の複製がなくなる
-- lattice と core の実行ファイルが変わり、`bin/lattice` と `bin/core` を deps にするステージは changed になる
+- lattice と core の実行ファイルが変わり、`bin/lattice` と `bin/core` を deps にするステージは changed になる（main 630459cba の時点で、
+  `binary-forms/lattice.md5` を deps にする 210 と `binary-forms/core.md5` を deps にする 97 のステージは、どれも既に changed だった）
+- core の固有値計算は、粗メッシュの問題の対角のブロックの解き方（案 B1）で長くなる: 全炉心の BOC の固有値計算は 1 スレッドで 10.2 秒から 13.2 秒、
+  Problem 9 の形の燃焼の時間の内訳の入力（examples/depletion/p9-timing/core-p9.toml、32 スレッド）は 65.2 秒から 70.6 秒（確認の「core」）
+- lattice の 2 次元の格子の出力は、変わる前とビットで同じ（確認の「lattice」）。変わるのは一般化随伴の 1 回の丸め（k で割る代わりに 1/k を掛ける）だけ
 
 ### 確認
 
 - ブロックの誤差: VERA 2A の細かい群の媒質（69 群。main 630459cba の lattice、`medium` の出力、2026-11-21）から V (diag(Σt + 漏れ) − Sᵀ) の形の
   ブロックを作り、吸収を 1〜10⁻⁶ 倍に、漏れを 0、ふつう（4D/h）、負（補正で対角が減る −2D/h）にした 21 個で、xlc_numeric の LU と xlc-cmfd の
-  逆行列の形の演算を Python で同じ順に行った解を、残差を有理数で厳密に求めて 4 回直した解と比べた（手元の試行 trials/0241/blocks.py。コミットしていない）。相対誤差の
+  逆行列の形の演算を Python で同じ順に行った解を、残差を有理数で厳密に求めて 4 回直した解と比べた（コミット 56e4978b9 の trials/0241/blocks.py）。相対誤差の
   最大は、漏れのあるブロック（条件数 11〜12）で LU 5.9×10⁻¹⁶〜1.0×10⁻¹⁵、逆行列 8.1×10⁻¹⁶〜1.3×10⁻¹⁵、漏れが負のブロック（条件数 6.5×10⁶〜
   9.0×10⁹）で LU 3.5×10⁻¹⁴〜2.2×10⁻¹²、逆行列 1.0×10⁻¹³〜2.8×10⁻¹²（最大で 5.4 倍）、漏れのないブロック（条件数 1.1×10²〜8.6×10⁷）は
   どちらも同じ桁
+- 下の比較の「前」は main 630459cba、「後」は 143b3bf3f のビルド（`cargo build --release`）で、どちらも手元で続けて流した（2026-11-22）。入力は
+  コミット 56e4978b9 の trials/0241/ と examples/depletion/p9-timing/trial-0241/、examples/depletion/trial-0241-gen/（例の入力のライブラリと出力の
+  パスだけを書き換えたコピー）、比べたのは同じコミットの trials/0241/compare.py
+- lattice: VERA 2A（UO2。8 分の 1 の対称性で代表のセル 55、組の重みが 1 でない）、2G（AIC の制御棒）、2B-vacuum（真空の辺。代表のセル 190）、
+  3A の軸方向の平板（1 行の格子。逆反復）で、標準出力、ピン出力、少数群定数（3A は 58 のノードの出力）は前と後でビットで同じ。MOC の反復
+  （25、24、25、182 回）と粗メッシュの反復の和（7,913、7,643、11,668、1,771 回）も同じ。粗メッシュの区間（trace の `coarse` の和）は 0.92 秒から
+  0.86 秒、0.90 秒から 0.83 秒、4.70 秒から 4.35 秒、18.24 秒から 18.20 秒
+- 一般化随伴: examples/depletion/issue-0279/lattice-3x3-few-group.toml を核種 3 つにし、`direct` と `shielded` を除いた入力（3 × 3 の格子、
+  [sensitivity.few-group]）で、感度の 60 個の値の相対差の最大は 8.2×10⁻¹⁴（許容 1e-10）
+- core: 全炉心の BOC の固有値計算の k の差は 2.2×10⁻¹³、外側の反復は 47 回で同じ。Problem 9 の形の燃焼の時間の内訳の入力で、点の k の
+  相対差の最大は 2.1×10⁻¹⁴、ホウ素 3.5×10⁻¹³、数密度 3.1×10⁻¹¹、出力の割合 1.2×10⁻¹¹、燃焼度 5.1×10⁻¹²。外側の反復の行の数（833）は同じ。
+  ほかの補助の数密度の差は、絶対値で 3.2×10⁻¹⁹ 以下（値の最大は 9.9×10⁻⁸）
+- テスト: `cmfd::tests::a_coarse_solution_negative_in_every_cell_is_an_error`、`cmfd::tests::representatives_count_their_orbits_in_the_production`
+  （lattice）、`tests::weights_count_each_cell_as_many_times_as_it_stands_for`、`tests::unit_weights_leave_the_solution_bit_for_bit`、
+  `tests::weights_must_be_positive_and_one_per_cell`、`tests::a_sweep_solves_each_block_by_the_lu_substitution`、
+  `tests::changes_at_rounding_level_count_as_converged`（xlc-cmfd）
