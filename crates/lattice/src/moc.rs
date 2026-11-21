@@ -2030,7 +2030,7 @@ impl<'a> Sweeper<'a> {
                 if let Some(c) = busy {
                     tally.busy_seconds = c.elapsed().as_secs_f64();
                 }
-                Ok(())
+                Ok::<(), CmfdError>(())
             })?;
         if timed {
             xlc_log::trace!(

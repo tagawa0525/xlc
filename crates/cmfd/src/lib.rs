@@ -32,6 +32,13 @@ pub struct Spectrum {
     pub nu_fission: Vec<f64>,
 }
 
+impl Spectrum {
+    /// セルの中性子束 `phi`（[群]）での体積 × νΣf · φ
+    pub fn rate(&self, phi: &[f64]) -> f64 {
+        self.nu_fission.iter().zip(phi).map(|(a, b)| a * b).sum()
+    }
+}
+
 /// 粗メッシュの固有値問題を解く打ち切り条件。k と中性子束の変化から見積もった残りの誤差で判定する
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Tolerances {
