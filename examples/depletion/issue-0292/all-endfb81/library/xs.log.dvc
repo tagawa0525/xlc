@@ -1,0 +1,5 @@
+outs:
+- md5: 80ec7927eb62815c4ec817edd4a11137
+  size: 292301
+  hash: md5
+  path: xs.log

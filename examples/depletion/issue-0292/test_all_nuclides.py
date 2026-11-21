@@ -83,6 +83,7 @@ def entries(errors=None, excluded=EXCLUDED):
         survey(stopped if errors is None else errors),
         CHAIN,
         excluded,
+        trial_version=True,
     )
 
 
@@ -135,7 +136,8 @@ class Library(unittest.TestCase):
                 }
             )
 
-    def test_a_base_nuclide_without_a_chain_evaluation_stops(self):
+    def test_a_base_nuclide_without_a_chain_evaluation_stops_in_its_own_version(self):
+        # 試行の入力と同じ版（VIII.0）では、試行の核種はどれもチェーンの評価のはず
         base = tomllib.loads(BASE)["nuclide"]
         base["C-0"] = {"endf": "n-006_C_000.endf", "temperatures": [565]}
         with self.assertRaises(SystemExit):
@@ -144,7 +146,36 @@ class Library(unittest.TestCase):
                 survey({"n-090_Th_232.endf": "line 9: x"}),
                 CHAIN,
                 EXCLUDED,
+                trial_version=True,
             )
+
+    def test_a_base_nuclide_of_another_file_stops_in_its_own_version(self):
+        base = tomllib.loads(BASE)["nuclide"]
+        base["U-235"] = {**base["U-235"], "endf": "n-092_U_235b.endf"}
+        with self.assertRaises(SystemExit):
+            all_nuclides.library_entries(
+                base,
+                survey({"n-090_Th_232.endf": "line 9: x"}),
+                CHAIN,
+                EXCLUDED,
+                trial_version=True,
+            )
+
+    def test_a_base_nuclide_without_a_chain_evaluation_is_left_out_of_another_version(
+        self,
+    ):
+        # 試行の入力（VIII.0）の核種の評価が無い版がある。核種の組は版のチェーンと評価で決める
+        base = tomllib.loads(BASE)["nuclide"]
+        base["C-0"] = {"endf": "n-006_C_000.endf", "temperatures": [565]}
+        e = all_nuclides.library_entries(
+            base,
+            survey({"n-090_Th_232.endf": "line 9: x"}),
+            CHAIN,
+            EXCLUDED,
+            trial_version=False,
+        )
+        self.assertNotIn("C-0", e)
+        self.assertEqual(all_nuclides.missing_from_version(base, e), ["C-0"])
 
     def test_the_control_transports_only_what_the_base_transports(self):
         control = all_nuclides.control_entries(
@@ -227,10 +258,14 @@ class Render(unittest.TestCase):
         self.assertEqual(lists["unranked"], ["He-4", "Am-242m"])
 
 
+def viii0():
+    return all_nuclides.VERSIONS["endfb80"]
+
+
 class Depletion(unittest.TestCase):
     def test_the_depletion_input_keeps_the_trial_input_but_its_head(self):
         trial = '# 見出し\nlibrary = "../library/depletion.msgpack"\npitch = 1.26\n'
-        text = all_nuclides.depletion_input(trial)
+        text = all_nuclides.depletion_input(trial, viii0())
         self.assertNotEqual(text.splitlines()[0], "# 見出し")
         self.assertEqual(text.splitlines()[1:], trial.splitlines()[1:])
 
@@ -238,7 +273,7 @@ class Depletion(unittest.TestCase):
         # 確認のセル（gd10）は試行の入力を持たないので inputs.py の燃焼の入力から書く。同じ道で gd を書くと、試行の
         # gd の入力から書いたものと見出しのほかは同じ
         trial = all_nuclides.depletion_input(
-            (all_nuclides.HERE / "trial" / "gd" / "nominal.toml").read_text()
+            (all_nuclides.HERE / "trial" / "gd" / "nominal.toml").read_text(), viii0()
         )
         self.assertEqual(
             all_nuclides.check_depletion_input("gd").splitlines()[1:],
@@ -253,7 +288,7 @@ class Depletion(unittest.TestCase):
     def test_a_trial_input_of_another_library_stops(self):
         with self.assertRaises(SystemExit):
             all_nuclides.depletion_input(
-                '# 見出し\nlibrary = "../../p2/depletion.msgpack"\n'
+                '# 見出し\nlibrary = "../../p2/depletion.msgpack"\n', viii0()
             )
 
 
@@ -288,6 +323,200 @@ class Duplicates(unittest.TestCase):
         s["evaluation"].append({"endf": "../e/n-092_U_235.endf"})
         with self.assertRaises(SystemExit):
             all_nuclides.chain_evaluations(s, CHAIN)
+
+
+# 天然の C の評価だけを持ち、Am-242m と Th-232 の評価が無い版（VII.0 の形）
+NATURAL_CHAIN = {
+    "format": "xlc-chain",
+    "nuclides": CHAIN["nuclides"]
+    + [
+        {"name": n, "z": 6, "a": a, "state": 0} for n, a in [("C-12", 12), ("C-13", 13)]
+    ],
+}
+
+
+def other_version(errors=None):
+    files = [
+        "n-000_n_001.endf",
+        "n-001_H_001.endf",
+        "n-002_He_004.endf",
+        "n-006_C_000.endf",
+        "n-054_Xe_131.endf",
+        "n-092_U_235.endf",
+    ]
+    errors = errors or {}
+    return {
+        "evaluation": [
+            {"endf": f"../e7/{f}", **({"error": errors[f]} if f in errors else {})}
+            for f in files
+        ]
+    }
+
+
+def version_entries(**kwargs):
+    return all_nuclides.library_entries(
+        tomllib.loads(BASE)["nuclide"],
+        kwargs.pop("survey", other_version()),
+        NATURAL_CHAIN,
+        {},
+        natural=["C-12", "C-13"],
+        trial_version=False,
+        **kwargs,
+    )
+
+
+class Versions(unittest.TestCase):
+    def test_a_natural_evaluation_goes_to_each_listed_isotope(self):
+        e = all_nuclides.chain_evaluations(
+            other_version(), NATURAL_CHAIN, ["C-12", "C-13"]
+        )
+        self.assertEqual(e["C-12"], ("n-006_C_000.endf", None))
+        self.assertEqual(e["C-13"], ("n-006_C_000.endf", None))
+        self.assertNotIn("n-001", e)
+
+    def test_a_natural_evaluation_without_a_listed_isotope_stops(self):
+        with self.assertRaises(SystemExit):
+            all_nuclides.chain_evaluations(other_version(), NATURAL_CHAIN, [])
+
+    def test_the_version_of_the_trial_input_must_be_given(self):
+        # 試行の入力と同じ版かで、試行の核種の食い違いを止めるか入れないかが変わるので、既定を置かない
+        with self.assertRaises(TypeError):
+            all_nuclides.library_entries(
+                tomllib.loads(BASE)["nuclide"], other_version(), NATURAL_CHAIN, {}
+            )
+
+    def test_a_listed_isotope_outside_the_chain_stops_as_such(self):
+        with self.assertRaisesRegex(SystemExit, "not in the chain"):
+            all_nuclides.chain_evaluations(
+                other_version(), NATURAL_CHAIN, ["C-12", "C-13", "C-14"]
+            )
+
+    def test_a_listed_isotope_without_a_natural_evaluation_stops(self):
+        # ADR-0262: 天然の元素の評価の無い元素の核種を挙げたらエラー（黙って核種を落とさない）
+        s = other_version()
+        s["evaluation"] = [e for e in s["evaluation"] if "_C_000" not in e["endf"]]
+        with self.assertRaises(SystemExit):
+            all_nuclides.chain_evaluations(s, NATURAL_CHAIN, ["C-12", "C-13"])
+
+    def test_the_version_decides_the_nuclides_and_their_files(self):
+        e = version_entries()
+        # 試行の入力の核種のうち版に評価のある核種を試行の順に、続いて版のほかの評価を走査の順に
+        self.assertEqual(list(e), ["U-235", "H-1", "Xe-131", "He-4", "C-12", "C-13"])
+        self.assertEqual(e["C-13"], {"endf": "n-006_C_000.endf", "temperatures": [565]})
+        self.assertNotIn("activation", e["Xe-131"])
+
+    def test_the_base_nuclides_without_an_evaluation_of_the_version_are_listed(self):
+        base = tomllib.loads(BASE)["nuclide"]
+        self.assertEqual(
+            all_nuclides.missing_from_version(base, version_entries()), ["Th-232"]
+        )
+
+    def test_the_thermal_scatterer_takes_the_temperatures_of_the_version(self):
+        h = version_entries(thermal_temperatures=[550, 600])["H-1"]
+        self.assertEqual(h["temperatures"], [550, 600])
+        self.assertEqual(h["thermal"], "tsl-HinH2O.endf")
+        self.assertEqual(h["free-gas-upper"], 9118)
+
+    def test_a_reading_error_that_a_correction_declares_is_not_an_exclusion(self):
+        s = other_version({"n-054_Xe_131.endf": "line 1193: last NBT must equal NP"})
+        with self.assertRaises(SystemExit):
+            version_entries(survey=s)
+        e = version_entries(survey=s, resolved={"Xe-131"})
+        self.assertIn("Xe-131", e)
+
+    def test_the_depletion_input_of_a_version_reads_its_chain(self):
+        trial = (all_nuclides.HERE / "trial" / "u" / "nominal.toml").read_text()
+        text = all_nuclides.depletion_input(trial, all_nuclides.VERSIONS["endfb70"])
+        data = tomllib.loads(text)
+        self.assertEqual(data["depletion"]["chain"], "../../../endfb70/chain.msgpack")
+        self.assertEqual(data["library"], "../library/depletion.msgpack")
+        self.assertIn("ENDF/B-VII.0", text.splitlines()[0])
+        ours = all_nuclides.depletion_input(trial, all_nuclides.VERSIONS["endfb80"])
+        self.assertEqual(
+            tomllib.loads(ours)["depletion"]["chain"], "../../../chain.msgpack"
+        )
+        del data["depletion"]["chain"]
+        theirs = tomllib.loads(ours)
+        del theirs["depletion"]["chain"]
+        self.assertEqual(data, theirs)
+
+    def test_a_cell_nuclide_outside_the_library_stops(self):
+        text = "[material.fuel]\nnuclides = { U-235 = 1e-3, Am-242m = 1e-9 }\n"
+        all_nuclides.check_cell_nuclides(text, {"U-235": {}, "Am-242m": {}})
+        with self.assertRaises(SystemExit):
+            all_nuclides.check_cell_nuclides(text, {"U-235": {}})
+
+
+class VersionFiles(unittest.TestCase):
+    """版ごとの設定が、その版の走査、チェーン、宣言、熱散乱のファイルを指すこと"""
+
+    def test_each_version_reads_its_own_files(self):
+        names = {
+            "endfb70": "VII.0",
+            "endfb71": "VII.1",
+            "endfb80": "VIII.0",
+            "endfb81": "VIII.1",
+        }
+        self.assertEqual(sorted(all_nuclides.VERSIONS), sorted(names))
+        for key, version in all_nuclides.VERSIONS.items():
+            with self.subTest(key):
+                self.assertEqual(version["label"], f"ENDF/B-{names[key]}")
+                neutrons = f"ENDF-B-{names[key]}_neutrons"
+                chain = tomllib.loads(version["chain_input"].read_text())
+                self.assertEqual(Path(chain["neutron-directory"]).name, neutrons)
+                files = {
+                    Path(e["endf"]).parent.name
+                    for e in tomllib.loads(version["survey"].read_text())["evaluation"]
+                }
+                self.assertEqual(files, {neutrons})
+                self.assertEqual(version["declarations"].parent.name, names[key])
+                self.assertTrue(version["chain"].name == "chain.msgpack")
+                self.assertTrue(
+                    version["chain"].parent == version["chain_input"].parent
+                )
+
+    def test_only_viii0_is_the_version_of_the_trial_input(self):
+        for key, version in all_nuclides.VERSIONS.items():
+            self.assertEqual(version["key"], key)
+            self.assertEqual(version["trial_version"], key == "endfb80")
+
+    def test_the_head_needs_one_thermal_scatterer(self):
+        for entries in (
+            {},
+            {
+                "H-1": {"thermal": "t", "temperatures": [550]},
+                "H-2": {"thermal": "t", "temperatures": [550]},
+            },
+        ):
+            with self.assertRaises(SystemExit):
+                all_nuclides.library_head(
+                    all_nuclides.VERSIONS["endfb81"], ["なし"], [], entries
+                )
+
+    def test_the_head_counts_the_thermal_points_of_the_entries(self):
+        entries = {"H-1": {"thermal": "t", "temperatures": [550, 573.6, 600]}}
+        head = all_nuclides.library_head(
+            all_nuclides.VERSIONS["endfb81"], ["なし"], [], entries
+        )
+        self.assertIn("3 点", head[2])
+
+    def test_the_vii_versions_drop_the_thermal_temperatures_they_lack(self):
+        # tsl-HinH2O.endf に 573.6 K と 623.6 K が無い（docs/environment.md）
+        for key in ("endfb70", "endfb71"):
+            self.assertEqual(
+                all_nuclides.VERSIONS[key]["thermal_temperatures"], [550, 600]
+            )
+        for key in ("endfb80", "endfb81"):
+            self.assertIsNone(all_nuclides.VERSIONS[key]["thermal_temperatures"])
+
+    def test_the_viii0_library_input_is_written_as_before(self):
+        # VIII.0 は 70048a610 の試行（Slurm 1009 のライブラリ）の入力のまま
+        version = all_nuclides.VERSIONS["endfb80"]
+        self.assertEqual(version["directory"], "all")
+        text, _ = all_nuclides.library_text(version)
+        self.assertEqual(
+            text, (all_nuclides.HERE / "all" / "library" / "xs.toml").read_text()
+        )
 
 
 if __name__ == "__main__":

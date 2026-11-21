@@ -4483,6 +4483,10 @@ GIT_TRACKED = {
     "examples/depletion/branches/compare-core-small-acceleration.json",
     # 粗メッシュの許容を詰める前の bin/core の CMFD（#0244）
     "examples/depletion/branches/compare-core-small-acceleration-loose-coarse.json",
+    # 核データの版ごとに全核種を輸送した燃焼の試行の比較（#0292、#0303）。ステージにしない試行で、引く履歴とテーブルは dvc add で追う（ADR-0222）
+    "examples/depletion/issue-0292/versions-u.json",
+    "examples/depletion/issue-0292/versions-mox.json",
+    "examples/depletion/issue-0292/versions-gd.json",
     # p9-timing のステージの上流（p5 の格子計算）が changed なので、試行で流した結果（#0235）
     "examples/depletion/p9-timing/trial-0231/timing-p9.json",
     # 場合 3 を出力のステップにして探す試行（ADR-0219 の同時の反復、#0156）。ステージの出力でない
@@ -4974,6 +4978,90 @@ def depletion_versions_densities(sources: list[dict]) -> str:
     return markdown_table(["燃焼度 (MWd/kg)", "版", *s["nuclides"]], rows)
 
 
+def all_nuclides_versions_summaries(sources: list[dict], fuels) -> list[tuple]:
+    """燃料の名前と compare_versions.py の要約の組（基準の版を除く版の並び）"""
+    if len(sources) != len(fuels):
+        raise TableError(f"{len(sources)} summaries for the fuels {list(fuels)}")
+    out = []
+    for fuel, s in zip(fuels, sources):
+        if s.get("format") != "xlc-compare-all-nuclides-versions":
+            raise TableError("not an xlc-compare-all-nuclides-versions summary")
+        if s.get("base") not in s.get("versions", {}):
+            raise TableError("the summary has no entry of its base version")
+        out.append((fuel, s, [v for v in s["versions"] if v != s["base"]]))
+    return out
+
+
+def all_nuclides_versions_k(sources: list[dict], fuels) -> str:
+    """全核種を輸送した燃焼の版の比較（#0292、#0303）: 燃料と版ごとの、印の燃焼度と全点の最大の絶対値の反応度の差
+    (1/k_基準 − 1/k) × 1e5 pcm"""
+    summaries = all_nuclides_versions_summaries(sources, fuels)
+    marks = summaries[0][1]["marks"]
+    rows = []
+    try:
+        for fuel, s, others in summaries:
+            if [m["burnup"] for m in s["marks"]] != [m["burnup"] for m in marks]:
+                raise TableError("the fuels have other marked burnups")
+            for v in others:
+                pcm = s["versions"][v]["reactivity_pcm"]
+                i = max(range(len(pcm)), key=lambda j: abs(pcm[j]))
+                rows.append(
+                    [f"{fuel} {v} − {s['base']}"]
+                    + [signed(pcm[m["index"]], 1) for m in s["marks"]]
+                    + [f"{signed(pcm[i], 1)}（{burnup_label(s['burnup'][i])}）"]
+                )
+    except KeyError as e:
+        raise TableError(f"the summary has no {e}; rerun the comparison") from None
+    return markdown_table(
+        [
+            "燃料と版",
+            *(burnup_label(m["burnup"]) for m in marks),
+            "全点の最大（燃焼度）",
+        ],
+        rows,
+    )
+
+
+def all_nuclides_versions_split(sources: list[dict], fuels) -> str:
+    """全核種を輸送した燃焼の版の比較: テーブルの反応度の差（直接）を、燃料の核種の項の和、項の外の吸収、1/k と吸収 / 生成の差に
+    分けたもの（pcm）と、片方の版のテーブルにしか無い核種の項の和"""
+    rows = []
+    try:
+        for fuel, s, others in all_nuclides_versions_summaries(sources, fuels):
+            for v in others:
+                for p in s["versions"][v]["split"]:
+                    terms = sum(x["pcm"] for x in p["nuclides"].values())
+                    rows.append(
+                        [f"{fuel} {v} − {s['base']}", burnup_label(p["burnup"])]
+                        + [
+                            signed(x, 1)
+                            for x in (
+                                p["direct_pcm"],
+                                terms,
+                                p["outside_pcm"],
+                                p["balance_pcm"],
+                                p["only_version_pcm"],
+                                p["only_base_pcm"],
+                            )
+                        ]
+                    )
+    except KeyError as e:
+        raise TableError(f"the summary has no {e}; rerun the comparison") from None
+    return markdown_table(
+        [
+            "燃料と版",
+            "燃焼度 (MWd/kg)",
+            "直接",
+            "項の和",
+            "項の外の吸収",
+            "1/k と吸収 / 生成の差",
+            "版だけの核種",
+            "基準だけの核種",
+        ],
+        rows,
+    )
+
+
 # 表の名前 → (JSON（リポジトリの直下から）, 描く関数)。JSON は dvc.yaml のステージの outs で、同じ場所の dvc.lock が md5 を持つ
 TABLES = {
     "p3-reference-results": (
@@ -5072,6 +5160,20 @@ TABLES = {
     "depletion-versions-densities": (
         ["examples/depletion/compare-depletion-versions.json"],
         depletion_versions_densities,
+    ),
+    "all-nuclides-versions-k": (
+        [
+            f"examples/depletion/issue-0292/versions-{f}.json"
+            for f in ("u", "mox", "gd")
+        ],
+        partial(all_nuclides_versions_k, fuels=("U", "MOX", "Gd")),
+    ),
+    "all-nuclides-versions-split": (
+        [
+            f"examples/depletion/issue-0292/versions-{f}.json"
+            for f in ("u", "mox", "gd")
+        ],
+        partial(all_nuclides_versions_split, fuels=("U", "MOX", "Gd")),
     ),
     "depletion-1c-k": (
         [

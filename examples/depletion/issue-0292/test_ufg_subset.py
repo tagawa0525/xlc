@@ -4,6 +4,7 @@
 """
 
 import json
+import shutil
 import sys
 import tempfile
 import unittest
@@ -343,6 +344,108 @@ class AllSeries(unittest.TestCase):
                 ufg_subset.burnt_transported(root, ufg_subset.SERIES["all"], "u"),
                 ["U-235", "A"],
             )
+
+
+class VersionSeries(unittest.TestCase):
+    """版ごとの全核種の系列（all_nuclides.py の `VERSIONS`）: 基準の組 `all` と、その版の順位で選んだ ADR-0270 の組を、版のライブラリ、
+    履歴、チェーンで解く"""
+
+    def test_each_other_version_has_a_series_of_its_places(self):
+        for key in ("endfb70", "endfb71", "endfb81"):
+            with self.subTest(key):
+                config = ufg_subset.SERIES[f"all-{key}"]
+                self.assertEqual(config["directory"], f"all-ufg-{key}")
+                self.assertEqual(config["library_input"], f"all-{key}/library/xs.toml")
+                self.assertEqual(config["added"], f"all-{key}/added-to-p2.txt")
+
+    def write_rankings(self, root, key, values):
+        """版の置き場の全核種の組成の自己遮蔽の目安（燃料ごとに同じ値）"""
+        place = root / f"all-{key}"
+        place.mkdir(parents=True, exist_ok=True)
+        for fuel in ufg_subset.FUELS:
+            (place / f"dilution-all-{fuel}.json").write_text(
+                json.dumps(
+                    {"nuclides": [{"nuclide": n, "max_pcm": v} for n, v in values]}
+                )
+            )
+
+    def test_a_version_series_solves_all_and_the_set_chosen_by_its_own_ranking(self):
+        # ADR-0270 の閾値の組を、VIII.0 の順位でなく、その版の全核種の組成の目安で選ぶ
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_rankings(root, "endfb70", [("A", 0.5), ("B", 0.05)])
+            # VIII.0 の順位（all/）は読まない
+            (root / "all").mkdir()
+            self.assertEqual(
+                ufg_subset.sets("all-endfb70", root), {"all": None, "a0.1": ["A"]}
+            )
+
+    def test_a_version_series_solves_only_all_before_its_ranking(self):
+        # 目安は `all` を解いたテーブルから出すので、その前の入力は `all` だけ
+        self.assertEqual(
+            ufg_subset.sets("all-endfb70", Path("unused"), ("t",)), {"all": None}
+        )
+        self.assertEqual(ufg_subset.set_sources("all-endfb70", Path("r"), ("t",)), [])
+
+    def test_a_version_series_names_its_own_rankings_as_sources(self):
+        root = Path("r")
+        self.assertEqual(
+            ufg_subset.set_sources("all-endfb81", root),
+            [root / "all-endfb81" / f"dilution-all-{f}.json" for f in ufg_subset.FUELS],
+        )
+
+    def test_a_version_series_is_compared_without_timed_logs(self):
+        # 版の系列は区分 decision のジョブで解き、時間を測らない（out-timed/ が無い）
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "issue-0292"
+            self.write_rankings(root, "endfb70", [("A", 0.5)])
+            place = root / "all-endfb70"
+            (place / "library").mkdir()
+            (place / "u").mkdir()
+            (place / "added-to-p2.txt").write_text("A\n")
+            (place / "library" / "xs.toml").write_text(
+                "[nuclide]\n"
+                'U-235 = { endf = "u", temperatures = [565] }\n'
+                'A = { endf = "a", temperatures = [565] }\n'
+            )
+            (place / "u" / "nominal.toml").write_text(
+                '[material.fuel]\ntemperature = 565\n[depletion]\nmaterials = ["fuel"]\n'
+            )
+            (place / "u" / "nominal.msgpack").write_bytes(
+                msgpack.packb({"transportable": ["U-235", "A"]})
+            )
+            fuel_dir = root / "all-ufg-endfb70" / "u"
+            (fuel_dir / "out").mkdir(parents=True)
+            (fuel_dir / "out-timed").mkdir()
+            write_case(fuel_dir, "all", [1.2, 1.1], ["4s", "8s"])
+            write_case(fuel_dir, "a0.1", [1.2, 1.0], ["2s", "4s"], ["U-235", "A"])
+            shutil.rmtree(fuel_dir / "out-timed")
+            d = ufg_subset.compare("u", root, "all-endfb70")
+            self.assertEqual([c["case"] for c in d["cases"]], ["all", "a0.1"])
+            for c in d["cases"]:
+                self.assertIsNone(c["seconds"])
+                self.assertIsNone(c["ratio"])
+            self.assertAlmostEqual(d["cases"][1]["pcm"][1], 1e5 * (1 / 1.1 - 1 / 1.0))
+            self.assertEqual(d["cases"][1]["ufg_added"], 1)
+            self.assertNotIn("library_change_pcm", d)
+            paths = [i["path"] for i in d["inputs"]]
+            self.assertIn("issue-0292/all-endfb70/dilution-all-u.json", paths)
+            self.assertIn("issue-0292/all-ufg-endfb70/u/out/a0.1.msgpack", paths)
+
+    def test_a_version_input_reads_the_library_history_and_chain_of_its_version(self):
+        text = ufg_subset.case_input(
+            "gd", "all", None, 0, ufg_subset.SERIES["all-endfb70"]
+        )
+        self.assertIn('library = "../../all-endfb70/library/depletion.msgpack"', text)
+        self.assertIn('file = "../../all-endfb70/gd/nominal.msgpack"', text)
+        self.assertIn('chain = "../../../endfb70/chain.msgpack"', text)
+        self.assertNotIn('chain = "../../../chain.msgpack"', text)
+        self.assertNotIn("ufg-nuclides", text)
+        self.assertIn("ENDF/B-VII.0", text.splitlines()[0])
+
+    def test_the_viii0_series_keeps_the_production_chain(self):
+        text = ufg_subset.case_input("u", "all", None, 0, ufg_subset.SERIES["all"])
+        self.assertIn('chain = "../../../chain.msgpack"', text)
 
 
 class CheckFuel(unittest.TestCase):
