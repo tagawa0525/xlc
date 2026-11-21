@@ -13,6 +13,10 @@
 同じ核種だけを輸送する対照のライブラリ（all/control。範囲と xs のビルドは全核種のライブラリと同じ）で、試行の履歴の組成を
 すべて UFG で解き、上の試行の系列の `all` との差（ライブラリの範囲と xs の版の分）を出す。
 
+版ごとの全核種の系列（`--series all-<版>`。all_nuclides.py の `VERSIONS` のうち VIII.0 でない版）は、その版のライブラリ、チェーン、
+履歴で `all` と、その版の全核種の組成の目安（<版の置き場>/dilution-all-<燃料>.json）で選んだ `a0.1` を解き、時間は測らない。順位は
+`a` だけで、`all` を解く前の入力は `--rankings t` で書く（`all` だけになる）。
+
 - `python3 ufg_subset.py [--series all] inputs [--rankings t]` は <置き場>/<燃料>/<組>.toml を書く（置き場は `SERIES`、出力は
   <置き場>/<燃料>/out/<組>.msgpack）。`a` の組の目安は `all` を解いたテーブルから出すので、初めは `--rankings t` で書き、目安を出してから
   すべての順位で書き直す
@@ -88,8 +92,9 @@ SERIES = {
         "library_input": "all/library/xs.toml",
     },
 }
-# 版ごとの全核種の系列（all_nuclides.py の `VERSIONS`。VIII.0 は上の `all`）: 基準の組 `all` だけを解く（自己遮蔽の目安の順位を
-# 版ごとに付けるテーブルと、版の差を核種に分けるテーブル。ADR-0270 の組の計算は、順位が VIII.0 と違った版だけで足す）
+# 版ごとの全核種の系列（all_nuclides.py の `VERSIONS`。VIII.0 は上の `all`）: 基準の組 `all`（自己遮蔽の目安の順位を版ごとに付ける
+# テーブルと、版の差を核種に分けるテーブル）と、その版の全核種の組成の目安（<版の置き場>/dilution-all-<燃料>.json）で選んだ
+# ADR-0270 の組（`VERSION_SETS_PCM`）を解く。区分 decision のジョブで解き、時間は測らない
 for _key, _version in VERSIONS.items():
     if _version["trial_version"]:
         continue
@@ -99,11 +104,15 @@ for _key, _version in VERSIONS.items():
         "history": f"../../{_version['directory']}/{{fuel}}/nominal.msgpack",
         "added": f"{_version['directory']}/added-to-p2.txt",
         "label": f"{_version['label']} の全核種の ",
-        "sets": "base",
+        "sets": "version",
+        "rankings": _version["directory"],
+        "timed": False,
         "library_input": f"{_version['directory']}/library/xs.toml",
         # 履歴の核種の並びは版のチェーンのもの
         "chain": f"../../../{_version['chain'].relative_to(HERE.parent)}",
     }
+# 版の系列の組の閾値 (pcm)。ADR-0270 の閾値（3 つの燃料の全核種の組成の目安の 0.1 pcm）
+VERSION_SETS_PCM = (0.1,)
 CONTROL_LIBRARY = "../../all/control/depletion.msgpack"
 
 
@@ -212,21 +221,27 @@ def threshold_sets(
 RANKINGS = {"t": "dilution-{fuel}.json", "a": "dilution-all-{fuel}.json"}
 
 
-def ranking_files(root: Path, rankings) -> dict[str, list[Path]]:
-    """順位の頭 → 燃料の順の自己遮蔽の目安の JSON"""
+def ranking_files(root: Path, rankings, place: str = "all") -> dict[str, list[Path]]:
+    """順位の頭 → 燃料の順の自己遮蔽の目安の JSON（`place` は目安の置き場）"""
     unknown = [r for r in rankings if r not in RANKINGS]
     if unknown:
         raise SystemExit(f"{unknown} are not rankings ({list(RANKINGS)})")
     return {
-        r: [root / "all" / RANKINGS[r].format(fuel=fuel) for fuel in FUELS]
+        r: [root / place / RANKINGS[r].format(fuel=fuel) for fuel in FUELS]
         for r in rankings
     }
 
 
 def set_sources(series: str, root: Path, rankings=tuple(RANKINGS)) -> list[Path]:
     """系列の組を決めるファイル（自己遮蔽の目安の JSON。順位ごとに燃料の順）"""
-    if SERIES[series]["sets"] in ("fixed", "base"):
+    config = SERIES[series]
+    if config["sets"] == "fixed":
         return []
+    if config["sets"] == "version":
+        # 版の系列の組は全核種の組成の目安（`a`）だけから
+        if "a" not in rankings:
+            return []
+        return ranking_files(root, ("a",), config["rankings"])["a"]
     return [p for paths in ranking_files(root, rankings).values() for p in paths]
 
 
@@ -235,8 +250,11 @@ def sets(series: str, root: Path, rankings=tuple(RANKINGS)) -> dict:
     `all` を解いた後に出すので、その前の入力は `t` だけで書く）"""
     if SERIES[series]["sets"] == "fixed":
         return SETS
-    if SERIES[series]["sets"] == "base":
-        return {"all": None}
+    if SERIES[series]["sets"] == "version":
+        if "a" not in rankings:
+            return {"all": None}
+        summaries = [json.loads(p.read_text()) for p in set_sources(series, root)]
+        return {"all": None, **threshold_sets(summaries, VERSION_SETS_PCM, "a")}
     out = {"all": None, "none": [], "s17": SHIELDED_17}
     for prefix, paths in ranking_files(root, rankings).items():
         summaries = [json.loads(p.read_text()) for p in paths]
@@ -371,7 +389,7 @@ def compare(
         k = k_by_burnup(read(table_path))
         input_path = directory / f"{case}.toml"
         paths = [input_path, table_path]
-        if check or case in untimed:
+        if check or case in untimed or not config.get("timed", True):
             seconds = None
         else:
             seconds = shielding_seconds(log_path.read_text())

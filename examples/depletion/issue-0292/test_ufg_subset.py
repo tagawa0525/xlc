@@ -380,6 +380,13 @@ class VersionSeries(unittest.TestCase):
                 ufg_subset.sets("all-endfb70", root), {"all": None, "a0.1": ["A"]}
             )
 
+    def test_a_version_series_solves_only_all_before_its_ranking(self):
+        # 目安は `all` を解いたテーブルから出すので、その前の入力は `all` だけ
+        self.assertEqual(
+            ufg_subset.sets("all-endfb70", Path("unused"), ("t",)), {"all": None}
+        )
+        self.assertEqual(ufg_subset.set_sources("all-endfb70", Path("r"), ("t",)), [])
+
     def test_a_version_series_names_its_own_rankings_as_sources(self):
         root = Path("r")
         self.assertEqual(
