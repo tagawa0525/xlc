@@ -5,7 +5,7 @@ date: 2026-11-22
 requires: [ADR-0003, ADR-0158, ADR-0232, ADR-0247]
 supersedes: []
 superseded-by:
-issues: ["#0241"]
+issues: ["#0241", "#0328"]
 ---
 
 # ADR-0275: lattice の CMFD の粗メッシュの固有値問題（2 次元の格子）を xlc-cmfd の Coarse で解き、反復と変化の見積もりを core と共通にし、対角のブロックの解き方は呼ぶ側が選ぶ
@@ -120,7 +120,7 @@ lattice の CMFD の粗メッシュの固有値問題は、2 次元の格子（�
   0.86 秒、0.90 秒から 0.86 秒、4.70 秒から 4.34 秒、18.24 秒から 18.38 秒（3A の逆反復のコードは変えていない）
 - 一般化随伴: examples/depletion/issue-0279/lattice-3x3-few-group.toml を核種 3 つにし、`direct` と `shielded` を除いた入力（3 × 3 の格子、
   [sensitivity.few-group]）で、感度の 60 個の値の相対差の最大は、前と後（143b3bf3f と 2096445e1 のどちらも）で 8.0×10⁻¹⁴〜8.2×10⁻¹⁴（許容 1e-10）。
-  同じビルドを続けて 2 回流しても値は揺れ、前の 2 回の間で 1.3×10⁻¹⁴（揺れの原因は確かめていない。候補は並列の和の順）
+  同じビルドを続けて 2 回流しても値は揺れ、前の 2 回の間で 1.3×10⁻¹⁴（揺れの原因は確かめていない。候補は並列の和の順。#0328）
 - core: 全炉心の BOC の固有値計算の標準出力と、反復ごとの k と変化のログの行は、前と後で同じ。1 スレッドの時間は前 10.09、10.08 秒、後 10.10、
   10.25 秒。Problem 9 の形の燃焼の時間の内訳の入力（examples/depletion/p9-timing/core-p9.toml のコピー、32 スレッド）は、燃焼の履歴（msgpack）と
   標準出力がバイトで同じで、時間は前 65.0 秒、後 65.1 秒。案 B1 の形（143b3bf3f）では、BOC が 10.2 秒から 13.2 秒、燃焼が 65.2 秒から 70.6 秒で、
@@ -129,7 +129,8 @@ lattice の CMFD の粗メッシュの固有値問題は、2 次元の格子（�
   `assemble` の形のブロック V (diag(Σt − Σgg) − 群の間の散乱) を、径方向 21.5、10.75、5.375 cm（`radial-nodes` が 1、2、4）、高さ 4、8、50 cm の
   ノードで作り、内側の面の項（D̂ = 0 の有限差分の 2D/h）を足した形と足さない形（鏡面反射の外周に当たる）で、2 ノルムの条件数の最大は 9.0
   （上部の水の反射体、5.375 cm 角、高さ 4 cm。足さない形は 4.6）（コミット 66f7d6036 の trials/0241/core_blocks.py）。面の項は高速群の対角を
-  多く増やすので、細かいノードほど条件数が上がるが、項が大きいほど対角は D の比に近づく。core の例の入力の群の境界は、2 群（[1e7, 0.625, 1e-5]）だけ
+  多く増やすので、細かいノードほど条件数が上がるが、項が大きいほど対角は D の比に近づく。core の例の入力の群の境界は、2 群（[1e7, 0.625, 1e-5]）だけ。
+  core の実行の中で組み立てたブロック（D̂ を含む）の条件数は測っていない
 - テスト: `cmfd::tests::a_coarse_solution_negative_in_every_cell_is_an_error`、`cmfd::tests::representatives_count_their_orbits_in_the_production`
   （lattice）、`tests::weights_count_each_cell_as_many_times_as_it_stands_for`、`tests::unit_weights_leave_the_solution_bit_for_bit`、
   `tests::weights_must_be_positive_and_one_per_cell`、`tests::a_sweep_solves_each_block_by_the_lu_substitution`、
