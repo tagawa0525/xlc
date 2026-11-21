@@ -142,6 +142,29 @@ class Split(unittest.TestCase):
                 ),
             )
 
+    def test_the_remainder_is_the_absorption_outside_the_terms_and_the_balance(self):
+        # 残り = 格子の吸収 / 生成のうち燃料の核種の項の外の差 + 1/k と格子の吸収 / 生成の差。テーブルの状態は
+        # 吸収 / 生成 = 1 / 2 で、k はそれと別の値なので、2 つ目が 0 にならない
+        s = compare_versions.summarize(versions(), "B")
+        for p in s["versions"]["A"]["split"]:
+            terms = sum(v["pcm"] for v in p["nuclides"].values())
+            # 2 つの版で吸収 / 生成が同じなので、項の外の差は項の和の符号を変えたもの
+            self.assertAlmostEqual(p["outside_pcm"], -terms)
+            self.assertAlmostEqual(p["balance_pcm"], p["direct_pcm"])
+            self.assertAlmostEqual(
+                p["remainder_pcm"], p["outside_pcm"] + p["balance_pcm"]
+            )
+
+    def test_the_report_gives_the_parts_of_the_remainder(self):
+        s = compare_versions.summarize(versions(), "B")
+        s["inputs"] = []
+        line = next(
+            x for x in compare_versions.report(s) if x.startswith("A − B の 60 MWd/kg")
+        )
+        p = s["versions"]["A"]["split"][3]
+        self.assertIn(f"項の外の吸収 {p['outside_pcm']:+.1f}", line)
+        self.assertIn(f"1/k と吸収 / 生成の差 {p['balance_pcm']:+.1f}", line)
+
     def test_the_burnup_zero_point_is_split_too(self):
         # 燃焼度 0 の組成は同じで、版の差は断面積の差だけ
         s = compare_versions.summarize(versions(), "B")
