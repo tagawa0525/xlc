@@ -1183,6 +1183,7 @@ dependencies = [
  "toml",
  "tracing",
  "tracing-subscriber",
+ "xlc-cmfd",
  "xlc-depletion",
  "xlc-format",
  "xlc-log",

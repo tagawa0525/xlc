@@ -7,10 +7,10 @@
 
 use crate::krylov::Krylov;
 use crate::material::Material;
-use crate::moc::Remaining;
 use crate::symmetry::Orbits;
 use crate::tracking::Tracking;
 use rayon::prelude::*;
+use xlc_cmfd::Remaining;
 use xlc_numeric::lu::Lu;
 
 /// 格子のセルを粗メッシュとし、トラックが外周で通る面を前もって求めたもの。

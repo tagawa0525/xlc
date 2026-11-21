@@ -1023,21 +1023,6 @@ fn relative_change_handles_zero_flux() {
 }
 
 #[test]
-fn remaining_error_estimate() {
-    let mut r = Remaining::default();
-    assert_eq!(r.update(1.0), f64::INFINITY);
-    // 縮小率 0.5 なら、残りは最新の変化と同じだけ
-    assert!((r.update(0.5) - 1.0).abs() < 1e-15);
-    // 変化が 0 になれば収束
-    let mut r = Remaining::default();
-    r.update(1.0e-16);
-    assert_eq!(r.update(0.0), 0.0);
-    let mut r = Remaining::default();
-    r.update(0.0);
-    assert_eq!(r.update(0.0), 0.0);
-}
-
-#[test]
 fn material_errors_keep_the_cause_in_the_chain_only() {
     let cell = PinCell::new(1.26, vec![0.4]).unwrap();
     let tracking = Tracking::new(&Lattice::pin_cell(cell.clone()), 8, 0.1).unwrap();

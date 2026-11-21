@@ -15,12 +15,13 @@ use std::f64::consts::PI;
 use rayon::prelude::*;
 
 use super::{
-    CoarseMesh, Detected, Material, MocError, Options, Remaining, Representatives, Start, Sweeper,
-    Symmetry, equilibrium_moments, planar_moments, sum_tallies, transposed,
+    CoarseMesh, Detected, Material, MocError, Options, Representatives, Start, Sweeper, Symmetry,
+    equilibrium_moments, planar_moments, sum_tallies, transposed,
 };
 use crate::cmfd::{CmfdOptions, Coarse, group_change};
 use crate::krylov::Krylov;
 use crate::tracking::Tracking;
+use xlc_cmfd::Remaining;
 
 /// ⟨S, φ⟩ を ⟨|S|, φ⟩ と比べる相対の許容値。応答の源 h₁/⟨h₁, φ⟩ − h₂/⟨h₂, φ⟩ を解いた φ から作れば、残るのは足す順の丸め
 /// だけなので、それより十分大きく、反復の判定（既定の中性子束 1e-6）より十分小さい値にする
