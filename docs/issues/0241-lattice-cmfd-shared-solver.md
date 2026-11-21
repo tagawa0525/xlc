@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [lattice, core, maintenance]
 opened: 2026-11-06
-closed:
+closed: 2026-11-22
 milestone:
 blocked-by: []
-resolution:
+resolution: ADR-0275
 ---
 
 # lattice の CMFD の粗メッシュの固有値問題を xlc-cmfd に移す
@@ -31,9 +31,11 @@ deps にするステージ（15 の dvc.yaml の dvc.lock に約 380 行。う�
 
 ## 完了の条件
 
-lattice の実行ファイルが変わる作業（lattice のコードの変更）と同じブランチで、lattice の粗メッシュの固有値問題を `xlc-cmfd` に移し、lattice の
-CMFD のテストと VERA の格子計算の例の結果が許容の中で変わらないことを確かめる。
+- [x] lattice の実行ファイルが変わる作業（lattice のコードの変更）と同じブランチで、lattice の粗メッシュの固有値問題を `xlc-cmfd` に移し、
+  lattice の CMFD のテストと VERA の格子計算の例の結果が許容の中で変わらないことを確かめる
 
 ## 経緯
 
 - 2026-11-06: ADR-0232 の案 S3 で、core だけが `xlc-cmfd` を使う形にした
+- 2026-11-22: 2 次元の格子の粗メッシュの固有値問題を `xlc_cmfd::Coarse` に移し、4 点と core の NEM の `Remaining` を ADR-0275 の形にまとめて
+  閉じた。VERA の 2A、2G、2B-vacuum と 3A の軸方向の平板の lattice の出力は前とビットで同じ（ADR-0275 の確認）
