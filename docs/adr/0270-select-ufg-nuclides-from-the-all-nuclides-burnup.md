@@ -60,7 +60,8 @@ feat/0292-all-nuclides-rebuild の fd2b07e9 と f947b015。7 つの評価を外�
 
 案 A にする。本番の入力の `ufg-nuclides` は、輸送する核種から、次の規則で選んだ核種のほかの足した核種を除いたものにする:
 
-- 組成: データのある全核種を輸送するライブラリで燃焼させた U、MOX、Gd のセルの履歴（examples/depletion/issue-0292/all/<燃料>/nominal.msgpack）
+- 組成: 本番の核データの版で、データのある全核種を輸送するライブラリで燃焼させた U、MOX、Gd のセルの履歴（試行は VIII.0 が
+  examples/depletion/issue-0292/all/<燃料>/nominal.msgpack、ほかの版が issue-0292/all-<版>/<燃料>/nominal.msgpack）
 - 目安: 燃焼度 10、30、60 MWd/kg の基準条件の状態での自己遮蔽の目安（全核種の組成の吸収の割合は examples/depletion/issue-0292/added_effect.py、
   目安は dilution_shielding.py。輸送する核種の σ0 の背景からは自分の項を除く）。燃焼度を通じた最大の絶対値
 - 閾値: どれかの燃料で 0.1 pcm を超える核種（examples/depletion/issue-0292/ufg_subset.py の `a0.1`）
@@ -77,7 +78,9 @@ feat/0292-all-nuclides-rebuild の fd2b07e9 と f947b015。7 つの評価を外�
 
 - 既定は変わらない（`ufg-nuclides` を省くと全核種を UFG で解く。ADR-0268）。この組は本番の入力に書く近似で、厳密な経路は入力を省けば通る
 - proposed のまま。決めるのに足りない測定は温度だけ: 565 K の 1 点だけで測った。本番の 13 温度の全核種のライブラリ（#0292 の完了の条件）で、燃料の
-  温度のブランチを含めて差を測る。決定を実装するのは試行の入力とツール（ufg_subset.py）だけで、本番の入力の `ufg-nuclides` はまだ無い
+  温度のブランチを含めて差を測る。そのライブラリの版は本番の版（[ADR-0264](0264-use-endf-b-vii-0-for-production.md)、proposed）で、組はその版の燃焼で
+  作る（下の項）。版を変えても規則が同じ桁の差の組を選ぶことは、565 K の 4 つの版で確かめた（下の確認）。決定を実装するのは試行の入力とツール
+  （ufg_subset.py、版の組の比較は compare_versions.py）だけで、本番の入力の `ufg-nuclides` はまだ無い
 - 前に足りなかった 2 つは測った（上の記録の節。2026-11-21）:
   - `a` の組の自己遮蔽の時間（区分 timed の排他のジョブ）: `all` に対する比は `a0.1` 0.77〜0.83、`a1` と `a0.3` 0.72〜0.77（燃焼度 10〜60 MWd/kg）。
     `a0.1` の利得は 2 割程度で、核種を絞る利得の上限（`none` の 0.70〜0.74）の大半を残す
@@ -86,12 +89,27 @@ feat/0292-all-nuclides-rebuild の fd2b07e9 と f947b015。7 つの評価を外�
     別の濃縮度では測っていない
 - 閾値の粗い組の符号の変わる差（上の案 C）と、燃焼度 0 の +0.1〜0.2 pcm の原因は確かめていない（候補は上の記録）。`none` が 10 と 30 MWd/kg の間で
   約 −75 pcm に離れる分は Xe-131、Pm-147、Pd-108、Rh-105 の中にあり、どの核種かは分けていない
-- 全核種の燃焼で順位を付けるので、本番の全核種のライブラリを作るたびに、燃焼させてから組を作り直す。He-4、H-3、Be-7 は捕獲も核分裂も無く、
-  目安の順位の外（UFG で解かない）
+- 全核種の燃焼で順位を付けるので、組はライブラリと核データの版で変わる。本番の全核種のライブラリを作るたびに（本番の版を変えたときを含む）、
+  そのライブラリで燃焼させ、その組成で順位を付け直して組を作る。版ごとの組は、VIII.0 の 47 核種に対して VII.0 が U-237 の入らない 46、VII.1 が
+  同じ 47、VIII.1 が Ho-165 の加わる 48（下の確認）。VIII.0 の 47 核種の組をほかの版にそのまま使ったときの差は測っていない（VII.0 では目安
+  0.025 pcm の U-237 を余分に解き、VIII.1 では目安 0.105 pcm の Ho-165 が外れる）。He-4、H-3、Be-7 は捕獲も核分裂も無く、目安の順位の外
+  （UFG で解かない）
 
 ### 確認
 
 測定は上の記録の節（2026-11-21。組の差と時間は Slurm 1014 と 1015 の区分 timed、`gd10` は Slurm 1016 の区分 decision）。`a0.1` の差: U +0.1、+1.2、+1.4、+1.5、
-MOX +0.1、+0.6、+0.6、+0.7、Gd +0.1、+1.1、+1.3、+1.8、`gd10` +0.1、+1.2、+1.2、+2.1 pcm（燃焼度 0、10、30、60 MWd/kg）。組を作るツールのテスト:
-examples/depletion/issue-0292/test_ufg_subset.py（`test_the_sets_of_another_ranking_take_its_prefix`、確認のセルは `CheckFuel`）、test_inputs.py（`CheckCell`）、
-test_added_effect.py、test_dilution_shielding.py（`Background`）。
+MOX +0.1、+0.6、+0.6、+0.7、Gd +0.1、+1.1、+1.3、+1.8、`gd10` +0.1、+1.2、+1.2、+2.1 pcm（燃焼度 0、10、30、60 MWd/kg）。
+
+核データの版ごとの組と差は examples/depletion/verification.md の「核データの 4 つの版の、全核種を輸送した燃焼の差（試行）」（565 K。燃焼は Slurm 1021〜1029、
+版ごとの組の差は Slurm 1030 で、どれも区分 decision。組の比較は 94c159c93 で 2026-11-21。値は examples/depletion/issue-0292/all-<版>/ufg-<燃料>.json）。その版の
+全核種の組成で選んだ `a0.1` は VII.0 46、VII.1 47、VIII.1 48 核種で、全部を UFG で解く `all` との差は（燃焼度 0、10、30、60 MWd/kg）:
+
+- VII.0: U +0.1、+1.2、+1.3、+1.4、MOX +0.1、+0.5、+0.5、+0.6、Gd +0.1、+1.1、+1.2、+1.6 pcm
+- VII.1: U +0.1、+1.1、+1.2、+1.1、MOX +0.1、+0.5、+0.4、+0.4、Gd +0.1、+1.0、+1.0、+1.4 pcm
+- VIII.1: U +0.1、+1.0、+0.7、+0.4、MOX +0.1、+0.6、+0.4、+0.2、Gd +0.2、+0.9、+0.6、+0.4 pcm
+
+最大は VII.0 の Gd の 60 MWd/kg の +1.6 pcm で、VIII.0 の 1.8 pcm 以下と同じ桁。
+
+組を作るツールのテスト: examples/depletion/issue-0292/test_ufg_subset.py（`test_the_sets_of_another_ranking_take_its_prefix`、確認のセルは `CheckFuel`、
+版ごとの組は `VersionSeries`）、test_compare_versions.py（版の組の比べ方は `Sets`）、test_inputs.py（`CheckCell`）、test_added_effect.py、
+test_dilution_shielding.py（`Background`）。
