@@ -62,9 +62,9 @@ feat/0292-all-nuclides-rebuild の fd2b07e9 と f947b015。7 つの評価を外�
 
 - 組成: 本番の核データの版で、データのある全核種を輸送するライブラリで燃焼させた U、MOX、Gd のセルの履歴（試行は VIII.0 が
   examples/depletion/issue-0292/all/<燃料>/nominal.msgpack、ほかの版が issue-0292/all-<版>/<燃料>/nominal.msgpack）
-- 目安: 燃焼度 10、30、60 MWd/kg の基準条件の状態での自己遮蔽の目安（全核種の組成の吸収の割合は examples/depletion/issue-0292/added_effect.py、
-  目安は dilution_shielding.py。輸送する核種の σ0 の背景からは自分の項を除く）。燃焼度を通じた最大の絶対値
-- 閾値: どれかの燃料で 0.1 pcm を超える核種（examples/depletion/issue-0292/ufg_subset.py の `a0.1`）
+- 目安: 燃焼度 10、30、60 MWd/kg の基準条件の状態での自己遮蔽の目安（全核種の組成の吸収の割合は、試行の VIII.0 が examples/depletion/issue-0292/added_effect.py、
+  ほかの版が compare_versions.py shares。目安は dilution_shielding.py。輸送する核種の σ0 の背景からは自分の項を除く）。燃焼度を通じた最大の絶対値
+- 閾値: どれかの燃料で 0.1 pcm を超える核種（examples/depletion/issue-0292/ufg_subset.py の `a0.1`。VIII.0 のほかの版は `--series all-<版>`）
 - 足していない核種（p2 の 89 核種）と、被覆管と減速材の核種は、どれも UFG で解く（ADR-0268 の規則で挙げる）
 
 理由:
@@ -79,7 +79,8 @@ feat/0292-all-nuclides-rebuild の fd2b07e9 と f947b015。7 つの評価を外�
 - 既定は変わらない（`ufg-nuclides` を省くと全核種を UFG で解く。ADR-0268）。この組は本番の入力に書く近似で、厳密な経路は入力を省けば通る
 - proposed のまま。決めるのに足りない測定は温度だけ: 565 K の 1 点だけで測った。本番の 13 温度の全核種のライブラリ（#0292 の完了の条件）で、燃料の
   温度のブランチを含めて差を測る。そのライブラリの版は本番の版（[ADR-0264](0264-use-endf-b-vii-0-for-production.md)、proposed）で、組はその版の燃焼で
-  作る（下の項）。版を変えても規則が同じ桁の差の組を選ぶことは、565 K の 4 つの版で確かめた（下の確認）。決定を実装するのは試行の入力とツール
+  作る（下の項）。版を変えても規則が同じ桁の差の組を選ぶことは、565 K の 4 つの版の、順位を付けた 3 つのセルの
+  `a0.1` と `all` の差で確かめた（下の確認）。順位に入れない別の履歴（`gd10`）と組の外に残る目安の和は VIII.0 だけで見た。決定を実装するのは試行の入力とツール
   （ufg_subset.py、版の組の比較は compare_versions.py）だけで、本番の入力の `ufg-nuclides` はまだ無い
 - 前に足りなかった 2 つは測った（上の記録の節。2026-11-21）:
   - `a` の組の自己遮蔽の時間（区分 timed の排他のジョブ）: `all` に対する比は `a0.1` 0.77〜0.83、`a1` と `a0.3` 0.72〜0.77（燃焼度 10〜60 MWd/kg）。
