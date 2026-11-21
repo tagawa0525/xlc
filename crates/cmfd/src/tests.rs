@@ -703,3 +703,52 @@ fn an_inverse_block_solve_multiplies_by_the_inverse_from_the_lu_factors() {
     coarse.sweep(&mut x, Some(&source), inverse_k);
     assert_eq!(x, expected);
 }
+
+#[test]
+fn inverse_blocks_follow_the_row_swaps_and_the_colors() {
+    // 行の入れ替えのある（対角より大きい成分が下にある）ブロックでも、逆行列の形の解は LU の解と丸めの桁で一致する。色ごとに解く形も、
+    // 与えたセルの順に返す
+    let ng = 2;
+    let matrices = vec![vec![0.02, 0.5, 1.0, 0.3], vec![0.1, -0.03, 0.7, 0.2]];
+    let flux = vec![1.0, 0.5, 0.8, 0.4];
+    let fission = vec![spectrum(0.005, 0.12, 1.0), spectrum(0.004, 0.1, 1.0)];
+    let neighbors = vec![vec![(1, vec![-0.01, -0.02])], vec![(0, vec![-0.01, -0.02])]];
+    let source = vec![0.3, 0.1, 0.2, 0.05];
+    let sweep = |solve: BlockSolve, colored: bool| {
+        let coarse = if colored {
+            Coarse::colored(
+                solve,
+                ng,
+                vec![0, 1],
+                flux.clone(),
+                fission.clone(),
+                matrices.clone(),
+                neighbors.clone(),
+                &[1, 0],
+            )
+        } else {
+            Coarse::new(
+                solve,
+                ng,
+                vec![0, 1],
+                flux.clone(),
+                fission.clone(),
+                matrices.clone(),
+                neighbors.clone(),
+            )
+        }
+        .unwrap();
+        let mut x = flux.clone();
+        coarse.sweep(&mut x, Some(&source), 1.0);
+        x
+    };
+    for colored in [false, true] {
+        let lu = sweep(BlockSolve::Lu, colored);
+        let inverse = sweep(BlockSolve::Inverse, colored);
+        for (a, b) in inverse.iter().zip(&lu) {
+            assert!((a - b).abs() < 1e-13 * b.abs(), "{colored}: {a} vs {b}");
+        }
+    }
+    // 色ごとに解く形は、色 0 のセル 1 を先に解く
+    assert_ne!(sweep(BlockSolve::Lu, true), sweep(BlockSolve::Lu, false));
+}
