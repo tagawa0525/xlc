@@ -18,7 +18,9 @@
   項の外の吸収 = 1e5 Δ(A / P) − 項の和（A は 2 群の格子の吸収 Σ Σₐ,g φ̄_g。被覆管と減速材の吸収と、燃料の核種の項の近似（ピンの平均の
   数密度 × 冷却計算の 1 群の断面積 × 格子の中性子束）と格子の吸収の食い違いを含む）と、1/k と吸収 / 生成の差 = 直接 − 1e5 Δ(A / P)
   （2 群の無限格子では k = P / A なので、0 から離れればテーブルの吸収が中性子の収支と合わない）。項は生成 P の違い（ν と核分裂の
-  断面積）を核種ごとの吸収の比に配るので、核分裂する核種の生成の差は、その核種の項でなく全核種の項に分かれて入る
+  断面積）を核種ごとの吸収の比に配るので、核分裂する核種の生成の差は、その核種の項でなく全核種の項に分かれて入る。片方の版の
+  テーブルにしか無い核種（その版のチェーンか評価に無い核種）の項の和は、評価の有無の分の 1 次の目安（捕獲の先の核種の数密度の変化は、
+  両方にある核種の項に入る）
 - `shares`: 版の履歴とテーブルから、一覧の核種の格子の吸収に占める割合を、吸収の割合の JSON の形で書く（dilution_shielding.py が
   版ごとに自己遮蔽の目安の順位を付けるため。added_effect.py の `--shares` と同じ量）
 - `sets`: 閾値を超える核種の組（ufg_subset.py の `threshold_sets`。どれかの燃料で超える核種）を、基準の版と比べて標準出力に書く
@@ -149,6 +151,13 @@ def split(base: list[dict], version: list[dict]) -> list[dict]:
                 "remainder_pcm": direct - terms,
                 "outside_pcm": ratio - terms,
                 "balance_pcm": direct - ratio,
+                # 片方のテーブルにしか無い核種（その版のチェーンか評価に無い核種）の項の和
+                "only_version_pcm": sum(
+                    x["pcm"] for n, x in nuclides.items() if n not in b["terms"]
+                ),
+                "only_base_pcm": sum(
+                    x["pcm"] for n, x in nuclides.items() if n not in v["terms"]
+                ),
                 "nuclides": nuclides,
             }
         )
@@ -231,7 +240,8 @@ def report(summary: dict) -> list[str]:
             lines.append(
                 f"{v} − {base} の {p['burnup']:g} MWd/kg のテーブル: 直接 {p['direct_pcm']:+.1f}、"
                 f"残り {p['remainder_pcm']:+.1f}（項の外の吸収 {p['outside_pcm']:+.1f}、"
-                f"1/k と吸収 / 生成の差 {p['balance_pcm']:+.1f}）pcm; 項 {terms}"
+                f"1/k と吸収 / 生成の差 {p['balance_pcm']:+.1f}）、"
+                f"{v} だけの核種 {p['only_version_pcm']:+.1f}、{base} だけの核種 {p['only_base_pcm']:+.1f} pcm; 項 {terms}"
             )
     return lines
 
