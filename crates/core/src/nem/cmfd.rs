@@ -23,7 +23,7 @@
 //! 平均中性子束と展開係数の a3、a4 は r_n を掛け、a1、a2 は更新した面の中性子束とノードの平均から求め直す。
 
 use rayon::prelude::*;
-use xlc_cmfd::{Coarse, Spectrum, Tolerances};
+use xlc_cmfd::{BlockSolve, Coarse, Spectrum, Tolerances};
 
 use super::{CmfdError, CoarseRatios, Core, Face, MIN_NODES_PER_TASK, Options, Order, State};
 
@@ -208,10 +208,25 @@ impl Core<'_> {
         }
         let labels = (0..nodes).map(|n| self.site(n)).collect();
         let coarse = match order {
-            Order::Lexicographic => Coarse::new(ng, labels, flux, fission, matrices, neighbors)?,
-            Order::RedBlack => {
-                Coarse::colored(ng, labels, flux, fission, matrices, neighbors, &self.color)?
-            }
+            Order::Lexicographic => Coarse::new(
+                BlockSolve::Inverse,
+                ng,
+                labels,
+                flux,
+                fission,
+                matrices,
+                neighbors,
+            )?,
+            Order::RedBlack => Coarse::colored(
+                BlockSolve::Inverse,
+                ng,
+                labels,
+                flux,
+                fission,
+                matrices,
+                neighbors,
+                &self.color,
+            )?,
         };
         Ok((coarse, links))
     }

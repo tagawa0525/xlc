@@ -6,6 +6,7 @@ use std::sync::{Mutex, MutexGuard, PoisonError};
 
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
+use xlc_cmfd::Remaining;
 
 pub mod dancoff;
 pub mod fixed_source;
@@ -2029,7 +2030,7 @@ impl<'a> Sweeper<'a> {
                 if let Some(c) = busy {
                     tally.busy_seconds = c.elapsed().as_secs_f64();
                 }
-                Ok(())
+                Ok::<(), CmfdError>(())
             })?;
         if timed {
             xlc_log::trace!(
@@ -2376,35 +2377,6 @@ fn relative_change(new: f64, old: f64) -> f64 {
         0.0
     } else {
         (new - old).abs() / scale
-    }
-}
-
-/// 反復の変化量の列から、収束までに残る誤差を見積もる。
-///
-/// 変化が縮小率 ρ で等比的に減るとき、残りの誤差は 最新の変化 × ρ/(1-ρ)。
-#[derive(Debug, Default)]
-pub(crate) struct Remaining {
-    previous: Option<f64>,
-}
-
-impl Remaining {
-    /// 最新の変化量を受け取り、残りの誤差の見積もり（変化量そのもの以上）を返す。
-    pub(crate) fn update(&mut self, change: f64) -> f64 {
-        let estimate = match self.previous {
-            // 浮動小数点の不動点に達した
-            _ if change == 0.0 => 0.0,
-            Some(previous) if previous > 0.0 => {
-                let ratio = change / previous;
-                if ratio < 1.0 {
-                    change * (1.0 + ratio / (1.0 - ratio))
-                } else {
-                    f64::INFINITY
-                }
-            }
-            _ => f64::INFINITY,
-        };
-        self.previous = Some(change);
-        estimate
     }
 }
 

@@ -7,10 +7,10 @@
 
 use crate::krylov::Krylov;
 use crate::material::Material;
-use crate::moc::Remaining;
 use crate::symmetry::Orbits;
 use crate::tracking::Tracking;
 use rayon::prelude::*;
+use xlc_cmfd::{BlockSolve, CoarseError, Remaining, Spectrum, Tolerances};
 use xlc_numeric::lu::Lu;
 
 /// 格子のセルを粗メッシュとし、トラックが外周で通る面を前もって求めたもの。
@@ -410,6 +410,23 @@ pub enum CmfdError {
     NotFinite,
     #[error("the coarse-mesh eigenvalue problem did not converge in {0} iterations")]
     NotConverged(usize),
+    /// 2 次元の格子の粗メッシュの問題（`xlc_cmfd::Coarse`）のほかのエラー
+    #[error(transparent)]
+    Coarse(CoarseError),
+}
+
+impl From<CoarseError> for CmfdError {
+    /// 1 行か 1 列の格子の逆反復と同じ種類のエラーは、同じ値にする
+    fn from(error: CoarseError) -> Self {
+        match error {
+            CoarseError::NonPositiveSolution { cell, group, flux } => {
+                Self::NonPositiveSolution { cell, group, flux }
+            }
+            CoarseError::Singular(cell) => Self::Singular(cell),
+            CoarseError::NotConverged(iterations) => Self::NotConverged(iterations),
+            other => Self::Coarse(other),
+        }
+    }
 }
 
 /// 1 行か 1 列の格子の粗メッシュの逆反復のシフト k_s = k (1 + WIELANDT) の幅（ADR-0158）。収束の比は
@@ -417,30 +434,13 @@ pub enum CmfdError {
 /// k_s ≤ k₀ になり、シフトなしで解き直す（`Coarse::solve_chain`）
 const WIELANDT: f64 = 0.01;
 
-/// 粗メッシュのセルの、同じ核分裂スペクトルの項の和。核分裂源は χ (νΣf · φ)
-#[derive(Debug, Clone)]
-struct Spectrum {
-    chi: Vec<f64>,
-    /// χ の和（核分裂源の生成率に掛ける）
-    chi_sum: f64,
-    /// [群] の体積 × νΣf（均質化した中性子束あたり）
-    nu_fission: Vec<f64>,
-}
-
-impl Spectrum {
-    /// 中性子束 `phi`（[群]）での νΣf · φ
-    fn rate(&self, phi: &[f64]) -> f64 {
-        self.nu_fission.iter().zip(phi).map(|(a, b)| a * b).sum()
-    }
-}
-
 /// セルごとに均質化した粗メッシュの問題（流れに合わせて補正した拡散方程式）。
 #[derive(Debug, Clone)]
 pub(crate) struct Coarse {
     groups: usize,
     /// [代表] の解くセル（エラーの表示用）
     cells: Vec<usize>,
-    /// [代表] の組のセルの数（生成率の和の重み）
+    /// [代表] の組のセルの数（1 行か 1 列の格子の逆反復の生成率の和の重み）
     sizes: Vec<f64>,
     /// [セル][群] の均質化した中性子束
     flux: Vec<f64>,
@@ -453,13 +453,8 @@ pub(crate) struct Coarse {
 /// 粗メッシュの行列と、その解き方。方程式は A_c φ_c + Σ 係数 φ_隣 = V F φ_c / k
 #[derive(Debug, Clone)]
 enum Solver {
-    /// べき乗法の反復ごとにブロック Gauss-Seidel を 1 回
-    GaussSeidel {
-        /// [セル] の対角のブロック（群×群）の LU 分解
-        blocks: Vec<Lu>,
-        /// [セル] の隣のセルとの結合: (隣のセル, [群] の係数)
-        neighbors: Vec<Vec<(usize, Vec<f64>)>>,
-    },
+    /// べき乗法の反復ごとにブロック Gauss-Seidel を 1 回（代表の生成率を組のセルの数だけ数える。ADR-0275）
+    GaussSeidel(Box<xlc_cmfd::Coarse>),
     /// 1 行か 1 列の格子で、ブロック三重対角の直接解法の逆反復
     Chain(Chain),
 }
@@ -821,16 +816,17 @@ impl Coarse {
         let solver = if line && cells.len() >= 2 {
             Solver::Chain(Chain::new(groups, &cells, matrices, &neighbors)?)
         } else {
-            // セルごとに並列に分解し、特異なものはセルの順で最初のものを返す
-            let blocks = matrices
-                .into_par_iter()
-                .map(|a| Lu::new(a, groups))
-                .collect::<Vec<_>>()
-                .into_iter()
-                .zip(&cells)
-                .map(|(lu, &cell)| lu.ok_or(CmfdError::Singular(cell)))
-                .collect::<Result<Vec<_>, _>>()?;
-            Solver::GaussSeidel { blocks, neighbors }
+            let coarse = xlc_cmfd::Coarse::new(
+                BlockSolve::Lu,
+                groups,
+                cells.clone(),
+                flux.clone(),
+                fission.clone(),
+                matrices,
+                neighbors,
+            )?
+            .weighted(sizes.clone())?;
+            Solver::GaussSeidel(Box::new(coarse))
         };
         Ok(Self {
             groups,
@@ -885,49 +881,35 @@ impl Coarse {
         // A⁻¹ の解き方（チェーンは核分裂を除いた A を一度だけ分解する）
         enum Inverse<'a> {
             Chain(&'a Chain, ChainFactors),
-            GaussSeidel(&'a [Lu], &'a [Vec<(usize, Vec<f64>)>]),
+            GaussSeidel(&'a xlc_cmfd::Coarse),
         }
         let inverse = match &self.solver {
             Solver::Chain(chain) => {
                 Inverse::Chain(chain, chain.factor(&self.fission, 0.0, &self.cells)?)
             }
-            Solver::GaussSeidel { blocks, neighbors } => Inverse::GaussSeidel(blocks, neighbors),
+            Solver::GaussSeidel(coarse) => Inverse::GaussSeidel(coarse),
         };
         // e_前 から A⁻¹ を 1 回（`source` が無ければ源を 0 に）
         let invert = |previous: &[f64], source: Option<&[f64]>| -> Vec<f64> {
-            let fission = |c: usize, out: &mut [f64]| {
-                match source {
-                    Some(r) => out.copy_from_slice(&r[c * ng..][..ng]),
-                    None => out.fill(0.0),
-                }
-                for s in &self.fission[c] {
-                    let rate = s.rate(&previous[c * ng..][..ng]) / k;
-                    for (o, x) in out.iter_mut().zip(&s.chi) {
-                        *o += x * rate;
-                    }
-                }
-            };
             let mut e = previous.to_vec();
             match &inverse {
                 Inverse::Chain(chain, factors) => {
                     for c in 0..cells {
-                        fission(c, &mut e[c * ng..][..ng]);
+                        let out = &mut e[c * ng..][..ng];
+                        match source {
+                            Some(r) => out.copy_from_slice(&r[c * ng..][..ng]),
+                            None => out.fill(0.0),
+                        }
+                        for s in &self.fission[c] {
+                            let rate = s.rate(&previous[c * ng..][..ng]) / k;
+                            for (o, x) in out.iter_mut().zip(&s.chi) {
+                                *o += x * rate;
+                            }
+                        }
                     }
                     chain.substitute(factors, &mut e);
                 }
-                Inverse::GaussSeidel(blocks, neighbors) => {
-                    let mut b = vec![0.0; ng];
-                    for c in 0..cells {
-                        fission(c, &mut b);
-                        for (other, coefficients) in &neighbors[c] {
-                            for g in 0..ng {
-                                b[g] -= coefficients[g] * e[other * ng + g];
-                            }
-                        }
-                        blocks[c].solve(&mut b);
-                        e[c * ng..][..ng].copy_from_slice(&b);
-                    }
-                }
+                Inverse::GaussSeidel(coarse) => coarse.sweep(&mut e, source, 1.0 / k),
             }
             e
         };
@@ -980,8 +962,21 @@ impl Coarse {
     pub fn solve(&self, k: f64, options: &CmfdOptions) -> Result<(f64, Vec<f64>), CmfdError> {
         match &self.solver {
             Solver::Chain(chain) => self.solve_chain(chain, k, options),
-            Solver::GaussSeidel { blocks, neighbors } => {
-                self.solve_gauss_seidel(blocks, neighbors, k, options)
+            Solver::GaussSeidel(coarse) => {
+                let solution = coarse.solve(
+                    k,
+                    &Tolerances {
+                        k: options.k_tolerance,
+                        flux: options.flux_tolerance,
+                        max_iterations: options.max_iterations,
+                    },
+                )?;
+                xlc_log::debug!(
+                    iterations = solution.iterations,
+                    k = solution.k,
+                    "coarse-mesh eigenvalue"
+                );
+                Ok((solution.k, solution.ratio))
             }
         }
     }
@@ -1070,75 +1065,6 @@ impl Coarse {
                 .map(|(a, b)| (a - b).abs() / a.abs().max(b.abs()))
                 .fold(0.0, f64::max);
             std::mem::swap(&mut phi, &mut next);
-            let k_remaining = k_history.update((new_k - k).abs());
-            let flux_remaining = flux_history.update(change);
-            k = new_k;
-            if k_remaining < options.k_tolerance && flux_remaining < options.flux_tolerance {
-                let ratio = phi
-                    .iter()
-                    .zip(&self.flux)
-                    .map(|(new, old)| new / (old / start))
-                    .collect();
-                xlc_log::debug!(iterations = iteration, k, "coarse-mesh eigenvalue");
-                return Ok((k, ratio));
-            }
-        }
-        Err(CmfdError::NotConverged(options.max_iterations))
-    }
-
-    /// べき乗法の各反復で、ブロック Gauss-Seidel をセルの順に1回だけ行う。収束すると
-    /// Gauss-Seidel でも解が変わらないので、内側の反復を収束させなくても固有値問題の解になる。
-    fn solve_gauss_seidel(
-        &self,
-        blocks: &[Lu],
-        neighbors: &[Vec<(usize, Vec<f64>)>],
-        k: f64,
-        options: &CmfdOptions,
-    ) -> Result<(f64, Vec<f64>), CmfdError> {
-        let ng = self.groups;
-        let cells = blocks.len();
-        let start = self.production(&self.flux);
-        let mut phi: Vec<f64> = self.flux.iter().map(|f| f / start).collect();
-        let mut k = k;
-        let mut k_history = Remaining::default();
-        let mut flux_history = Remaining::default();
-        let mut rhs = vec![0.0; ng];
-        for iteration in 1..=options.max_iterations {
-            let previous = phi.clone();
-            let inverse_k = 1.0 / k;
-            for c in 0..cells {
-                rhs.fill(0.0);
-                for s in &self.fission[c] {
-                    let rate = s.rate(&previous[c * ng..][..ng]) * inverse_k;
-                    for (r, x) in rhs.iter_mut().zip(&s.chi) {
-                        *r += x * rate;
-                    }
-                }
-                for (other, coefficients) in &neighbors[c] {
-                    for g in 0..ng {
-                        rhs[g] -= coefficients[g] * phi[other * ng + g];
-                    }
-                }
-                blocks[c].solve(&mut rhs);
-                phi[c * ng..][..ng].copy_from_slice(&rhs);
-            }
-            let rate = self.production(&phi);
-            let new_k = k * rate;
-            for f in &mut phi {
-                *f /= rate;
-            }
-            if let Some(j) = phi.iter().position(|&f| f <= 0.0 || !f.is_finite()) {
-                return Err(CmfdError::NonPositiveSolution {
-                    cell: self.cells[j / ng],
-                    group: j % ng,
-                    flux: phi[j],
-                });
-            }
-            let change = phi
-                .iter()
-                .zip(&previous)
-                .map(|(a, b)| (a - b).abs() / a.abs().max(b.abs()))
-                .fold(0.0, f64::max);
             let k_remaining = k_history.update((new_k - k).abs());
             let flux_remaining = flux_history.update(change);
             k = new_k;

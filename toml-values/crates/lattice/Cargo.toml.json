@@ -15,6 +15,9 @@
   "xlc-numeric": {
    "path": "../numeric"
   },
+  "xlc-cmfd": {
+   "path": "../cmfd"
+  },
   "xlc-format": {
    "path": "../format"
   },

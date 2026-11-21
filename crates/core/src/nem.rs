@@ -17,7 +17,7 @@
 //! `Problem::outline` の条件の外周の面として扱う（ADR-0132）。
 
 use rayon::prelude::*;
-use xlc_cmfd::CoarseError;
+use xlc_cmfd::{CoarseError, Remaining};
 use xlc_format::fewgroup::FewGroup;
 use xlc_numeric::anm::AnmModes;
 use xlc_numeric::nem::{
@@ -1445,31 +1445,6 @@ fn relative_change(new: f64, old: f64) -> f64 {
         0.0
     } else {
         (new - old).abs() / scale
-    }
-}
-
-/// 反復の変化量の列から、収束までに残る誤差を見積もる。
-///
-/// 変化が縮小率 ρ で等比的に減るとき、最新の変化を含めた残りの誤差は 変化/(1-ρ)。
-/// 丸め誤差の水準（相対 1e-14）以下の変化は、増減が揺れても収束とみなす。
-#[derive(Debug, Default)]
-struct Remaining {
-    previous: Option<f64>,
-}
-
-impl Remaining {
-    fn update(&mut self, change: f64) -> f64 {
-        const ROUNDING: f64 = 1.0e-14;
-        let estimate = match self.previous {
-            _ if change <= ROUNDING => 0.0,
-            Some(previous) if previous > 0.0 && change < previous => {
-                let ratio = change / previous;
-                change * (1.0 + ratio / (1.0 - ratio))
-            }
-            _ => f64::INFINITY,
-        };
-        self.previous = Some(change);
-        estimate
     }
 }
 

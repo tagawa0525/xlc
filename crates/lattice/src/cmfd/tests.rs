@@ -144,6 +144,30 @@ fn slab(cells: usize, width: f64, line: bool) -> Coarse {
 
 /// `slab` の、均質化した中性子束を `flux`（[セル][群]）にしたもの
 fn slab_with_flux(cells: usize, width: f64, line: bool, flux: Vec<f64>) -> Coarse {
+    let (fission, matrices, neighbors) = slab_parts(cells, width);
+    Coarse::assemble(
+        line,
+        2,
+        (0..cells).collect(),
+        vec![1.0; cells],
+        flux,
+        fission,
+        matrices,
+        neighbors,
+    )
+    .unwrap()
+}
+
+/// `slab` の [セル] の核分裂の項、対角のブロック、隣との結合
+#[allow(clippy::type_complexity)]
+fn slab_parts(
+    cells: usize,
+    width: f64,
+) -> (
+    Vec<Vec<Spectrum>>,
+    Vec<Vec<f64>>,
+    Vec<Vec<(usize, Vec<f64>)>>,
+) {
     let d = [1.3, 0.4];
     let (removal, transfer, absorption) = (0.025, 0.015, 0.08);
     let nu_fission = [0.005, 0.1];
@@ -179,17 +203,89 @@ fn slab_with_flux(cells: usize, width: f64, line: bool, flux: Vec<f64>) -> Coars
         }];
         cells
     ];
-    Coarse::assemble(
-        line,
+    (fission, matrices, neighbors)
+}
+
+#[test]
+fn a_coarse_solution_negative_in_every_cell_is_an_error() {
+    // 補正の D̂ で対角が負になると、Gauss-Seidel の解はすべてのセルで負になりうる。生成率も負なので、生成率で割った後に
+    // 確かめると正に見え、負の k に収束する
+    let coarse = Coarse::assemble(
+        false,
+        1,
+        vec![5],
+        vec![1.0],
+        vec![1.0],
+        vec![vec![Spectrum {
+            chi: vec![1.0],
+            chi_sum: 1.0,
+            nu_fission: vec![0.1],
+        }]],
+        vec![vec![-0.2]],
+        vec![Vec::new()],
+    )
+    .unwrap();
+    let result = coarse.solve(1.0, &CmfdOptions::default());
+    assert!(
+        matches!(result, Err(CmfdError::NonPositiveSolution { cell: 5, .. })),
+        "{result:?}"
+    );
+}
+
+#[test]
+fn representatives_count_their_orbits_in_the_production() {
+    // 3 セルの平板を中央で鏡映した代表（端のセルが 2 つの組、中央が 1 つ）は、全体を解いた平板と同じ k と比になる。比は
+    // 生成率 1 に規格化した中性子束の比なので、代表の生成率を組のセルの数だけ数えないと、比の大きさが全体の解と変わる
+    let width = 2.0;
+    let (fission, matrices, neighbors) = slab_parts(3, width);
+    let (edge, center) = ([1.0, 0.4], [1.6, 0.5]);
+    let full_flux = [edge, center, edge].concat();
+    let options = CmfdOptions {
+        k_tolerance: 1e-13,
+        flux_tolerance: 1e-11,
+        ..CmfdOptions::default()
+    };
+    let (full_k, full) = Coarse::assemble(
+        false,
         2,
-        (0..cells).collect(),
-        vec![1.0; cells],
-        flux,
-        fission,
-        matrices,
-        neighbors,
+        vec![0, 1, 2],
+        vec![1.0; 3],
+        full_flux,
+        fission.clone(),
+        matrices.clone(),
+        neighbors.clone(),
     )
     .unwrap()
+    .solve(1.0, &options)
+    .unwrap();
+    // 中央のセルの両隣は、どちらも端の代表
+    let coupling = neighbors[1][0].1.clone();
+    let mirrored = |sizes: Vec<f64>| {
+        Coarse::assemble(
+            false,
+            2,
+            vec![0, 1],
+            sizes,
+            [edge, center].concat(),
+            fission[..2].to_vec(),
+            matrices[..2].to_vec(),
+            vec![
+                vec![(1, coupling.clone())],
+                vec![(0, coupling.clone()), (0, coupling.clone())],
+            ],
+        )
+        .unwrap()
+        .solve(1.0, &options)
+        .unwrap()
+    };
+    let (k, ratio) = mirrored(vec![2.0, 1.0]);
+    assert!((k - full_k).abs() < 1e-11, "{k} vs {full_k}");
+    for (a, b) in ratio.iter().zip(&full[..4]) {
+        assert!((a - b).abs() < 1e-9 * b, "{a} vs {b}");
+    }
+    // 組の重みを 1 にすると、比の大きさが変わる
+    let (_, wrong) = mirrored(vec![1.0; 2]);
+    assert!((wrong[0] - full[0]).abs() > 1e-6 * full[0]);
 }
 
 #[test]

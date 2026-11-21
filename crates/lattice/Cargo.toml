@@ -8,6 +8,7 @@ workspace = true
 
 [dependencies]
 xlc-numeric = { path = "../numeric" }
+xlc-cmfd = { path = "../cmfd" }
 xlc-format = { path = "../format" }
 xlc-depletion = { path = "../depletion" }
 anyhow.workspace = true
