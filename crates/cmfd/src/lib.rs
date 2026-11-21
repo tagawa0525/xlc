@@ -2,7 +2,7 @@
 //!
 //! 結合係数の作り方（形状と、高次の解き方の正味の中性子流からの補正）と、細かい量への戻し方は、使う側のステージが持つ。
 //! ここは、組み立てたセルごとの対角のブロック、隣との結合、核分裂のスペクトルの項から、固有値と中性子束の比を求める。
-//! `xlc-numeric` に置かないのは、それに依存する xs と lattice の実行ファイルのバイトを変えないため（ADR-0232）。
+//! `xlc-numeric` に置かないのは、それに依存する xs の実行ファイルのバイトを、xs のコードを変えない変更で変えないため（ADR-0232）。
 
 // テストでは assert! 系を使う（本番のコードでは clippy.toml で禁止している）
 #![cfg_attr(test, allow(clippy::disallowed_macros))]
@@ -69,9 +69,19 @@ pub enum CoarseError {
     SameColor { cell: usize, other: usize },
     #[error("{given} colors are given for {cells} cells")]
     Colors { given: usize, cells: usize },
-    /// 生成率の重み（`Coarse::weighted`）の数が違うか、正の有限でない
-    #[error("the production weights must be {cells} positive numbers, got {given:?}")]
-    Weights { given: Vec<f64>, cells: usize },
+    /// 生成率の重み（`Coarse::weighted`）の数がセルの数と違う
+    #[error("{given} production weights are given for {cells} cells")]
+    Weights { given: usize, cells: usize },
+    /// 生成率の重みが正の有限でない（`cell` は最初のそういう重みの、与えた順の番号）
+    #[error("production weight {cell} is {value}, not a positive number")]
+    Weight { cell: usize, value: f64 },
+    /// 対角のブロックの成分の数が群の数の 2 乗でないか、群の数が 0（`cell` は組み立てた側の番号）
+    #[error("the coarse-mesh block of cell {cell} has {len} entries for {groups} groups")]
+    BlockSize {
+        cell: usize,
+        len: usize,
+        groups: usize,
+    },
 }
 
 /// 粗メッシュの固有値問題の解
@@ -136,6 +146,17 @@ impl Coarse {
     ) -> Result<Self, CoarseError> {
         let ng = groups;
         let cells = labels.len();
+        if let Some((c, a)) = matrices
+            .iter()
+            .enumerate()
+            .find(|(_, a)| ng == 0 || a.len() != ng * ng)
+        {
+            return Err(CoarseError::BlockSize {
+                cell: labels[c],
+                len: a.len(),
+                groups: ng,
+            });
+        }
         let blocks = Blocks::new(matrices, ng).map_err(|c| CoarseError::Singular(labels[c]))?;
         let mut spectrum_offsets = vec![0];
         let (mut chi_sums, mut chi, mut nu_fission) = (Vec::new(), Vec::new(), Vec::new());
@@ -248,10 +269,16 @@ impl Coarse {
     /// その組のセルの数だけ数えるため。重みは解の比の大きさ（生成率 1 の規格化）を決め、固有値を変えない
     pub fn weighted(mut self, weights: Vec<f64>) -> Result<Self, CoarseError> {
         let cells = self.cells();
-        if weights.len() != cells || !weights.iter().all(|w| *w > 0.0 && w.is_finite()) {
+        if weights.len() != cells {
             return Err(CoarseError::Weights {
-                given: weights,
+                given: weights.len(),
                 cells,
+            });
+        }
+        if let Some(cell) = weights.iter().position(|w| !(*w > 0.0 && w.is_finite())) {
+            return Err(CoarseError::Weight {
+                cell,
+                value: weights[cell],
             });
         }
         self.weights = match &self.colors {
@@ -407,41 +434,45 @@ impl Coarse {
     /// 新しい値）。s は `source`（[セル × 群]、与えたセルの順）で、無ければ 0
     pub fn sweep(&self, x: &mut [f64], source: Option<&[f64]>, inverse_k: f64) {
         let ng = self.groups;
-        // 色の順に並べ直す。同じ色のセルは互いに読まないので、色の順に 1 つずつ解くと、色ごとに並列に解くのと同じ
-        let ordered = |values: &[f64]| -> Vec<f64> {
-            match &self.colors {
-                None => values.to_vec(),
-                Some(colors) => {
+        match &self.colors {
+            None => {
+                let previous = x.to_vec();
+                self.pass(x, &previous, source, inverse_k);
+            }
+            Some(colors) => {
+                // 色の順に並べ直す。同じ色のセルは互いに読まないので、色の順に 1 つずつ解くと、色ごとに並列に解くのと同じ
+                let ordered = |values: &[f64]| -> Vec<f64> {
                     let mut out = vec![0.0; values.len()];
                     for (c, &p) in colors.position.iter().enumerate() {
                         out[p * ng..][..ng].copy_from_slice(&values[c * ng..][..ng]);
                     }
                     out
+                };
+                let previous = ordered(x);
+                let fixed = source.map(ordered);
+                let mut phi = previous.clone();
+                self.pass(&mut phi, &previous, fixed.as_deref(), inverse_k);
+                for (c, &p) in colors.position.iter().enumerate() {
+                    x[c * ng..][..ng].copy_from_slice(&phi[p * ng..][..ng]);
                 }
             }
-        };
-        let previous = ordered(x);
-        let fixed = source.map(ordered);
-        let mut phi = previous.clone();
+        }
+    }
+
+    /// 並べ直したセルの順に、`phi` をその場で 1 回解く（`sweep`。`previous` と `fixed` も並べ直したセルの順）
+    fn pass(&self, phi: &mut [f64], previous: &[f64], fixed: Option<&[f64]>, inverse_k: f64) {
+        let ng = self.groups;
         let mut rhs = vec![0.0; ng];
         for c in 0..self.cells() {
             self.source(
                 c,
                 &mut rhs,
-                fixed.as_deref().map(|f| &f[c * ng..][..ng]),
-                &previous,
+                fixed.map(|f| &f[c * ng..][..ng]),
+                previous,
                 |other| &phi[other * ng..][..ng],
                 inverse_k,
             );
             self.invert(c, &rhs, &mut phi[c * ng..][..ng]);
-        }
-        match &self.colors {
-            None => x.copy_from_slice(&phi),
-            Some(colors) => {
-                for (c, &p) in colors.position.iter().enumerate() {
-                    x[c * ng..][..ng].copy_from_slice(&phi[p * ng..][..ng]);
-                }
-            }
         }
     }
 
@@ -552,8 +583,9 @@ fn relative_change(new: f64, old: f64) -> f64 {
 
 /// 反復の変化量の列から、収束までに残る誤差を見積もる（粗メッシュの固有値問題と、lattice の MOC と core の NEM の外側の反復）。
 ///
-/// 変化が縮小率 ρ で等比的に減るとき、最新の変化を含めた残りの誤差は 変化/(1-ρ)。丸め誤差の水準（相対 1e-14）以下の変化は、
-/// 増減が揺れても収束とみなす（許容が丸め誤差の水準より小さいと、揺れる変化で縮小率が 1 を超え、止まらない）。
+/// 変化が縮小率 ρ で等比的に減るとき、最新の変化を含めた残りの誤差は 変化/(1-ρ)。1e-14 以下の変化は、増減が揺れても収束とみなす
+/// （許容が丸め誤差の水準より小さいと、揺れる変化で縮小率が 1 を超え、止まらない）。閾値は絶対値なので、変化は 1 の桁で測ったもの
+/// （1 の桁の k の変化か、中性子束の相対変化）を渡す。1e-14 はその丸め誤差の水準。
 #[derive(Debug, Default)]
 pub struct Remaining {
     previous: Option<f64>,

@@ -21,7 +21,7 @@ pub(crate) struct Blocks {
 }
 
 impl Blocks {
-    /// 行優先の n × n 行列 `matrices` を分解する。ピボットが 0 か NaN のセルがあれば、セルの順で最初のものの番号を `Err` で返す
+    /// 行優先の n × n 行列 `matrices`（どれも n × n 個の成分。n は 1 以上。`Coarse::new` が確かめる）を分解する。ピボットが 0 か NaN のセルがあれば、セルの順で最初のものの番号を `Err` で返す
     pub(crate) fn new(matrices: Vec<Vec<f64>>, n: usize) -> Result<Self, usize> {
         let cells = matrices.len();
         let mut lu = Vec::with_capacity(cells * n * n);

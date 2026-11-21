@@ -512,7 +512,10 @@ fn weights_must_be_positive_and_one_per_cell() {
             .unwrap()
             .weighted(weights);
         assert!(
-            matches!(result, Err(CoarseError::Weights { cells: 2, .. })),
+            matches!(
+                result,
+                Err(CoarseError::Weights { cells: 2, .. } | CoarseError::Weight { cell: 1, .. })
+            ),
             "{result:?}"
         );
     }
@@ -586,8 +589,5 @@ fn a_weight_error_names_the_first_bad_weight_only() {
         .map(|_| ())
         .unwrap_err()
         .to_string();
-    assert!(
-        message.contains("weight Some(1) is Some(-1.0)"),
-        "{message}"
-    );
+    assert!(message.contains("weight 1 is -1,"), "{message}");
 }
