@@ -1,4 +1,4 @@
-//! セルごとの対角のブロックの LU 分解を、すべてのセルで 1 つの平らな配列に持つ。
+//! セルごとの対角のブロックの LU 分解（と、選んだときはその逆行列）を、すべてのセルで 1 つの平らな配列に持つ。
 //!
 //! 演算は `xlc_numeric::lu::Lu` と同じ（部分ピボット選択、行ごとの内積の前進・後退代入）で、解は同じ値になる。行の入れ替えは、
 //! 分解した行に当たる元の行の並びにして、右辺を読むときに適用する。`Lu` をセルごとに持つ形は、core の全炉心の BOC の固有値計算が
@@ -27,15 +27,13 @@ pub(crate) struct Blocks {
     lu: Vec<f64>,
     /// [セル × n] の、分解した行 row に当たる元の行（部分ピボット選択の入れ替えを順に適用した並び）
     order: Vec<usize>,
+    /// `BlockSolve::Inverse` のときの [セル × n × n] の逆行列（行優先）
+    inverse: Option<Vec<f64>>,
 }
 
 impl Blocks {
     /// 行優先の n × n 行列 `matrices`（どれも n × n 個の成分。n は 1 以上。`Coarse::new` が確かめる）を分解する。ピボットが 0 か NaN のセルがあれば、セルの順で最初のものの番号を `Err` で返す
-    pub(crate) fn new(
-        matrices: Vec<Vec<f64>>,
-        n: usize,
-        _solve: BlockSolve,
-    ) -> Result<Self, usize> {
+    pub(crate) fn new(matrices: Vec<Vec<f64>>, n: usize, solve: BlockSolve) -> Result<Self, usize> {
         let cells = matrices.len();
         let mut lu = Vec::with_capacity(cells * n * n);
         for a in matrices {
@@ -50,14 +48,58 @@ impl Blocks {
             .with_min_len(MIN_CELLS_PER_TASK)
             .filter_map(|(cell, (a, order))| (!factor(a, order, n)).then_some(cell))
             .min();
-        match singular {
-            Some(cell) => Err(cell),
-            None => Ok(Self { n, lu, order }),
+        if let Some(cell) = singular {
+            return Err(cell);
+        }
+        let mut blocks = Self {
+            n,
+            lu,
+            order,
+            inverse: None,
+        };
+        if solve == BlockSolve::Inverse {
+            // 単位ベクトルを LU で解いた列を並べる
+            let mut inverse = vec![0.0; cells * n * n];
+            inverse
+                .par_chunks_mut(n * n)
+                .enumerate()
+                .with_min_len(MIN_CELLS_PER_TASK)
+                .for_each(|(cell, out)| {
+                    let (mut unit, mut column) = (vec![0.0; n], vec![0.0; n]);
+                    for j in 0..n {
+                        unit.fill(0.0);
+                        unit[j] = 1.0;
+                        blocks.solve_lu(cell, &unit, &mut column);
+                        for (i, v) in column.iter().enumerate() {
+                            out[i * n + j] = *v;
+                        }
+                    }
+                });
+            blocks.inverse = Some(inverse);
+        }
+        Ok(blocks)
+    }
+
+    /// セル `cell` の A x = `b` の解を `x` に書く（選んだ解き方で）
+    pub(crate) fn solve(&self, cell: usize, b: &[f64], x: &mut [f64]) {
+        match &self.inverse {
+            None => self.solve_lu(cell, b, x),
+            Some(inverse) => {
+                let n = self.n;
+                let inverse = &inverse[cell * n * n..][..n * n];
+                for (i, x) in x.iter_mut().enumerate() {
+                    *x = inverse[i * n..][..n]
+                        .iter()
+                        .zip(b)
+                        .map(|(a, y)| a * y)
+                        .sum();
+                }
+            }
         }
     }
 
-    /// セル `cell` の A x = `b` の解を `x` に書く
-    pub(crate) fn solve(&self, cell: usize, b: &[f64], x: &mut [f64]) {
+    /// セル `cell` の A x = `b` の解を、LU の前進・後退代入で `x` に書く
+    fn solve_lu(&self, cell: usize, b: &[f64], x: &mut [f64]) {
         let n = self.n;
         let lu = &self.lu[cell * n * n..][..n * n];
         let order = &self.order[cell * n..][..n];

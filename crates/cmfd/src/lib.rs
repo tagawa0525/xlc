@@ -199,6 +199,7 @@ impl Coarse {
 
     /// `new` と同じ問題を、`colors`（[セル] の色の番号）の順に、同じ色のセルを並列に解く形で作る（ADR-0234）。同じ色のセルは
     /// 互いの値を読まないので、色の中の解く順とスレッドの数は解を変えない。隣と同じ色のセルがあればエラー
+    #[allow(clippy::too_many_arguments)]
     pub fn colored(
         solve: BlockSolve,
         groups: usize,
