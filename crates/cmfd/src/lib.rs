@@ -490,17 +490,18 @@ fn relative_change(new: f64, old: f64) -> f64 {
     (new - old).abs() / new.max(old)
 }
 
-/// 反復の変化量の列から、収束までに残る誤差を見積もる。
+/// 反復の変化量の列から、収束までに残る誤差を見積もる（粗メッシュの固有値問題と、lattice の MOC と core の NEM の外側の反復）。
 ///
 /// 変化が縮小率 ρ で等比的に減るとき、最新の変化を含めた残りの誤差は 変化/(1-ρ)。丸め誤差の水準（相対 1e-14）以下の変化は、
 /// 増減が揺れても収束とみなす（許容が丸め誤差の水準より小さいと、揺れる変化で縮小率が 1 を超え、止まらない）。
 #[derive(Debug, Default)]
-struct Remaining {
+pub struct Remaining {
     previous: Option<f64>,
 }
 
 impl Remaining {
-    fn update(&mut self, change: f64) -> f64 {
+    /// 最新の変化量 `change`（k の変化か、中性子束の相対変化の最大）を受け取り、残りの誤差の見積もりを返す
+    pub fn update(&mut self, change: f64) -> f64 {
         const ROUNDING: f64 = 1.0e-14;
         let estimate = match self.previous {
             _ if change <= ROUNDING => 0.0,

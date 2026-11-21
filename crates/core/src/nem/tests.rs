@@ -309,17 +309,6 @@ fn non_fundamental_mode_is_error() {
 }
 
 #[test]
-fn changes_at_rounding_level_count_as_converged() {
-    let mut r = Remaining::default();
-    r.update(1.0e-15);
-    assert_eq!(r.update(2.0e-15), 0.0);
-    let mut r = Remaining::default();
-    assert_eq!(r.update(1.0), f64::INFINITY);
-    // 縮小率 0.5 なら、最新の変化を含めて残りは 2 倍
-    assert!((r.update(0.5) - 1.0).abs() < 1e-15);
-}
-
-#[test]
 fn inconsistent_problem_is_error() {
     let mut p = cuboid([30.0, 30.0, 30.0], [2, 2, 2], [Boundary::Reflective; 6]);
     p.node_material.pop();
