@@ -10,7 +10,7 @@ use crate::material::Material;
 use crate::symmetry::Orbits;
 use crate::tracking::Tracking;
 use rayon::prelude::*;
-use xlc_cmfd::{CoarseError, Remaining, Spectrum, Tolerances};
+use xlc_cmfd::{BlockSolve, CoarseError, Remaining, Spectrum, Tolerances};
 use xlc_numeric::lu::Lu;
 
 /// 格子のセルを粗メッシュとし、トラックが外周で通る面を前もって求めたもの。
@@ -817,6 +817,7 @@ impl Coarse {
             Solver::Chain(Chain::new(groups, &cells, matrices, &neighbors)?)
         } else {
             let coarse = xlc_cmfd::Coarse::new(
+                BlockSolve::Lu,
                 groups,
                 cells.clone(),
                 flux.clone(),

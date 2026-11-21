@@ -10,6 +10,15 @@ use rayon::prelude::*;
 /// 並列に分解するときの、1 つのスレッドがまとめて分解するセルの数の下限
 const MIN_CELLS_PER_TASK: usize = 64;
 
+/// 対角のブロックの解き方。既定は置かず、使う側が選ぶ（ADR-0275）
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BlockSolve {
+    /// LU 分解の前進・後退代入（後退安定。補正で対角が減り、条件数が大きくなりうるブロック）
+    Lu,
+    /// LU 分解から作った逆行列を掛ける（条件数の小さいブロックで、LU と同じ桁の誤差のまま速い）
+    Inverse,
+}
+
 /// [セル] の n × n の LU 分解
 #[derive(Debug, Clone)]
 pub(crate) struct Blocks {
@@ -22,7 +31,11 @@ pub(crate) struct Blocks {
 
 impl Blocks {
     /// 行優先の n × n 行列 `matrices`（どれも n × n 個の成分。n は 1 以上。`Coarse::new` が確かめる）を分解する。ピボットが 0 か NaN のセルがあれば、セルの順で最初のものの番号を `Err` で返す
-    pub(crate) fn new(matrices: Vec<Vec<f64>>, n: usize) -> Result<Self, usize> {
+    pub(crate) fn new(
+        matrices: Vec<Vec<f64>>,
+        n: usize,
+        _solve: BlockSolve,
+    ) -> Result<Self, usize> {
         let cells = matrices.len();
         let mut lu = Vec::with_capacity(cells * n * n);
         for a in matrices {

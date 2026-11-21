@@ -11,6 +11,7 @@ use std::ops::Range;
 
 use rayon::prelude::*;
 
+pub use blocks::BlockSolve;
 use blocks::Blocks;
 
 mod blocks;
@@ -135,8 +136,9 @@ struct Colors {
 impl Coarse {
     /// `matrices` は [セル] の対角のブロック（群×群、行優先）、`neighbors` は [セル] の隣との結合 (隣のセル, [群] の係数)、
     /// `fission` は [セル] の核分裂のスペクトルの項、`flux` は [セル × 群] の組み立てた中性子束、`labels` は [セル] のエラーに
-    /// 出す番号
+    /// 出す番号、`solve` は対角のブロックの解き方
     pub fn new(
+        solve: BlockSolve,
         groups: usize,
         labels: Vec<usize>,
         flux: Vec<f64>,
@@ -157,7 +159,8 @@ impl Coarse {
                 groups: ng,
             });
         }
-        let blocks = Blocks::new(matrices, ng).map_err(|c| CoarseError::Singular(labels[c]))?;
+        let blocks =
+            Blocks::new(matrices, ng, solve).map_err(|c| CoarseError::Singular(labels[c]))?;
         let mut spectrum_offsets = vec![0];
         let (mut chi_sums, mut chi, mut nu_fission) = (Vec::new(), Vec::new(), Vec::new());
         for terms in fission {
@@ -197,6 +200,7 @@ impl Coarse {
     /// `new` と同じ問題を、`colors`（[セル] の色の番号）の順に、同じ色のセルを並列に解く形で作る（ADR-0234）。同じ色のセルは
     /// 互いの値を読まないので、色の中の解く順とスレッドの数は解を変えない。隣と同じ色のセルがあればエラー
     pub fn colored(
+        solve: BlockSolve,
         groups: usize,
         labels: Vec<usize>,
         flux: Vec<f64>,
@@ -237,6 +241,7 @@ impl Coarse {
         let ng = groups;
         let (mut fission, mut matrices, mut neighbors) = (fission, matrices, neighbors);
         let mut coarse = Self::new(
+            solve,
             groups,
             order.iter().map(|&c| labels[c]).collect(),
             order
