@@ -207,6 +207,32 @@ fn slab_parts(
 }
 
 #[test]
+fn a_coarse_solution_negative_in_every_cell_is_an_error() {
+    // 補正の D̂ で対角が負になると、Gauss-Seidel の解はすべてのセルで負になりうる。生成率も負なので、生成率で割った後に
+    // 確かめると正に見え、負の k に収束する
+    let coarse = Coarse::assemble(
+        false,
+        1,
+        vec![5],
+        vec![1.0],
+        vec![1.0],
+        vec![vec![Spectrum {
+            chi: vec![1.0],
+            chi_sum: 1.0,
+            nu_fission: vec![0.1],
+        }]],
+        vec![vec![-0.2]],
+        vec![Vec::new()],
+    )
+    .unwrap();
+    let result = coarse.solve(1.0, &CmfdOptions::default());
+    assert!(
+        matches!(result, Err(CmfdError::NonPositiveSolution { cell: 5, .. })),
+        "{result:?}"
+    );
+}
+
+#[test]
 fn representatives_count_their_orbits_in_the_production() {
     // 3 セルの平板を中央で鏡映した代表（端のセルが 2 つの組、中央が 1 つ）は、全体を解いた平板と同じ k と比になる。比は
     // 生成率 1 に規格化した中性子束の比なので、代表の生成率を組のセルの数だけ数えないと、比の大きさが全体の解と変わる
