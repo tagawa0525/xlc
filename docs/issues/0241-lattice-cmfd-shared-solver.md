@@ -27,7 +27,7 @@ deps にするステージ（15 の dvc.yaml の dvc.lock に約 380 行。う�
 - 対角のブロック: `xlc-cmfd` は逆行列を平らな配列に持ち、lattice はセルごとの LU 分解を持つ（結果の丸めの桁が変わりうる）
 - 組の重み（`sizes`。対称性の代表のセルの数）: `xlc-cmfd` には無い
 
-関係する ADR: なし
+関係する ADR: [ADR-0275](../adr/0275-solve-lattice-coarse-mesh-eigenvalue-with-xlc-cmfd.md)
 
 ## 完了の条件
 
