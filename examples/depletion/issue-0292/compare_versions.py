@@ -14,9 +14,11 @@
   量。燃焼度の点は試行の燃焼のもので、Problem 9 の 17 MWd/kg の点が無いので、そのツールは使わない）。`MARKS` の点では、どれかの版で
   0 でない核種の燃料のピン全体（領域の体積の重みの平均）の数密度を版ごとに（チェーンに無い版は null）書き、テーブルの差を核種に
   分ける: 核種 j の項は 1e5 (aⱼ,基準 − aⱼ,版)、aⱼ = N̄ⱼ σₐⱼ φ̄ / P（added_effect.py の項と同じ量を、版ごとにその版のテーブルの断面積、
-  中性子束、生成で出したもの。テーブルに無い核種は 0）。残り = 直接（2 つのテーブルの k∞ の反応度の差）− 項の和で、被覆管と減速材の
-  吸収、(n,2n) などの扱いの違い、1 次の外の分を含む。項は生成 P の違い（ν と核分裂の断面積）を核種ごとの吸収の比に配るので、
-  核分裂する核種の生成の差は、その核種の項でなく全核種の項に分かれて入る
+  中性子束、生成で出したもの。テーブルに無い核種は 0）。残り = 直接（2 つのテーブルの k∞ の反応度の差）− 項の和で、2 つに分ける:
+  項の外の吸収 = 1e5 Δ(A / P) − 項の和（A は 2 群の格子の吸収 Σ Σₐ,g φ̄_g。被覆管と減速材の吸収と、燃料の核種の項の近似（ピンの平均の
+  数密度 × 冷却計算の 1 群の断面積 × 格子の中性子束）と格子の吸収の食い違いを含む）と、1/k と吸収 / 生成の差 = 直接 − 1e5 Δ(A / P)
+  （2 群の無限格子では k = P / A なので、0 から離れればテーブルの吸収が中性子の収支と合わない）。項は生成 P の違い（ν と核分裂の
+  断面積）を核種ごとの吸収の比に配るので、核分裂する核種の生成の差は、その核種の項でなく全核種の項に分かれて入る
 - `shares`: 版の履歴とテーブルから、一覧の核種の格子の吸収に占める割合を、吸収の割合の JSON の形で書く（dilution_shielding.py が
   版ごとに自己遮蔽の目安の順位を付けるため。added_effect.py の `--shares` と同じ量）
 - `sets`: 閾値を超える核種の組（ufg_subset.py の `threshold_sets`。どれかの燃料で超える核種）を、基準の版と比べて標準出力に書く
@@ -116,7 +118,14 @@ def absorptions(history: dict, table: dict, volume: float) -> list[dict]:
             raise SystemExit(
                 f"at {burnup} MWd/kg the fuel absorbs more than the lattice: check the lattice volume"
             )
-        out.append({"burnup": burnup, "k_inf": state["k_inf"], "terms": terms})
+        out.append(
+            {
+                "burnup": burnup,
+                "k_inf": state["k_inf"],
+                "absorption_per_production": lattice_absorption / production,
+                "terms": terms,
+            }
+        )
     return out
 
 
@@ -130,12 +139,16 @@ def split(base: list[dict], version: list[dict]) -> list[dict]:
             for n in names
         }
         direct = 1e5 * (1.0 / b["k_inf"] - 1.0 / v["k_inf"])
+        ratio = 1e5 * (b["absorption_per_production"] - v["absorption_per_production"])
+        terms = sum(x["pcm"] for x in nuclides.values())
         out.append(
             {
                 "burnup": b["burnup"],
                 "index": i,
                 "direct_pcm": direct,
-                "remainder_pcm": direct - sum(x["pcm"] for x in nuclides.values()),
+                "remainder_pcm": direct - terms,
+                "outside_pcm": ratio - terms,
+                "balance_pcm": direct - ratio,
                 "nuclides": nuclides,
             }
         )
@@ -217,7 +230,8 @@ def report(summary: dict) -> list[str]:
             terms = ", ".join(f"{n} {x['pcm']:+.1f}" for n, x in ranked[:TOP])
             lines.append(
                 f"{v} − {base} の {p['burnup']:g} MWd/kg のテーブル: 直接 {p['direct_pcm']:+.1f}、"
-                f"残り {p['remainder_pcm']:+.1f} pcm; 項 {terms}"
+                f"残り {p['remainder_pcm']:+.1f}（項の外の吸収 {p['outside_pcm']:+.1f}、"
+                f"1/k と吸収 / 生成の差 {p['balance_pcm']:+.1f}）pcm; 項 {terms}"
             )
     return lines
 
