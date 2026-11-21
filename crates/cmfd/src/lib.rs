@@ -59,6 +59,9 @@ pub enum CoarseError {
     SameColor { cell: usize, other: usize },
     #[error("{given} colors are given for {cells} cells")]
     Colors { given: usize, cells: usize },
+    /// 生成率の重み（`Coarse::weighted`）の数が違うか、正の有限でない
+    #[error("the production weights must be {cells} positive numbers, got {given:?}")]
+    Weights { given: Vec<f64>, cells: usize },
 }
 
 /// 粗メッシュの固有値問題の解
@@ -96,6 +99,8 @@ pub struct Coarse {
     coefficients: Vec<f64>,
     /// 色ごとに解くときの色（`Coarse::colored`）。`None` はセルの順に 1 つずつ解く
     colors: Option<Colors>,
+    /// [セル] の生成率の重み（`Coarse::weighted`。既定は 1）
+    weights: Vec<f64>,
 }
 
 /// 色ごとに解くセルの並び。セルは色の順に並べ直して持ち、同じ色のセルは続いた範囲にある
@@ -120,6 +125,7 @@ impl Coarse {
         neighbors: Vec<Vec<(usize, Vec<f64>)>>,
     ) -> Result<Self, CoarseError> {
         let ng = groups;
+        let cells = labels.len();
         // セルごとの逆行列は互いに独立なので並列に作る（どのスレッドで作っても同じ値）。エラーはセルの順で最初のもの
         let blocks: Vec<Result<Vec<f64>, CoarseError>> = matrices
             .into_par_iter()
@@ -176,6 +182,7 @@ impl Coarse {
             others,
             coefficients,
             colors: None,
+            weights: vec![1.0; cells],
         })
     }
 
@@ -250,6 +257,29 @@ impl Coarse {
         Ok(coarse)
     }
 
+    /// 生成率を数えるときに、セルごとに `weights`（[セル]、与えたセルの順。正の有限）を掛ける問題にする。対称性の代表のセルを、
+    /// その組のセルの数だけ数えるため。重みは解の比の大きさ（生成率 1 の規格化）を決め、固有値を変えない
+    pub fn weighted(mut self, weights: Vec<f64>) -> Result<Self, CoarseError> {
+        let cells = self.cells();
+        if weights.len() != cells || !weights.iter().all(|w| *w > 0.0 && w.is_finite()) {
+            return Err(CoarseError::Weights {
+                given: weights,
+                cells,
+            });
+        }
+        self.weights = match &self.colors {
+            None => weights,
+            Some(colors) => {
+                let mut ordered = vec![0.0; cells];
+                for (c, &p) in colors.position.iter().enumerate() {
+                    ordered[p] = weights[c];
+                }
+                ordered
+            }
+        };
+        Ok(self)
+    }
+
     fn cells(&self) -> usize {
         self.labels.len()
     }
@@ -278,18 +308,22 @@ impl Coarse {
             .sum()
     }
 
-    /// セル c の式の右辺（核分裂源 χ (V νΣf · φ_前) / k から、隣との結合 × 隣の中性子束を引いたもの）を `rhs` に書く。`neighbor` は
-    /// 隣のセルの [群] の中性子束
+    /// セル c の式の右辺（`fixed`（[群]。無ければ 0）と核分裂源 χ (V νΣf · φ_前) / k の和から、隣との結合 × 隣の中性子束を
+    /// 引いたもの）を `rhs` に書く。`neighbor` は隣のセルの [群] の中性子束
     fn source<'a>(
         &self,
         c: usize,
         rhs: &mut [f64],
+        fixed: Option<&[f64]>,
         previous: &[f64],
         neighbor: impl Fn(usize) -> &'a [f64],
         inverse_k: f64,
     ) {
         let ng = self.groups;
-        rhs.fill(0.0);
+        match fixed {
+            Some(values) => rhs.copy_from_slice(values),
+            None => rhs.fill(0.0),
+        }
         for (_, chi, f) in self.spectra(c) {
             let rate = f
                 .iter()
@@ -366,7 +400,7 @@ impl Coarse {
                 |rhs, (chunk, values)| {
                     let first = range.start + chunk * CELLS_PER_SUM;
                     for (i, out) in values.chunks_mut(ng).enumerate() {
-                        self.source(first + i, rhs, previous, neighbor, inverse_k);
+                        self.source(first + i, rhs, None, previous, neighbor, inverse_k);
                         self.invert(first + i, rhs, out);
                     }
                     if let Some(j) = values.iter().position(|&f| !(f > 0.0 && f.is_finite())) {
@@ -384,6 +418,49 @@ impl Coarse {
                 },
             )
             .collect()
+    }
+
+    /// ブロック Gauss-Seidel を 1 回行う。`x`（[セル × 群]、与えたセルの順）を前の値とし、セルの順（`colored` は色の順）に、
+    /// A_c x_c = s_c + χ (V νΣf · x前_c) `inverse_k` − Σ 係数 x_隣 を解いて x_c を置き換える。隣はその時点の値（先に解いたセルは
+    /// 新しい値）。s は `source`（[セル × 群]、与えたセルの順）で、無ければ 0
+    pub fn sweep(&self, x: &mut [f64], source: Option<&[f64]>, inverse_k: f64) {
+        let ng = self.groups;
+        // 色の順に並べ直す。同じ色のセルは互いに読まないので、色の順に 1 つずつ解くと、色ごとに並列に解くのと同じ
+        let ordered = |values: &[f64]| -> Vec<f64> {
+            match &self.colors {
+                None => values.to_vec(),
+                Some(colors) => {
+                    let mut out = vec![0.0; values.len()];
+                    for (c, &p) in colors.position.iter().enumerate() {
+                        out[p * ng..][..ng].copy_from_slice(&values[c * ng..][..ng]);
+                    }
+                    out
+                }
+            }
+        };
+        let previous = ordered(x);
+        let fixed = source.map(ordered);
+        let mut phi = previous.clone();
+        let mut rhs = vec![0.0; ng];
+        for c in 0..self.cells() {
+            self.source(
+                c,
+                &mut rhs,
+                fixed.as_deref().map(|f| &f[c * ng..][..ng]),
+                &previous,
+                |other| &phi[other * ng..][..ng],
+                inverse_k,
+            );
+            self.invert(c, &rhs, &mut phi[c * ng..][..ng]);
+        }
+        match &self.colors {
+            None => x.copy_from_slice(&phi),
+            Some(colors) => {
+                for (c, &p) in colors.position.iter().enumerate() {
+                    x[c * ng..][..ng].copy_from_slice(&phi[p * ng..][..ng]);
+                }
+            }
+        }
     }
 
     /// 固有値問題を、`k` と組み立てた中性子束から解き始める。
@@ -411,6 +488,7 @@ impl Coarse {
                         self.source(
                             c,
                             &mut rhs,
+                            None,
                             &previous,
                             |other| &phi[other * ng..][..ng],
                             inverse_k,

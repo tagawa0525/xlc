@@ -400,3 +400,157 @@ fn changes_at_rounding_level_count_as_converged() {
     // 縮小率 0.5 なら、最新の変化を含めて残りは 2 倍
     assert!((r.update(0.5) - 1.0).abs() < 1e-15);
 }
+
+/// 3 つのセルの 1 群の平板（`slab_parts` の 3 セル）を中央で鏡映した 2 つの代表（端のセルが 2 つの組、中央が 1 つ）の引数。
+/// 組み立てた中性子束は端と中央で違え、全体の平板の [端, 中央, 端] と同じにする
+fn mirrored_slab_parts() -> Parts {
+    let (groups, _, _, fission, matrices, neighbors) = slab_parts(3, 0.4);
+    let coupling = neighbors[1][0].1.clone();
+    (
+        groups,
+        vec![0, 1],
+        vec![1.0, 1.7],
+        fission[..2].to_vec(),
+        matrices[..2].to_vec(),
+        vec![
+            vec![(1, coupling.clone())],
+            vec![(0, coupling.clone()), (0, coupling)],
+        ],
+    )
+}
+
+#[test]
+fn weights_count_each_cell_as_many_times_as_it_stands_for() {
+    // 解の比は生成率 1 に規格化した中性子束の比なので、代表の生成率を組のセルの数だけ数えると、全体を解いた平板の比と同じになる
+    let (groups, labels, _, fission, matrices, neighbors) = slab_parts(3, 0.4);
+    let full = Coarse::new(
+        groups,
+        labels,
+        vec![1.0, 1.7, 1.0],
+        fission,
+        matrices,
+        neighbors,
+    )
+    .unwrap()
+    .solve(1.0, &tolerances())
+    .unwrap();
+    let (groups, labels, flux, fission, matrices, neighbors) = mirrored_slab_parts();
+    let plain = Coarse::new(
+        groups,
+        labels.clone(),
+        flux.clone(),
+        fission.clone(),
+        matrices.clone(),
+        neighbors.clone(),
+    )
+    .unwrap();
+    // 色ごとに解く形では、重みは与えたセルの順に受け取る
+    let colored =
+        Coarse::colored(groups, labels, flux, fission, matrices, neighbors, &[1, 0]).unwrap();
+    for coarse in [plain, colored] {
+        let solution = coarse
+            .weighted(vec![2.0, 1.0])
+            .unwrap()
+            .solve(1.0, &tolerances())
+            .unwrap();
+        assert!(
+            (solution.k - full.k).abs() < 1e-11,
+            "{} vs {}",
+            solution.k,
+            full.k
+        );
+        for (a, b) in solution.ratio.iter().zip(&full.ratio[..2]) {
+            assert!((a - b).abs() < 1e-9 * b, "{a} vs {b}");
+        }
+    }
+}
+
+#[test]
+fn unit_weights_leave_the_solution_bit_for_bit() {
+    // core は重みを付けない。重み 1 の積は値を変えないので、重みを 1 にした問題の解はビットで同じ
+    for colors in [None, Some(checkerboard(7, 5))] {
+        let (groups, labels, flux, fission, matrices, neighbors) = plane_parts(7, 5);
+        let cells = labels.len();
+        let build = || {
+            match &colors {
+                None => Coarse::new(
+                    groups,
+                    labels.clone(),
+                    flux.clone(),
+                    fission.clone(),
+                    matrices.clone(),
+                    neighbors.clone(),
+                ),
+                Some(colors) => Coarse::colored(
+                    groups,
+                    labels.clone(),
+                    flux.clone(),
+                    fission.clone(),
+                    matrices.clone(),
+                    neighbors.clone(),
+                    colors,
+                ),
+            }
+            .unwrap()
+        };
+        let plain = build().solve(1.0, &tolerances()).unwrap();
+        let weighted = build()
+            .weighted(vec![1.0; cells])
+            .unwrap()
+            .solve(1.0, &tolerances())
+            .unwrap();
+        assert_eq!(weighted, plain);
+    }
+}
+
+#[test]
+fn weights_must_be_positive_and_one_per_cell() {
+    for weights in [vec![2.0], vec![2.0, 0.0], vec![2.0, f64::NAN]] {
+        let (groups, labels, flux, fission, matrices, neighbors) = mirrored_slab_parts();
+        let result = Coarse::new(groups, labels, flux, fission, matrices, neighbors)
+            .unwrap()
+            .weighted(weights);
+        assert!(
+            matches!(result, Err(CoarseError::Weights { cells: 2, .. })),
+            "{result:?}"
+        );
+    }
+}
+
+#[test]
+fn a_sweep_solves_each_block_by_the_lu_substitution() {
+    // 対角のブロックは、xlc_numeric の LU 分解の前進・後退代入で解く（逆行列を掛ける形は、条件数の悪いブロックで誤差が大きい。
+    // ADR-0275）。1 回は、先に解いたセルの新しい値と、まだ解いていないセルの前の値を読む
+    let (groups, labels, flux, fission, matrices, neighbors) = plane_parts(3, 2);
+    let ng = groups;
+    let previous: Vec<f64> = (0..6 * ng).map(|j| 0.7 + 0.13 * (j % 5) as f64).collect();
+    let source: Vec<f64> = (0..6 * ng).map(|j| 0.01 * (1 + j % 3) as f64).collect();
+    let inverse_k = 1.0 / 1.07;
+    let mut expected = previous.clone();
+    for c in 0..6 {
+        let mut b = source[c * ng..][..ng].to_vec();
+        for s in &fission[c] {
+            let rate = s
+                .nu_fission
+                .iter()
+                .zip(&previous[c * ng..][..ng])
+                .map(|(a, b)| a * b)
+                .sum::<f64>()
+                * inverse_k;
+            for (r, x) in b.iter_mut().zip(&s.chi) {
+                *r += x * rate;
+            }
+        }
+        for (other, coefficients) in &neighbors[c] {
+            for g in 0..ng {
+                b[g] -= coefficients[g] * expected[other * ng + g];
+            }
+        }
+        Lu::new(matrices[c].clone(), ng).unwrap().solve(&mut b);
+        expected[c * ng..][..ng].copy_from_slice(&b);
+    }
+    let coarse = Coarse::new(groups, labels, flux, fission, matrices, neighbors).unwrap();
+    let mut x = previous;
+    coarse.sweep(&mut x, Some(&source), inverse_k);
+    assert_eq!(x, expected);
+}
