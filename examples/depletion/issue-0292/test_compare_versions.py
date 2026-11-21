@@ -165,6 +165,23 @@ class Split(unittest.TestCase):
         self.assertIn(f"項の外の吸収 {p['outside_pcm']:+.1f}", line)
         self.assertIn(f"1/k と吸収 / 生成の差 {p['balance_pcm']:+.1f}", line)
 
+    def test_the_terms_of_nuclides_in_one_table_only_are_summed(self):
+        # 評価の有無の分の 1 次の目安: 片方の版のテーブルにしか無い核種（X-1 は版 A だけ）の項の和
+        s = compare_versions.summarize(versions(), "B")
+        p = s["versions"]["A"]["split"][3]
+        self.assertAlmostEqual(p["only_version_pcm"], p["nuclides"]["X-1"]["pcm"])
+        self.assertEqual(p["only_base_pcm"], 0.0)
+
+    def test_the_report_gives_the_terms_of_one_version_only(self):
+        s = compare_versions.summarize(versions(), "B")
+        s["inputs"] = []
+        line = next(
+            x for x in compare_versions.report(s) if x.startswith("A − B の 60 MWd/kg")
+        )
+        p = s["versions"]["A"]["split"][3]
+        self.assertIn(f"A だけの核種 {p['only_version_pcm']:+.1f}", line)
+        self.assertIn(f"B だけの核種 {p['only_base_pcm']:+.1f}", line)
+
     def test_the_burnup_zero_point_is_split_too(self):
         # 燃焼度 0 の組成は同じで、版の差は断面積の差だけ
         s = compare_versions.summarize(versions(), "B")
