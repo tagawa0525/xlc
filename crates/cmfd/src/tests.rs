@@ -555,3 +555,39 @@ fn a_sweep_solves_each_block_by_the_lu_substitution() {
     coarse.sweep(&mut x, Some(&source), inverse_k);
     assert_eq!(x, expected);
 }
+
+#[test]
+fn blocks_must_have_a_square_of_the_groups() {
+    // 成分の足りないブロックを平らな配列に並べると、後ろのセルのブロックが黙ってずれる。組み立てた側の番号を付けたエラーにする
+    for (groups, matrices) in [
+        (2, vec![vec![1.0, 0.0, 0.0, 1.0], vec![1.0, 0.0, 1.0]]),
+        (0, vec![Vec::new(), Vec::new()]),
+    ] {
+        let result = Coarse::new(
+            groups,
+            vec![3, 4],
+            vec![1.0; 2 * groups],
+            vec![Vec::new(); 2],
+            matrices,
+            vec![Vec::new(); 2],
+        );
+        let message = result.map(|_| ()).unwrap_err().to_string();
+        assert!(message.contains("entries"), "{message}");
+    }
+}
+
+#[test]
+fn a_weight_error_names_the_first_bad_weight_only() {
+    // 全炉心の大きさの重みを並べると、エラーの文が長くなりすぎる
+    let (groups, labels, flux, fission, matrices, neighbors) = mirrored_slab_parts();
+    let message = Coarse::new(groups, labels, flux, fission, matrices, neighbors)
+        .unwrap()
+        .weighted(vec![2.0, -1.0])
+        .map(|_| ())
+        .unwrap_err()
+        .to_string();
+    assert!(
+        message.contains("weight Some(1) is Some(-1.0)"),
+        "{message}"
+    );
+}
