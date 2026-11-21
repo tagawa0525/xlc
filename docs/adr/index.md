@@ -269,4 +269,4 @@
 * [ADR-0272: 評価の誤りは、xs の入力の核種の項目に、行と欄と元の値と正しい値を宣言して直してから読む](0272-correct-evaluation-errors-by-declared-fields.md)
 * [ADR-0273: 荷電粒子のチャネルの透過因子を、転回点の外の Steed の CF2 と、障壁の下の Riccati の式の ln P の積分で求める](0273-coulomb-penetrability-by-cf2-and-riccati.md)
 * [ADR-0274: 非分離共鳴（LSSF=0）の範囲の MF3 の捕獲か核分裂のバックグラウンドが負の評価は、既定はエラーにし、入力の宣言でその反応の File 2 のサンプルを (平均 + バックグラウンド)/平均 倍にする](0274-scale-sampled-reactions-with-negative-unresolved-backgrounds.md)
-* [ADR-0275: lattice の CMFD の粗メッシュの固有値問題（2 次元の格子）を xlc-cmfd の Coarse で解き、変化の見積もりと対角のブロックの解き方を lattice、core と共通にする](0275-solve-lattice-coarse-mesh-eigenvalue-with-xlc-cmfd.md)
+* [ADR-0275: lattice の CMFD の粗メッシュの固有値問題（2 次元の格子）を xlc-cmfd の Coarse で解き、反復と変化の見積もりを core と共通にし、対角のブロックの解き方は呼ぶ側が選ぶ](0275-solve-lattice-coarse-mesh-eigenvalue-with-xlc-cmfd.md)

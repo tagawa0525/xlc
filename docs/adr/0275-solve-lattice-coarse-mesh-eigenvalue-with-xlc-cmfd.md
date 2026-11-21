@@ -8,7 +8,7 @@ superseded-by:
 issues: ["#0241"]
 ---
 
-# ADR-0275: lattice の CMFD の粗メッシュの固有値問題（2 次元の格子）を xlc-cmfd の Coarse で解き、変化の見積もりと対角のブロックの解き方を lattice、core と共通にする
+# ADR-0275: lattice の CMFD の粗メッシュの固有値問題（2 次元の格子）を xlc-cmfd の Coarse で解き、反復と変化の見積もりを core と共通にし、対角のブロックの解き方は呼ぶ側が選ぶ
 
 ## 背景
 
@@ -46,12 +46,17 @@ lattice だけが使うものに、1 行か 1 列の格子のブロック三重�
 
 対角のブロック:
 
-- 案 B1（採用）: セルごとの LU 分解の前進・後退代入（lattice の形。`xlc_numeric::lu::Lu` と同じ演算）を、xlc-cmfd でも使う。分解はすべてのセルで
-  1 つの平らな配列に持ち、行の入れ替えは右辺を読む並びにする
-- 案 B1′: 案 B1 を、セルごとの `Lu` の列で持つ。core の全炉心の BOC の固有値計算（下の時間と同じ問題）が 14.0 秒で、平らな配列の 13.0 秒より長い
-- 案 B2: 逆行列を平らな配列に持って掛ける（xlc-cmfd の形）。core の全炉心の BOC の固有値計算は 10.0 秒で、案 B1 の 13.0 秒より短い（Problem 9 の形の
+- 案 B1: セルごとの LU 分解の前進・後退代入（lattice の形。`xlc_numeric::lu::Lu` と同じ演算）を、lattice と core の両方に使う。分解はすべてのセルで
+  1 つの平らな配列に持ち、行の入れ替えは右辺を読む並びにする。core の全炉心の BOC の固有値計算が 13.0 秒で、案 B2 の 10.0 秒より 3 割長い（Problem 9 の形の
   台帳とサイクル、ホウ素 1100 ppm、燃焼度 0、Xe なし、平らな初期値、`RAYON_NUM_THREADS=1`、手元の続けて流した目安。入力は examples/depletion/p9-timing/trial-0244/boc-1100.toml の
-  コピー、2026-11-22）。外側の反復は 47 回で同じ。逆数を掛ける後退代入（13.1 秒）でも差は縮まらなかった（コミットしていない試行）
+  コピー、2026-11-22）。外側の反復は 47 回で同じ。逆数を掛ける後退代入（13.1 秒）でも差は縮まらなかった（コミットしていない試行）。core の 2 群のブロックは
+  条件数が 8 以下で（確認の「core のブロックの条件数」）、逆行列の誤差は LU と同じ桁なので、core では精度を得ずに時間だけを失う（いったん採り
+  （e24a1bd4a）、マージの前の親のセッションの指摘（2026-11-22）で案 B3 に改めた）
+- 案 B1′: 案 B1 を、セルごとの `Lu` の列で持つ。core の同じ問題が 14.0 秒で、平らな配列の 13.0 秒より長い
+- 案 B2: 逆行列を平らな配列に持って掛ける（xlc-cmfd の形）を、lattice と core の両方に使う。逆行列を掛ける形は後退安定でなく、条件数の悪いブロックで
+  誤差が LU の最大 5.4 倍になる（確認の「ブロックの誤差」）。lattice のブロックは、補正で対角が減ると条件数が 10⁶〜10¹⁰ になりうる
+- 案 B3（採用）: `xlc_cmfd::Coarse` を作るときに、呼ぶ側が解き方（`BlockSolve::Lu` か `BlockSolve::Inverse`）を選ぶ。既定は置かない。反復の本体
+  （Gauss-Seidel、変化の見積もり、負の解の確認、重み）は 1 つのまま
 
 組の重み:
 
@@ -72,7 +77,9 @@ lattice の CMFD の粗メッシュの固有値問題は、2 次元の格子（�
 - **変化の見積もり**: `xlc_cmfd::Remaining`（相対 1e-14 以下の変化を収束とみなす）を、lattice の MOC の外側の反復、一般化随伴の反復、
   粗メッシュの問題（逆反復を含む）と、core の NEM の外側の反復が使う（案 R1）
 - **負の解**: 1 回の後、生成率で割る前に、中性子束が正の有限であることを確かめる（案 N1）
-- **対角のブロック**: セルごとの LU 分解の前進・後退代入で解く（案 B1）。core の結果も丸めの桁で変わる
+- **対角のブロック**: `Coarse::new` と `Coarse::colored` の引数 `BlockSolve` で呼ぶ側が選ぶ（案 B3。既定は置かない）。lattice は `Lu`、core は `Inverse`。
+  基準は、補正でブロックの条件数が大きくなりうるか: lattice の細かい群のブロックは対角が補正で減りうるので `Lu`、core の 2 群のブロックは面の項が
+  対角を増やす向きだけで条件数が小さいので `Inverse`。core で群の数を増やすか、ブロックの対角を減らす補正を入れるときは、条件数を再測定して選び直す
 - **一般化随伴の 1 回**: `solve_projected` の 2 次元の格子の A⁻¹ の 1 回は、`xlc_cmfd::Coarse::sweep`（固定源を足したブロック Gauss-Seidel の 1 回）で行う
 
 理由:
@@ -80,18 +87,17 @@ lattice の CMFD の粗メッシュの固有値問題は、2 次元の格子（�
 - 案 R1: 1e-14 は、k の変化（k は 1 の桁なので相対と同じ）と中性子束の相対変化の丸めの水準で、lattice の粗メッシュの許容（k 1e-10、中性子束 1e-8 から
   緩める。[ADR-0110](0110-solve-cmfd-as-finely-as-the-moc-change.md)）と MOC の許容より 4 桁以上小さい
 - 案 N1: 案 N2 は、すべてのセルで負の解を見逃す
-- 案 B1: 逆行列を掛ける形は後退安定でなく、条件数の悪いブロックで誤差が大きい（確認の「ブロックの誤差」。最大で LU の 5.4 倍）。判断の軸の
-  正確さを実行速度より先にし、core の固有値計算が 3 割長くなる案 B1 にする。平らな配列にするのは、案 B1′ より 7 % 短いため
+- 案 B3: 正確さと実行速度が衝突するのは条件数の悪いブロックだけで、lattice には LU の精度を、core には逆行列の速さを残せる（core の結果と時間は
+  main と同じ。確認の「core」）。解き方が 2 つになる保守の費用は、どちらも失わないことと釣り合う。LU を平らな配列に持つのは、案 B1′ より 7 % 短いため
 - 案 W1: 重みは生成率の和にだけ掛かり、解の比の大きさ（生成率 1 の規格化）を決める。重み 1 の積は値を変えないので、重みを付けない core の解は変わらない
 - 案 C1: ADR-0003 の基準。`solve_projected` の 1 回を xlc-cmfd に置くのは、対角のブロックと隣との結合を lattice に二重に持たないため
 
 ### 帰結
 
 - lattice の粗メッシュの Gauss-Seidel の複製と、core と lattice の `Remaining` の複製がなくなる
-- lattice と core の実行ファイルが変わり、`bin/lattice` と `bin/core` を deps にするステージは changed になる（main 630459cba の時点で、
+- lattice と core の実行ファイルが変わり（core はバイトが変わるが、出力は同じ）、`bin/lattice` と `bin/core` を deps にするステージは changed になる（main 630459cba の時点で、
   `binary-forms/lattice.md5` を deps にする 210 と `binary-forms/core.md5` を deps にする 97 のステージは、どれも既に changed だった）
-- core の固有値計算は、粗メッシュの問題の対角のブロックの解き方（案 B1）で長くなる: 全炉心の BOC の固有値計算は 1 スレッドで 10.2 秒から 13.2 秒、
-  Problem 9 の形の燃焼の時間の内訳の入力（examples/depletion/p9-timing/core-p9.toml、32 スレッド）は 65.2 秒から 70.6 秒（確認の「core」）
+- core の固有値計算の結果と時間は変わらない（確認の「core」）
 - lattice の 2 次元の格子の出力は、変わる前とビットで同じ（確認の「lattice」）。変わるのは一般化随伴の 1 回の丸め（k で割る代わりに 1/k を掛ける）だけ
 
 ### 確認
@@ -102,19 +108,25 @@ lattice の CMFD の粗メッシュの固有値問題は、2 次元の格子（�
   最大は、漏れのあるブロック（条件数 11〜12）で LU 5.9×10⁻¹⁶〜1.0×10⁻¹⁵、逆行列 8.1×10⁻¹⁶〜1.3×10⁻¹⁵、漏れが負のブロック（条件数 6.5×10⁶〜
   9.0×10⁹）で LU 3.5×10⁻¹⁴〜2.2×10⁻¹²、逆行列 1.0×10⁻¹³〜2.8×10⁻¹²（最大で 5.4 倍）、漏れのないブロック（条件数 1.1×10²〜8.6×10⁷）は
   どちらも同じ桁
-- 下の比較の「前」は main 630459cba、「後」は 143b3bf3f のビルド（`cargo build --release`）で、どちらも手元で続けて流した（2026-11-22）。入力は
+- 下の比較の「前」は main 630459cba、「後」は 2096445e1 のビルド（`cargo build --release`）で、どちらも手元で続けて流した（2026-11-22）。lattice の
+  一般化随伴は 143b3bf3f のビルド（0b10d6b41 のビルドでも出力は同じ。その後のコミットは lattice の演算を変えない）。入力は
   コミット 56e4978b9 の trials/0241/ と examples/depletion/p9-timing/trial-0241/、examples/depletion/trial-0241-gen/（例の入力のライブラリと出力の
   パスだけを書き換えたコピー）、比べたのは同じコミットの trials/0241/compare.py
 - lattice: VERA 2A（UO2。8 分の 1 の対称性で代表のセル 55、組の重みが 1 でない）、2G（AIC の制御棒）、2B-vacuum（真空の辺。代表のセル 190）、
   3A の軸方向の平板（1 行の格子。逆反復）で、標準出力、ピン出力、少数群定数（3A は 58 のノードの出力）は前と後でビットで同じ。MOC の反復
   （25、24、25、182 回）と粗メッシュの反復の和（7,913、7,643、11,668、1,771 回）も同じ。粗メッシュの区間（trace の `coarse` の和）は 0.92 秒から
-  0.86 秒、0.90 秒から 0.83 秒、4.70 秒から 4.35 秒、18.24 秒から 18.20 秒
+  0.86 秒、0.90 秒から 0.86 秒、4.70 秒から 4.34 秒、18.24 秒から 18.38 秒（3A の逆反復のコードは変えていない）
 - 一般化随伴: examples/depletion/issue-0279/lattice-3x3-few-group.toml を核種 3 つにし、`direct` と `shielded` を除いた入力（3 × 3 の格子、
   [sensitivity.few-group]）で、感度の 60 個の値の相対差の最大は 8.2×10⁻¹⁴（許容 1e-10）
-- core: 全炉心の BOC の固有値計算の k の差は 2.2×10⁻¹³、外側の反復は 47 回で同じ。Problem 9 の形の燃焼の時間の内訳の入力で、点の k の
-  相対差の最大は 2.1×10⁻¹⁴、ホウ素 3.5×10⁻¹³、数密度 3.1×10⁻¹¹、出力の割合 1.2×10⁻¹¹、燃焼度 5.1×10⁻¹²。外側の反復の行の数（833）は同じ。
-  ほかの補助の数密度の差は、絶対値で 3.2×10⁻¹⁹ 以下（値の最大は 9.9×10⁻⁸）
+- core: 全炉心の BOC の固有値計算の標準出力と、反復ごとの k と変化のログの行は、前と後で同じ。1 スレッドの時間は前 10.09、10.08 秒、後 10.10、
+  10.25 秒。Problem 9 の形の燃焼の時間の内訳の入力（examples/depletion/p9-timing/core-p9.toml のコピー、32 スレッド）は、燃焼の履歴（msgpack）と
+  標準出力がバイトで同じで、時間は前 65.0 秒、後 65.1 秒。案 B1 の形（143b3bf3f）では、BOC が 10.2 秒から 13.2 秒、燃焼が 65.2 秒から 70.6 秒で、
+  点の k の相対差の最大 2.1×10⁻¹⁴、数密度 3.1×10⁻¹¹ だった
+- core のブロックの条件数: lattice の少数群定数（VERA 2A、2G、2B-vacuum の集合体と、3A の軸方向の 58 のノード。反射体を含む）から、core の
+  `assemble` の形のブロック V (diag(Σt − Σgg) − 群の間の散乱) を 21.5 cm 角、高さ 4、8、50 cm のノードで作り、内側の面の項（D̂ = 0 の有限差分の
+  2D/h）を足した形と足さない形で、2 ノルムの条件数の最大は 7.7（足さない形は 4.6）（コミット db9df4aa9 の trials/0241/core_blocks.py）。core の
+  面の項（area (ĵ⁺ + D̃ S/2)/φ）は D̃ の選び方で正なので、足さない形が対角の最も小さい場合。core の例の入力の群の境界は、2 群（[1e7, 0.625, 1e-5]）だけ
 - テスト: `cmfd::tests::a_coarse_solution_negative_in_every_cell_is_an_error`、`cmfd::tests::representatives_count_their_orbits_in_the_production`
   （lattice）、`tests::weights_count_each_cell_as_many_times_as_it_stands_for`、`tests::unit_weights_leave_the_solution_bit_for_bit`、
   `tests::weights_must_be_positive_and_one_per_cell`、`tests::a_sweep_solves_each_block_by_the_lu_substitution`、
-  `tests::changes_at_rounding_level_count_as_converged`（xlc-cmfd）
+  `tests::an_inverse_block_solve_multiplies_by_the_inverse_from_the_lu_factors`、`tests::changes_at_rounding_level_count_as_converged`（xlc-cmfd）
