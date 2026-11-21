@@ -10,7 +10,10 @@
 use std::ops::Range;
 
 use rayon::prelude::*;
-use xlc_numeric::lu::Lu;
+
+use blocks::Blocks;
+
+mod blocks;
 
 /// 色ごとに並列に解くときの、1 つのスレッドがまとめて解くセルの数の下限（細かく分けると、仕事を配る時間が解く時間を超える）
 const MIN_CELLS_PER_TASK: usize = 256;
@@ -90,8 +93,8 @@ pub struct Coarse {
     chi_sums: Vec<f64>,
     chi: Vec<f64>,
     nu_fission: Vec<f64>,
-    /// [セル × 群 × 群] の対角のブロックの逆行列（行優先）
-    inverses: Vec<f64>,
+    /// [セル] の対角のブロックの LU 分解（逆行列を掛ける形は後退安定でなく、条件数の悪いブロックで誤差が大きい。ADR-0275）
+    blocks: Blocks,
     /// [セル] の隣との結合の範囲（`others` の添字）
     neighbor_offsets: Vec<usize>,
     /// [結合] の隣のセルと、[結合 × 群] の係数
@@ -126,30 +129,7 @@ impl Coarse {
     ) -> Result<Self, CoarseError> {
         let ng = groups;
         let cells = labels.len();
-        // セルごとの逆行列は互いに独立なので並列に作る（どのスレッドで作っても同じ値）。エラーはセルの順で最初のもの
-        let blocks: Vec<Result<Vec<f64>, CoarseError>> = matrices
-            .into_par_iter()
-            .zip(labels.par_iter())
-            .with_min_len(MIN_CELLS_PER_TASK)
-            .map(|(a, &label)| {
-                let lu = Lu::new(a, ng).ok_or(CoarseError::Singular(label))?;
-                let mut inverse = vec![0.0; ng * ng];
-                let mut column = vec![0.0; ng];
-                for j in 0..ng {
-                    column.fill(0.0);
-                    column[j] = 1.0;
-                    lu.solve(&mut column);
-                    for (i, v) in column.iter().enumerate() {
-                        inverse[i * ng + j] = *v;
-                    }
-                }
-                Ok(inverse)
-            })
-            .collect();
-        let mut inverses = Vec::with_capacity(blocks.len() * ng * ng);
-        for block in blocks {
-            inverses.extend(block?);
-        }
+        let blocks = Blocks::new(matrices, ng).map_err(|c| CoarseError::Singular(labels[c]))?;
         let mut spectrum_offsets = vec![0];
         let (mut chi_sums, mut chi, mut nu_fission) = (Vec::new(), Vec::new(), Vec::new());
         for terms in fission {
@@ -177,7 +157,7 @@ impl Coarse {
             chi_sums,
             chi,
             nu_fission,
-            inverses,
+            blocks,
             neighbor_offsets,
             others,
             coefficients,
@@ -296,16 +276,23 @@ impl Coarse {
         })
     }
 
-    /// [セル × 群] の中性子束 `phi` の、すべてのセルの生成率の和
+    /// [セル × 群] の中性子束 `phi` の、すべてのセルの生成率の和（セルごとに重みを掛ける）
     fn production(&self, phi: &[f64]) -> f64 {
         let ng = self.groups;
         (0..self.cells())
             .flat_map(|c| {
                 let p = &phi[c * ng..][..ng];
-                self.spectra(c)
-                    .map(move |(sum, _, f)| sum * f.iter().zip(p).map(|(a, b)| a * b).sum::<f64>())
+                self.cell_production(c, p)
             })
             .sum()
+    }
+
+    /// セル c の中性子束 `p`（[群]）の、核分裂のスペクトルの項ごとの重みを掛けた生成率
+    fn cell_production<'a>(&'a self, c: usize, p: &'a [f64]) -> impl Iterator<Item = f64> + 'a {
+        let weight = self.weights[c];
+        self.spectra(c).map(move |(sum, _, f)| {
+            weight * (sum * f.iter().zip(p).map(|(a, b)| a * b).sum::<f64>())
+        })
     }
 
     /// セル c の式の右辺（`fixed`（[群]。無ければ 0）と核分裂源 χ (V νΣf · φ_前) / k の和から、隣との結合 × 隣の中性子束を
@@ -347,17 +334,9 @@ impl Coarse {
         }
     }
 
-    /// セル c の中性子束 `out` を、対角のブロックの逆行列 × 右辺 `rhs` にする
+    /// セル c の中性子束 `out` を、対角のブロックの式 A_c out = `rhs` の解にする
     fn invert(&self, c: usize, rhs: &[f64], out: &mut [f64]) {
-        let ng = self.groups;
-        let inverse = &self.inverses[c * ng * ng..][..ng * ng];
-        for (i, out) in out.iter_mut().enumerate() {
-            *out = inverse[i * ng..][..ng]
-                .iter()
-                .zip(rhs)
-                .map(|(a, b)| a * b)
-                .sum();
-        }
+        self.blocks.solve(c, rhs, out);
     }
 
     /// [セル × 群] の値 `j` が正でないことのエラー
@@ -409,11 +388,7 @@ impl Coarse {
                     Ok(values
                         .chunks(ng)
                         .enumerate()
-                        .flat_map(|(i, p)| {
-                            self.spectra(first + i).map(move |(sum, _, f)| {
-                                sum * f.iter().zip(p).map(|(a, b)| a * b).sum::<f64>()
-                            })
-                        })
+                        .flat_map(|(i, p)| self.cell_production(first + i, p))
                         .sum())
                 },
             )
