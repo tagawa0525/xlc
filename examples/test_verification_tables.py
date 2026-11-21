@@ -1100,6 +1100,158 @@ class DrawDepletionVersions(unittest.TestCase):
         )
 
 
+def all_nuclides_versions(scale=1.0) -> dict:
+    """compare_versions.py の要約（全核種の燃焼の版の比較。燃焼点 5 つ、印の点 4 つ、基準 VII.1）"""
+
+    def split(direct, terms, outside, balance, only):
+        return [
+            {
+                "burnup": b,
+                "index": i,
+                "direct_pcm": scale * d,
+                "remainder_pcm": scale * (d - t),
+                "outside_pcm": scale * o,
+                "balance_pcm": scale * a,
+                "only_version_pcm": scale * n,
+                "only_base_pcm": 0.0,
+                "nuclides": {"U-235": {"pcm": scale * t}},
+            }
+            for b, i, d, t, o, a, n in zip(
+                [0.0, 10.0, 30.0, 60.0],
+                [0, 2, 3, 4],
+                direct,
+                terms,
+                outside,
+                balance,
+                only,
+            )
+        ]
+
+    return {
+        "format": "xlc-compare-all-nuclides-versions",
+        "inputs": [],
+        "base": "VII.1",
+        "burnup": [0.0, 5.0, 10.0, 30.0, 60.0],
+        "marks": [
+            {"burnup": 0.0, "index": 0},
+            {"burnup": 10.0, "index": 2},
+            {"burnup": 30.0, "index": 3},
+            {"burnup": 60.0, "index": 4},
+        ],
+        "versions": {
+            "VII.1": {"k_inf": [1.2] * 5},
+            "VIII.0": {
+                "k_inf": [1.19] * 5,
+                "reactivity_pcm": [
+                    scale * x for x in [-90.0, -300.04, -200.0, -500.0, -800.0]
+                ],
+                "split": split(
+                    [-90.0, -200.0, -500.0, -800.0],
+                    [-190.0, -180.0, -350.0, -560.0],
+                    [100.0, -20.0, -150.0, -240.0],
+                    [0.0, 0.0, 0.0, 0.0],
+                    [0.0, -0.1, -0.3, -0.7],
+                ),
+            },
+        },
+    }
+
+
+class DrawAllNuclidesVersions(unittest.TestCase):
+    rows = staticmethod(DrawDepletionVersions.rows)
+
+    def test_k_rows_are_each_fuel_and_version_at_the_marks_and_the_largest(self):
+        table = vt.all_nuclides_versions_k(
+            [all_nuclides_versions(), all_nuclides_versions(-1.0)], ("U", "MOX")
+        )
+        rows = self.rows(table)
+        self.assertEqual(
+            rows[0], ["燃料と版", "0", "10", "30", "60", "全点の最大（燃焼度）"]
+        )
+        # 全点の最大は印の点の外（5 MWd/kg）でも拾い、符号は保つ
+        self.assertEqual(
+            rows[2:],
+            [
+                [
+                    "U VIII.0 − VII.1",
+                    "−90.0",
+                    "−200.0",
+                    "−500.0",
+                    "−800.0",
+                    "−800.0（60）",
+                ],
+                [
+                    "MOX VIII.0 − VII.1",
+                    "+90.0",
+                    "+200.0",
+                    "+500.0",
+                    "+800.0",
+                    "+800.0（60）",
+                ],
+            ],
+        )
+
+    def test_the_largest_can_fall_between_the_marks(self):
+        s = all_nuclides_versions()
+        s["versions"]["VIII.0"]["reactivity_pcm"][1] = -900.04
+        rows = self.rows(vt.all_nuclides_versions_k([s], ("U",)))
+        self.assertEqual(rows[2][-1], "−900.0（5）")
+
+    def test_split_rows_give_the_parts_of_the_direct_difference(self):
+        rows = self.rows(
+            vt.all_nuclides_versions_split([all_nuclides_versions()], ("Gd",))
+        )
+        self.assertEqual(
+            rows[0],
+            [
+                "燃料と版",
+                "燃焼度 (MWd/kg)",
+                "直接",
+                "項の和",
+                "項の外の吸収",
+                "1/k と吸収 / 生成の差",
+                "版だけの核種",
+                "基準だけの核種",
+            ],
+        )
+        self.assertEqual(
+            rows[5],
+            [
+                "Gd VIII.0 − VII.1",
+                "60",
+                "−800.0",
+                "−560.0",
+                "−240.0",
+                "0.0",
+                "−0.7",
+                "0.0",
+            ],
+        )
+        self.assertEqual(len(rows), 2 + 4)
+
+    def test_fuels_must_match_the_summaries(self):
+        with self.assertRaises(vt.TableError):
+            vt.all_nuclides_versions_k([all_nuclides_versions()], ("U", "MOX"))
+        with self.assertRaises(vt.TableError):
+            vt.all_nuclides_versions_k(
+                [{"format": "xlc-compare-depletion-versions"}], ("U",)
+            )
+
+    def test_the_tables_draw_the_three_fuels(self):
+        source = [
+            f"examples/depletion/issue-0292/versions-{f}.json"
+            for f in ("u", "mox", "gd")
+        ]
+        for name, draw in [
+            ("all-nuclides-versions-k", vt.all_nuclides_versions_k),
+            ("all-nuclides-versions-split", vt.all_nuclides_versions_split),
+        ]:
+            paths, f = vt.TABLES[name]
+            self.assertEqual(paths, source)
+            self.assertIs(f.func, draw)
+            self.assertEqual(f.keywords, {"fuels": ("U", "MOX", "Gd")})
+
+
 class DrawDepletion(unittest.TestCase):
     def test_k_rows_list_each_case_by_burnup(self):
         table = vt.depletion_k(
