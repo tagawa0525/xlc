@@ -258,7 +258,7 @@
 * [ADR-0260: ファイルを動かしたときは、中身のハッシュで同じファイルかを判定して dvc.lock のパスだけを書き換え、再計算にしない](0260-rewrite-lock-paths-by-content-hash-when-files-move.md)
 * [ADR-0262: 燃焼チェーンは、天然の元素の中性子の評価（A = 0）を、入力が挙げた同じ元素の核種の反応として当てる](0262-apply-natural-evaluations-to-listed-isotopes.md)
 * [ADR-0263: 燃焼チェーンは、負の ELIS を持つ準安定状態を、入力が挙げたときだけ励起エネルギーの分からない準位（0）として受け入れる](0263-list-isomers-with-unknown-excitation.md)
-* [ADR-0264: 本番の核データを ENDF/B-VII.0 にする](0264-use-endf-b-vii-0-for-production.md)
+* [ADR-0264: 本番の核データを ENDF/B-VII.1 にする](0264-use-endf-b-vii-1-for-production.md)
 * [ADR-0265: 分離共鳴の SLBW の弾性散乱が、MF3 のバックグラウンドとの和で負になるところを 0 にする](0265-raise-negative-slbw-elastic-sums-to-zero.md)
 * [ADR-0266: xs check は、ENDF の評価を再構成せずに、xs nuclide が読む MF の読み込みと形式の検査だけで確かめる](0266-check-evaluations-without-reconstruction.md)
 * [ADR-0267: 分離共鳴の弾性散乱が MF3 のバックグラウンドとの和で負になるところは形式によらず 0 にし、ほかの負の 0 K の断面積はエラーにする](0267-raise-negative-resolved-elastic-sums.md)
