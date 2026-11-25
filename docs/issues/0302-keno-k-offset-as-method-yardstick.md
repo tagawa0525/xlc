@@ -1,12 +1,12 @@
 ---
 type: Issue
-status: open
+status: closed
 labels: [verification, vera]
 opened: 2026-11-20
-closed:
+closed: 2026-11-25
 milestone:
 blocked-by: []
-resolution:
+resolution: ADR-0175
 ---
 
 # KENO-VI との k の直接の比較は、処理かモデルの差を約 100〜180 pcm 含み、手法の差の物差しにならない
@@ -31,9 +31,11 @@ resolution:
 
 ## 完了の条件
 
-- [ ] k の手法の差を見る参照を決め、ADR-0175 の「## 変更」か新しい ADR に書いて、CLAUDE.md の「計算」とスキル compute の規則を合わせる
+- [x] k の手法の差を見る参照を決め、ADR-0175 の「## 変更」か新しい ADR に書いて、CLAUDE.md の「計算」とスキル compute の規則を合わせる
 
 ## 経緯
 
 - 2026-11-20: #0131 の診断（VII.0 の OpenMC）で、ADR-0175 の前提が k については成り立たないと分かった。レビューが、ADR-0175 の「帰結」に
   新しい項を足すだけでは決定が見直されないと指摘し、起こした
+- 2026-11-25: 2D の格子の k は本番の核データの版の OpenMC と、3A と 3B の k とピン出力は KENO-VI と比べると決め（ユーザー 2026-11-25）、
+  ADR-0175 の「## 変更」に書いて閉じた。参照解を作るのは #0329
