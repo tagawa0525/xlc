@@ -77,7 +77,7 @@ M4 の前に決めてあるもの:
 - 燃焼チェーンの元: ENDF/B-VIII.0 の decay（3,821 の評価）、nfy（31 の核分裂する核種）、中性子のデータ（557 の評価）は flake で固定
   してある（[ADR-0124](../adr/0124-pin-reference-assets-with-nix.md)、docs/environment.md）。チェーンの形式、収率のエネルギー依存、準安定状態への分岐の出所は
   [ADR-0164](../adr/0164-build-full-chain-from-endf.md) と [ADR-0166](../adr/0166-build-chain-in-its-own-crate.md) で決めた。準安定状態への分岐は、MF8〜10 の状態ごとのチャネルの群の断面積を xs が作る（「進め方」3）。
-  ADR で決める: 核分裂の Q 値と捕獲のエネルギー（出力の規格化。「進め方」5）
+  核分裂の Q 値と捕獲のエネルギー（出力の規格化。「進め方」5）は [ADR-0173](../adr/0173-deplete-lattice-pins-by-ce-cm.md) と [ADR-0276](../adr/0276-normalize-depletion-power-by-energy-deposition.md)（proposed）
 - 輸送に使う縮約したチェーン: 方式は [ADR-0165](../adr/0165-reduce-chain-by-contribution-and-folding.md)（proposed）。閾値と実装、先行事例（OpenMC が配る PWR 向けのチェーン、
   CASMO、Polaris、MPACT のチェーンの大きさ）の出典は #0116
 - xs が処理できる核種の制約: ENDF/B-VIII.0 の中性子のデータ（557 の評価。中性子そのものを除く 556 が燃焼チェーンの核種）を

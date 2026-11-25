@@ -188,3 +188,5 @@ OpenMC との対応（参照解を同じ方式で解く設定）:
 - 燃焼度の軸を持つテーブルと、燃焼点からのブランチ計算は「進め方」6 の ADR で決める
 - 燃焼の領域を方位の扇形の組ごとにも分ける入力（`[depletion]` の `sectors`）と、そのときの自己遮蔽の扱いは [ADR-0244](0244-deplete-fuel-by-sector.md)
 - 本番のテーブルの燃料を MOC の 5 リングのまま 5 つの物質（燃焼の領域）に分け、方位には分けないことは [ADR-0245](0245-deplete-production-fuel-by-moc-ring.md)
+- 出力の規格化を、捕獲などのエネルギーも反応率で数える発熱（案 P3 に当たる）に改め、OpenMC の参照解も `energy-deposition` に
+  そろえる決定は [ADR-0276](0276-normalize-depletion-power-by-energy-deposition.md)（proposed）。実装のブランチで、この ADR の出力の規格化の項と OpenMC との対応の表を「## 変更」で直す
