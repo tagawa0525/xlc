@@ -324,3 +324,4 @@
 * [対数の補間則が、ln をとる側の正でない値で NaN を黙って返す](0326-log-interpolation-of-nonpositive-values.md)
 * [ADR-0274 の宣言で変わる Cd-106、Cd-111 の非分離共鳴の群定数が、VERA の AIC の制御棒の結果に効く大きさを確かめていない](0327-measure-cd-unresolved-scaling-in-aic.md)
 * [一般化随伴の少数群定数の感度が、同じビルドの 2 回の実行で 1e-14 の桁で揺れる](0328-generalized-sensitivity-run-to-run-spread.md)
+* [VERA の問題 4、5 を ENDF/B-VII.0 の検証用ライブラリで解いて KENO-VI と比べるかを決める](0330-vera-p4-p5-endfb70-stages.md)

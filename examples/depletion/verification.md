@@ -142,7 +142,7 @@ Ga-81 の分岐比の和が 1 − 1e-7 で、xlc は比で割り直し（Ge-81m 
 
 ## 版ごとの燃焼チェーン
 
-本番の核データの版を決め直す検討（#0303、[ADR-0264](../../docs/adr/0264-use-endf-b-vii-0-for-production.md) の「確認」の 3 つ目）の
+本番の核データの版を決め直す検討（#0303、[ADR-0264](../../docs/adr/0264-use-endf-b-vii-1-for-production.md) の「確認」の 3 つ目）の
 ため、4 つの版（ENDF/B-VII.0、VII.1、VIII.0、VIII.1）の decay、nfy、neutrons から `bin/chain` で作ったチェーン（ADR-0262、
 ADR-0263）を、隣り合う版の組ごとに値で比べる。比べる量は、チェーンが持つもの（励起エネルギー、半減期、崩壊の平均のエネルギー、
 崩壊の分岐比、核分裂の Q 値、収率を取った核種、収率の入射エネルギー、独立収率、反応の経路）。核種は名前で対応させ、数値は値が
@@ -547,7 +547,7 @@ xs の LAW=6 の群ごとの割合は、入射エネルギーごとに重心系�
 
 ## 版ごとのピンセルの燃焼
 
-本番の核データの版を決め直す検討（#0303、[ADR-0264](../../docs/adr/0264-use-endf-b-vii-0-for-production.md) の「確認」の 2 つ目）の
+本番の核データの版を決め直す検討（#0303、[ADR-0264](../../docs/adr/0264-use-endf-b-vii-1-for-production.md) の「確認」の 2 つ目）の
 ため、「格子計算の燃焼」の燃料 1 リングのピンセル（`lattice-1C-rings1.toml`）を、4 つの版（ENDF/B-VII.0、VII.1、VIII.0、VIII.1）の
 ライブラリとチェーンで 60 MWd/kg まで燃焼させ、VII.1 を基準に燃焼度ごとの k∞、反応度の差 (1/k_VII.1 − 1/k) × 1e5 pcm、主な核種の
 数密度の相対差を比べる（`compare_depletion_versions.py`）。入力は版のディレクトリ（`endfb70`、`endfb71`、`endfb80`、`endfb81`）の
@@ -12281,7 +12281,7 @@ python3 added_effect.py --report all/effect-u.json all/effect-mox.json all/effec
 
 ### 核データの 4 つの版の、全核種を輸送した燃焼の差（試行）
 
-目的: 本番の核データの版の判断（[ADR-0264](../../docs/adr/0264-use-endf-b-vii-0-for-production.md)、#0303）の材料は、65 核種を輸送する 1C の
+目的: 本番の核データの版の判断（[ADR-0264](../../docs/adr/0264-use-endf-b-vii-1-for-production.md)、#0303）の材料は、65 核種を輸送する 1C の
 燃焼の比較（上の「版ごとのピンセルの燃焼」）だけだった。全核種を輸送すると 60 MWd/kg で数百 pcm 動く（上の節）ので、4 つの版の差を、
 データのある全核種を輸送する燃焼で U、MOX、Gd のセルについて出し直す。あわせて、UFG で解く核種の選び方
 （[ADR-0270](../../docs/adr/0270-select-ufg-nuclides-from-the-all-nuclides-burnup.md)）が版を変えても成り立つかを見る（区分 decision、#0292）。
