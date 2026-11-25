@@ -8,7 +8,7 @@ superseded-by:
 issues: ["#0293"]
 ---
 
-# ADR-0276: 燃焼の出力は、核分裂の MT458 の ER と捕獲などの反応の Q を反応率で数えた発熱で規格化し、OpenMC の燃焼の参照解も energy-deposition にそろえる
+# ADR-0276: 燃焼の出力は、核分裂を MT458 の ER で、捕獲などを heating-local と同じ量で反応率から数えた発熱で規格化し、OpenMC の燃焼の参照解も energy-deposition にそろえる
 
 ## 背景
 
